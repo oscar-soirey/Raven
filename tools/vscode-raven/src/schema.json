@@ -547,6 +547,16 @@
 				"name": "Color.Code",
 				"kind": "color",
 				"description": ""
+			},
+			{
+				"name": "Color.SearchMatch",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.SearchCurrent",
+				"kind": "color",
+				"description": ""
 			}
 		],
 		"Metrics": [
@@ -1848,6 +1858,16 @@
 					"description": "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."
 				},
 				{
+					"name": "FindBar",
+					"kind": "bool",
+					"description": "The find bar (Ctrl+F, Ctrl+H) and its keys (on by default)."
+				},
+				{
+					"name": "Search",
+					"kind": "text",
+					"description": "Text searched for: its matches are highlighted."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -2321,6 +2341,11 @@
 					"name": "Columns",
 					"kind": "list",
 					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",

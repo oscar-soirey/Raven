@@ -6,6 +6,7 @@
 #include "test.h"
 
 #include <stdlib.h>
+#include <time.h>
 
 static Rid g_window, g_editor;
 static int g_changes;
@@ -1758,6 +1759,502 @@ static void test_zoom(void) {
 	Rwindow_destroy(g_window);
 }
 
+/* ---- search and replace ---- */
+
+#define CHECK_SELECTION(fl, fc, tl, tc) do { \
+	int test_a_ = -1, test_b_ = -1, test_c_ = -1, test_d_ = -1; \
+	Rtext_editor_get_selection(g_editor, &test_a_, &test_b_, &test_c_, &test_d_); \
+	g_test_checks++; \
+	if (test_a_ != (fl) || test_b_ != (fc) || test_c_ != (tl) || test_d_ != (tc)) { \
+		g_test_failures++; \
+		printf("  FAIL %s:%d: selection (%d, %d)-(%d, %d), expected (%d, %d)-(%d, %d)\n", __FILE__, __LINE__, \
+			test_a_, test_b_, test_c_, test_d_, (fl), (fc), (tl), (tc)); \
+	} \
+} while (0)
+
+static void test_search(void) {
+	int line = -1, from = -1, to = -1;
+	open_editor("");
+	Rtext_editor_set_text(g_editor, "alpha beta Alpha\nalphabet ALPHA.\n(alpha) alpha_x");
+
+	/* the options */
+	Rtext_editor_set_search(g_editor, "alpha", 0);
+	CHECK_STR(Rtext_editor_get_search(g_editor), "alpha");
+	CHECK(Rtext_editor_get_search_flags(g_editor) == 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 6);
+	Rtext_editor_set_search(g_editor, "alpha", R_SEARCH_MATCH_CASE);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 4);
+	Rtext_editor_set_search(g_editor, "alpha", R_SEARCH_WHOLE_WORD);
+	/* not "alphabet", nor "alpha_x" (an underscore belongs to a word); "(alpha)" is a word */
+	CHECK(Rtext_editor_get_match_count(g_editor) == 4);
+	Rtext_editor_set_search(g_editor, "alpha", R_SEARCH_WHOLE_WORD | R_SEARCH_MATCH_CASE);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	/* a query that starts with punctuation: only the side that is a word is looked at */
+	Rtext_editor_set_search(g_editor, "(alpha", R_SEARCH_WHOLE_WORD);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 1);
+	CHECK(Rtext_editor_get_match(g_editor, 0, &line, &from, &to));
+	CHECK(line == 2 && from == 0 && to == 6);
+	CHECK(!Rtext_editor_get_match(g_editor, 1, &line, &from, &to));
+	CHECK(line == 0 && from == 0 && to == 0);
+
+	/* nothing, a line break, out of the text */
+	Rtext_editor_set_search(g_editor, "", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	CHECK(!Rtext_editor_find_next(g_editor));
+	Rtext_editor_set_search(g_editor, NULL, 0);
+	CHECK_STR(Rtext_editor_get_search(g_editor), "");
+	Rtext_editor_set_search(g_editor, "Alpha\nalphabet", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	Rtext_editor_set_search(g_editor, "zeta", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	CHECK(!Rtext_editor_find_next(g_editor));
+	CHECK(!Rtext_editor_find_previous(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == -1);
+
+	/* matches do not overlap, and are taken from the start of the line */
+	Rtext_editor_set_text(g_editor, "aaaaa");
+	Rtext_editor_set_search(g_editor, "aa", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	CHECK(Rtext_editor_get_match(g_editor, 1, &line, &from, &to));
+	CHECK(from == 2 && to == 4);
+
+	/* the query may be the editor's own string */
+	Rtext_editor_set_search(g_editor, Rtext_editor_get_search(g_editor), R_SEARCH_MATCH_CASE);
+	CHECK_STR(Rtext_editor_get_search(g_editor), "aa");
+	CHECK(Rtext_editor_get_search_flags(g_editor) == R_SEARCH_MATCH_CASE);
+	Rwindow_destroy(g_window);
+}
+
+static void test_search_utf8(void) {
+	int line, from, to;
+	open_editor("");
+	/* été ÉTÉ Été / Σοφία ΣΟΦΊΑ / Привет ПРИВЕТ / Ÿes ÿes Łódź łÓDŹ */
+	Rtext_editor_set_text(g_editor,
+		"\xC3\xA9t\xC3\xA9 \xC3\x89T\xC3\x89 \xC3\x89t\xC3\xA9\n"
+		"\xCE\xA3\xCE\xBF\xCF\x86\xCE\xAF\xCE\xB1 \xCE\xA3\xCE\x9F\xCE\xA6\xCE\x8A\xCE\x91\n"
+		"\xD0\x9F\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82 \xD0\x9F\xD0\xA0\xD0\x98\xD0\x92\xD0\x95\xD0\xA2\n"
+		"\xC5\xB8" "es \xC3\xBF" "es \xC5\x81\xC3\xB3" "d\xC5\xBA \xC5\x82\xC3\x93" "D\xC5\xB9");
+	Rtext_editor_set_search(g_editor, "\xC3\xA9t\xC3\xA9", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	CHECK(Rtext_editor_get_match(g_editor, 1, &line, &from, &to));
+	CHECK(line == 0 && from == 6 && to == 11);
+	Rtext_editor_set_search(g_editor, "\xC3\xA9t\xC3\xA9", R_SEARCH_MATCH_CASE);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 1);
+	/* ÉT finds the start of every été */
+	Rtext_editor_set_search(g_editor, "\xC3\x89T", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	/* Greek, the accented capital included */
+	Rtext_editor_set_search(g_editor, "\xCF\x83\xCE\xBF\xCF\x86\xCE\xAF\xCE\xB1", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	/* Cyrillic */
+	Rtext_editor_set_search(g_editor, "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	CHECK(Rtext_editor_get_match(g_editor, 1, &line, &from, &to));
+	CHECK(line == 2 && from == 13 && to == 25);
+	/* Latin Extended-A, and the Y with diaeresis whose lower case is in Latin-1 */
+	Rtext_editor_set_search(g_editor, "\xC5\x82\xC3\xB3" "d\xC5\xBA", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	Rtext_editor_set_search(g_editor, "\xC3\xBF" "es", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	/* a word of letters that are not ASCII is a whole word */
+	Rtext_editor_set_search(g_editor, "\xC3\xA9t", R_SEARCH_WHOLE_WORD);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	Rtext_editor_set_search(g_editor, "\xC3\xA9t\xC3\xA9", R_SEARCH_WHOLE_WORD);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	/* the selection of a match is on whole characters */
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(0, 0, 0, 5);
+	CHECK_STR(Rtext_editor_get_selected_text(g_editor), "\xC3\xA9t\xC3\xA9");
+	Rwindow_destroy(g_window);
+}
+
+static void test_search_navigation(void) {
+	open_editor("");
+	Rtext_editor_set_text(g_editor, "one two\ntwo three\nfour two");
+	Rtext_editor_set_search(g_editor, "two", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	/* the selection does not move by itself */
+	CHECK_CURSOR(0, 0);
+	CHECK(Rtext_editor_get_match_index(g_editor) == -1);
+
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(0, 4, 0, 7);
+	CHECK(Rtext_editor_get_match_index(g_editor) == 0);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(1, 0, 1, 3);
+	CHECK(Rtext_editor_get_match_index(g_editor) == 1);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(2, 5, 2, 8);
+	CHECK(Rtext_editor_get_match_index(g_editor) == 2);
+	/* past the last one, the first again */
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 0);
+	/* and back */
+	CHECK(Rtext_editor_find_previous(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 2);
+	CHECK(Rtext_editor_find_previous(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 1);
+
+	/* from the cursor: the match it is in comes next only when it starts there */
+	Rtext_editor_set_cursor(g_editor, 1, 1);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 2);
+	Rtext_editor_set_cursor(g_editor, 1, 1);
+	CHECK(Rtext_editor_find_previous(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 1);
+	Rtext_editor_set_cursor(g_editor, 1, 0);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 1);
+
+	/* a single match is found again from itself */
+	Rtext_editor_set_search(g_editor, "three", 0);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(1, 4, 1, 9);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK_SELECTION(1, 4, 1, 9);
+	CHECK(Rtext_editor_find_previous(g_editor));
+	CHECK_SELECTION(1, 4, 1, 9);
+
+	/* by index */
+	Rtext_editor_set_search(g_editor, "TWO", 0);
+	CHECK(Rtext_editor_select_match(g_editor, 2));
+	CHECK_SELECTION(2, 5, 2, 8);
+	CHECK(!Rtext_editor_select_match(g_editor, 3));
+	CHECK(!Rtext_editor_select_match(g_editor, -1));
+	CHECK_SELECTION(2, 5, 2, 8);
+
+	/* the count follows the edits */
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	Rtext_editor_insert_text(g_editor, "two ");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 4);
+	Rtext_editor_undo(g_editor);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	Rtext_editor_set_text(g_editor, "nothing");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	Rwindow_destroy(g_window);
+}
+
+static void test_replace(void) {
+	open_editor("");
+	Rtext_editor_set_text(g_editor, "cat dog cat\ncat");
+	Rtext_editor_set_search(g_editor, "cat", 0);
+
+	/* the selection is not a match: it only goes to the next one */
+	CHECK(!Rtext_editor_replace(g_editor, "bird"));
+	CHECK_SELECTION(0, 0, 0, 3);
+	CHECK(g_changes == 0);
+	CHECK(Rtext_editor_replace(g_editor, "bird"));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "bird dog cat\ncat");
+	CHECK_SELECTION(0, 9, 0, 12);
+	CHECK(g_changes == 1);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+
+	/* everything at once, one step of the history */
+	CHECK(Rtext_editor_replace_all(g_editor, "fox") == 2);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "bird dog fox\nfox");
+	CHECK(g_changes == 2);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	CHECK(Rtext_editor_replace_all(g_editor, "fox") == 0);
+	CHECK(g_changes == 2);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "bird dog cat\ncat");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "cat dog cat\ncat");
+	Rtext_editor_redo(g_editor);
+	Rtext_editor_redo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "bird dog fox\nfox");
+	CHECK(!Rtext_editor_can_redo(g_editor));
+
+	/* a replacement that holds what is searched, or line breaks, or nothing */
+	Rtext_editor_set_text(g_editor, "a-a-a\nxa");
+	Rtext_editor_set_search(g_editor, "a", R_SEARCH_MATCH_CASE);
+	CHECK(Rtext_editor_replace_all(g_editor, "aa") == 4);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "aa-aa-aa\nxaa");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 8);
+	Rtext_editor_undo(g_editor);
+	Rtext_editor_set_search(g_editor, "-", 0);
+	CHECK(Rtext_editor_replace_all(g_editor, "\n") == 2);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\na\na\nxa");
+	CHECK(Rtext_editor_get_line_count(g_editor) == 4);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a-a-a\nxa");
+	Rtext_editor_set_search(g_editor, "a", 0);
+	CHECK(Rtext_editor_replace_all(g_editor, "") == 4);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "--\nx");
+	Rtext_editor_undo(g_editor);
+
+	/* replacing one by one is a step each */
+	Rtext_editor_set_text(g_editor, "x x x");
+	Rtext_editor_set_search(g_editor, "x", 0);
+	Rtext_editor_find_next(g_editor);
+	CHECK(Rtext_editor_replace(g_editor, "yy"));
+	CHECK(Rtext_editor_replace(g_editor, "yy"));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "yy yy x");
+	CHECK_SELECTION(0, 6, 0, 7);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "yy x x");
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x x x");
+	CHECK(!Rtext_editor_can_undo(g_editor));
+	Rwindow_destroy(g_window);
+}
+
+static int g_find_shortcuts;
+
+static void on_find_shortcut(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_find_shortcuts++;
+}
+
+static void test_find_bar(void) {
+	open_editor("");
+	Rtext_editor_set_text(g_editor, "alpha beta\ngamma alpha\nbeta alpha");
+	Rdraw_frame();
+
+	/* Ctrl+F: the selected word becomes the search */
+	Rtext_editor_select(g_editor, 0, 6, 0, 10);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	key(R_KEY_F, R_MOD_CTRL);
+	Rdraw_frame();
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	CHECK_STR(Rtext_editor_get_search(g_editor), "beta");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+
+	/* what is typed goes to the field (its text was selected) and searches from where the selection was */
+	type("alp");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "alp");
+	CHECK_STR(Rtext_editor_get_text(g_editor), "alpha beta\ngamma alpha\nbeta alpha");
+	CHECK_SELECTION(1, 6, 1, 9);
+	type("ha");
+	CHECK_SELECTION(1, 6, 1, 11);
+	key(R_KEY_BACKSPACE, 0);
+	CHECK_STR(Rtext_editor_get_search(g_editor), "alph");
+	/* Enter, Shift+Enter */
+	key(R_KEY_ENTER, 0);
+	CHECK_SELECTION(2, 5, 2, 9);
+	key(R_KEY_ENTER, 0);
+	CHECK_SELECTION(0, 0, 0, 4);
+	key(R_KEY_ENTER, R_MOD_SHIFT);
+	CHECK_SELECTION(2, 5, 2, 9);
+	/* keys that move in the text move in the field */
+	key(R_KEY_HOME, 0);
+	CHECK_SELECTION(2, 5, 2, 9);
+	/* Ctrl+Z in the field does not undo the text */
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(!Rtext_editor_can_redo(g_editor));
+	/* F3, Shift+F3, Cmd+G, Cmd+Shift+G */
+	key(R_KEY_F3, 0);
+	CHECK_SELECTION(0, 0, 0, 4);
+	key(R_KEY_F3, R_MOD_SHIFT);
+	CHECK_SELECTION(2, 5, 2, 9);
+	key(R_KEY_G, R_MOD_SUPER);
+	CHECK_SELECTION(0, 0, 0, 4);
+	key(R_KEY_G, R_MOD_SUPER | R_MOD_SHIFT);
+	CHECK_SELECTION(2, 5, 2, 9);
+	Rdraw_frame();
+
+	/* Escape closes it, and the keys go to the text again */
+	key(R_KEY_ESCAPE, 0);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	CHECK(Rwidget_is_focused(g_editor));
+	type("X");
+	CHECK_STR(Rtext_editor_get_text(g_editor), "alpha beta\ngamma alpha\nbeta Xa");
+	/* F3 keeps finding with the bar closed */
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	key(R_KEY_F3, 0);
+	CHECK_SELECTION(0, 0, 0, 4);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	/* Escape with the bar closed takes the focus away, as before */
+	key(R_KEY_ESCAPE, 0);
+	CHECK(!Rwidget_is_focused(g_editor));
+	Rwidget_focus(g_editor);
+
+	/* a click on the text gives it the keys back, the bar staying open */
+	Rtext_editor_set_text(g_editor, "one two\ntwo");
+	key(R_KEY_F, R_MOD_SUPER);
+	type("two");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	Rdraw_frame();
+	Rwindow_inject_mouse_move(g_window, 30.0f, 200.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	type("!");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "two");
+	CHECK_STR(Rtext_editor_get_text(g_editor), "one two\ntwo!");
+	/* Ctrl+F again: back to the field, its text selected */
+	key(R_KEY_F, R_MOD_CTRL);
+	type("one");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "one");
+	CHECK_SELECTION(0, 0, 0, 3);
+	/* the close button, at the right of the first row of the bar */
+	Rdraw_frame();
+	Rwindow_inject_mouse_move(g_window, 400.0f - 1.0f - 8.0f - 4.0f - 12.0f, 18.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	CHECK_SELECTION(0, 0, 0, 3);
+	Rdraw_frame();
+
+	/* the API */
+	Rtext_editor_show_find(g_editor, R_FALSE);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	CHECK_STR(Rtext_editor_get_search(g_editor), "one");
+	Rtext_editor_set_search(g_editor, "two", 0);
+	type("s");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "twos");
+	Rtext_editor_hide_find(g_editor);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	Rwindow_destroy(g_window);
+}
+
+static void test_find_replace_keys(void) {
+	open_editor("");
+	Rtext_editor_set_text(g_editor, "red green red\nred");
+	Rdraw_frame();
+
+	/* Ctrl+H: the selection is the search, the keys go to the replacement */
+	Rtext_editor_select(g_editor, 0, 0, 0, 3);
+	key(R_KEY_H, R_MOD_CTRL);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	CHECK_STR(Rtext_editor_get_search(g_editor), "red");
+	type("blue");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "red");
+	/* Enter replaces the selected match and goes to the next one */
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "blue green red\nred");
+	CHECK_SELECTION(0, 11, 0, 14);
+	CHECK(g_changes == 1);
+	/* Tab goes to the other field */
+	key(R_KEY_TAB, 0);
+	type("x");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "x");
+	CHECK_STR(Rtext_editor_get_text(g_editor), "blue green red\nred");
+	key(R_KEY_BACKSPACE, 0);
+	type("red");
+	key(R_KEY_TAB, 0);
+	/* Ctrl+Enter replaces all of them */
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "blue green blue\nblue");
+	CHECK(g_changes == 2);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	key(R_KEY_ESCAPE, 0);
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "blue green red\nred");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "red green red\nred");
+
+	/* Cmd+Option+F, as on macOS */
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	key(R_KEY_F, R_MOD_SUPER | R_MOD_ALT);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	CHECK_STR(Rtext_editor_get_search(g_editor), "red");
+	/* (the search was known: the keys go to the replacement, whose text is selected) */
+	type("pink");
+	key(R_KEY_ENTER, R_MOD_SUPER);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "pink green pink\npink");
+	key(R_KEY_ESCAPE, 0);
+
+	/* a read-only text is searched, not replaced */
+	Rtext_editor_set_read_only(g_editor, R_TRUE);
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	key(R_KEY_H, R_MOD_CTRL);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	type("green");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "green");
+	CHECK_SELECTION(0, 5, 0, 10);
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "pink green pink\npink");
+	key(R_KEY_ESCAPE, 0);
+	Rtext_editor_set_read_only(g_editor, R_FALSE);
+
+	/* without the bar, its keys are the window's */
+	Raction_bind("test.find", on_find_shortcut, NULL);
+	Rwindow_register_shortcut(g_window, R_KEY_F, R_MOD_CTRL, "test.find");
+	g_find_shortcuts = 0;
+	Rtext_editor_set_find_bar(g_editor, R_FALSE);
+	key(R_KEY_F, R_MOD_CTRL);
+	CHECK(g_find_shortcuts == 1);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	Rtext_editor_show_find(g_editor, R_FALSE);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	/* the search still works by the API */
+	Rtext_editor_set_search(g_editor, "pink", 0);
+	CHECK(Rtext_editor_get_match_count(g_editor) == 3);
+	Rdraw_frame();
+	Rtext_editor_set_find_bar(g_editor, R_TRUE);
+	key(R_KEY_F, R_MOD_CTRL);
+	CHECK(g_find_shortcuts == 1);
+	CHECK(Rtext_editor_is_find_shown(g_editor));
+	Raction_unbind("test.find");
+	Rwindow_destroy(g_window);
+
+	/* XML */
+	open_editor("FindBar=\"false\" Search=\"needle\"");
+	Rtext_editor_set_text(g_editor, "hay needle hay needle");
+	CHECK_STR(Rtext_editor_get_search(g_editor), "needle");
+	CHECK(Rtext_editor_get_match_count(g_editor) == 2);
+	key(R_KEY_F, R_MOD_CTRL);
+	CHECK(!Rtext_editor_is_find_shown(g_editor));
+	Rdraw_frame();
+	Rwindow_destroy(g_window);
+}
+
+static void test_search_large(void) {
+	/* 200 000 lines: counted once, then again only where the text changed */
+	enum { LINES = 200000 };
+	char* text = (char*)malloc((size_t)LINES * 48);
+	int i, length = 0;
+	clock_t start;
+	double first, again, all;
+	for (i = 0; i < LINES; i++) length += sprintf(text + length, "line %d holds a needle and some hay\n", i);
+	open_editor("LineNumbers=\"true\"");
+	Rtext_editor_set_text(g_editor, text);
+	Rdraw_frame();
+
+	start = clock();
+	Rtext_editor_set_search(g_editor, "NEEDLE", R_SEARCH_WHOLE_WORD);
+	CHECK(Rtext_editor_get_match_count(g_editor) == LINES);
+	first = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+	/* from the end, the next match is the first of the text */
+	key(R_KEY_END, R_MOD_CTRL);
+	CHECK(Rtext_editor_find_next(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == 0);
+	CHECK(Rtext_editor_find_previous(g_editor));
+	CHECK(Rtext_editor_get_match_index(g_editor) == LINES - 1);
+	Rdraw_frame();
+
+	key(R_KEY_END, R_MOD_CTRL);
+	start = clock();
+	type("x");
+	for (i = 0; i < 20; i++) {
+		Rtext_editor_insert_text(g_editor, " needle");
+		CHECK(Rtext_editor_get_match_count(g_editor) == LINES + i + 1);
+	}
+	again = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+	start = clock();
+	CHECK(Rtext_editor_replace_all(g_editor, "pin") == LINES + 20);
+	all = (double)(clock() - start) / CLOCKS_PER_SEC;
+	CHECK(Rtext_editor_get_match_count(g_editor) == 0);
+	CHECK(strncmp(Rtext_editor_get_line(g_editor, 0), "line 0 holds a pin and", 22) == 0);
+	Rdraw_frame();
+	Rtext_editor_undo(g_editor);
+	CHECK(Rtext_editor_get_match_count(g_editor) == LINES + 20);
+	printf("  search of %d lines: count %.3f s, 20 edits and counts %.3f s, replace all %.3f s\n", LINES, first, again, all);
+	/* (generous bounds: the point is that nothing is quadratic) */
+	CHECK(first < 2.0);
+	CHECK(again < 1.0);
+	CHECK(all < 3.0);
+	free(text);
+	Rwindow_destroy(g_window);
+}
+
 int main(void) {
 	if (!test_init(0)) return 1;
 
@@ -1779,6 +2276,13 @@ int main(void) {
 	RUN(test_language_server);
 	RUN(test_markers_and_brackets);
 	RUN(test_zoom);
+	RUN(test_search);
+	RUN(test_search_utf8);
+	RUN(test_search_navigation);
+	RUN(test_replace);
+	RUN(test_find_bar);
+	RUN(test_find_replace_keys);
+	RUN(test_search_large);
 
 	Rshutdown();
 	return test_report("test_text_editor");

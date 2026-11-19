@@ -183,7 +183,7 @@ widget takes from the nearest ancestor that has one.
 
 | Element | |
 |---|---|
-| `<Colors>` | one attribute per role: `Window Panel Border Text TextDisabled TextPlaceholder Accent AccentHovered AccentPressed AccentText Control ControlHovered ControlPressed ControlBorder Input Focus Selection RowHovered Track Handle HandleHovered Separator Header HeaderHovered TabActive Popup PopupBorder Shadow Tooltip TooltipText Switch Success Warning Danger Link Code` |
+| `<Colors>` | one attribute per role: `Window Panel Border Text TextDisabled TextPlaceholder Accent AccentHovered AccentPressed AccentText Control ControlHovered ControlPressed ControlBorder Input Focus Selection RowHovered Track Handle HandleHovered Separator Header HeaderHovered TabActive Popup PopupBorder Shadow Tooltip TooltipText Switch Success Warning Danger Link Code SearchMatch SearchCurrent` |
 | `<Metrics>` | `FontSize CornerRadius BorderWidth ControlHeight PaddingX PaddingY Spacing ScrollbarSize RowHeight Indent SplitterSize CheckSize SliderHandleSize PopupRadius BlurRadius` |
 | `<Glass>` | `Frost Refraction Saturation Rim Shadow`: multipliers of what the glass of the theme does (1 = as designed, 0 = none) |
 | `<Syntax>` | colors of code in the text editor: `Comment String Number Keyword Type Function Tag Attribute Punctuation Directive Heading Strong Emphasis Link` |

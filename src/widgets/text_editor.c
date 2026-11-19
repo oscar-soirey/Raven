@@ -13,6 +13,11 @@
  *
  * Every change goes through one function, rvn_ed_replace_exact, which also records
  * what is needed to undo it.
+ *
+ * Search and replace count the matches of each line once per version of the
+ * line, so that counting again after an edit only reads the lines that
+ * changed; the find bar is drawn by the editor itself, over its text, and
+ * its two fields are single-line editing models (textedit.c).
  */
 
 #include "common.h"
@@ -40,6 +45,9 @@ typedef struct rvn_ed_line_t {
 	int* breaks;
 	/** What the lexer is in at the start of the line (syntax colors). */
 	uint8_t lex_in;
+	/** Number of matches of the search in the line, counted for the search whose stamp is search_stamp (0: not counted). */
+	uint32_t search_stamp;
+	int search_count;
 } rvn_ed_line_t;
 
 /** A part of a line underlined with a message (Rtext_editor_add_marker). */
@@ -63,6 +71,27 @@ typedef struct rvn_ed_edit_t {
 	/** A run of typed characters that the next one may join. */
 	int typing;
 } rvn_ed_edit_t;
+
+/** What is searched for (Rtext_editor_set_search). */
+typedef struct rvn_ed_search_t {
+	char* query;
+	int length;
+	Ruint flags;
+	/** Without R_SEARCH_MATCH_CASE: the characters of the query, in lower case. */
+	uint32_t* folded;
+	int folded_count;
+	/** The query starts / ends with a character of a word: R_SEARCH_WHOLE_WORD looks at what is beside it. */
+	int word_start;
+	int word_end;
+	/** Changes with the query and the options: what was counted for another search is not used. Never 0. */
+	uint32_t stamp;
+	/** Number of matches of the whole text, counted for (count_version, count_stamp). */
+	uint32_t count_version;
+	uint32_t count_stamp;
+	int count;
+	/** R_TRUE while the matches are not shown (the find bar was closed). */
+	int hidden;
+} rvn_ed_search_t;
 
 typedef struct rvn_text_editor_t {
 	rvn_widget_t base;
@@ -117,6 +146,22 @@ typedef struct rvn_text_editor_t {
 	RTextEditorZoomCallback zoom_callback;
 	void* zoom_user;
 	char* placeholder;
+
+	/** The search, and the find bar drawn over the text (0: closed, 1: find, 2: find and replace). */
+	rvn_ed_search_t search;
+	int find_open;
+	/** Where the keys go: 0 the text, 1 the field of the search, 2 the field of the replacement. */
+	int find_focus;
+	/** R_TRUE: no find bar and none of its keys (Rtext_editor_set_find_bar). */
+	int no_find_bar;
+	/** The two fields, made on first use; the part of the bar under the pointer; a field being selected with the mouse. */
+	int find_ready;
+	rvn_textedit_t find_query;
+	rvn_textedit_t find_replace;
+	int find_hover;
+	int find_dragging;
+	/** Where the selection was when the bar opened: typing in the field searches from there. */
+	rvn_ed_pos_t find_origin;
 
 	rvn_scrollbar_t vbar;
 	rvn_scrollbar_t hbar;
@@ -242,6 +287,7 @@ static rvn_ed_pos_t rvn_ed_pos_after(rvn_ed_pos_t start, const char* text, int l
 static void rvn_ed_line_dirty(rvn_ed_line_t* line) {
 	line->width = -1.0f;
 	line->row_count = 0;
+	line->search_stamp = 0;
 }
 
 static void rvn_ed_line_reserve(rvn_ed_line_t* line, int length) {
@@ -979,20 +1025,27 @@ static rvn_color_t rvn_ed_marker_color(RMarkerKind kind, const rvn_widget_t* wid
 	}
 }
 
+/* Search and replace, below. */
+static int rvn_ed_find_has_keys(const rvn_text_editor_t* ed);
+static void rvn_ed_paint_matches(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m, int line, int begin, int end,
+	float x, float y);
+static void rvn_ed_find_paint(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m);
+
 static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
 	rvn_ed_metrics_t m;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
 	rvn_rect_t vertical, horizontal;
 	rvn_vec2_t origin = rvn_widget_origin(widget);
-	int focused = (widget->flags & RVN_WF_FOCUSED) != 0;
+	/* (the text has the keyboard; the frame shows the focus of the widget, which may be in the find bar) */
+	int focused = (widget->flags & RVN_WF_FOCUSED) != 0 && !rvn_ed_find_has_keys(ed);
 	int has_selection = rvn_ed_has_selection(ed);
 	rvn_ed_pos_t sel_min = rvn_ed_sel_min(ed), sel_max = rvn_ed_sel_max(ed);
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
 	rvn_color_t selection = rvn_widget_color(widget, R_COLOR_SELECTION);
 	rvn_color_t dim = rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER);
 	float radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
-	float focus = rvn_clampf(rvn_paint_spring(painter, &widget->press, focused ? 1.0f : 0.0f, R_MOTION_SNAPPY), 0.0f, 1.0f);
+	float focus = rvn_clampf(rvn_paint_spring(painter, &widget->press, (widget->flags & RVN_WF_FOCUSED) ? 1.0f : 0.0f, R_MOTION_SNAPPY), 0.0f, 1.0f);
 	float scroll_x, scroll_y, y;
 	uint32_t row, first_row, last_row, marker;
 	rvn_span_t spans[RVN_ED_MAX_SPANS];
@@ -1090,6 +1143,8 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 				}
 			}
 		}
+		/* the matches of the search on this row */
+		rvn_ed_paint_matches(ed, painter, &m, line, begin, end, m.area.x - scroll_x, y);
 		if (ed->match_found) {
 			int which;
 			for (which = 0; which < 2; which++) {
@@ -1159,6 +1214,7 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_scrollbar_paint(&ed->hbar, widget, painter, horizontal, R_FALSE,
 			widget->window ? widget->window->mouse_x - origin.x : -1.0f, widget->window ? widget->window->mouse_y - origin.y : -1.0f);
 	}
+	rvn_ed_find_paint(ed, painter, &m);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1956,6 +2012,903 @@ static int rvn_ed_between_pair(rvn_text_editor_t* ed) {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Search and replace
+ *
+ * A match lies on one line. The matches of a line are taken from its start,
+ * one after the other without overlapping, and counted once per version of
+ * the line and per search (rvn_ed_line_t.search_stamp): after an edit only
+ * the lines that changed are read again.
+ * ------------------------------------------------------------------------- */
+
+/*
+ * A character in lower case, for a search that ignores the case: ASCII,
+ * Latin-1, the Latin letters of Unicode, Greek, Cyrillic, Armenian, the
+ * letters of full width. A character and its lower case have the same
+ * length in UTF-8, so a match has the length of the query.
+ */
+static uint32_t rvn_ed_fold(uint32_t c) {
+	if (c < 0x80u) return (c >= 'A' && c <= 'Z') ? c + 32u : c;
+	if (c < 0x100u) return (c >= 0xC0u && c <= 0xDEu && c != 0xD7u) ? c + 32u : c;
+	if (c < 0x250u) {
+		if (c == 0x178u) return 0xFFu;
+		/* pairs of an upper case and its lower case: the upper case odd, or even */
+		if ((c >= 0x139u && c <= 0x148u) || (c >= 0x179u && c <= 0x17Eu) || (c >= 0x1CDu && c <= 0x1DCu)) return (c & 1u) ? c + 1u : c;
+		if ((c >= 0x100u && c <= 0x12Fu) || (c >= 0x132u && c <= 0x137u) || (c >= 0x14Au && c <= 0x177u) ||
+			(c >= 0x1DEu && c <= 0x1EFu) || (c >= 0x1F8u && c <= 0x21Fu) || (c >= 0x222u && c <= 0x233u)) return (c & 1u) ? c : c + 1u;
+		return c;
+	}
+	if (c >= 0x370u && c < 0x400u) {
+		if (c >= 0x391u && c <= 0x3ABu && c != 0x3A2u) return c + 32u;
+		if (c == 0x386u) return 0x3ACu;
+		if (c >= 0x388u && c <= 0x38Au) return c + 37u;
+		if (c == 0x38Cu) return 0x3CCu;
+		if (c == 0x38Eu || c == 0x38Fu) return c + 63u;
+		/* the final sigma is a sigma */
+		if (c == 0x3C2u) return 0x3C3u;
+		return c;
+	}
+	if (c >= 0x400u && c < 0x530u) {
+		if (c < 0x410u) return c + 80u;
+		if (c < 0x430u) return c + 32u;
+		if ((c >= 0x460u && c <= 0x481u) || (c >= 0x48Au && c <= 0x4BFu) || (c >= 0x4D0u && c <= 0x52Fu)) return (c & 1u) ? c : c + 1u;
+		if (c == 0x4C0u) return 0x4CFu;
+		if (c >= 0x4C1u && c <= 0x4CEu) return (c & 1u) ? c + 1u : c;
+		return c;
+	}
+	if (c >= 0x531u && c <= 0x556u) return c + 48u;
+	if ((c >= 0x1E00u && c <= 0x1E95u) || (c >= 0x1EA0u && c <= 0x1EFFu)) return (c & 1u) ? c : c + 1u;
+	if (c >= 0xFF21u && c <= 0xFF3Au) return c + 32u;
+	return c;
+}
+
+static int rvn_ed_word_byte(char c) {
+	return rvn_ed_class(c) == RVN_ED_WORD;
+}
+
+static void rvn_ed_search_set(rvn_text_editor_t* ed, const char* query, Ruint flags) {
+	rvn_ed_search_t* search = &ed->search;
+	int length = query ? (int)strlen(query) : 0;
+	char* copy;
+
+	flags &= (Ruint)(R_SEARCH_MATCH_CASE | R_SEARCH_WHOLE_WORD);
+	search->hidden = R_FALSE;
+	rvn_widget_invalidate_paint(&ed->base);
+	if (length == search->length && flags == search->flags && (length == 0 || memcmp(query, search->query, (size_t)length) == 0)) return;
+
+	/* (the query may be the editor's own: Rtext_editor_get_search) */
+	copy = rvn_strndup(query ? query : "", (size_t)length);
+	rvn_free(search->query);
+	search->query = copy;
+	search->length = length;
+	search->flags = flags;
+	rvn_free(search->folded);
+	search->folded = NULL;
+	search->folded_count = 0;
+	if (!(flags & R_SEARCH_MATCH_CASE) && length > 0) {
+		const char* at = copy;
+		const char* end = copy + length;
+		search->folded = (uint32_t*)rvn_alloc(sizeof(uint32_t) * (size_t)length);
+		while (at < end) search->folded[search->folded_count++] = rvn_ed_fold(rvn_utf8_decode(&at, end));
+	}
+	search->word_start = length > 0 && rvn_ed_word_byte(copy[0]);
+	search->word_end = length > 0 && rvn_ed_word_byte(copy[length - 1]);
+	if (++search->stamp == 0) search->stamp = 1;
+}
+
+/* The end of a match that starts at `at`, or -1. */
+static int rvn_ed_match_at(const rvn_ed_search_t* search, const char* text, int length, int at) {
+	const char* read;
+	const char* end;
+	int i;
+	if (search->flags & R_SEARCH_MATCH_CASE) {
+		if (length - at < search->length || memcmp(text + at, search->query, (size_t)search->length) != 0) return -1;
+		return at + search->length;
+	}
+	read = text + at;
+	end = text + length;
+	for (i = 0; i < search->folded_count; i++) {
+		if (read >= end || rvn_ed_fold(rvn_utf8_decode(&read, end)) != search->folded[i]) return -1;
+	}
+	return (int)(read - text);
+}
+
+/* The first match in text[from..length): its start and its end. R_FALSE when there is none. */
+static int rvn_ed_search_line(const rvn_ed_search_t* search, const char* text, int length, int from, int* start, int* end) {
+	int at = from;
+	if (search->length == 0) return R_FALSE;
+	while (at < length) {
+		int stop;
+		/* the next place where the first character of the query is */
+		if (search->flags & R_SEARCH_MATCH_CASE) {
+			const char* found = (const char*)memchr(text + at, search->query[0], (size_t)(length - at));
+			if (!found) return R_FALSE;
+			at = (int)(found - text);
+		} else if (search->folded[0] < 0x80u) {
+			unsigned char lower = (unsigned char)search->folded[0];
+			unsigned char upper = (lower >= 'a' && lower <= 'z') ? (unsigned char)(lower - 32u) : lower;
+			while (at < length && (unsigned char)text[at] != lower && (unsigned char)text[at] != upper) at++;
+			if (at >= length) return R_FALSE;
+		} else if (((unsigned char)text[at] & 0xC0u) == 0x80u) {
+			/* (never inside a character) */
+			at++;
+			continue;
+		}
+		stop = rvn_ed_match_at(search, text, length, at);
+		if (stop > at && (!(search->flags & R_SEARCH_WHOLE_WORD) ||
+			((!search->word_start || at == 0 || !rvn_ed_word_byte(text[at - 1])) &&
+			 (!search->word_end || stop == length || !rvn_ed_word_byte(text[stop]))))) {
+			*start = at;
+			*end = stop;
+			return R_TRUE;
+		}
+		at++;
+	}
+	return R_FALSE;
+}
+
+/* Number of matches of a line. */
+static int rvn_ed_line_matches(rvn_text_editor_t* ed, int line) {
+	rvn_ed_line_t* l = &ed->lines[line];
+	if (ed->search.length == 0) return 0;
+	if (l->search_stamp != ed->search.stamp) {
+		int count = 0, at = 0, start, end;
+		while (rvn_ed_search_line(&ed->search, l->text, l->length, at, &start, &end)) {
+			count++;
+			at = end;
+		}
+		l->search_count = count;
+		l->search_stamp = ed->search.stamp;
+	}
+	return l->search_count;
+}
+
+/* The match of a line that has this index in it. */
+static int rvn_ed_line_match(const rvn_text_editor_t* ed, int line, int index, int* start, int* end) {
+	const rvn_ed_line_t* l = &ed->lines[line];
+	int at = 0;
+	while (rvn_ed_search_line(&ed->search, l->text, l->length, at, start, end)) {
+		if (index-- == 0) return R_TRUE;
+		at = *end;
+	}
+	return R_FALSE;
+}
+
+static int rvn_ed_match_count(rvn_text_editor_t* ed) {
+	rvn_ed_search_t* search = &ed->search;
+	if (search->length == 0) return 0;
+	if (search->count_version != ed->version || search->count_stamp != search->stamp) {
+		uint32_t line;
+		int count = 0;
+		for (line = 0; line < ed->line_count; line++) count += rvn_ed_line_matches(ed, (int)line);
+		search->count = count;
+		search->count_version = ed->version;
+		search->count_stamp = search->stamp;
+	}
+	return search->count;
+}
+
+/* Index in its line of the match that the selection is, or -1. */
+static int rvn_ed_selected_match(const rvn_text_editor_t* ed) {
+	rvn_ed_pos_t from = rvn_ed_sel_min(ed), to = rvn_ed_sel_max(ed);
+	const rvn_ed_line_t* l = &ed->lines[from.line];
+	int at = 0, index = 0, start, end;
+	if (ed->search.length == 0 || from.line != to.line || !rvn_ed_has_selection(ed)) return -1;
+	while (rvn_ed_search_line(&ed->search, l->text, l->length, at, &start, &end)) {
+		if (start == from.column && end == to.column) return index;
+		if (start > from.column) break;
+		index++;
+		at = end;
+	}
+	return -1;
+}
+
+static int rvn_ed_match_index(rvn_text_editor_t* ed) {
+	int index = rvn_ed_selected_match(ed), line, last;
+	if (index < 0) return -1;
+	last = rvn_ed_sel_min(ed).line;
+	for (line = 0; line < last; line++) index += rvn_ed_line_matches(ed, line);
+	return index;
+}
+
+/* Line and columns of the match that has this index in the text. */
+static int rvn_ed_find_match(rvn_text_editor_t* ed, int index, int* line_out, int* start, int* end) {
+	uint32_t line;
+	if (index < 0 || ed->search.length == 0) return R_FALSE;
+	for (line = 0; line < ed->line_count; line++) {
+		int count = rvn_ed_line_matches(ed, (int)line);
+		if (index < count) {
+			*line_out = (int)line;
+			return rvn_ed_line_match(ed, (int)line, index, start, end);
+		}
+		index -= count;
+	}
+	return R_FALSE;
+}
+
+/* Selects a match and scrolls to it: a third of the way down when it was out of sight. */
+static void rvn_ed_select_match(rvn_text_editor_t* ed, int line, int start, int end) {
+	rvn_widget_t* widget = &ed->base;
+	ed->anchor = rvn_ed_pos(line, start);
+	ed->caret = rvn_ed_pos(line, end);
+	rvn_ed_break_typing(ed);
+	rvn_ed_complete_close(ed);
+	if (widget->rect.w > 0.0f && widget->rect.h > 0.0f && !(widget->flags & RVN_WF_LAYOUT_DIRTY)) {
+		rvn_ed_metrics_t m;
+		float y;
+		rvn_ed_metrics(ed, &m);
+		rvn_ed_update_rows(ed, &m);
+		rvn_ed_update_bars(ed, &m);
+		y = rvn_ed_pos_point(ed, &m, ed->caret).y;
+		if (y < ed->vbar.offset || y + m.line_height > ed->vbar.offset + ed->vbar.viewport) {
+			rvn_scrollbar_set(&ed->vbar, y - ed->vbar.viewport * 0.33f);
+		}
+	}
+	rvn_ed_caret_moved(ed, R_FALSE);
+}
+
+/*
+ * The next match after the selection (forward) or the one before it,
+ * going on from the other end of the text. Selects it; R_FALSE when the
+ * text has none.
+ */
+static int rvn_ed_find(rvn_text_editor_t* ed, int forward) {
+	rvn_ed_pos_t from = forward ? rvn_ed_sel_max(ed) : rvn_ed_sel_min(ed);
+	int line_count = (int)ed->line_count, step;
+	if (ed->search.length == 0) return R_FALSE;
+	/* every line once, from the one of the selection, which comes again last (for what is on its other side) */
+	for (step = 0; step <= line_count; step++) {
+		int line = forward ? (from.line + step) % line_count : ((from.line - step) % line_count + line_count) % line_count;
+		const rvn_ed_line_t* l = &ed->lines[line];
+		int at = 0, start, end, found = -1, found_end = 0;
+		if (rvn_ed_line_matches(ed, line) == 0) continue;
+		while (rvn_ed_search_line(&ed->search, l->text, l->length, at, &start, &end)) {
+			if (forward) {
+				if (step > 0 || start >= from.column) {
+					found = start;
+					found_end = end;
+					break;
+				}
+			} else {
+				if (step > 0 || start < from.column) {
+					found = start;
+					found_end = end;
+				} else {
+					break;
+				}
+			}
+			at = end;
+		}
+		if (found >= 0) {
+			rvn_ed_select_match(ed, line, found, found_end);
+			return R_TRUE;
+		}
+	}
+	return R_FALSE;
+}
+
+/* Replaces the selected match, then goes to the next one. R_TRUE when something was replaced. */
+static int rvn_ed_replace_match(rvn_text_editor_t* ed, const char* replacement) {
+	int replaced = R_FALSE;
+	if (ed->search.length == 0) return R_FALSE;
+	if (rvn_ed_selected_match(ed) >= 0) {
+		/* (the replacement may be a line of the editor, which the edit changes) */
+		char* copy = rvn_strdup(replacement ? replacement : "");
+		rvn_ed_break_typing(ed);
+		ed->caret = ed->anchor = rvn_ed_replace(ed, rvn_ed_sel_min(ed), rvn_ed_sel_max(ed), copy, -1, R_TRUE);
+		rvn_ed_break_typing(ed);
+		rvn_free(copy);
+		replaced = R_TRUE;
+	}
+	if (!rvn_ed_find(ed, R_TRUE)) rvn_ed_caret_moved(ed, R_FALSE);
+	return replaced;
+}
+
+/*
+ * Replaces every match: the text from the first match to the end of the
+ * last one is replaced at once, which is one step of the history.
+ * Returns the number of matches replaced.
+ */
+static int rvn_ed_replace_all(rvn_text_editor_t* ed, const char* replacement) {
+	int first = -1, last = -1, line, count = 0, length = 0, cap = 0, replacement_length;
+	rvn_ed_pos_t from, to;
+	char* copy;
+	char* out = NULL;
+
+	if (rvn_ed_match_count(ed) == 0) return 0;
+	for (line = 0; line < (int)ed->line_count; line++) {
+		if (rvn_ed_line_matches(ed, line) == 0) continue;
+		if (first < 0) first = line;
+		last = line;
+	}
+	copy = rvn_strdup(replacement ? replacement : "");
+	replacement_length = (int)strlen(copy);
+	from = rvn_ed_pos(first, 0);
+	to = rvn_ed_pos(last, 0);
+	for (line = first; line <= last; line++) {
+		const rvn_ed_line_t* l = &ed->lines[line];
+		int at = 0, kept = 0, start, end;
+		while (rvn_ed_search_line(&ed->search, l->text, l->length, at, &start, &end)) {
+			int need;
+			if (count == 0) {
+				/* what comes before the first match stays out of the edit */
+				from.column = start;
+				kept = start;
+			}
+			need = length + (start - kept) + replacement_length + 1;
+			if (need > cap) {
+				cap = need * 2 + 64;
+				out = (char*)rvn_realloc(out, (size_t)cap);
+			}
+			memcpy(out + length, l->text + kept, (size_t)(start - kept));
+			length += start - kept;
+			memcpy(out + length, copy, (size_t)replacement_length);
+			length += replacement_length;
+			kept = end;
+			at = end;
+			count++;
+		}
+		if (line < last) {
+			int need = length + (l->length - kept) + 2;
+			if (need > cap) {
+				cap = need * 2 + 64;
+				out = (char*)rvn_realloc(out, (size_t)cap);
+			}
+			memcpy(out + length, l->text + kept, (size_t)(l->length - kept));
+			length += l->length - kept;
+			out[length++] = '\n';
+		} else {
+			/* and what comes after the last one */
+			to.column = kept;
+		}
+	}
+	rvn_ed_break_typing(ed);
+	ed->caret = ed->anchor = rvn_ed_replace(ed, from, to, out ? out : "", length, R_TRUE);
+	rvn_ed_break_typing(ed);
+	rvn_free(out);
+	rvn_free(copy);
+	rvn_ed_caret_moved(ed, R_FALSE);
+	return count;
+}
+
+static int rvn_ed_search_shown(const rvn_text_editor_t* ed) {
+	return ed->search.length > 0 && !ed->search.hidden;
+}
+
+/* The matches that lie on one row of a line (text[begin..end)), drawn at (x, y). */
+static void rvn_ed_paint_matches(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m, int line, int begin, int end,
+	float x, float y) {
+
+	const rvn_widget_t* widget = &ed->base;
+	const rvn_ed_line_t* l = &ed->lines[line];
+	rvn_ed_pos_t sel_min, sel_max;
+	rvn_color_t match, current;
+	int at, start, stop;
+
+	if (!rvn_ed_search_shown(ed) || rvn_ed_line_matches(ed, line) == 0) return;
+	match = rvn_widget_color(widget, R_COLOR_SEARCH_MATCH);
+	current = rvn_widget_color(widget, R_COLOR_SEARCH_CURRENT);
+	sel_min = rvn_ed_sel_min(ed);
+	sel_max = rvn_ed_sel_max(ed);
+	/* only what can reach the row is read (a match has the length of the query); a long line is not read from its start for each row */
+	at = begin > 0 ? rvn_ed_clamp(ed, rvn_ed_pos(line, rvn_maxi(begin - ed->search.length + 1, 0))).column : 0;
+	while (rvn_ed_search_line(&ed->search, l->text, l->length, at, &start, &stop) && start < end) {
+		at = stop;
+		if (stop > begin || (stop == begin && start == begin)) {
+			int from = rvn_maxi(start, begin), to = rvn_mini(stop, end);
+			int is_current = sel_min.line == line && sel_max.line == line && sel_min.column == start && sel_max.column == stop;
+			float x0 = rvn_ed_advance(m, l->text, begin, from, 0.0f);
+			float x1 = rvn_ed_advance(m, l->text, from, to, x0);
+			if (x1 <= x0) continue;
+			if (is_current) {
+				rvn_paint_box(painter, rvn_rect(x + x0, y, x1 - x0, m->line_height), 3.0f, current, 1.0f,
+					rvn_color_fade(current, 1.0f / rvn_maxf(0.25f, (float)rvn_color_a(current) / 255.0f)));
+			} else {
+				rvn_paint_box(painter, rvn_rect(x + x0, y, x1 - x0, m->line_height), 3.0f, match, 0.0f, 0);
+			}
+		}
+	}
+}
+
+/* ---------------------------------------------------------------------------
+ *  The find bar
+ *
+ * Drawn by the editor over the top right of its text: a field for what is
+ * searched for, the number of matches, the options, previous / next and
+ * close; a second row with a field for the replacement, replace and replace
+ * all. The editor keeps the keyboard focus; find_focus tells which of its
+ * fields the keys go to.
+ * ------------------------------------------------------------------------- */
+
+enum {
+	RVN_ED_FIND_NONE,
+	RVN_ED_FIND_EXPAND,
+	RVN_ED_FIND_QUERY,
+	RVN_ED_FIND_CASE,
+	RVN_ED_FIND_WORD,
+	RVN_ED_FIND_PREVIOUS,
+	RVN_ED_FIND_NEXT,
+	RVN_ED_FIND_CLOSE,
+	RVN_ED_FIND_REPLACE,
+	RVN_ED_FIND_REPLACE_ONE,
+	RVN_ED_FIND_REPLACE_ALL,
+	RVN_ED_FIND_PARTS
+};
+
+typedef struct rvn_ed_find_layout_t {
+	rvn_rect_t bar;
+	rvn_rect_t parts[RVN_ED_FIND_PARTS];
+	rvn_rect_t counter;
+	float size;
+} rvn_ed_find_layout_t;
+
+/* A text of the locale when it has the key, the English one otherwise. */
+static const char* rvn_ed_text(const char* key, const char* english) {
+	return Rtr_exists(key) ? Rtr(key) : english;
+}
+
+static int rvn_ed_find_has_keys(const rvn_text_editor_t* ed) {
+	return ed->find_open && ed->find_focus != 0;
+}
+
+static rvn_textedit_t* rvn_ed_find_field(rvn_text_editor_t* ed, int which) {
+	return which == 2 ? &ed->find_replace : &ed->find_query;
+}
+
+/* "3 of 12", "No results", or "" without a search. `none` is set when nothing is found. */
+static void rvn_ed_find_counter(rvn_text_editor_t* ed, char* out, size_t cap, int* none) {
+	int count = rvn_ed_match_count(ed), index;
+	char a[16], b[16];
+	*none = R_FALSE;
+	out[0] = '\0';
+	if (ed->search.length == 0) return;
+	if (count == 0) {
+		*none = R_TRUE;
+		snprintf(out, cap, "%s", rvn_ed_text("Raven.FindNoResults", "No results"));
+		return;
+	}
+	index = rvn_ed_match_index(ed);
+	if (index >= 0) snprintf(a, sizeof(a), "%d", index + 1);
+	else snprintf(a, sizeof(a), "?");
+	snprintf(b, sizeof(b), "%d", count);
+	if (Rtr_exists("Raven.FindCount")) {
+		const char* args[2];
+		args[0] = a;
+		args[1] = b;
+		snprintf(out, cap, "%s", Rtr_format("Raven.FindCount", args, 2));
+	} else {
+		snprintf(out, cap, "%s of %s", a, b);
+	}
+}
+
+static void rvn_ed_find_layout(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, rvn_ed_find_layout_t* f) {
+	const rvn_widget_t* widget = &ed->base;
+	const char* replace_text = rvn_ed_text("Raven.Replace", "Replace");
+	const char* all_text = rvn_ed_text("Raven.ReplaceAll", "Replace all");
+	char counter[96];
+	float row = ceilf(rvn_widget_line_height(widget, R_INVALID_ID, 0.0f) + 10.0f);
+	float pad = 4.0f, gap = 2.0f, expand = 18.0f, button = row;
+	float counter_w, replace_w, all_w, row1, row2, field, right, x, y;
+	int none, i;
+
+	memset(f, 0, sizeof(*f));
+	f->size = rvn_widget_font_size(widget, 0.0f);
+	rvn_ed_find_counter(ed, counter, sizeof(counter), &none);
+	counter_w = ceilf(rvn_maxf(rvn_widget_text_width(widget, R_INVALID_ID, f->size, counter),
+		rvn_widget_text_width(widget, R_INVALID_ID, f->size, "888 of 888")) + 10.0f);
+	replace_w = ceilf(rvn_widget_text_width(widget, R_INVALID_ID, f->size, replace_text) + 18.0f);
+	all_w = ceilf(rvn_widget_text_width(widget, R_INVALID_ID, f->size, all_text) + 18.0f);
+	row1 = gap + counter_w + 5.0f * (button + gap);
+	row2 = gap + replace_w + gap + all_w;
+	right = widget->rect.w - 1.0f - ((ed->wrap || rvn_scrollbar_needed(&ed->vbar)) ? m->bar : 0.0f) - 8.0f;
+	field = rvn_clampf(right - (m->gutter + 8.0f) - (pad * 2.0f + expand + gap + rvn_maxf(row1, row2)), 80.0f, 240.0f);
+
+	f->bar.w = pad * 2.0f + expand + gap + field + rvn_maxf(row1, row2);
+	f->bar.h = pad * 2.0f + row + (ed->find_open == 2 ? row + pad : 0.0f);
+	f->bar.x = right - f->bar.w;
+	f->bar.y = 4.0f;
+
+	x = f->bar.x + pad;
+	y = f->bar.y + pad;
+	f->parts[RVN_ED_FIND_EXPAND] = rvn_rect(x, y, expand, ed->find_open == 2 ? row * 2.0f + pad : row);
+	x += expand + gap;
+	f->parts[RVN_ED_FIND_QUERY] = rvn_rect(x, y, field, row);
+	x += field + gap;
+	f->counter = rvn_rect(x, y, counter_w, row);
+	x += counter_w + gap;
+	for (i = RVN_ED_FIND_CASE; i <= RVN_ED_FIND_CLOSE; i++) {
+		f->parts[i] = rvn_rect(x, y, button, row);
+		x += button + gap;
+	}
+	if (ed->find_open == 2) {
+		y += row + pad;
+		x = f->parts[RVN_ED_FIND_QUERY].x;
+		f->parts[RVN_ED_FIND_REPLACE] = rvn_rect(x, y, field, row);
+		x += field + gap * 2.0f;
+		f->parts[RVN_ED_FIND_REPLACE_ONE] = rvn_rect(x, y, replace_w, row);
+		x += replace_w + gap;
+		f->parts[RVN_ED_FIND_REPLACE_ALL] = rvn_rect(x, y, all_w, row);
+	}
+	/* a read-only text is not replaced */
+	if (ed->read_only) f->parts[RVN_ED_FIND_EXPAND] = rvn_rect(0.0f, 0.0f, 0.0f, 0.0f);
+}
+
+/* The part of the bar under a point of the widget, RVN_ED_FIND_NONE outside of it. Sets *in_bar. */
+static int rvn_ed_find_hit(rvn_text_editor_t* ed, float x, float y, int* in_bar) {
+	rvn_ed_find_layout_t f;
+	rvn_ed_metrics_t m;
+	int i;
+	*in_bar = R_FALSE;
+	if (!ed->find_open) return RVN_ED_FIND_NONE;
+	rvn_ed_metrics(ed, &m);
+	rvn_ed_find_layout(ed, &m, &f);
+	if (!rvn_rect_contains(f.bar, x, y)) return RVN_ED_FIND_NONE;
+	*in_bar = R_TRUE;
+	for (i = 1; i < RVN_ED_FIND_PARTS; i++) {
+		if (f.parts[i].w > 0.0f && rvn_rect_contains(f.parts[i], x, y)) return i;
+	}
+	return RVN_ED_FIND_NONE;
+}
+
+static void rvn_ed_find_paint(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m) {
+	rvn_widget_t* widget = &ed->base;
+	rvn_ed_find_layout_t f;
+	char counter[96];
+	int none, i, which, count;
+	int widget_focused = (widget->flags & RVN_WF_FOCUSED) != 0;
+	float radius = rvn_minf(rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), 8.0f);
+	rvn_color_t text = rvn_widget_color(widget, R_COLOR_TEXT);
+	rvn_color_t dim = rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER);
+	rvn_color_t accent = rvn_widget_color(widget, R_COLOR_ACCENT);
+	rvn_color_t danger = rvn_widget_color(widget, R_COLOR_DANGER);
+
+	if (!ed->find_open || !ed->find_ready) return;
+	rvn_ed_find_layout(ed, m, &f);
+	rvn_ed_find_counter(ed, counter, sizeof(counter), &none);
+	count = rvn_ed_match_count(ed);
+
+	/* the surface of a popup */
+	if (rvn_widget_glass(widget)) {
+		rvn_paint_surface(painter, widget, f.bar, radius + 2.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
+	} else {
+		rvn_paint_shadow(painter, rvn_rect(f.bar.x, f.bar.y + 2.0f, f.bar.w, f.bar.h), radius + 2.0f, 10.0f, rvn_widget_color(widget, R_COLOR_SHADOW));
+		rvn_paint_box(painter, f.bar, radius + 2.0f, rvn_widget_color(widget, R_COLOR_POPUP), 1.0f, rvn_widget_color(widget, R_COLOR_POPUP_BORDER));
+	}
+
+	/* the fields */
+	for (which = 1; which <= ed->find_open; which++) {
+		rvn_rect_t frame = f.parts[which == 1 ? RVN_ED_FIND_QUERY : RVN_ED_FIND_REPLACE];
+		rvn_rect_t inner = rvn_rect(frame.x + 6.0f, frame.y, frame.w - 12.0f, frame.h);
+		rvn_textedit_t* edit = rvn_ed_find_field(ed, which);
+		int has_keys = widget_focused && ed->find_focus == which;
+		rvn_color_t border = has_keys ? rvn_widget_color(widget, R_COLOR_FOCUS)
+			: (which == 1 && none) ? danger : rvn_widget_color(widget, R_COLOR_BORDER);
+		rvn_paint_box(painter, frame, radius, rvn_widget_color(widget, R_COLOR_INPUT), has_keys ? 1.5f : 1.0f, border);
+		if (edit->length == 0) {
+			rvn_paint_text_in(painter, R_INVALID_ID, f.size, inner, 0.0f,
+				which == 1 ? rvn_ed_text("Raven.Find", "Find") : rvn_ed_text("Raven.Replace", "Replace"), -1, dim);
+		}
+		rvn_textedit_paint(edit, widget, painter, inner, R_INVALID_ID, f.size, text, has_keys);
+	}
+	rvn_paint_text_in(painter, R_INVALID_ID, f.size, f.counter, 0.5f, counter, -1, none ? danger : dim);
+
+	/* the buttons */
+	for (i = RVN_ED_FIND_EXPAND; i < RVN_ED_FIND_PARTS; i++) {
+		rvn_rect_t r = f.parts[i];
+		float cx = r.x + r.w * 0.5f, cy = r.y + r.h * 0.5f, icon = rvn_minf(r.h * 0.42f, 10.0f);
+		int hovered = ed->find_hover == i;
+		int on = (i == RVN_ED_FIND_CASE && (ed->search.flags & R_SEARCH_MATCH_CASE)) ||
+			(i == RVN_ED_FIND_WORD && (ed->search.flags & R_SEARCH_WHOLE_WORD));
+		int disabled = (i == RVN_ED_FIND_PREVIOUS || i == RVN_ED_FIND_NEXT || i == RVN_ED_FIND_REPLACE_ONE || i == RVN_ED_FIND_REPLACE_ALL) && count == 0;
+		rvn_color_t ink = disabled ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : text;
+		if (r.w <= 0.0f || i == RVN_ED_FIND_QUERY || i == RVN_ED_FIND_REPLACE) continue;
+		if (i == RVN_ED_FIND_REPLACE_ONE || i == RVN_ED_FIND_REPLACE_ALL) {
+			rvn_paint_box(painter, r, radius, rvn_widget_color(widget, hovered && !disabled ? R_COLOR_CONTROL_HOVERED : R_COLOR_CONTROL), 1.0f,
+				rvn_widget_color(widget, R_COLOR_CONTROL_BORDER));
+			rvn_paint_text_in(painter, R_INVALID_ID, f.size, r, 0.5f,
+				i == RVN_ED_FIND_REPLACE_ONE ? rvn_ed_text("Raven.Replace", "Replace") : rvn_ed_text("Raven.ReplaceAll", "Replace all"), -1, ink);
+			continue;
+		}
+		if (on) {
+			rvn_paint_box(painter, r, radius, rvn_color_fade(accent, 0.25f), 1.0f, accent);
+		} else if (hovered && !disabled) {
+			rvn_paint_box(painter, r, radius, rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED), 0.0f, 0);
+		}
+		switch (i) {
+			case RVN_ED_FIND_EXPAND:
+				rvn_paint_icon(painter, ed->find_open == 2 ? RVN_ICON_CHEVRON_DOWN : RVN_ICON_CHEVRON_RIGHT, cx, cy, icon * 0.9f, text);
+				break;
+			case RVN_ED_FIND_CASE:
+				rvn_paint_text_in(painter, R_INVALID_ID, f.size, r, 0.5f, "Aa", 2, ink);
+				break;
+			case RVN_ED_FIND_WORD: {
+				/* "ab" between the marks of the edges of a word */
+				float w = rvn_widget_text_width(widget, R_INVALID_ID, f.size, "ab");
+				rvn_paint_text_in(painter, R_INVALID_ID, f.size, rvn_rect(r.x, r.y - 1.0f, r.w, r.h), 0.5f, "ab", 2, ink);
+				rvn_paint_line(painter, cx - w * 0.5f - 2.0f, cy + icon * 0.75f, cx + w * 0.5f + 2.0f, cy + icon * 0.75f, 1.2f, ink);
+				rvn_paint_line(painter, cx - w * 0.5f - 2.0f, cy + icon * 0.75f, cx - w * 0.5f - 2.0f, cy + icon * 0.35f, 1.2f, ink);
+				rvn_paint_line(painter, cx + w * 0.5f + 2.0f, cy + icon * 0.75f, cx + w * 0.5f + 2.0f, cy + icon * 0.35f, 1.2f, ink);
+				break;
+			}
+			case RVN_ED_FIND_PREVIOUS:
+				rvn_paint_icon(painter, RVN_ICON_CHEVRON_UP, cx, cy, icon, ink);
+				break;
+			case RVN_ED_FIND_NEXT:
+				rvn_paint_icon(painter, RVN_ICON_CHEVRON_DOWN, cx, cy, icon, ink);
+				break;
+			case RVN_ED_FIND_CLOSE:
+				rvn_paint_icon(painter, RVN_ICON_CROSS, cx, cy, icon * 0.9f, ink);
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+static void rvn_ed_find_init(rvn_text_editor_t* ed) {
+	if (ed->find_ready) return;
+	rvn_textedit_init(&ed->find_query);
+	rvn_textedit_init(&ed->find_replace);
+	ed->find_ready = R_TRUE;
+}
+
+/* Gives the keys to a field of the bar (0: back to the text). */
+static void rvn_ed_find_focus(rvn_text_editor_t* ed, int which) {
+	if (which == 2 && ed->find_open != 2) which = 1;
+	if (ed->find_focus == which) return;
+	if (ed->find_focus) {
+		rvn_textedit_t* old = rvn_ed_find_field(ed, ed->find_focus);
+		old->anchor = old->caret;
+		old->mouse_selecting = R_FALSE;
+	}
+	ed->find_focus = which;
+	if (which) rvn_ed_find_field(ed, which)->blink_start = rvn_clock_seconds();
+	ed->blink_start = rvn_clock_seconds();
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+/* The text of the field changed: search it, from where the selection was when the bar opened. */
+static void rvn_ed_find_query_changed(rvn_text_editor_t* ed) {
+	rvn_ed_search_set(ed, ed->find_query.text, ed->search.flags);
+	ed->find_origin = rvn_ed_clamp(ed, ed->find_origin);
+	ed->caret = ed->anchor = ed->find_origin;
+	if (!rvn_ed_find(ed, R_TRUE)) rvn_ed_caret_moved(ed, R_FALSE);
+}
+
+/* Opens the bar (with the row to replace when `replace`), the selection on one line becoming the search. */
+static void rvn_ed_find_open(rvn_text_editor_t* ed, int replace) {
+	rvn_ed_pos_t from = rvn_ed_sel_min(ed), to = rvn_ed_sel_max(ed);
+	int seeded = R_FALSE;
+	if (ed->no_find_bar) return;
+	rvn_ed_find_init(ed);
+	rvn_ed_complete_close(ed);
+	if (replace && !ed->read_only) ed->find_open = 2;
+	else if (!ed->find_open) ed->find_open = 1;
+	ed->find_origin = from;
+	if (rvn_ed_has_selection(ed) && from.line == to.line) {
+		char* selected = rvn_ed_range(ed, from, to, NULL);
+		rvn_textedit_set_text(&ed->find_query, selected);
+		rvn_free(selected);
+		seeded = R_TRUE;
+	} else if (ed->find_query.length == 0 && ed->search.length > 0 && !memchr(ed->search.query, '\n', (size_t)ed->search.length)) {
+		rvn_textedit_set_text(&ed->find_query, ed->search.query);
+	}
+	rvn_ed_search_set(ed, ed->find_query.text, ed->search.flags);
+	rvn_textedit_select_all(&ed->find_query);
+	/* the replacement is what is typed next when the search is already known */
+	rvn_ed_find_focus(ed, ed->find_open == 2 && (seeded || ed->find_query.length > 0) && replace ? 2 : 1);
+	if (ed->find_focus == 2) rvn_textedit_select_all(&ed->find_replace);
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+static void rvn_ed_find_close(rvn_text_editor_t* ed) {
+	if (!ed->find_open) return;
+	rvn_ed_find_focus(ed, 0);
+	ed->find_open = 0;
+	ed->find_hover = RVN_ED_FIND_NONE;
+	ed->find_dragging = R_FALSE;
+	ed->search.hidden = R_TRUE;
+	ed->base.cursor = R_CURSOR_IBEAM;
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+/* Next or previous match, by the keys or the buttons: with no search yet, the selection becomes it, or the bar opens. */
+static void rvn_ed_find_step(rvn_text_editor_t* ed, int forward) {
+	if (ed->search.length == 0) {
+		rvn_ed_pos_t from = rvn_ed_sel_min(ed), to = rvn_ed_sel_max(ed);
+		if (rvn_ed_has_selection(ed) && from.line == to.line) {
+			char* selected = rvn_ed_range(ed, from, to, NULL);
+			rvn_ed_find_init(ed);
+			rvn_textedit_set_text(&ed->find_query, selected);
+			rvn_ed_search_set(ed, selected, ed->search.flags);
+			rvn_free(selected);
+		} else {
+			rvn_ed_find_open(ed, R_FALSE);
+			return;
+		}
+	}
+	if (ed->find_open) ed->search.hidden = R_FALSE;
+	rvn_ed_find(ed, forward);
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+static void rvn_ed_find_toggle(rvn_text_editor_t* ed, Ruint flag) {
+	rvn_ed_search_set(ed, ed->search.query, ed->search.flags ^ flag);
+}
+
+/* Replace and replace all, from the bar. */
+static void rvn_ed_find_replace(rvn_text_editor_t* ed, int all) {
+	rvn_widget_t* widget = &ed->base;
+	int changed;
+	if (ed->read_only || ed->find_open != 2) return;
+	ed->search.hidden = R_FALSE;
+	changed = all ? rvn_ed_replace_all(ed, ed->find_replace.text) > 0 : rvn_ed_replace_match(ed, ed->find_replace.text);
+	if (changed) rvn_ed_notify(widget);
+}
+
+/* A click on a part of the bar. */
+static void rvn_ed_find_press(rvn_text_editor_t* ed, int part, const REvent* event, const rvn_ed_find_layout_t* f) {
+	switch (part) {
+		case RVN_ED_FIND_QUERY:
+		case RVN_ED_FIND_REPLACE: {
+			int which = part == RVN_ED_FIND_QUERY ? 1 : 2;
+			rvn_rect_t frame = f->parts[part];
+			rvn_ed_find_focus(ed, which);
+			rvn_textedit_mouse_down(rvn_ed_find_field(ed, which), &ed->base, R_INVALID_ID, f->size, event->local_x - (frame.x + 6.0f),
+				event->clicks, (event->modifiers & R_MOD_SHIFT) != 0);
+			ed->find_dragging = R_TRUE;
+			rvn_widget_capture_mouse(&ed->base);
+			break;
+		}
+		case RVN_ED_FIND_EXPAND:
+			ed->find_open = ed->find_open == 2 ? 1 : 2;
+			if (ed->find_open == 1 && ed->find_focus == 2) rvn_ed_find_focus(ed, 1);
+			break;
+		case RVN_ED_FIND_CASE: rvn_ed_find_toggle(ed, R_SEARCH_MATCH_CASE); break;
+		case RVN_ED_FIND_WORD: rvn_ed_find_toggle(ed, R_SEARCH_WHOLE_WORD); break;
+		case RVN_ED_FIND_PREVIOUS: rvn_ed_find_step(ed, R_FALSE); break;
+		case RVN_ED_FIND_NEXT: rvn_ed_find_step(ed, R_TRUE); break;
+		case RVN_ED_FIND_CLOSE: rvn_ed_find_close(ed); break;
+		case RVN_ED_FIND_REPLACE_ONE: rvn_ed_find_replace(ed, R_FALSE); break;
+		case RVN_ED_FIND_REPLACE_ALL: rvn_ed_find_replace(ed, R_TRUE); break;
+		default: break;
+	}
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+static const char* rvn_ed_find_tip(int part) {
+	switch (part) {
+		case RVN_ED_FIND_EXPAND: return rvn_ed_text("Raven.FindToggleReplace", "Toggle replace");
+		case RVN_ED_FIND_CASE: return rvn_ed_text("Raven.FindMatchCase", "Match case");
+		case RVN_ED_FIND_WORD: return rvn_ed_text("Raven.FindWholeWord", "Whole word");
+		case RVN_ED_FIND_PREVIOUS: return rvn_ed_text("Raven.FindPrevious", "Previous match (Shift+Enter)");
+		case RVN_ED_FIND_NEXT: return rvn_ed_text("Raven.FindNext", "Next match (Enter)");
+		case RVN_ED_FIND_CLOSE: return rvn_ed_text("Raven.FindClose", "Close (Escape)");
+		default: return NULL;
+	}
+}
+
+/*
+ * The mouse over the bar. Returns R_TRUE when the event was the bar's (the
+ * text does not see it).
+ */
+static int rvn_ed_find_mouse(rvn_text_editor_t* ed, const REvent* event) {
+	rvn_widget_t* widget = &ed->base;
+	rvn_ed_find_layout_t f;
+	rvn_ed_metrics_t m;
+	int in_bar, part;
+
+	if (!ed->find_open) return R_FALSE;
+	rvn_ed_metrics(ed, &m);
+	rvn_ed_find_layout(ed, &m, &f);
+	if (ed->find_dragging) {
+		if (event->type == R_EVENT_MOUSE_MOVE && ed->find_focus) {
+			rvn_rect_t frame = f.parts[ed->find_focus == 1 ? RVN_ED_FIND_QUERY : RVN_ED_FIND_REPLACE];
+			rvn_textedit_mouse_drag(rvn_ed_find_field(ed, ed->find_focus), widget, R_INVALID_ID, f.size, event->local_x - (frame.x + 6.0f));
+			rvn_widget_invalidate_paint(widget);
+		} else if (event->type == R_EVENT_MOUSE_UP) {
+			ed->find_dragging = R_FALSE;
+			if (ed->find_focus) rvn_ed_find_field(ed, ed->find_focus)->mouse_selecting = R_FALSE;
+			rvn_widget_release_mouse(widget);
+		}
+		return R_TRUE;
+	}
+	part = rvn_ed_find_hit(ed, event->local_x, event->local_y, &in_bar);
+	if (event->type == R_EVENT_MOUSE_MOVE) {
+		const char* tip = rvn_ed_find_tip(part);
+		if (part != ed->find_hover) {
+			ed->find_hover = part;
+			rvn_widget_invalidate_paint(widget);
+		}
+		widget->cursor = (!in_bar || part == RVN_ED_FIND_QUERY || part == RVN_ED_FIND_REPLACE) ? R_CURSOR_IBEAM : R_CURSOR_ARROW;
+		if (!in_bar) return R_FALSE;
+		/* the tooltip of the editor tells what a button does, as it tells the message of a marker */
+		if (tip ? (!widget->tooltip || strcmp(widget->tooltip, tip) != 0) : ed->marker_tip) {
+			rvn_str_set(&widget->tooltip, tip);
+			ed->marker_tip = tip != NULL;
+			if (widget->window) rvn_window_rearm_tooltip(widget->window);
+		}
+		return R_TRUE;
+	}
+	if (!in_bar) return R_FALSE;
+	if (event->type == R_EVENT_MOUSE_DOWN && event->button == R_MOUSE_LEFT) rvn_ed_find_press(ed, part, event, &f);
+	return R_TRUE;
+}
+
+/*
+ * The keys of the search: Ctrl+F, Ctrl+H, F3, Cmd+G, Escape, and every key
+ * while a field of the bar has them. Returns 1 when the key was used, -1
+ * when it goes to the shortcuts of the window, 0 when it is for the text.
+ */
+static int rvn_ed_find_key(rvn_text_editor_t* ed, const REvent* event) {
+	rvn_widget_t* widget = &ed->base;
+	int shift = (event->modifiers & R_MOD_SHIFT) != 0;
+	int command = (event->modifiers & (R_MOD_CTRL | R_MOD_SUPER)) != 0;
+	int alt = (event->modifiers & R_MOD_ALT) != 0;
+	rvn_textedit_t* edit;
+	int result;
+
+	if (ed->no_find_bar) return 0;
+	/* Ctrl+F, Cmd+F; Ctrl+H, Cmd+Option+F (Cmd+H hides the application on macOS) */
+	if (command && event->key == R_KEY_F) {
+		rvn_ed_find_open(ed, alt);
+		return 1;
+	}
+	if (command && !alt && event->key == R_KEY_H) {
+		rvn_ed_find_open(ed, R_TRUE);
+		return 1;
+	}
+	if ((event->key == R_KEY_F3 && !command && !alt) || (command && !alt && event->key == R_KEY_G)) {
+		rvn_ed_find_step(ed, !shift);
+		return 1;
+	}
+	if (!ed->find_open) return 0;
+	if (event->key == R_KEY_ESCAPE) {
+		rvn_ed_find_close(ed);
+		return 1;
+	}
+	if (!ed->find_focus) return 0;
+
+	edit = rvn_ed_find_field(ed, ed->find_focus);
+	switch (event->key) {
+		case R_KEY_ENTER:
+		case R_KEY_KP_ENTER:
+			if (ed->find_focus == 2) rvn_ed_find_replace(ed, command);
+			else rvn_ed_find_step(ed, !shift);
+			return 1;
+		case R_KEY_TAB:
+			if (command || alt) return -1;
+			if (ed->find_open == 2) rvn_ed_find_focus(ed, ed->find_focus == 1 ? 2 : 1);
+			return 1;
+		case R_KEY_Z:
+		case R_KEY_Y:
+			/* (the history is the text's: nothing to undo in a field) */
+			if (command) return 1;
+			break;
+		default:
+			break;
+	}
+	result = rvn_textedit_key(edit, event);
+	rvn_widget_invalidate_paint(widget);
+	if (result & RVN_TEXTEDIT_CHANGED) {
+		if (ed->find_focus == 1) rvn_ed_find_query_changed(ed);
+		return 1;
+	}
+	if (result & RVN_TEXTEDIT_HANDLED) return 1;
+	/* what a field does not use never moves the text */
+	return (command || alt) ? -1 : 1;
+}
+
+/* A character typed into a field of the bar. Returns R_TRUE when it went there. */
+static int rvn_ed_find_text(rvn_text_editor_t* ed, uint32_t codepoint) {
+	int result;
+	if (!rvn_ed_find_has_keys(ed)) return R_FALSE;
+	result = rvn_textedit_input(rvn_ed_find_field(ed, ed->find_focus), codepoint);
+	if ((result & RVN_TEXTEDIT_CHANGED) && ed->find_focus == 1) rvn_ed_find_query_changed(ed);
+	rvn_widget_invalidate_paint(&ed->base);
+	return R_TRUE;
+}
+
+/* ---------------------------------------------------------------------------
  *  Events
  * ------------------------------------------------------------------------- */
 
@@ -2088,7 +3041,9 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 	Rid id = widget->id;
 	rvn_ed_metrics_t m;
 	rvn_ed_pos_t target;
+	int find = rvn_ed_find_key(ed, event);
 
+	if (find) return find > 0;
 	if (rvn_ed_zoom_key(ed, event)) return R_TRUE;
 
 	rvn_ed_metrics(ed, &m);
@@ -2288,8 +3243,11 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_TEXT: {
 			Rid id = widget->id;
 			uint32_t version = ed->version;
-			if (!(widget->flags & RVN_WF_FOCUSED) || ed->read_only) return R_FALSE;
+			if (!(widget->flags & RVN_WF_FOCUSED)) return R_FALSE;
 			if (event->codepoint < 32 || event->codepoint == 127) return R_FALSE;
+			/* (a field of the find bar takes what is typed, even in a read-only text) */
+			if (rvn_ed_find_text(ed, event->codepoint)) return R_TRUE;
+			if (ed->read_only) return R_FALSE;
 			rvn_ed_type(ed, event->codepoint);
 			rvn_ed_caret_moved(ed, R_FALSE);
 			if (ed->version != version) rvn_ed_notify(widget);
@@ -2325,6 +3283,8 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_MOUSE_UP: {
 			rvn_ed_pos_t pos;
 			int used;
+			/* the find bar lies over the text and its scrollbar */
+			if (!ed->selecting && rvn_ed_find_mouse(ed, event)) return R_TRUE;
 			rvn_ed_metrics(ed, &m);
 			rvn_ed_update_rows(ed, &m);
 			rvn_ed_tracks(ed, &m, &vertical, &horizontal);
@@ -2381,6 +3341,8 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 
 			pos = rvn_ed_point_pos(ed, &m, event->local_x - m.area.x + ed->hbar.offset, event->local_y - m.area.y + ed->vbar.offset);
 			if (event->type == R_EVENT_MOUSE_DOWN) {
+				/* a click on the text gives it back the keys */
+				rvn_ed_find_focus(ed, 0);
 				if (event->clicks >= 3) {
 					/* the whole line, with its line break */
 					ed->anchor = rvn_ed_pos(pos.line, 0);
@@ -2461,6 +3423,12 @@ static void rvn_text_editor_destroy(rvn_widget_t* widget) {
 	for (i = 0; i < ed->marker_count; i++) rvn_free(ed->markers[i].message);
 	rvn_free(ed->markers);
 	if (ed->complete) rvn_widget_destroy(ed->complete);
+	rvn_free(ed->search.query);
+	rvn_free(ed->search.folded);
+	if (ed->find_ready) {
+		rvn_textedit_free(&ed->find_query);
+		rvn_textedit_free(&ed->find_replace);
+	}
 }
 
 /* Gives the editor a language by name; NULL, "" or "None" removes it. Returns R_FALSE when the name is unknown. */
@@ -2525,6 +3493,13 @@ static int rvn_text_editor_set_attribute(rvn_widget_t* widget, const char* name,
 	} else if (RVN_ATTR("Zoomable")) {
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
 		ed->no_zoom = !flag;
+	} else if (RVN_ATTR("FindBar")) {
+		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
+		Rtext_editor_set_find_bar(widget->id, flag);
+		return R_TRUE;
+	} else if (RVN_ATTR("Search")) {
+		rvn_ed_search_set(ed, value, ed->search.flags);
+		return R_TRUE;
 	} else {
 		return R_FALSE;
 	}
@@ -2988,4 +3963,104 @@ void Rtext_editor_set_changed_callback(Rid id, RTextEditorChangedCallback callba
 	RVN_EDITOR_VOID(ed, id);
 	ed->callback = callback;
 	ed->user_data = user_data;
+}
+
+/* ---- search and replace ---- */
+
+void Rtext_editor_set_search(Rid id, const char* query, Ruint flags) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_search_set(ed, query, flags);
+	/* the field of the find bar shows it */
+	if (ed->find_ready && (!query || !memchr(query, '\n', strlen(query)))) {
+		char* copy = rvn_strdup(ed->search.query ? ed->search.query : "");
+		rvn_textedit_set_text(&ed->find_query, copy);
+		rvn_free(copy);
+	}
+}
+
+const char* Rtext_editor_get_search(Rid id) {
+	RVN_EDITOR(ed, id, "");
+	return ed->search.query ? ed->search.query : "";
+}
+
+Ruint Rtext_editor_get_search_flags(Rid id) {
+	RVN_EDITOR(ed, id, 0);
+	return ed->search.flags;
+}
+
+int Rtext_editor_find_next(Rid id) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return rvn_ed_find(ed, R_TRUE);
+}
+
+int Rtext_editor_find_previous(Rid id) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return rvn_ed_find(ed, R_FALSE);
+}
+
+int Rtext_editor_get_match_count(Rid id) {
+	RVN_EDITOR(ed, id, 0);
+	return rvn_ed_match_count(ed);
+}
+
+int Rtext_editor_get_match_index(Rid id) {
+	RVN_EDITOR(ed, id, -1);
+	return rvn_ed_match_index(ed);
+}
+
+int Rtext_editor_get_match(Rid id, int index, int* line, int* from_column, int* to_column) {
+	int l = 0, start = 0, end = 0, found;
+	RVN_EDITOR(ed, id, R_FALSE);
+	found = rvn_ed_find_match(ed, index, &l, &start, &end);
+	if (line) *line = found ? l : 0;
+	if (from_column) *from_column = found ? start : 0;
+	if (to_column) *to_column = found ? end : 0;
+	return found;
+}
+
+int Rtext_editor_select_match(Rid id, int index) {
+	int line, start, end;
+	RVN_EDITOR(ed, id, R_FALSE);
+	if (!rvn_ed_find_match(ed, index, &line, &start, &end)) return R_FALSE;
+	rvn_ed_select_match(ed, line, start, end);
+	return R_TRUE;
+}
+
+int Rtext_editor_replace(Rid id, const char* replacement) {
+	int replaced;
+	RVN_EDITOR(ed, id, R_FALSE);
+	replaced = rvn_ed_replace_match(ed, replacement);
+	if (replaced) rvn_ed_notify(widget);
+	return replaced;
+}
+
+int Rtext_editor_replace_all(Rid id, const char* replacement) {
+	int count;
+	RVN_EDITOR(ed, id, 0);
+	count = rvn_ed_replace_all(ed, replacement);
+	if (count > 0) rvn_ed_notify(widget);
+	return count;
+}
+
+void Rtext_editor_show_find(Rid id, int replace) {
+	RVN_EDITOR_VOID(ed, id);
+	if (ed->no_find_bar) return;
+	if (widget->window && widget->window->focus != widget && rvn_widget_is_enabled(widget)) rvn_window_set_focus(widget->window, widget);
+	rvn_ed_find_open(ed, replace);
+}
+
+void Rtext_editor_hide_find(Rid id) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_find_close(ed);
+}
+
+int Rtext_editor_is_find_shown(Rid id) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return ed->find_open != 0;
+}
+
+void Rtext_editor_set_find_bar(Rid id, int enabled) {
+	RVN_EDITOR_VOID(ed, id);
+	if (!enabled) rvn_ed_find_close(ed);
+	ed->no_find_bar = !enabled;
 }

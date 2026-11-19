@@ -246,6 +246,8 @@ const te_color_info g_te_colors[TE_COLOR_COUNT] = {
 	{ R_COLOR_TEXT_PLACEHOLDER, "TextPlaceholder", "Text", "Hints in empty fields" },
 	{ R_COLOR_LINK, "Link", "Text", "Links in labels and Markdown" },
 	{ R_COLOR_CODE, "Code", "Text", "`code` in Markdown" },
+	{ R_COLOR_SEARCH_MATCH, "SearchMatch", "Text", "Matches of a search in a text editor (see-through)" },
+	{ R_COLOR_SEARCH_CURRENT, "SearchCurrent", "Text", "The selected match of a search" },
 	{ R_COLOR_ACCENT, "Accent", "Accent", "Primary buttons, checked boxes, sliders" },
 	{ R_COLOR_ACCENT_HOVERED, "AccentHovered", "Accent", "The accent under the pointer" },
 	{ R_COLOR_ACCENT_PRESSED, "AccentPressed", "Accent", "The accent while pressed" },
@@ -860,6 +862,9 @@ void te_generate_palette(te_model* model, int dark, float tint, float contrast) 
 	set_color(model, R_COLOR_ACCENT_TEXT, te_contrast(white, accent) >= te_contrast(black, accent) ? white : black, 1.0f);
 	set_hsl(model, R_COLOR_LINK, h, fmaxf(s, 0.55f), dark ? fmaxf(l, 0.70f) : fminf(l, 0.42f), 1.0f);
 	set_hsl(model, R_COLOR_CODE, h + 28.0f, 0.55f, dark ? 0.80f : 0.36f, 1.0f);
+	/* the matches of a search: amber, seen through, whatever the accent */
+	set_hsl(model, R_COLOR_SEARCH_MATCH, 42.0f, 0.85f, dark ? 0.55f : 0.62f, dark ? 0.32f : 0.45f);
+	set_hsl(model, R_COLOR_SEARCH_CURRENT, 38.0f, 0.92f, dark ? 0.60f : 0.52f, dark ? 0.60f : 0.65f);
 
 	/* status, in the same lightness */
 	set_hsl(model, R_COLOR_SUCCESS, 142.0f, 0.55f, dark ? 0.62f : 0.36f, 1.0f);

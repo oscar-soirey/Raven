@@ -9,6 +9,8 @@
  *                     (Rlanguage_for_file), plus one declared here (INI)
  *   completion        a callback adds its own proposals to those of the editor
  *   markers           the lines that say TODO or FIXME are underlined
+ *   find and replace  the find bar of the editor (Ctrl+F, Ctrl+H), also in the
+ *                     Edit menu
  *   file dialogs      the ones of the system (Rfile_dialog_open / save)
  *   message box       "discard the changes?" before losing them
  *   drag and drop     a file dropped on the window is opened
@@ -358,6 +360,8 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 	else if (strcmp(action, "edit.redo") == 0) Rtext_editor_redo(app.editor);
 	else if (strcmp(action, "edit.select_all") == 0) Rtext_editor_select_all(app.editor);
 	else if (strcmp(action, "edit.complete") == 0) Rtext_editor_show_completions(app.editor);
+	else if (strcmp(action, "edit.find") == 0) Rtext_editor_show_find(app.editor, R_FALSE);
+	else if (strcmp(action, "edit.replace") == 0) Rtext_editor_show_find(app.editor, R_TRUE);
 }
 
 static void action_view(Rid sender, const char* action, void* user_data) {
@@ -392,7 +396,7 @@ static const char WELCOME[] =
 
 int main(int argc, char** argv) {
 	static const char* const file_actions[] = { "file.new", "file.open", "file.save", "file.save_as", "file.quit" };
-	static const char* const edit_actions[] = { "edit.undo", "edit.redo", "edit.select_all", "edit.complete" };
+	static const char* const edit_actions[] = { "edit.undo", "edit.redo", "edit.select_all", "edit.complete", "edit.find", "edit.replace" };
 	static const char* const view_actions[] = { "view.numbers", "view.wrap", "view.dark", "view.light", "view.glass_dark", "view.glass_light" };
 	size_t i;
 

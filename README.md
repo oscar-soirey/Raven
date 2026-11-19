@@ -858,7 +858,7 @@ again when everything is at rest.
 ### Text editor
 
 `R_WIDGET_TEXT_EDITOR` (`<TextEditor>`) edits text of any number of lines:
-selection, clipboard, undo, line numbers, word wrap. With a language it
+selection, clipboard, undo, line numbers, word wrap, find and replace. With a language it
 colors the text, proposes words while typing (those of the language and the
 names already in the text; `Ctrl+Space` asks), shows which bracket closes
 which, closes brackets and quotes, indents, and comments lines out (`Ctrl+/`).
@@ -878,6 +878,29 @@ through two doors made for it: `Rtext_editor_set_completion_callback` (your
 proposals, listed first) and `Rtext_editor_add_marker` (underline a part of
 the text with a message: the errors of a compiler). An LSP client would plug
 in there; Raven does not include one.
+
+**Find and replace.** `Ctrl+F` (`Cmd+F` on macOS) opens a find bar over the
+top of the text, `Ctrl+H` (`Cmd+Option+F`) the same bar with a row to
+replace. The selected text becomes the search; every match of the visible
+text is highlighted (theme colors `SearchMatch` and `SearchCurrent`), the bar
+shows "3 of 12", and options match the case and whole words. `Enter` /
+`Shift+Enter`, `F3` / `Shift+F3` and `Cmd+G` / `Cmd+Shift+G` go to the next
+and the previous match, wrapping around; in the replace field `Enter`
+replaces one match and `Ctrl+Enter` all of them, in a single step of undo.
+`Escape` closes the bar. The search works without the bar for an
+application with its own (`FindBar="false"` removes the bar and its keys):
+
+```c
+Rtext_editor_set_search(editor, "needle", R_SEARCH_MATCH_CASE | R_SEARCH_WHOLE_WORD);
+Rtext_editor_find_next(editor);                      /* selects it, scrolls to it */
+printf("%d of %d\n", Rtext_editor_get_match_index(editor) + 1, Rtext_editor_get_match_count(editor));
+Rtext_editor_replace_all(editor, "pin");             /* one undo puts them all back */
+```
+
+Matches are counted per line and counted again only where the text changed,
+so a text of hundreds of thousands of lines stays fast. Case is ignored for
+ASCII, Latin-1, the Latin letters of Unicode, Greek, Cyrillic and Armenian.
+There are no regular expressions.
 
 ### Header bar
 
@@ -1793,8 +1816,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
 - Placement of the IME composition window.
-- In the text editor: multiple cursors, search and replace, code folding, a
-  language server client.
+- In the text editor: multiple cursors, code folding, a language server
+  client; regular expressions in the search.
 
 **Windows and docking**
 - Dragging from a Raven window to another application.
