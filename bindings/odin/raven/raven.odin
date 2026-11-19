@@ -2447,6 +2447,17 @@ foreign lib {
 	Rwindow_inject_mouse_wheel :: proc(window: Rid, wheel_x: f32, wheel_y: f32) ---
 	Rwindow_inject_key :: proc(window: Rid, key: RKey, pressed: i32, modifiers: u32) ---
 	Rwindow_inject_text :: proc(window: Rid, text: cstring) ---
+	// The text an input method is composing (preedit: Chinese,
+	// Japanese, Korean, dead keys), as the platforms send it. The focused
+	// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+	// place of its selection, but it is not in its text and no changed
+	// callback runs. [selection_start, selection_end) are bytes of `text`:
+	// the part the input method works on (underlined thicker), or the caret
+	// when they are equal; -1 is the end of `text`. NULL or "" ends the
+	// composition without typing anything (cancel). The committed text comes
+	// through Rwindow_inject_text, which ends the composition too, and so
+	// does a change of focus. Ignored when the focus takes no text.
+	Rwindow_inject_composition :: proc(window: Rid, text: cstring, selection_start: i32, selection_end: i32) ---
 	// A drag from another application moves over the window
 	// (`inside` R_TRUE) or leaves it.
 	// Returns: R_TRUE when a drop at this position would be accepted.
@@ -2477,12 +2488,18 @@ foreign lib {
 	// after it, as typing would (the changed callback runs; MaxLength
 	// applies). R_FALSE when there is none or it is read-only.
 	Rwindow_replace_text_input :: proc(window: Rid, start: i32, end: i32, text: cstring) -> i32 ---
+	// The composition of the input method in progress (UTF-8, valid
+	// until it changes) and its selection in bytes; NULL when there is none.
+	// Any output pointer may be NULL.
+	Rwindow_get_text_composition :: proc(window: Rid, selection_start: ^i32, selection_end: ^i32) -> cstring ---
 	// R_TRUE while a menu, list or dialog is open over the window.
 	Rwindow_has_popup :: proc(window: Rid) -> i32 ---
 	// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 	// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 	// outputs when there is no visible editable caret, the window is inactive, or focus changed
-	// since painting. Any output pointer may be NULL.
+	// since painting. Any output pointer may be NULL. While an input method
+	// composes, it is the caret inside the composition: where its candidate
+	// window goes.
 	Rwindow_get_text_input_rect :: proc(window: Rid, x: ^i32, y: ^i32, width: ^i32, height: ^i32) -> i32 ---
 	// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 	Rwindow_get_popup_count :: proc(window: Rid) -> i32 ---
@@ -5019,6 +5036,12 @@ foreign lib {
 	Rhost_inject_key :: proc(window: Rid, key: RKey, pressed: i32, modifiers: u32, repeat: i32) ---
 	// One typed Unicode code point.
 	Rhost_inject_text :: proc(window: Rid, codepoint: u32) ---
+	// The input method of the application's system composes `text`
+	// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+	// NULL or "" cancels it; the committed text then comes through
+	// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+	// candidate window.
+	Rhost_inject_composition :: proc(window: Rid, text: cstring, selection_start: i32, selection_end: i32) ---
 	// The window gained or lost the keyboard. Losing it closes popups and drops captures.
 	Rhost_inject_focus :: proc(window: Rid, focused: i32) ---
 	// The user asked to close the window (its close callback decides).

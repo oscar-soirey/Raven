@@ -845,6 +845,13 @@ struct rvn_window_t {
 	/** Last painted editable caret, in surface pixels; its owner guards against stale focus. */
 	rvn_box_t text_input_rect;
 	Rid text_input_owner;
+	/**
+	 * The text an input method is composing for the focus (preedit), not in
+	 * the widget's text: the text widgets draw it at their caret, underlined.
+	 * NULL: none. composition_start / _end: its selection (bytes).
+	 */
+	char* composition;
+	int composition_start, composition_end;
 	rvn_widget_t* capture;
 	/** R_TRUE when the focus was moved with the keyboard: widgets then draw a focus outline. */
 	int focus_visible;
