@@ -101,6 +101,8 @@ static void test_native_menu_headers(Rid window) {
 	Rid menu;
 	NSMenu* native;
 	NSMenuItem* header;
+	NSWindow* handle;
+	RNativeWindow handles;
 	Rmenu_bar_add_divider(bar);
 	menu = Rmenu_add_menu(bar, "Devices");
 	Rmenu_set_title_color(menu, 1, 0, 0, 1);
@@ -111,6 +113,17 @@ static void test_native_menu_headers(Rid window) {
 	Rwindow_show(window);
 	Rwindow_focus(window);
 	Rdraw_frame();
+	/* The bar of the system shows the menus of the key window, and a window
+	 * becomes key only once the application is active. macOS (14 and later)
+	 * does not make an application active while another one is in front, as
+	 * when the tests run beside other programs or on a build machine: it
+	 * becomes key when the user comes to it. That moment is played here. */
+	CHECK(Rwindow_get_native_handle(window, &handles));
+	handle = (NSWindow*)handles.display;
+	if (![handle isKeyWindow]) {
+		[[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidBecomeKeyNotification object:handle];
+		Rdraw_frame();
+	}
 	native = [[[NSApp mainMenu] itemWithTitle:@"Devices"] submenu];
 	CHECK(native != nil);
 	CHECK([[NSApp mainMenu] numberOfItems] == 2); /* app menu and Devices; dividers omitted */
