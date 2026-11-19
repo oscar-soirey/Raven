@@ -121,6 +121,8 @@ typedef struct rvn_map_view_t {
 	/* what the drag moved since the last paint: the speed is measured by frames, on the clock of the animations */
 	float drag_dx, drag_dy;
 	int coasting;
+	/* the end of an animation or of a glide, found as it painted: told at the next frame */
+	int changed_posted;
 	float wheel_rest;
 
 	/* animation */
@@ -484,6 +486,28 @@ static void rvn_map_changed(rvn_map_view_t* view) {
 	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
 }
 
+/* UI thread, at the next frame: what the paint found is told outside it, if the view is still there. */
+static void rvn_map_changed_task(void* user_data) {
+	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user_data);
+	if (widget && widget->cls->type == R_WIDGET_MAP_VIEW) {
+		rvn_map_view_t* view = (rvn_map_view_t*)widget;
+		view->changed_posted = R_FALSE;
+		rvn_map_changed(view);
+	}
+}
+
+/*
+ * The view moved as it painted (a zoom, a flight or a glide that goes on or ends): the
+ * application is told at the next frame. Its callback and its action may change the tree,
+ * which must not change while it is painted (a sibling destroyed under the loop that paints it).
+ * One telling per frame at most, with the view as it is then.
+ */
+static void rvn_map_changed_later(rvn_map_view_t* view) {
+	if (view->changed_posted) return;
+	view->changed_posted = R_TRUE;
+	Rtask_post(rvn_map_changed_task, (void*)(uintptr_t)view->base.id);
+}
+
 static void rvn_map_stop(rvn_map_view_t* view) {
 	view->anim = RVN_MAP_ANIM_NONE;
 	view->coasting = R_FALSE;
@@ -603,7 +627,7 @@ static void rvn_map_step(rvn_map_view_t* view, RPainter* painter) {
 		}
 	}
 	if (view->anim != RVN_MAP_ANIM_NONE || view->coasting) rvn_paint_keep_animating(painter);
-	if (finished || moved) rvn_map_changed(view);
+	if (finished || moved) rvn_map_changed_later(view);
 }
 
 /* ---- markers ---- */
