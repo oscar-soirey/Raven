@@ -509,7 +509,8 @@ Questions: oscarsoirey.contact@gmail.com.
 Version 0.2.3. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
-under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
+under AddressSanitizer, UBSan and ThreadSanitizer; run on every push on Linux,
+macOS and Windows, with the tests of the Cocoa and Win32 platforms), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,

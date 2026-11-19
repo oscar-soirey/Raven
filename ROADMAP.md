@@ -60,10 +60,10 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 2. Reliability
 
-- [ ] **Tests on Windows and macOS in CI.** Today the tests run on Linux
-  only; the Win32 and Cocoa platforms are only compiled. Run the headless
-  tests on `windows-latest` and `macos-latest`, and the platform tests where
-  a display is available.
+- [x] **Tests on Windows and macOS in CI.** The headless tests run on
+  `ubuntu-latest`, `macos-latest` and `windows-latest` (Visual C++), with the
+  platform tests the runners have a desktop for: `test_cocoa_input` (AppKit)
+  and `test_win32_backdrop` (DWM).
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
