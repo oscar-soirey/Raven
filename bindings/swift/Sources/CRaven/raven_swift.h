@@ -25,6 +25,7 @@
 #include "../../../../include/raven/raven_locale.h"
 #include "../../../../include/raven/raven_accessibility.h"
 #include "../../../../include/raven/raven_host.h"
+#include "../../../../include/raven/raven_testing.h"
 
 /* Swift cannot read ((Rid)-1): the same value, as a constant it reads */
 #undef R_INVALID_ID

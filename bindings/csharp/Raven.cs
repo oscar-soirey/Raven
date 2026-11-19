@@ -2003,6 +2003,34 @@ namespace Raven
         R_ROLE_PANE = 0x0783,
     }
 
+    public enum RGoldenStatus : int
+    {
+        /// <summary>
+        /// The capture matches the golden.
+        /// </summary>
+        R_GOLDEN_MATCH = 0x0BA0,
+        /// <summary>
+        /// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+        /// </summary>
+        R_GOLDEN_UPDATED = 0x0BA1,
+        /// <summary>
+        /// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+        /// </summary>
+        R_GOLDEN_MISMATCH = 0x0BA2,
+        /// <summary>
+        /// The capture and the golden do not have the same size: NAME.actual.png was written.
+        /// </summary>
+        R_GOLDEN_SIZE_MISMATCH = 0x0BA3,
+        /// <summary>
+        /// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+        /// </summary>
+        R_GOLDEN_MISSING = 0x0BA4,
+        /// <summary>
+        /// The window could not be captured, or a file could not be read or written.
+        /// </summary>
+        R_GOLDEN_FAILED = 0x0BA5,
+    }
+
     /// <summary>
     /// Optional settings for Rinit_ex. A zero-initialized structure selects the
     /// default for every field, so new fields can be added without breaking code.
@@ -2935,6 +2963,63 @@ namespace Raven
         /// </summary>
         public IntPtr wake;
         public IntPtr user_data;
+    }
+
+    /// <summary>
+    /// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RGoldenOptions
+    {
+        /// <summary>
+        /// Largest difference on one channel (0..255) for which two pixels are still the same.
+        /// </summary>
+        public int channel_tolerance;
+        /// <summary>
+        /// Share of the pixels (0..1) that may differ while the images still match.
+        /// </summary>
+        public float max_diff_ratio;
+        /// <summary>
+        /// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+        /// </summary>
+        public int per_platform;
+        /// <summary>
+        /// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+        /// </summary>
+        public IntPtr output_directory;
+    }
+
+    /// <summary>
+    /// What Rtest_expect_golden found.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RGoldenResult
+    {
+        public RGoldenStatus status;
+        /// <summary>
+        /// Size of the capture, in pixels.
+        /// </summary>
+        public int width;
+        /// <summary>
+        /// Size of the capture, in pixels.
+        /// </summary>
+        public int height;
+        /// <summary>
+        /// Pixels farther from the golden than the tolerance.
+        /// </summary>
+        public int differing_pixels;
+        /// <summary>
+        /// Largest difference found on one channel (0..255).
+        /// </summary>
+        public int max_channel_difference;
+        /// <summary>
+        /// The golden that was read or written (with the platform tag). Valid until the next call.
+        /// </summary>
+        public IntPtr golden_path;
+        /// <summary>
+        /// One line that says what happened, for the log of the test. Valid until the next call.
+        /// </summary>
+        public IntPtr message;
     }
 
     /// <summary>
@@ -5212,6 +5297,24 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rpixels_free(IntPtr pixels);
+
+        /// <summary>
+        /// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+        /// returns) as a PNG file in memory. Thread-safe.
+        /// size Receives the number of bytes.
+        /// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+        /// there are no pixels.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rimage_encode_png(byte[] rgba, int width, int height, out UIntPtr size);
+
+        /// <summary>
+        /// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+        /// of Rwindow_capture, a picture made by the application. Thread-safe.
+        /// Returns: R_FALSE when the file cannot be written.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_save_png([MarshalAs(Utf8.Str)] string path, byte[] rgba, int width, int height);
 
         /// <summary>
         /// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
@@ -11320,5 +11423,210 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rhost_inject_close(uint window);
+
+        /// <summary>
+        /// R_TRUE makes what is drawn depend only on what the test does:
+        /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+        /// and the carets of the text fields stay lit instead of blinking. R_FALSE
+        /// gives the clock back (time step 0).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtest_set_deterministic(int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_is_deterministic();
+
+        /// <summary>
+        /// Returns: What the goldens of this run are made with, "OS-backend":
+        /// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+        /// "null" with the null backend.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtest_get_platform_tag", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtest_get_platform_tag_();
+        public static string Rtest_get_platform_tag() { return Text(Rtest_get_platform_tag_()); }
+
+        /// <summary>
+        /// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+        /// path may have several names separated by '/': "settings/ok" is the
+        /// widget named "ok" inside the one named "settings". In a window, the
+        /// open popups (menus, dialogs) are searched first, top first, then the
+        /// content.
+        /// scope A window or a widget.
+        /// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtest_find(uint scope, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Moves the mouse to the middle of the widget, presses and releases the left button.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_click(uint widget);
+
+        /// <summary>
+        /// Two clicks in a row on the middle of the widget, seen as a double click.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_double_click(uint widget);
+
+        /// <summary>
+        /// A click of the right button on the middle of the widget (a context menu).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_right_click(uint widget);
+
+        /// <summary>
+        /// Clicks at a position of a widget or a window.
+        /// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+        /// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_click_at(uint target, float x, float y, RMouseButton button, int clicks, uint modifiers);
+
+        /// <summary>
+        /// Moves the mouse over the middle of the widget, without clicking.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_hover(uint widget);
+
+        /// <summary>
+        /// Moves the mouse to a position of a widget or a window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_hover_at(uint target, float x, float y);
+
+        /// <summary>
+        /// Presses the left button on the middle of the widget, moves by
+        /// (dx, dy) in several steps, and releases: a slider, a splitter, a
+        /// window dragged by a widget.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_drag(uint widget, float dx, float dy);
+
+        /// <summary>
+        /// Drags from the middle of one widget to the middle of another (drag and drop).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_drag_to(uint from, uint to);
+
+        /// <summary>
+        /// Turns the mouse wheel over the middle of the widget: `wheel_y`
+        /// notches (positive: toward the top, as a wheel turned away from the
+        /// user), `wheel_x` notches sideways.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_scroll(uint widget, float wheel_x, float wheel_y);
+
+        /// <summary>
+        /// Presses and releases a key, with RModifier held. A widget
+        /// target gets the keyboard focus first; a window sends the key to what
+        /// has the focus.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_key(uint target, RKey key, uint modifiers);
+
+        /// <summary>
+        /// Types UTF-8 text as a keyboard would. A widget target gets the
+        /// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+        /// Tab and Backspace.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_type_text(uint target, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// A finger touches the middle of the widget and leaves at once.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_tap(uint widget);
+
+        /// <summary>
+        /// A finger put on the middle of the widget moves by (dx, dy) in
+        /// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+        /// (Rtest_settle lets it stop).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_swipe(uint widget, float dx, float dy, double seconds);
+
+        /// <summary>
+        /// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_pump(int frames);
+
+        /// <summary>
+        /// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+        /// to do, nothing to paint, no animation, no layout spring, no inertia.
+        /// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+        /// realtime viewport) and the timers are not counted.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_is_idle();
+
+        /// <summary>
+        /// Produces frames until Rtest_is_idle, each advancing the
+        /// animations by the time step (1/60 s unless Rset_animation_time_step
+        /// gives another), for at most `max_seconds` of that time.
+        /// Returns: R_FALSE when it was still moving at the end.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_settle(double max_seconds);
+
+        /// <summary>
+        /// Returns: What the user reads in the widget: the text of a field, else
+        /// its label (as screen readers say it: the text of a Label, a Button, a
+        /// Checkbox...). "" when it has none. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtest_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtest_get_text_(uint widget);
+        public static string Rtest_get_text(uint widget) { return Text(Rtest_get_text_(widget)); }
+
+        /// <summary>
+        /// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+        /// all that holds it, on the page a Switcher or a TabView shows, and laid
+        /// out with a size.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_is_shown(uint widget);
+
+        /// <summary>
+        /// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_is_checked(uint widget);
+
+        /// <summary>
+        /// Captures a window, or the rectangle of one widget, and compares
+        /// it with the PNG file `golden_path` (see the top of this file).
+        /// target A window or a widget.
+        /// options NULL for the defaults.
+        /// result Receives the details; may be NULL.
+        /// Returns: R_TRUE when the capture matches (or the golden was written
+        /// because RAVEN_UPDATE_GOLDENS=1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_expect_golden(uint target, [MarshalAs(Utf8.Str)] string golden_path, ref RGoldenOptions options, ref RGoldenResult result);
+
+        /// <summary>
+        /// Captures a window, or the rectangle of one widget, and compares
+        /// it with the PNG file `golden_path` (see the top of this file).
+        /// target A window or a widget.
+        /// options NULL for the defaults.
+        /// result Receives the details; may be NULL.
+        /// Returns: R_TRUE when the capture matches (or the golden was written
+        /// because RAVEN_UPDATE_GOLDENS=1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_expect_golden(uint target, [MarshalAs(Utf8.Str)] string golden_path, IntPtr options, IntPtr result);
+
+        /// <summary>
+        /// Compares two RGBA8 images of the same size as Rtest_expect_golden
+        /// does, without files.
+        /// diff_rgba When not NULL, receives width * height * 4 bytes: the
+        /// expected image faded, with the different pixels in red.
+        /// Returns: The number of pixels farther apart than `channel_tolerance`;
+        /// -1 when an image is missing.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtest_compare_pixels(byte[] actual, byte[] expected, int width, int height, int channel_tolerance, out int max_channel_difference, IntPtr diff_rgba);
     }
 }

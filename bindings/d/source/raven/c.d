@@ -1477,6 +1477,23 @@ enum : RAccessibleRole
     R_ROLE_PANE = 0x0783,
 }
 
+alias RGoldenStatus = int;
+enum : RGoldenStatus
+{
+    /// The capture matches the golden.
+    R_GOLDEN_MATCH = 0x0BA0,
+    /// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+    R_GOLDEN_UPDATED = 0x0BA1,
+    /// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+    R_GOLDEN_MISMATCH = 0x0BA2,
+    /// The capture and the golden do not have the same size: NAME.actual.png was written.
+    R_GOLDEN_SIZE_MISMATCH = 0x0BA3,
+    /// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+    R_GOLDEN_MISSING = 0x0BA4,
+    /// The window could not be captured, or a file could not be read or written.
+    R_GOLDEN_FAILED = 0x0BA5,
+}
+
 /// Registers a function called once per frame, before the layout.
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -2305,6 +2322,37 @@ struct RHostPlatformDesc
     void* user_data = null;
 }
 
+/// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+struct RGoldenOptions
+{
+    /// Largest difference on one channel (0..255) for which two pixels are still the same.
+    int channel_tolerance = 0;
+    /// Share of the pixels (0..1) that may differ while the images still match.
+    float max_diff_ratio = 0;
+    /// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    int per_platform = 0;
+    /// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    const(char)* output_directory = null;
+}
+
+/// What Rtest_expect_golden found.
+struct RGoldenResult
+{
+    RGoldenStatus status = 0;
+    /// Size of the capture, in pixels.
+    int width = 0;
+    /// Size of the capture, in pixels.
+    int height = 0;
+    /// Pixels farther from the golden than the tolerance.
+    int differing_pixels = 0;
+    /// Largest difference found on one channel (0..255).
+    int max_channel_difference = 0;
+    /// The golden that was read or written (with the platform tag). Valid until the next call.
+    const(char)* golden_path = null;
+    /// One line that says what happened, for the log of the test. Valid until the next call.
+    const(char)* message = null;
+}
+
 /// Starts the library with default settings on the given backend.
 /// The calling thread becomes the UI thread.
 /// Returns: R_TRUE on success. On failure, see Rerror_get_last.
@@ -3000,6 +3048,16 @@ void Rtexture_update(Rid texture, const(ubyte)* rgba, int width, int height);
 ubyte* Rimage_decode(const(void)* data, size_t data_size, int* width, int* height);
 /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 void Rpixels_free(ubyte* pixels);
+/// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+/// returns) as a PNG file in memory. Thread-safe.
+/// size Receives the number of bytes.
+/// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+/// there are no pixels.
+ubyte* Rimage_encode_png(const(ubyte)* rgba, int width, int height, size_t* size);
+/// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+/// of Rwindow_capture, a picture made by the application. Thread-safe.
+/// Returns: R_FALSE when the file cannot be written.
+int Rimage_save_png(const(char)* path, const(ubyte)* rgba, int width, int height);
 /// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 int Rtexture_is_ready(Rid texture);
 /// Blocks until an asynchronous texture is ready.
@@ -5298,3 +5356,96 @@ void Rhost_inject_composition(Rid window, const(char)* text, int selection_start
 void Rhost_inject_focus(Rid window, int focused);
 /// The user asked to close the window (its close callback decides).
 void Rhost_inject_close(Rid window);
+/// R_TRUE makes what is drawn depend only on what the test does:
+/// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+/// and the carets of the text fields stay lit instead of blinking. R_FALSE
+/// gives the clock back (time step 0).
+void Rtest_set_deterministic(int enabled);
+int Rtest_is_deterministic();
+/// Returns: What the goldens of this run are made with, "OS-backend":
+/// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+/// "null" with the null backend.
+const(char)* Rtest_get_platform_tag();
+/// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+/// path may have several names separated by '/': "settings/ok" is the
+/// widget named "ok" inside the one named "settings". In a window, the
+/// open popups (menus, dialogs) are searched first, top first, then the
+/// content.
+/// scope A window or a widget.
+/// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+Rid Rtest_find(Rid scope_, const(char)* path);
+/// Moves the mouse to the middle of the widget, presses and releases the left button.
+int Rtest_click(Rid widget);
+/// Two clicks in a row on the middle of the widget, seen as a double click.
+int Rtest_double_click(Rid widget);
+/// A click of the right button on the middle of the widget (a context menu).
+int Rtest_right_click(Rid widget);
+/// Clicks at a position of a widget or a window.
+/// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+/// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+int Rtest_click_at(Rid target, float x, float y, RMouseButton button, int clicks, uint modifiers);
+/// Moves the mouse over the middle of the widget, without clicking.
+int Rtest_hover(Rid widget);
+/// Moves the mouse to a position of a widget or a window.
+int Rtest_hover_at(Rid target, float x, float y);
+/// Presses the left button on the middle of the widget, moves by
+/// (dx, dy) in several steps, and releases: a slider, a splitter, a
+/// window dragged by a widget.
+int Rtest_drag(Rid widget, float dx, float dy);
+/// Drags from the middle of one widget to the middle of another (drag and drop).
+int Rtest_drag_to(Rid from, Rid to);
+/// Turns the mouse wheel over the middle of the widget: `wheel_y`
+/// notches (positive: toward the top, as a wheel turned away from the
+/// user), `wheel_x` notches sideways.
+int Rtest_scroll(Rid widget, float wheel_x, float wheel_y);
+/// Presses and releases a key, with RModifier held. A widget
+/// target gets the keyboard focus first; a window sends the key to what
+/// has the focus.
+int Rtest_key(Rid target, RKey key, uint modifiers);
+/// Types UTF-8 text as a keyboard would. A widget target gets the
+/// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+/// Tab and Backspace.
+int Rtest_type_text(Rid target, const(char)* text);
+/// A finger touches the middle of the widget and leaves at once.
+int Rtest_tap(Rid widget);
+/// A finger put on the middle of the widget moves by (dx, dy) in
+/// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+/// (Rtest_settle lets it stop).
+int Rtest_swipe(Rid widget, float dx, float dy, double seconds);
+/// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+int Rtest_pump(int frames);
+/// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+/// to do, nothing to paint, no animation, no layout spring, no inertia.
+/// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+/// realtime viewport) and the timers are not counted.
+int Rtest_is_idle();
+/// Produces frames until Rtest_is_idle, each advancing the
+/// animations by the time step (1/60 s unless Rset_animation_time_step
+/// gives another), for at most `max_seconds` of that time.
+/// Returns: R_FALSE when it was still moving at the end.
+int Rtest_settle(double max_seconds);
+/// Returns: What the user reads in the widget: the text of a field, else
+/// its label (as screen readers say it: the text of a Label, a Button, a
+/// Checkbox...). "" when it has none. Valid until the next call.
+const(char)* Rtest_get_text(Rid widget);
+/// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+/// all that holds it, on the page a Switcher or a TabView shows, and laid
+/// out with a size.
+int Rtest_is_shown(Rid widget);
+/// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+int Rtest_is_checked(Rid widget);
+/// Captures a window, or the rectangle of one widget, and compares
+/// it with the PNG file `golden_path` (see the top of this file).
+/// target A window or a widget.
+/// options NULL for the defaults.
+/// result Receives the details; may be NULL.
+/// Returns: R_TRUE when the capture matches (or the golden was written
+/// because RAVEN_UPDATE_GOLDENS=1).
+int Rtest_expect_golden(Rid target, const(char)* golden_path, const(RGoldenOptions)* options, RGoldenResult* result);
+/// Compares two RGBA8 images of the same size as Rtest_expect_golden
+/// does, without files.
+/// diff_rgba When not NULL, receives width * height * 4 bytes: the
+/// expected image faded, with the different pixels in red.
+/// Returns: The number of pixels farther apart than `channel_tolerance`;
+/// -1 when an image is missing.
+int Rtest_compare_pixels(const(ubyte)* actual, const(ubyte)* expected, int width, int height, int channel_tolerance, int* max_channel_difference, ubyte* diff_rgba);

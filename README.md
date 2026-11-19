@@ -668,6 +668,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
 | `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
+| `examples/ui_test` | a test of an interface: the window of `login.xml` driven by the names of its widgets, its texts checked, and a golden image compared (`RAVEN_UPDATE_GOLDENS=1` writes it) |
 | `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
 ![The notepad example](docs/images/notepad.png)
@@ -1486,6 +1487,55 @@ tap presses, toggles, selects or focuses, and a swipe up or down moves a
 slider or a spin box by its step; the widgets out of view are left out.
 The color filters correct (or, for designers, simulate) protanopia,
 deuteranopia, tritanopia and achromatopsia.
+
+### Testing your interface
+
+`raven_testing.h` drives an interface the way a user does and checks what it
+shows: widgets are found by their `Name`, clicked, typed into, dragged,
+scrolled and tapped through the same input path as the window system (no
+event is sent to the OS), frames are produced until nothing moves, and the
+window, or one widget, is compared with a golden PNG file.
+
+```c
+Rid window = Rwindow_create_from_xml_file("login.xml");
+Rtest_set_deterministic(R_TRUE);                /* fixed clock, carets that do not blink */
+
+Rtest_type_text(Rtest_find(window, "user"), "ada");
+Rtest_click(Rtest_find(window, "form/submit")); /* a name, or a path of names */
+Rtest_settle(2.0);                              /* frames until animations and layout are done */
+
+if (strcmp(Rtest_get_text(Rtest_find(window, "status")), "Welcome, ada") != 0) return 1;
+
+RGoldenOptions options = { .channel_tolerance = 8, .per_platform = R_TRUE };
+RGoldenResult result;
+if (!Rtest_expect_golden(window, "goldens/login.png", &options, &result)) {
+    printf("%s\n", result.message);             /* what differs, and where the pictures are */
+    return 1;
+}
+```
+
+There is also `Rtest_double_click`, `Rtest_right_click`, `Rtest_click_at`
+(a position, a button, modifiers), `Rtest_hover`, `Rtest_drag`,
+`Rtest_drag_to`, `Rtest_scroll`, `Rtest_key`, `Rtest_tap`, `Rtest_swipe`,
+`Rtest_pump` (a number of frames), `Rtest_is_idle`, `Rtest_is_shown` and
+`Rtest_is_checked`. A test is an ordinary program run by `ctest` or any
+runner: `examples/ui_test` is one.
+
+When a golden does not match, `NAME.actual.png` (what was drawn) and
+`NAME.diff.png` (the golden faded, the different pixels in red) are written
+beside it, or in `options.output_directory`. Run the tests with
+`RAVEN_UPDATE_GOLDENS=1` to write the goldens again. Headless tests use
+the null backend, which draws nothing; goldens need the GPU backend (Metal
+renders offscreen on macOS; Vulkan renders without a window system where
+the driver has `VK_EXT_headless_surface`, as `test_render` does). What a GPU draws differs slightly
+between backends, so keep one golden per OS and backend
+(`per_platform` names them `login.macos-metal.png`, `login.linux-vulkan.png`...)
+and allow a small tolerance for the rounding of different GPUs. Text is
+rasterized by Raven with its bundled fonts, so the goldens do not change with
+the fonts of the system. `Rimage_save_png` and `Rimage_encode_png` write any
+capture as a PNG file.
+
+![A golden, the actual frame after a deliberate change, and the diff](docs/images/golden_diff.png)
 
 ### Web pages
 

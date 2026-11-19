@@ -60,10 +60,15 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 2. Reliability
 
-- [x] **Tests on Windows and macOS in CI.** The headless tests run on
-  `ubuntu-latest`, `macos-latest` and `windows-latest` (Visual C++), with the
-  platform tests the runners have a desktop for: `test_cocoa_input` (AppKit)
-  and `test_win32_backdrop` (DWM).
+- [ ] **Tests on Windows and macOS in CI.** Today the tests run on Linux
+  only; the Win32 and Cocoa platforms are only compiled. Run the headless
+  tests on `windows-latest` and `macos-latest`, and the platform tests where
+  a display is available.
+- [x] **Tests of interfaces** (`raven_testing.h`): widgets found by name
+  and driven through the input path of the window system (click, double
+  click, drag, wheel, keys, text, tap, swipe), frames until nothing moves,
+  golden PNG images with a tolerance, `.actual.png` / `.diff.png` on a
+  mismatch, `RAVEN_UPDATE_GOLDENS=1` to write them; a PNG writer of its own.
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
@@ -80,14 +85,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Text
 
-- [x] **Input methods on Windows and macOS** (Chinese, Japanese, Korean):
-  `NSTextInputClient` on macOS, IMM32 on Windows. The composition is drawn
-  in the field, underlined (`Rwindow_inject_composition`), and the
-  candidate window is placed at the caret (`Rwindow_get_text_input_rect`).
-- [x] **Input methods on Linux**: `text-input-v3` on Wayland, XIM on the
-  spot on X11 (the composition drawn in the field, the candidates at the
-  caret), the input method's own window where it cannot.
-- [ ] TSF on Windows (IMM32 is used).
+- [ ] **Input methods on Windows, macOS and Wayland** (Chinese, Japanese,
+  Korean): today only X11 (XIM) has them. TSF / IMM32 on Windows,
+  `NSTextInputClient` on macOS, `text-input-v3` on Wayland; the core already
+  tracks the composition rectangle (`Rwindow_get_text_input_rect`).
+- [ ] Placement of the composition window of the IME.
 - [ ] Text editor: multiple cursors, search and replace, code folding, a
   language server client.
 - [ ] Full OpenType shaping (Indic scripts, kerning).

@@ -437,7 +437,7 @@ void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPaint
 	if (focused && !edit->read_only) {
 		rvn_rect_t caret = rvn_rect(area.x + caret_x - edit->scroll, text_y, 1.0f, metrics.line_height);
 		rvn_text_input_rect(widget, painter, caret);
-		if (fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
+		if (g_rvn.test_deterministic || fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
 	}
 	rvn_paint_pop_clip(painter);
 }

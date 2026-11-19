@@ -1,0 +1,13 @@
+<!-- The interface under test of examples/ui_test: the widgets the test uses have a Name. -->
+<Window Title="Sign in" Width="340" Height="250">
+  <VBox Name="form" Slot.Padding="20" Spacing="10">
+    <Label Name="title">Sign in to Raven</Label>
+    <TextInput Name="user" Placeholder="User name"/>
+    <TextInput Name="password" Placeholder="Password" Password="true"/>
+    <HBox Spacing="8">
+      <Button Name="cancel" Text="Cancel" OnClicked="login.cancel"/>
+      <Button Name="submit" Text="Sign in" Style="Primary" OnClicked="login.submit"/>
+    </HBox>
+    <Label Name="status"/>
+  </VBox>
+</Window>

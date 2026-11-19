@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_preedit
+#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -13,6 +13,10 @@
 #       render real frames with the Vulkan backend, and with the Metal backend
 #       (macOS, iOS), and check pixels. They are reported as skipped when the
 #       machine has no usable driver.
+#   test_golden
+#       renders a form with the GPU backend of the platform and compares it with
+#       the golden images of tests/goldens/ (one per OS and backend); skipped
+#       without a GPU or without goldens for this OS and backend.
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -58,10 +62,6 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_drop_highlight)
 endif()
 raven_add_test(test_dialogs)
-if(RAVEN_BUILD_SHARED)
-	# (the windows of the application, which a message box adds to, are internal: looked at with the static library)
-	target_compile_definitions(test_dialogs PRIVATE RAVEN_TEST_SHARED)
-endif()
 raven_add_test(test_themes)
 raven_add_test(test_markdown)
 raven_add_test(test_tools)
@@ -76,10 +76,6 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_accessibility)
 endif()
 raven_add_test(test_host_platform)
-if(NOT RAVEN_BUILD_SHARED)
-	# the bookkeeping of the input methods of Linux (text-input-v3, XIM), apart from the window systems
-	raven_add_test(test_preedit)
-endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).
 	add_executable(test_cocoa_input test_cocoa_input.m test.h)
@@ -117,6 +113,10 @@ endif()
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
 endif()
+# raven_testing.h: widgets driven by name, frames until idle, golden images (headless, null backend)
+raven_add_test(test_testing)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_testing_output")
+target_compile_definitions(test_testing PRIVATE "RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_testing_output\"")
 # trees far deeper than the stack allows a recursion to follow: the stack is made small (by the program itself elsewhere)
 raven_add_test(test_deep_trees)
 if(MSVC)
@@ -151,10 +151,6 @@ endif()
 # one executable for both GPU backends: RAVEN_BACKEND picks the one it renders with
 if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 	raven_add_test(test_render)
-	if(APPLE)
-		# (it sets the state of the Metal encoder of a viewport through the Objective-C runtime)
-		target_link_libraries(test_render PRIVATE objc)
-	endif()
 	if(RAVEN_BACKEND_VULKAN)
 		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=1)
 		set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=vulkan")
@@ -173,6 +169,15 @@ if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 				COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/render/metal/generate_shaders.py --check)
 		endif()
 	endif()
+endif()
+
+# golden images rendered by the GPU backend, compared with tests/goldens/ (skipped without a GPU, or without goldens of this OS and backend)
+if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
+	raven_add_test(test_golden)
+	target_compile_definitions(test_golden PRIVATE
+		"RAVEN_TEST_GOLDENS=\"${CMAKE_CURRENT_SOURCE_DIR}/goldens\""
+		"RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/golden_failures\"")
+	set_tests_properties(test_golden PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Not a test: prints timings for a large widget tree (see the top of benchmark.c).

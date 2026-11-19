@@ -262,6 +262,8 @@ typedef struct rvn_context_t {
 	float animation_speed;
 	/** When positive, every frame advances the animations by this many seconds, whatever the clock says. */
 	double animation_time_step;
+	/** Rtest_set_deterministic: the carets do not blink. */
+	int test_deterministic;
 
 	/** The theme in use. Widgets given a theme of their own point to one of `themes` instead. */
 	rvn_theme_t theme;
@@ -327,6 +329,8 @@ void rvn_script_shutdown(void);
 
 /** Seconds until the next timer fires, or a negative value when there is none. */
 double rvn_timers_next_delay(void);
+/** R_TRUE while tasks posted with Rtask_post wait for the next frame. */
+int rvn_tasks_pending(void);
 
 /** Brackets code that calls application callbacks (see dispatch_depth). */
 void rvn_dispatch_begin(void);
