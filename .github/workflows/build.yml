@@ -345,6 +345,56 @@ jobs:
         run: ctest --test-dir build -R '^binding_haskell$' --no-tests=error --output-on-failure --timeout 900
 
   # ---------------------------------------------------------------------------
+  #  Lua (Linux): the C module of bindings/lua with the Lua of the distribution,
+  #  the oldest and the newest it has: loaded by the interpreter (binding_lua)
+  #  and compiled into a program that embeds Lua (binding_lua_embedded)
+  # ---------------------------------------------------------------------------
+  lua:
+    name: lua ${{ matrix.lua }} (linux)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { lua: "5.1", dev: liblua5.1-0-dev }
+          - { lua: "5.4", dev: liblua5.4-dev }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build lua${{ matrix.lua }} ${{ matrix.dev }}
+
+      - name: Configure
+        run: |
+          lua${{ matrix.lua }} -v
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BUILD_SHARED=ON \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=OFF \
+            -DRAVEN_WARNINGS_AS_ERRORS=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel --target raven raven_lua raven_binding_lua_host
+
+      # both tests must exist: without them (Lua not found) the job must not pass
+      - name: Test
+        run: |
+          ctest --test-dir build -N -R '^binding_lua' | grep -q "Total Tests: 2"
+          ctest --test-dir build -R '^binding_lua' --no-tests=error --output-on-failure --timeout 300
+
+  # ---------------------------------------------------------------------------
   #  Linux, macOS, Windows (Visual C++)
   # ---------------------------------------------------------------------------
   build:

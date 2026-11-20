@@ -1,0 +1,6 @@
+key,en,fr
+hello.title,Hello!,Bonjour !
+hello.none,You have not clicked yet.,Vous n'avez pas encore cliqué.
+hello.button,Click me,Cliquez-moi
+clicks.one,{n} click,{n} clic
+clicks.other,{n} clicks,{n} clics

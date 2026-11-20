@@ -21,7 +21,7 @@ rem    nuget\      Raven.Gui.<version>.nupkg                  needs the .NET SDK
 rem    crates\     raven-gui-<version>.crate                 needs cargo (Rust)
 rem    maven\      raven-gui-<version>.jar (and -sources, -javadoc; the
 rem                libraries inside)                          needs Maven and a JDK 22+
-rem    luarocks\   raven-gui-<version>-1.rockspec
+rem    luarocks\   raven-gui-<version>-1.rockspec (LuaJIT), raven-gui-lua-<version>-1.rockspec (Lua 5.1-5.5)
 rem  A part whose tool is not installed is skipped, with a message.
 rem
 rem  Without --prefix, Raven is built first (shared, Release, Visual C++, the
@@ -188,6 +188,8 @@ echo.
 echo [package] LuaRocks
 mkdir "%OUT%\luarocks"
 copy /y "%BINDINGS%\luajit\raven-gui-*.rockspec" "%OUT%\luarocks\" >nul
+if errorlevel 1 goto failed
+copy /y "%BINDINGS%\lua\raven-gui-lua-*.rockspec" "%OUT%\luarocks\" >nul
 if errorlevel 1 goto failed
 set "MADE=%MADE% luarocks"
 

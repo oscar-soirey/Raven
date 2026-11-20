@@ -9,8 +9,8 @@ src/core/base.h, the version macros of include/raven/raven_core.h, the Rust crat
 (rust/Cargo.toml), the Bun package (bun/package.json), the Node.js package
 (node/package.json), the NuGet package
 (csharp/Raven.Gui.csproj), the Maven package (java/pom.xml, its README) and
-the LuaRocks rockspec (luajit/*.rockspec,
-renamed to the new version). The pip package reads CMakeLists.txt itself.
+the LuaRocks rockspecs (luajit/*.rockspec and
+lua/*.rockspec, renamed to the new version). The pip package reads CMakeLists.txt itself.
 """
 
 import glob
@@ -71,19 +71,21 @@ def main():
     for readme in (os.path.join(HERE, "java", "README.md"), os.path.join(HERE, "README.md")):
         replace(readme, r"(<version>|raven-gui:)\d+\.\d+\.\d+", r"\g<1>%s" % version, count=0)
 
-    rockspecs = glob.glob(os.path.join(HERE, "luajit", "raven-gui-*.rockspec"))
-    if len(rockspecs) != 1:
-        sys.exit("set_version: expected one luajit/raven-gui-*.rockspec, found %d" % len(rockspecs))
-    old = rockspecs[0]
-    text = read(old)
-    text = re.sub(r'^version = "[^"]*"', 'version = "%s-1"' % version, text, flags=re.M)
-    text = re.sub(r'^(\s*tag = )"[^"]*"', r'\g<1>"v%s"' % version, text, flags=re.M)
-    text = re.sub(r"raven-gui-[0-9.]+-\d+\.rockspec", "raven-gui-%s-1.rockspec" % version, text)
-    new = os.path.join(HERE, "luajit", "raven-gui-%s-1.rockspec" % version)
-    write(new, text)
-    if os.path.abspath(new) != os.path.abspath(old):
-        os.remove(old)
-    print("  " + os.path.relpath(new, ROOT))
+    # the rockspecs: their name holds the version, so they are renamed
+    for folder, package in (("luajit", "raven-gui"), ("lua", "raven-gui-lua")):
+        rockspecs = glob.glob(os.path.join(HERE, folder, "%s-[0-9]*.rockspec" % package))
+        if len(rockspecs) != 1:
+            sys.exit("set_version: expected one %s/%s-*.rockspec, found %d" % (folder, package, len(rockspecs)))
+        old = rockspecs[0]
+        text = read(old)
+        text = re.sub(r'^version = "[^"]*"', 'version = "%s-1"' % version, text, flags=re.M)
+        text = re.sub(r'^(\s*tag = )"[^"]*"', r'\g<1>"v%s"' % version, text, flags=re.M)
+        text = re.sub(r"%s-[0-9.]+-\d+\.rockspec" % re.escape(package), "%s-%s-1.rockspec" % (package, version), text)
+        new = os.path.join(HERE, folder, "%s-%s-1.rockspec" % (package, version))
+        write(new, text)
+        if os.path.abspath(new) != os.path.abspath(old):
+            os.remove(old)
+        print("  " + os.path.relpath(new, ROOT))
 
 
 if __name__ == "__main__":
