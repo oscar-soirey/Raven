@@ -196,7 +196,7 @@ or, without installing, `add_subdirectory(Raven)` before the same
 the [releases](https://github.com/oscar-soirey/Raven/releases).
 
 - **The interface in XML, the code in your language.** The window is a `.xml`
-  file; C, C++, Rust, Python, Go, C#, Zig or LuaJIT load it, bind the
+  file; C, C++, Rust, Python, Go, C#, Zig, Lua or LuaJIT load it, bind the
   actions it names and find its widgets by name, built by their usual tools.
   Save the XML while the program runs and the window follows. See
   [Any language](#any-language-the-interface-in-xml-the-code-in-yours).
@@ -370,9 +370,10 @@ fn main() {
 | C# | `R.Rwindow_create_from_xml_file("main.xml")` | `R.Raction_bind("hello.clicked", R.Keep<RActionCallback>(F), IntPtr.Zero)` | `R.Rwidget_find(window, "status")` |
 | Zig | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", f, null)` | `r.Rwidget_find(window, "status")` |
 | LuaJIT | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", ffi.cast("RActionCallback", f), nil)` | `r.Rwidget_find(window, "status")` |
+| Lua (5.1–5.5) | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", f)` | `r.Rwidget_find(window, "status")` |
 
 - Each project is built by the tools of its language (CMake, Cargo, `go build`,
-  `dotnet`, `zig build`) or run by its interpreter (Python, LuaJIT): nothing
+  `dotnet`, `zig build`) or run by its interpreter (Python, Lua, LuaJIT): nothing
   is generated, there is no extra step.
 - An interface that must not depend on a file at run time can be compiled
   into the program as text (`include_str!`, a C string, an embedded resource)
@@ -667,7 +668,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_vulkan` | a Vulkan scene in the UI, twice: offscreen image wrapped as a texture, and drawn in the render pass of Raven. Needs the Vulkan library |
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
-| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
+| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig, LuaJIT and Lua 5.1–5.5: one `main.xml` loaded by the program of each language, built by the tools of each language |
 | `examples/ui_test` | a test of an interface: the window of `login.xml` driven by the names of its widgets, its texts checked, and a golden image compared (`RAVEN_UPDATE_GOLDENS=1` writes it) |
 | `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
@@ -681,7 +682,8 @@ The build trees are in `build\dist\`.
 
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
-(P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
+(P/Invoke), Zig, LuaJIT, Lua 5.1–5.5 (a C module, which a program that
+embeds Lua can also compile in), Java (the Foreign Function & Memory API of Java 22,
 on Maven Central), Odin, Bun (`bun:ffi`), Node.js (a Node-API addon, which
 also runs on Bun and Deno), D (a dub package), Nim (a nimble package), C3
 (a library), Swift (a Swift package) and Haskell (a cabal package). All but Odin and C3 are
@@ -1827,7 +1829,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Lua, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```

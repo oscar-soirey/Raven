@@ -1,4 +1,4 @@
-# One program, eight languages
+# One program, nine languages
 
 The same small program — a title, a button, a label that counts the clicks in
 the language of the system (`strings.csv`, English and French) — written once
@@ -21,12 +21,19 @@ its window follows, without building again.
 | `hello_go` | `main.go` | `go run .` (cgo finds the library: `CGO_CFLAGS`, `CGO_LDFLAGS`) |
 | `hello_csharp` | `Program.cs` | `dotnet run` |
 | `hello_zig` | `src/main.zig` | `RAVEN_LIB_DIR=<package>/lib zig build run` |
-| `hello_lua` | `main.lua` | `LUA_PATH="<bindings>/luajit/?.lua;;" luajit main.lua` |
+| `hello_lua` | `main.lua` | `LUA_PATH="<bindings>/luajit/?.lua;;" luajit main.lua` (LuaJIT and its FFI) |
+| `hello_lua_module` | `main.lua` | `luarocks install raven-gui-lua`, then `RAVEN_LIBRARY=<package>/lib/libraven.so lua main.lua` (Lua 5.1 to 5.5, or LuaJIT, with the C module of `bindings/lua`) |
 
 The easiest way: open the folder in the IDE (`raven_designer hello_rust`) and
 press F5. The IDE sets `RAVEN_LIB_DIR`, `PYTHONPATH`, `LUA_PATH` and the rest
 from the Raven package it runs from, and runs the program in the folder of
 the project, where `main.xml` and `strings.csv` are.
+
+`hello_lua_module` is the one the IDE does not write (yet): its `main.lua` is
+`hello_lua`'s without the FFI, for the standard Lua that has none. Run it
+from its folder with an interpreter that finds the module (`luarocks install
+raven-gui-lua`, or `LUA_CPATH` set to the folder of a `raven.so` built with
+Raven) and the library (`RAVEN_LIBRARY`).
 
 The Rust, Go, C# projects find the bindings in `../../../bindings` (in a
 package: `share/raven/bindings`). `hello_zig/raven/` holds a copy of
