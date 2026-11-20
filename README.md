@@ -669,6 +669,7 @@ The build trees are in `build\dist\`.
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
 | `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
 | `examples/ui_test` | a test of an interface: the window of `login.xml` driven by the names of its widgets, its texts checked, and a golden image compared (`RAVEN_UPDATE_GOLDENS=1` writes it) |
+| `examples/headless` | scripts that drive `hello` (by what its widgets read) and `music` (by their names) from outside, without a change of their code: `RAVEN_HEADLESS=1 RAVEN_SCRIPT=... ./raven_music` (see [Driving any application headlessly](#driving-any-application-headlessly)) |
 | `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
 ![The notepad example](docs/images/notepad.png)
@@ -1536,6 +1537,113 @@ the fonts of the system. `Rimage_save_png` and `Rimage_encode_png` write any
 capture as a PNG file.
 
 ![A golden, the actual frame after a deliberate change, and the diff](docs/images/golden_diff.png)
+
+### Driving any application headlessly
+
+Any Raven application can be run without a window on the screen, driven by a
+script, photographed and read as JSON, without a change of its code: Raven
+reads a few environment variables in `Rinit`. This is for automated tests of
+a finished program, screenshots for documentation, bug reports that replay
+themselves, and agents that use the interface the way a user does. It works
+the same for programs written in C and in every binding.
+
+```sh
+# the tree of the widgets as JSON, and a picture of each window
+RAVEN_HEADLESS=1 RAVEN_TREE=tree.json RAVEN_SNAP=window.png ./raven_hello
+
+# a script of steps; the exit code says whether it passed
+RAVEN_HEADLESS=1 RAVEN_SCRIPT=examples/headless/music.script ./raven_music
+```
+
+| Variable | |
+|---|---|
+| `RAVEN_HEADLESS=1` | no window system: the windows are rendered offscreen. With the other variables alone, the run is driven in real windows |
+| `RAVEN_SCRIPT=file` | the steps to run (below) |
+| `RAVEN_SNAP=out.png` | at the end, a PNG of each window (`out.png`, then `out.2.png`...) |
+| `RAVEN_TREE=tree.json` | at the end, the tree of every window as JSON (`-`: the standard output) |
+| `RAVEN_FILM=dir/` | a PNG per frame of the run (`dir/00000.png`...) with a ring where the pointer clicks, and `dir/marks.txt` |
+| `RAVEN_FRAMES=N` | wait N frames for the application to start, instead of waiting until nothing moves (at most 5 s) |
+| `RAVEN_SIZE=800x600` | the size of the first window, in logical units |
+| `RAVEN_SCALE=2` | pixels per logical unit of the pictures (`Rset_ui_scale`) |
+| `RAVEN_THEME=Light` | a theme or a look (`Rtheme_use`) |
+| `RAVEN_BACKEND=metal`, `vulkan`, `null` | the renderer. Without it, a headless run whose GPU backend cannot start goes on with the null backend: the tree and the checks work, there are no pictures |
+| `RAVEN_TIMEOUT=2` | seconds a step waits for its widget, or a check to become true |
+| `RAVEN_STEP_FRAMES=12` | frames left after each input (12 by default with a film, else 0) |
+| `RAVEN_DETERMINISTIC=0` | the real clock instead of 1/60 s per frame (`Rtest_set_deterministic`) |
+
+The run waits for the first window and for it to settle, runs the script one
+frame at a time inside the loop of the application (`Rwait_frame` does not
+sleep meanwhile), writes the pictures and the tree, and ends the application
+with `Rquit`. The exit code is 0 when everything passed, 1 when a step or a
+check failed, 2 when the script cannot be read; a failed run ends the
+process with that code in `Rshutdown`, whatever `main` returns. What failed is
+written on the standard error with the line of the script:
+
+```
+raven: FAILED login.script:7: expect: "status" reads "Type a user name", expected "Welcome, ada"
+```
+
+A script has one step per line; `#` starts a comment and `"..."` keeps
+spaces (`\"`, `\\`, `\n`, `\t`). A widget is named by its `Name` or a path of
+names (`form/submit`, as `Rtest_find`), by what it reads (`text:Sign in`: the
+first one shown), or a point of the window by `@x,y` (logical units). Steps
+wait for their widget to be shown, and checks for their state to become true,
+up to the timeout. Steps that use the keyboard act on what has the focus, or
+on a widget named first.
+
+| Step | |
+|---|---|
+| `click W [Ctrl+Shift]`, `double W`, `right W`, `hover W` | the mouse, on the middle of a widget or at a point |
+| `type [W] "text"` | types text (`\n` is Enter) |
+| `key [W] Ctrl+A` | a key with modifiers: `Enter`, `Tab`, `Escape`, `F5`, `Shift+Tab`, `Cmd+S`... |
+| `drag W DX DY`, `drag W W2` | drags by an offset, or onto another widget |
+| `scroll W DY [DX]` | notches of the wheel (positive: toward the top) |
+| `tap W`, `swipe W DX DY [SECONDS]` | a finger |
+| `wait N`, `wait 0.5s` | frames, or seconds of the clock of the run |
+| `settle [SECONDS]` | frames until nothing moves (5 s at most) |
+| `snap NAME [W]` | `NAME.png` of the window, or of one widget |
+| `tree NAME [W]` | `NAME.json`: the tree of every window, or of one widget |
+| `expect W text "..."`, `contains "..."` | what the widget reads (`Rtest_get_text`) |
+| `expect W shown`, `hidden`, `checked`, `unchecked`, `enabled`, `disabled`, `focused`, `exists`, `missing` | its state |
+| `mark NAME` | a named point of the run, printed, and in `marks.txt` of a film |
+| `action NAME`, `theme NAME`, `size W H`, `window TITLE`, `timeout SECONDS`, `echo TEXT` | fires an action; changes the theme, the size of the window, the window the steps act on, the timeout; prints |
+
+```
+# examples/headless/music.script: examples/music, which knows nothing of it
+click "text:Focus flow"
+expect collection.title text "Focus flow"
+click search.query
+type "Static"
+key Enter
+settle 1
+expect "text:Cathedral in Berlin" shown
+snap music-search
+```
+
+![examples/music after the script above: a search, rendered headless](docs/images/headless_music.png)
+
+The tree gives, for every widget, what a test or an agent needs to find it
+and act on it: its type, its name and path, its accessibility role, what it
+reads, its bounds in logical units of its window, and its state; lists give
+their rows (`items`). The open popups and the island of a window are in it
+too.
+
+```json
+{ "type": "TextInput", "name": "user", "path": "form/user", "role": "text field",
+  "text": "ada", "label": "Sign in to Raven", "bounds": [20, 48, 300, 26],
+  "shown": true, "enabled": true, "editable": true }
+```
+
+Pictures need a GPU backend: Metal renders offscreen on macOS, Vulkan where
+the driver can render without a window system. The null backend draws
+nothing, so with it `snap` writes nothing (and says so) while the tree and
+the checks still work. Raven does not encode video: make one from a film
+with a tool of your choice, for example
+`ffmpeg -framerate 60 -i dir/%05d.png -pix_fmt yuv420p run.mp4`.
+
+From a program, the same is `Rtest_dump_tree` and `Rtest_save_tree` (the
+JSON), `Rtest_save_png` (a window or a widget) and `Rtest_run_script` (a
+script, in a test; `Rtest_get_script_error` says why it failed).
 
 ### Web pages
 

@@ -2116,12 +2116,28 @@ Rdraw_frame();</pre>
 rectangles and draw commands. <code>src/render/null/null_backend.c</code> is a
 template. <code>Rwindow_get_frame_stats</code> gives the times of layout, paint and
 render of the last frame.</p>
+<p>Any application, written in any language, can also be driven from outside,
+without a change of its code: <code>RAVEN_HEADLESS=1</code> starts it without a
+window on the screen, <code>RAVEN_SCRIPT</code> runs a script of steps
+(<code>click form/submit</code>, <code>type "ada"</code>, <code>key Ctrl+A</code>,
+<code>expect status text "Welcome, ada"</code>, <code>snap after</code>...),
+<code>RAVEN_TREE</code> writes the tree of the windows as JSON and
+<code>RAVEN_SNAP</code> a PNG of each window; the exit code says whether the
+script passed. In a test, <code>Rtest_dump_tree</code> and
+<code>Rtest_run_script</code> do the same. The steps, the variables and the
+JSON are described in the section "Driving any application headlessly" of the
+README.</p>
+<pre>RAVEN_HEADLESS=1 RAVEN_SCRIPT=login.script RAVEN_TREE=tree.json ./my_app</pre>
 
 <!-- ======================================================================= -->
 <h2 id="env">28. Environment variables</h2>
 <div class="tw"><table>
 <tr><th>Variable</th><th></th></tr>
 <tr><td><code>RAVEN_LIVE_RELOAD=0</code></td><td>files are not watched (<a href="#xml-reload">live reload</a>)</td></tr>
+<tr><td><code>RAVEN_HEADLESS=1</code></td><td>no window system: the application runs offscreen, driven by the variables below (<a href="#testing">tests and headless runs</a>)</td></tr>
+<tr><td><code>RAVEN_SCRIPT</code>, <code>RAVEN_SNAP</code>, <code>RAVEN_TREE</code>, <code>RAVEN_FILM</code></td><td>a script of steps to run; a PNG of each window, the tree of the windows as JSON, a PNG per frame, at the end of the run</td></tr>
+<tr><td><code>RAVEN_FRAMES</code>, <code>RAVEN_SIZE</code>, <code>RAVEN_SCALE</code>, <code>RAVEN_THEME</code>, <code>RAVEN_BACKEND</code>, <code>RAVEN_TIMEOUT</code>, <code>RAVEN_STEP_FRAMES</code>, <code>RAVEN_DETERMINISTIC</code></td><td>how a driven run starts, looks and waits</td></tr>
+<tr><td><code>RAVEN_UPDATE_GOLDENS=1</code></td><td>tests: the golden images are written instead of compared</td></tr>
 <tr><td><code>RAVEN_ALLOCATOR=system</code></td><td><code>malloc</code> instead of the heap of Raven</td></tr>
 <tr><td><code>RAVEN_ACCESSIBILITY=1</code></td><td>Linux: expose the interface on AT-SPI even when no screen reader is announced</td></tr>
 <tr><td><code>RAVEN_X11_COMPOSITED=0</code> / <code>1</code></td><td>Linux: tells whether a compositor runs, instead of asking</td></tr>
