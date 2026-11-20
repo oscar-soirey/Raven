@@ -32,6 +32,9 @@
 </p>
 
 Try the [web demo gallery](https://oscar-soirey.github.io/Raven/demos/) (WebAssembly and WebGL 2), or [build and preview it locally](docs/emscripten.md).
+In the browser Raven draws only when something changes, so an idle page uses no CPU, and the
+on-screen keyboards of phones see the text around the caret (suggestions, autocorrection,
+composition), with a password input for passwords and the keyboard of each kind of field.
 
 ## Disclaimer : This project is still in active development and public API is subject to change.
 

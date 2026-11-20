@@ -133,12 +133,56 @@ is current and viewport/scissor are configured, or update a Raven texture.
 Native child OS viewports are unavailable.
 
 Mouse, keyboard, wheel, touch, pen, text composition, clipboard events and
-file/text drops enter the same event paths as desktop input. A DOM textarea
-anchors composition at Raven's caret. The accessibility tree is mirrored as
-ARIA nodes with names, roles, state, text/range editing, actions and live
-announcements. Browser contrast and reduced-motion preferences are exposed
+file/text drops enter the same event paths as desktop input. The
+accessibility tree is mirrored as ARIA nodes with names, roles, state,
+text/range editing, actions and live announcements. Browser contrast and reduced-motion preferences are exposed
 through Raven's accessibility settings. Actual screen-reader behavior and
 mobile virtual keyboards should also be checked on the devices you ship to.
+
+### Text input and on-screen keyboards
+
+The keyboard types into a hidden element placed at Raven's caret, where input
+method candidate windows then appear:
+
+- **A `TextInput`**: a textarea that holds the text around the caret, up to
+  512 UTF-16 units on each side of the selection, and the selection itself.
+  Predictive text, autocorrection and the composition of on-screen keyboards
+  see the real words. Their edits (`insertText`, `insertReplacementText`,
+  `deleteContentBackward`, `deleteWordBackward`, ...) are applied as one
+  replaced range of the field; an insertion at the selection is typed as
+  text events, as a hardware keyboard types. A selection moved by the
+  keyboard (cursor keys of the keyboard, its menu) moves Raven's, and
+  Raven's caret, selection and text are copied back after every change.
+  The composition is drawn in the field, underlined; a word composed again
+  (Android keyboards) leaves the field while it is composed.
+- **A password `TextInput`**: an `<input type="password">`
+  (`autocomplete="current-password"`), so password managers can fill it.
+  It never keeps the text: every input goes to Raven and the element is
+  emptied.
+- **A `TextEditor` or `SpinBox`**: the core does not expose their text yet, so
+  the textarea stays empty and receives keys and typed text as before,
+  with the composition drawn in the field.
+
+The attributes follow the field: `inputmode` and `autocomplete` from
+`Rtext_input_set_input_type` (email, numbers, decimal, phone, URL, search),
+`enterkeyhint` from `Rtext_input_set_return_key`, `readonly` for a read-only
+field. Spelling suggestions, autocorrection and automatic capitals are on for
+plain text and search fields, off for passwords, email, numbers, URLs, the
+`TextEditor` (often code) and the `SpinBox`. The elements use a 16 px font so
+that iOS does not zoom into the page when they take the focus. Shortcuts
+that Raven applies to the field itself (select all, undo, redo) do not also
+reach the textarea.
+
+When an on-screen keyboard shrinks the visual viewport
+(`window.visualViewport`) while a field has the focus, the part of the canvas
+it covers is reported as the keyboard height: `Rwindow_get_keyboard_area`,
+the keyboard callback, the layout above it, and the focused field scrolled
+into view, as on iOS and Android. A pinch zoom is not taken for a keyboard.
+`Rwindow_get_safe_area` reports the CSS safe-area insets
+(`env(safe-area-inset-*)`) where the canvas reaches into them; the page needs
+`viewport-fit=cover` in its viewport meta tag, as the demo shell has. On iOS
+Safari the page may still scroll when the keyboard opens, since the layout
+viewport does not shrink there.
 
 ## Rendering and effects
 
@@ -223,7 +267,15 @@ settings for the loopback test server. `RAVEN_WEB_SCREENSHOT` changes the screen
 Tests also open every gallery example, verify bundled assets load and visible
 UI renders, then exercise pointer movement, wheel input and resizing.
 Tests check that an idle page runs no frame for two seconds and that input
-and a due timer wake it.
+and a due timer wake it; that the textarea holds the text and selection of a
+`TextInput` and that replacements, deletions, insertions in the middle,
+recomposed words and UTF-16 offsets after an emoji reach Raven (as
+`beforeinput`/`input` and composition events dispatched to the textarea); that
+a password field uses a password input that stays empty and an email field
+gets its keyboard hints; and that a shrunken visual viewport is reported as
+the keyboard height. `tests/web/platform-events.cjs` runs the same adapter
+code without a browser, and `test_web_input` checks the UTF-16 offsets, the
+text window and the field attributes natively.
 Tests exercise actual browser input, composition, paste, ARIA state, all
 built-in effects, custom effects, GPU capture, HTTP images, multiple windows,
 file import/export, IndexedDB across reloads, high DPI, resizing, context

@@ -31,6 +31,16 @@ if (engine === 'firefox') {
     if (event.target.matches('input[type=file]')) event.stopImmediatePropagation();
   }, true));
 }
+// A visual viewport the test can shrink, as an on-screen keyboard does on a phone.
+await page.addInitScript(() => {
+  const viewport = new EventTarget();
+  viewport.keyboard = 0;
+  Object.defineProperties(viewport, {
+    offsetLeft:{get:() => 0}, offsetTop:{get:() => 0}, scale:{get:() => 1},
+    width:{get:() => innerWidth}, height:{get:() => innerHeight - viewport.keyboard}});
+  Object.defineProperty(window, 'visualViewport', {value:viewport, configurable:true});
+  window.ravenTestViewport = viewport;
+});
 const errors = [];
 page.on('pageerror', error => errors.push(error.stack || error.message));
 page.on('console', message => {
@@ -99,6 +109,67 @@ try {
     node.dispatchEvent(event);
   });
   assert.equal(await call('test_text',[],[],'string'),'Browser tex日本語 paste');
+  // The textarea holds the text around the caret, for the predictive text and
+  // corrections of on-screen keyboards; their edits replace ranges of the field.
+  const area = page.locator('textarea');
+  const text = () => call('test_text',[],[],'string');
+  const areaState = () => area.evaluate(node => ({value:node.value, start:node.selectionStart,
+    end:node.selectionEnd, spellcheck:node.spellcheck, autocorrect:node.getAttribute('autocorrect'),
+    autocapitalize:node.getAttribute('autocapitalize')}));
+  assert.deepEqual(await areaState(), {value:'Browser tex日本語 paste', start:20, end:20,
+    spellcheck:true, autocorrect:'on', autocapitalize:'sentences'}, 'surrounding text and hints');
+  const edit = (type, value, caret, data = null) => area.evaluate((node, [type, value, caret, data]) => {
+    const before = new InputEvent('beforeinput',{inputType:type,data,cancelable:true,bubbles:true});
+    if (!node.dispatchEvent(before)) return false;
+    node.value = value; node.setSelectionRange(caret,caret);
+    node.dispatchEvent(new InputEvent('input',{inputType:type,data,bubbles:true}));
+    return true;
+  }, [type, value, caret, data]);
+  const select = async (start, end, bytes) => {
+    await area.evaluate((node, [start, end]) => node.setSelectionRange(start, end), [start, end]);
+    await wait(async () => (await call('test_selection')) === bytes[0]*10000+bytes[1]);
+  };
+  assert.ok(await edit('insertReplacementText','Browser tex日本語 pasta',20,'pasta'));
+  assert.equal(await text(),'Browser tex日本語 pasta','autocorrect replacement');
+  assert.ok(await edit('deleteWordBackward','Browser tex日本語',14));
+  assert.equal(await text(),'Browser tex日本語','word deleted backward');
+  await select(7,7,[7,7]);
+  assert.ok(await edit('insertText','Browser! tex日本語',8,'!'));
+  assert.equal(await text(),'Browser! tex日本語','typed in the middle');
+  assert.ok(await edit('deleteContentBackward','Browser tex日本語',7),'the keyboard deletes in the mirror');
+  assert.equal(await text(),'Browser tex日本語','deleted backward');
+  assert.equal(await call('test_selection'),70007);
+  // A word composed again (Android keyboards): it leaves the field while composed.
+  await select(11,11,[11,11]);
+  await area.evaluate(node => {
+    node.dispatchEvent(new CompositionEvent('compositionstart',{data:''}));
+    node.dispatchEvent(new InputEvent('input',{inputType:'insertCompositionText',data:'tex',isComposing:true}));
+  });
+  assert.equal(await text(),'Browser 日本語','the recomposed word left the field');
+  assert.equal(await call('test_composition',[],[],'string'),'tex');
+  await area.evaluate(node => {
+    node.value = 'Browser text日本語'; node.setSelectionRange(12,12);
+    node.dispatchEvent(new InputEvent('input',{inputType:'insertCompositionText',data:'text',isComposing:true}));
+  });
+  assert.equal(await call('test_composition',[],[],'string'),'text');
+  await area.evaluate(node => node.dispatchEvent(new CompositionEvent('compositionend',{data:'text'})));
+  assert.equal(await text(),'Browser text日本語','composition committed');
+  assert.equal(await call('test_composition',[],[],'string'),'');
+  // Raven moves the selection or changes the text: the textarea follows.
+  await call('test_select',[0,7],['number','number']);
+  await wait(async () => { const s = await areaState(); return s.start === 0 && s.end === 7; });
+  await call('test_set_text',['Fresh 😀 text'],['string']);
+  await wait(async () => (await areaState()).value === 'Fresh 😀 text');
+  await select(9,9,[11,11]);
+  assert.ok(await edit('insertText','Fresh 😀 !text',10,'!'));
+  assert.equal(await text(),'Fresh 😀 !text','UTF-16 offsets after an emoji');
+  // The on-screen keyboard covers the bottom of the canvas: Raven lays out above it.
+  await page.evaluate(() => { ravenTestViewport.keyboard = 250;
+    ravenTestViewport.dispatchEvent(new Event('resize')); });
+  await wait(async () => (await call('test_keyboard')) === 250);
+  await page.evaluate(() => { ravenTestViewport.keyboard = 0;
+    ravenTestViewport.dispatchEvent(new Event('resize')); });
+  await wait(async () => (await call('test_keyboard')) === 0);
   await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
   assert.equal(await call('test_clicks'),1,'keyboard activation');
   if (engine === 'chromium') {
@@ -165,6 +236,37 @@ try {
   await page.keyboard.press('Enter'); await page.keyboard.type('line two');
   await wait(async () => (await call('test_multiline_text',[],[],'string'))==='line one\nline two');
   await call('test_multiline',[1],['number']);
+  // A password field types into a password input that never keeps the text;
+  // an email field asks for the email keyboard, without corrections.
+  await call('test_fields',[0],['number']);
+  const fields=page.locator('canvas[id^=raven-canvas-]');
+  await wait(() => fields.count().then(n=>n===1));
+  await page.waitForTimeout(100);
+  const fieldBox=await fields.boundingBox();
+  const clickField=async which => page.mouse.click(
+    fieldBox.x+await call('test_field_x',[which],['number']),
+    fieldBox.y+await call('test_field_y',[which],['number']));
+  const focused=() => page.evaluate(() => { const node=document.activeElement;
+    return {tag:node.tagName,type:node.type,value:node.value,
+      inputmode:node.getAttribute('inputmode'),autocomplete:node.getAttribute('autocomplete'),
+      enterkeyhint:node.getAttribute('enterkeyhint'),spellcheck:node.spellcheck,
+      autocorrect:node.getAttribute('autocorrect')}; });
+  await clickField(1);
+  await wait(async () => (await focused()).type==='password');
+  await page.keyboard.type('s3cret');
+  await wait(async () => (await call('test_field_text',[1],['number'],'string'))==='s3cret');
+  const secret=await focused();
+  assert.equal(secret.value,'','the password is not kept in the page');
+  assert.equal(secret.autocomplete,'current-password');
+  assert.equal(secret.spellcheck,false);
+  await clickField(2);
+  await wait(async () => (await focused()).tag==='TEXTAREA');
+  await page.keyboard.type('me@example.org');
+  await wait(async () => (await call('test_field_text',[2],['number'],'string'))==='me@example.org');
+  const mail=await focused();
+  assert.deepEqual([mail.value,mail.inputmode,mail.autocomplete,mail.enterkeyhint,mail.spellcheck,
+    mail.autocorrect],['me@example.org','email','email','next',false,'off'],'email field hints');
+  await call('test_fields',[1],['number']);
   await call('test_persist',[0],['number']);
   await wait(async () => (await call('test_io_status'))!==0);
   assert.equal(await call('test_io_status'),1,'mount persistent filesystem');

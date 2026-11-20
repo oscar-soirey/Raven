@@ -165,6 +165,8 @@ set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
 	src/platform/preedit.c
 	src/platform/preedit.h
+	src/platform/web_input.c
+	src/platform/web_input.h
 	src/platform/notify.c
 	src/platform/taskbar.c
 	src/platform/tray.c
