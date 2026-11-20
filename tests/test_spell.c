@@ -481,6 +481,33 @@ static void test_text_editor(void) {
 	Rwindow_destroy(g_window);
 }
 
+/* the words at the carets of the other cursors (TextEditor with several cursors) wait as well */
+static void test_text_editor_cursors(void) {
+	Rid editor;
+	open_window("<TextEditor Name=\"editor\" SpellCheck=\"true\" Height=\"200\"/>");
+	editor = Rtest_find(g_window, "editor");
+	Rwidget_set_color(editor, R_COLOR_SPELLING, 0.0f, 1.0f, 0.0f, 1.0f);
+	Rtext_editor_set_text(editor, "hello wrld\nsome tset here");
+	Rwidget_focus(editor);
+	Rtext_editor_set_cursor(editor, 0, 0);
+	frame();
+	CHECK(g_span_count == 2);
+	/* a cursor in "tset" */
+	Rtext_editor_add_cursor(editor, 1, 7);
+	frame();
+	CHECK(Rtext_editor_get_cursor_count(editor) == 2);
+	CHECK(g_span_count == 1);
+	/* and one at the end of "wrld" */
+	Rtext_editor_add_cursor(editor, 0, 10);
+	frame();
+	CHECK(g_span_count == 0);
+	Rtext_editor_clear_cursors(editor);
+	frame();
+	CHECK(Rtext_editor_get_cursor_count(editor) == 1);
+	CHECK(g_span_count == 2);
+	Rwindow_destroy(g_window);
+}
+
 static void test_large_document(void) {
 	enum { LINES = 50000 };
 	Rid editor;
@@ -570,6 +597,7 @@ int main(void) {
 	RUN(test_text_input);
 	RUN(test_text_input_menu);
 	RUN(test_text_editor);
+	RUN(test_text_editor_cursors);
 	RUN(test_large_document);
 	RUN(test_no_checker);
 	Rshutdown();

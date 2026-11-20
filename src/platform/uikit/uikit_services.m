@@ -341,7 +341,11 @@ int rvn_uikit_permission_open_settings(void) {
  *  Notifications (Rnotification_show)
  * ========================================================================= */
 
-/* Shows Raven's notifications while the application is in front too, and tells the core when one is tapped. */
+/*
+ * Shows Raven's notifications while the application is in front too, and
+ * tells the core what the user did with one (rvn_notification_event): the
+ * identifier of a request is the tag of its notification.
+ */
 @interface RavenNotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
 @implementation RavenNotificationDelegate
@@ -354,51 +358,66 @@ int rvn_uikit_permission_open_settings(void) {
 - (void)userNotificationCenter:(UNUserNotificationCenter*)center
     didReceiveNotificationResponse:(UNNotificationResponse*)response
              withCompletionHandler:(void (^)(void))completionHandler {
+	NSString* tag = [response.notification.request.identifier copy];
+	NSString* action = [response.actionIdentifier copy];
+	int event = R_NOTIFICATION_ACTION_INVOKED;
 	(void)center;
-	if ([response.actionIdentifier isEqualToString:UNNotificationDefaultActionIdentifier] &&
-		[response.notification.request.identifier hasPrefix:@"raven."]) {
-		dispatch_async(dispatch_get_main_queue(), ^{ rvn_notification_clicked(); });
-	}
+	if ([action isEqualToString:UNNotificationDefaultActionIdentifier]) event = R_NOTIFICATION_ACTIVATED;
+	else if ([action isEqualToString:UNNotificationDismissActionIdentifier]) event = R_NOTIFICATION_DISMISSED;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		rvn_notification_event(tag.UTF8String, event, event == R_NOTIFICATION_ACTION_INVOKED ? action.UTF8String : NULL);
+	});
 	completionHandler();
 }
 @end
 
 static RavenNotificationDelegate* g_notify_delegate;
-static _Atomic unsigned long g_notify_serial;
 
-static void rvn_uikit_notify_fallback(NSString* title, NSString* body, int urgency, NSString* reason) {
+/* the fallback of the core for a notification the system did not take: `strings` app, tag, title, body, icon */
+static void rvn_uikit_notify_fallback(NSArray<NSString*>* strings, int urgency, NSString* reason) {
 	dispatch_async(dispatch_get_main_queue(), ^{
-		rvn_notification_fallback(title.UTF8String, body.UTF8String, urgency, reason.UTF8String);
+		rvn_notification_t notification;
+		memset(&notification, 0, sizeof(notification));
+		notification.app = strings[0].UTF8String;
+		notification.tag = strings[1].UTF8String;
+		notification.title = strings[2].UTF8String;
+		notification.body = strings[3].UTF8String;
+		notification.icon = strings[4].UTF8String;
+		notification.urgency = urgency;
+		rvn_notification_fallback(&notification, reason.UTF8String);
 	});
 }
 
 /*
  * Rnotification_show: asks for the permission the first time (the answer
  * goes to Rpermission_request too), then shows it, or hands it to the
- * fallback when refused. R_FALSE at once when refused before.
+ * fallback when refused. R_FALSE at once when refused before. A notification
+ * with the tag of one still shown replaces it (the same identifier). The
+ * buttons and the icon are not shown on iOS for now.
  */
-int rvn_uikit_notify(const char* app, const char* title, const char* body, int urgency) {
+int rvn_uikit_notify(const rvn_notification_t* notification) {
 	UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
 	UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
 	int status = atomic_load(&g_notify_status);
-	NSString* identifier;
+	int urgency = notification->urgency;
 	UNNotificationRequest* request;
-	NSString* the_title = [NSString stringWithUTF8String:title && *title ? title : app ? app : ""];
-	NSString* the_body = [NSString stringWithUTF8String:body ? body : ""];
+	NSString* identifier = [NSString stringWithUTF8String:notification->tag];
+	NSArray<NSString*>* strings = @[[NSString stringWithUTF8String:notification->app], identifier,
+		[NSString stringWithUTF8String:notification->title], [NSString stringWithUTF8String:notification->body],
+		[NSString stringWithUTF8String:notification->icon]];
 
 	if (status == R_PERMISSION_DENIED || status == R_PERMISSION_BLOCKED) return R_FALSE;
-	content.title = the_title;
-	content.body = the_body;
+	content.title = notification->title[0] ? strings[2] : strings[0];
+	content.body = strings[3];
 	if (urgency > 0) content.sound = [UNNotificationSound defaultSound];
 	/* (low: in the list, no banner; critical alerts need an entitlement of Apple: shown as normal) */
 	if (urgency == 0) content.interruptionLevel = UNNotificationInterruptionLevelPassive;
-	identifier = [NSString stringWithFormat:@"raven.%lu", atomic_fetch_add(&g_notify_serial, 1) + 1];
 	request = [UNNotificationRequest requestWithIdentifier:identifier content:content trigger:nil];
 
 	void (^show)(void) = ^{
 		[center addNotificationRequest:request withCompletionHandler:^(NSError* error) {
 			RVN_DEVICE_LOG(@"Raven device: notification %@ %@", identifier, error ? error.localizedDescription : @"handed to the system");
-			if (error) rvn_uikit_notify_fallback(the_title, the_body, urgency, error.localizedDescription);
+			if (error) rvn_uikit_notify_fallback(strings, urgency, error.localizedDescription);
 		}];
 	};
 	if (status == R_PERMISSION_GRANTED || status == R_PERMISSION_LIMITED) {
@@ -411,10 +430,22 @@ int rvn_uikit_notify(const char* app, const char* title, const char* body, int u
 		rvn_uikit_notify_refresh(^(int now) {
 			rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, now);
 			if (granted) show();
-			else rvn_uikit_notify_fallback(the_title, the_body, urgency, reason ? reason : @"notifications are not allowed");
+			else rvn_uikit_notify_fallback(strings, urgency, reason ? reason : @"notifications are not allowed");
 		});
 	}];
 	return R_TRUE;
+}
+
+/* Takes away the notification of that tag, shown or still to be shown. */
+void rvn_uikit_notify_close(const char* tag) {
+	UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
+	NSArray<NSString*>* identifiers = @[[NSString stringWithUTF8String:tag]];
+	[center removePendingNotificationRequestsWithIdentifiers:identifiers];
+	[center removeDeliveredNotificationsWithIdentifiers:identifiers];
+}
+
+unsigned rvn_uikit_notify_features(void) {
+	return R_NOTIFICATION_FEATURE_REPLACE | R_NOTIFICATION_FEATURE_CLOSE | R_NOTIFICATION_FEATURE_ACTIVATED;
 }
 
 /* ===========================================================================

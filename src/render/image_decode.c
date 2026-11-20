@@ -66,15 +66,34 @@ static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, 
 
 #endif
 
-uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density, int* current_color) {
+uint8_t* rvn_image_decode_anim(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density,
+	int* current_color, rvn_anim_t** anim) {
 	if (density) *density = 1.0f;
 	if (current_color) *current_color = R_FALSE;
+	if (anim) *anim = NULL;
 	if (data && rvn_svg_detect(data, size)) {
 		float scale = svg_scale > 0.0f ? svg_scale : RVN_SVG_DENSITY;
 		if (density) *density = scale;
 		return rvn_svg_decode(data, size, scale, width, height, current_color);
 	}
+	if (data && rvn_anim_detect(data, size)) {
+		/* an animation shows its first frame as composed by its own decoder, the same as when it plays */
+		rvn_anim_t* opened = rvn_anim_open(data, size, anim != NULL);
+		if (opened) {
+			uint8_t* pixels = rvn_anim_decode_frame(opened, 0);
+			*width = opened->width;
+			*height = opened->height;
+			/* (one frame: a still image) */
+			if (anim && opened->frame_count > 1) *anim = opened;
+			else rvn_anim_free(opened);
+			return pixels;
+		}
+	}
 	return rvn_bitmap_decode(data, size, width, height);
+}
+
+uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density, int* current_color) {
+	return rvn_image_decode_anim(data, size, svg_scale, width, height, density, current_color, NULL);
 }
 
 uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height) {

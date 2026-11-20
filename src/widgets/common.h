@@ -70,6 +70,7 @@ extern const rvn_widget_class_t rvn_class_chart;
 extern const rvn_widget_class_t rvn_class_map_view;
 extern const rvn_widget_class_t rvn_class_carousel;
 extern const rvn_widget_class_t rvn_class_system_web_view;
+extern const rvn_widget_class_t rvn_class_diff_view;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -305,6 +306,13 @@ int  rvn_combo_list_hot(const rvn_widget_t* list);
 int  rvn_combo_list_selected_row(const rvn_widget_t* list);
 /** Chooses a row, as a click does (the list closes). */
 void rvn_combo_list_choose(rvn_widget_t* list, int row);
+
+/* ---- widgets/diff_view.c: the rows of a diff view, for screen readers ---- */
+int rvn_diff_view_row_at(rvn_widget_t* widget, float x, float y);
+rvn_rect_t rvn_diff_view_row_rect(rvn_widget_t* widget, int row);
+/** "added line 12: return 0;", "removed line 7: ...; added line 7: ...", "40 unchanged lines, folded". */
+void rvn_diff_view_describe_row(rvn_widget_t* widget, int row, rvn_text_t* out);
+int rvn_diff_view_row_is_fold(rvn_widget_t* widget, int row);
 /** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */

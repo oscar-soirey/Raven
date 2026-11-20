@@ -401,6 +401,23 @@ the time the next GIF frame is due (`rvn_paint_wake_after`, the
 `wake_request` / `wake_time` of the window, which `Rwait_events` sleeps
 until); with a fixed time step (tests, films) it asks for every frame.
 
+`widget/headless.c` drives any application from outside. `Rinit_ex` asks it
+first (`rvn_headless_configure`) whether the environment drives the run
+(`RAVEN_HEADLESS`, `RAVEN_SCRIPT`...): it then picks the null window system,
+the backend and the scale, and falls back to the null backend when the GPU
+backend cannot start. The script is read whole before the run, so a typo
+stops it at once. It runs inside the frames of the application:
+`rvn_update` calls `rvn_headless_frame` at its end, which runs steps until
+one needs frames (an input is followed by a frame; a check that is not true
+yet, or a widget not shown yet, is tried again at the next frame), and
+`Rwait_events` does not sleep while a run is going on. The index of a step is
+taken before it acts, so a step that opens a dialog that waits (its own
+frames, `rvn_dialog_wait`) is followed by the next steps from inside those
+frames. The tree is built from the widgets and from the accessibility module
+(`rvn_a11y_describe`: roles, texts, states, rows), the same view of the
+interface the screen readers have. `Rtest_run_script` is the same runner,
+pumped by `Rdraw_frame` from a test.
+
 ## Windows: header, dialogs, drag and drop
 
 `widget/window.c` holds what belongs to a window rather than to a widget.
@@ -632,6 +649,8 @@ for the glass themes.
 | `test_tools` | color picker, timeline, node graph (links pulled with the mouse, widgets inside zoomed nodes), background blur, windows seen through, tags made by code, destroy callback, image decoding |
 | `test_render` | real frames through Vulkan, pixels compared (shapes, clipping, textures, text, glass, materials, curves, blur, node graph); skipped without a Vulkan driver |
 | `test_web` | `raven_web`: JSON and base64 always; with a browser of the Chromium family, pages, scripts, messages, input and history (skipped without one) |
+| `test_headless` | the tree as JSON, scripts that pass and scripts that fail (`Rtest_run_script`) |
+| `headless_cli_*`, `example_headless_hello` | an ordinary application driven from outside by the environment: the tree, a script, the exit codes, the pictures (with a GPU) |
 | `designer_script` | the designer adding, moving, wrapping, undoing, and checking its XML |
 | `bindings_up_to_date`, `binding_cpp`, `binding_python`, `binding_rust`, `binding_go` | the bindings match the headers; their examples run (the last three need the shared library and their tools) |
 

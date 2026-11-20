@@ -17,7 +17,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define TE_COLOR_COUNT 38
+#define TE_COLOR_COUNT 43
 #define TE_METRIC_COUNT 20
 #define TE_SYNTAX_COUNT 14
 

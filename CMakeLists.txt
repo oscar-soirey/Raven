@@ -175,6 +175,8 @@ set(RAVEN_PLATFORM_SOURCES
 	src/platform/web_input.h
 	src/platform/notify.c
 	src/platform/services.c
+	src/platform/spell.c
+	src/platform/spell.h
 	src/platform/taskbar.c
 	src/platform/tray.c
 	src/platform/platform.h
@@ -232,6 +234,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/common.c
 	src/widgets/common.h
 	src/widgets/textedit.c
+	src/widgets/spelling.c
 	# panels
 	src/widgets/background_blur.c
 	src/widgets/border.c
@@ -286,6 +289,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/chart.c
 	src/widgets/map_view.c
 	src/widgets/carousel.c
+	src/widgets/system_web_view.c
 	src/widgets/diff_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
@@ -362,6 +366,7 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_uia.c
 		src/platform/win32/win32_manipulation.c
 		src/platform/win32/win32_taskbar.c
+		src/platform/win32/win32_spell.c
 		src/platform/win32/win32_taskbar.h
 		src/platform/win32/win32_transfer.c
 		src/platform/win32/win32_transfer.h
@@ -383,6 +388,7 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 		src/platform/x11/x11_internal.h
 		src/platform/sni.c
 		src/platform/sni.h
+		src/platform/spell_unix.c
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_X11)
 	list(APPEND RAVEN_LIBRARIES ${X11_X11_LIB})
@@ -397,7 +403,11 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m
+		src/platform/cocoa/cocoa_spell.m
+		src/platform/apple/webkit_web_view.m src/platform/apple/webkit_web_view.h)
+	# (WebKit is opened at run time, when the first SystemWebView is made: it is not linked)
+	set_source_files_properties(src/platform/apple/webkit_web_view.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_COCOA)
 	find_library(RAVEN_APPKIT_FRAMEWORK AppKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
@@ -413,8 +423,10 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 	if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		message(FATAL_ERROR "Raven: the uikit platform is only available on iOS (CMAKE_SYSTEM_NAME=iOS)")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m)
-	set_source_files_properties(src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m
+		src/platform/apple/webkit_web_view.m src/platform/apple/webkit_web_view.h)
+	set_source_files_properties(src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m
+		src/platform/apple/webkit_web_view.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_UIKIT)
 	find_library(RAVEN_UIKIT_FRAMEWORK UIKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)

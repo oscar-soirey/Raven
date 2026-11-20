@@ -825,6 +825,11 @@ class RColorRole(enum.IntEnum):
     R_COLOR_CODE = 0x0123
     R_COLOR_SEARCH_MATCH = 0x0124
     R_COLOR_SEARCH_CURRENT = 0x0125
+    R_COLOR_SPELLING = 0x0126
+    R_COLOR_DIFF_ADDED = 0x0127
+    R_COLOR_DIFF_REMOVED = 0x0128
+    R_COLOR_DIFF_ADDED_WORD = 0x0129
+    R_COLOR_DIFF_REMOVED_WORD = 0x012A
 
 R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW
 R_COLOR_PANEL = RColorRole.R_COLOR_PANEL
@@ -864,6 +869,11 @@ R_COLOR_LINK = RColorRole.R_COLOR_LINK
 R_COLOR_CODE = RColorRole.R_COLOR_CODE
 R_COLOR_SEARCH_MATCH = RColorRole.R_COLOR_SEARCH_MATCH
 R_COLOR_SEARCH_CURRENT = RColorRole.R_COLOR_SEARCH_CURRENT
+R_COLOR_SPELLING = RColorRole.R_COLOR_SPELLING
+R_COLOR_DIFF_ADDED = RColorRole.R_COLOR_DIFF_ADDED
+R_COLOR_DIFF_REMOVED = RColorRole.R_COLOR_DIFF_REMOVED
+R_COLOR_DIFF_ADDED_WORD = RColorRole.R_COLOR_DIFF_ADDED_WORD
+R_COLOR_DIFF_REMOVED_WORD = RColorRole.R_COLOR_DIFF_REMOVED_WORD
 
 class RMetric(enum.IntEnum):
     """Sizes, in logical units."""
@@ -987,6 +997,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_MAP_VIEW = 0x0235
     R_WIDGET_CAROUSEL = 0x0236
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
+    R_WIDGET_DIFF_VIEW = 0x0238
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1044,6 +1055,7 @@ R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
 R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
+R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1372,6 +1384,26 @@ R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADING
 R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED
 R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED
 
+class RTableSelectionMode(enum.IntEnum):
+    """How the rows of a Table are selected (Rtable_set_selection_mode)."""
+    R_TABLE_SELECTION_SINGLE = 0x0BC0
+    R_TABLE_SELECTION_MULTIPLE = 0x0BC1
+    R_TABLE_SELECTION_NONE = 0x0BC2
+
+R_TABLE_SELECTION_SINGLE = RTableSelectionMode.R_TABLE_SELECTION_SINGLE
+R_TABLE_SELECTION_MULTIPLE = RTableSelectionMode.R_TABLE_SELECTION_MULTIPLE
+R_TABLE_SELECTION_NONE = RTableSelectionMode.R_TABLE_SELECTION_NONE
+
+class RTableColumnKind(enum.IntEnum):
+    """What the cells of a column show (Rtable_set_column_kind)."""
+    R_TABLE_COLUMN_TEXT = 0x0BD0
+    R_TABLE_COLUMN_CHECK = 0x0BD1
+    R_TABLE_COLUMN_PROGRESS = 0x0BD2
+
+R_TABLE_COLUMN_TEXT = RTableColumnKind.R_TABLE_COLUMN_TEXT
+R_TABLE_COLUMN_CHECK = RTableColumnKind.R_TABLE_COLUMN_CHECK
+R_TABLE_COLUMN_PROGRESS = RTableColumnKind.R_TABLE_COLUMN_PROGRESS
+
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
     R_SYNTAX_NONE = 0x0340
@@ -1551,6 +1583,49 @@ R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT
 R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY
 R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT
 
+class RDiffViewMode(enum.IntEnum):
+    R_DIFF_VIEW_UNIFIED = 0x0C50
+    R_DIFF_VIEW_SPLIT = 0x0C51
+
+R_DIFF_VIEW_UNIFIED = RDiffViewMode.R_DIFF_VIEW_UNIFIED
+R_DIFF_VIEW_SPLIT = RDiffViewMode.R_DIFF_VIEW_SPLIT
+
+class RDiffSide(enum.IntEnum):
+    R_DIFF_LEFT = 0x0C54
+    R_DIFF_RIGHT = 0x0C55
+
+R_DIFF_LEFT = RDiffSide.R_DIFF_LEFT
+R_DIFF_RIGHT = RDiffSide.R_DIFF_RIGHT
+
+class RDiffRowKind(enum.IntEnum):
+    R_DIFF_ROW_SAME = 0x0C58
+    R_DIFF_ROW_REMOVED = 0x0C59
+    R_DIFF_ROW_ADDED = 0x0C5A
+    R_DIFF_ROW_CHANGED = 0x0C5B
+    R_DIFF_ROW_FOLD = 0x0C5C
+    R_DIFF_ROW_HUNK = 0x0C5D
+    R_DIFF_ROW_FILE = 0x0C5E
+    R_DIFF_ROW_NOTE = 0x0C5F
+
+R_DIFF_ROW_SAME = RDiffRowKind.R_DIFF_ROW_SAME
+R_DIFF_ROW_REMOVED = RDiffRowKind.R_DIFF_ROW_REMOVED
+R_DIFF_ROW_ADDED = RDiffRowKind.R_DIFF_ROW_ADDED
+R_DIFF_ROW_CHANGED = RDiffRowKind.R_DIFF_ROW_CHANGED
+R_DIFF_ROW_FOLD = RDiffRowKind.R_DIFF_ROW_FOLD
+R_DIFF_ROW_HUNK = RDiffRowKind.R_DIFF_ROW_HUNK
+R_DIFF_ROW_FILE = RDiffRowKind.R_DIFF_ROW_FILE
+R_DIFF_ROW_NOTE = RDiffRowKind.R_DIFF_ROW_NOTE
+
+class RDiffFlags(enum.IntFlag):
+    """How lines are compared (Rdiff_view_set_flags, Rdiff_unified)."""
+    R_DIFF_IGNORE_TRAILING_SPACE = 1
+    R_DIFF_IGNORE_SPACE = 2
+    R_DIFF_IGNORE_CASE = 4
+
+R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE
+R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE
+R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE
+
 class RNotificationUrgency(enum.IntEnum):
     """How much a notification of the system asks for attention (Rnotification_show)."""
     R_NOTIFICATION_LOW = 0x04F0
@@ -1626,6 +1701,70 @@ R_MESSAGE_RESULT_CANCEL = RMessageResult.R_MESSAGE_RESULT_CANCEL
 R_MESSAGE_RESULT_OK = RMessageResult.R_MESSAGE_RESULT_OK
 R_MESSAGE_RESULT_YES = RMessageResult.R_MESSAGE_RESULT_YES
 R_MESSAGE_RESULT_NO = RMessageResult.R_MESSAGE_RESULT_NO
+
+class RPermission(enum.IntEnum):
+    """What the application may be allowed to use (Rpermission_request)."""
+    R_PERMISSION_CAMERA = 0x0C00
+    R_PERMISSION_NOTIFICATIONS = 0x0C01
+    R_PERMISSION_PHOTOS = 0x0C02
+    R_PERMISSION_MICROPHONE = 0x0C03
+    R_PERMISSION_LOCATION = 0x0C04
+
+R_PERMISSION_CAMERA = RPermission.R_PERMISSION_CAMERA
+R_PERMISSION_NOTIFICATIONS = RPermission.R_PERMISSION_NOTIFICATIONS
+R_PERMISSION_PHOTOS = RPermission.R_PERMISSION_PHOTOS
+R_PERMISSION_MICROPHONE = RPermission.R_PERMISSION_MICROPHONE
+R_PERMISSION_LOCATION = RPermission.R_PERMISSION_LOCATION
+
+class RPermissionStatus(enum.IntEnum):
+    """What the user answered, or would be asked (Rpermission_get_status)."""
+    R_PERMISSION_UNSUPPORTED = 0x0C10
+    R_PERMISSION_NOT_ASKED = 0x0C11
+    R_PERMISSION_GRANTED = 0x0C12
+    R_PERMISSION_LIMITED = 0x0C13
+    R_PERMISSION_DENIED = 0x0C14
+    R_PERMISSION_BLOCKED = 0x0C15
+
+R_PERMISSION_UNSUPPORTED = RPermissionStatus.R_PERMISSION_UNSUPPORTED
+R_PERMISSION_NOT_ASKED = RPermissionStatus.R_PERMISSION_NOT_ASKED
+R_PERMISSION_GRANTED = RPermissionStatus.R_PERMISSION_GRANTED
+R_PERMISSION_LIMITED = RPermissionStatus.R_PERMISSION_LIMITED
+R_PERMISSION_DENIED = RPermissionStatus.R_PERMISSION_DENIED
+R_PERMISSION_BLOCKED = RPermissionStatus.R_PERMISSION_BLOCKED
+
+class RDeviceResult(enum.IntEnum):
+    """How a request of a picker, the camera or a share sheet ended."""
+    R_DEVICE_DONE = 0x0C20
+    R_DEVICE_CANCELLED = 0x0C21
+    R_DEVICE_DENIED = 0x0C22
+    R_DEVICE_UNSUPPORTED = 0x0C23
+    R_DEVICE_BUSY = 0x0C24
+    R_DEVICE_FAILED = 0x0C25
+
+R_DEVICE_DONE = RDeviceResult.R_DEVICE_DONE
+R_DEVICE_CANCELLED = RDeviceResult.R_DEVICE_CANCELLED
+R_DEVICE_DENIED = RDeviceResult.R_DEVICE_DENIED
+R_DEVICE_UNSUPPORTED = RDeviceResult.R_DEVICE_UNSUPPORTED
+R_DEVICE_BUSY = RDeviceResult.R_DEVICE_BUSY
+R_DEVICE_FAILED = RDeviceResult.R_DEVICE_FAILED
+
+class RHaptic(enum.IntEnum):
+    """A short vibration that answers a touch (Rhaptic_play)."""
+    R_HAPTIC_LIGHT = 0x0C30
+    R_HAPTIC_MEDIUM = 0x0C31
+    R_HAPTIC_HEAVY = 0x0C32
+    R_HAPTIC_SELECTION = 0x0C33
+    R_HAPTIC_SUCCESS = 0x0C34
+    R_HAPTIC_WARNING = 0x0C35
+    R_HAPTIC_ERROR = 0x0C36
+
+R_HAPTIC_LIGHT = RHaptic.R_HAPTIC_LIGHT
+R_HAPTIC_MEDIUM = RHaptic.R_HAPTIC_MEDIUM
+R_HAPTIC_HEAVY = RHaptic.R_HAPTIC_HEAVY
+R_HAPTIC_SELECTION = RHaptic.R_HAPTIC_SELECTION
+R_HAPTIC_SUCCESS = RHaptic.R_HAPTIC_SUCCESS
+R_HAPTIC_WARNING = RHaptic.R_HAPTIC_WARNING
+R_HAPTIC_ERROR = RHaptic.R_HAPTIC_ERROR
 
 class RMotion(enum.IntEnum):
     """How a spring moves. Animations in Raven are springs, as on iOS: a value is
@@ -1800,6 +1939,22 @@ R_ROLE_CANVAS = RAccessibleRole.R_ROLE_CANVAS
 R_ROLE_SEPARATOR = RAccessibleRole.R_ROLE_SEPARATOR
 R_ROLE_SCROLL_BAR = RAccessibleRole.R_ROLE_SCROLL_BAR
 R_ROLE_PANE = RAccessibleRole.R_ROLE_PANE
+
+class RHostService(enum.IntEnum):
+    """What a request of a service of the device asks the application for (RHostServiceRequest)."""
+    R_HOST_SERVICE_OPEN_FILES = 0x0C40
+    R_HOST_SERVICE_SAVE_FILE = 0x0C41
+    R_HOST_SERVICE_SELECT_FOLDER = 0x0C42
+    R_HOST_SERVICE_TAKE_PHOTO = 0x0C43
+    R_HOST_SERVICE_PICK_PHOTOS = 0x0C44
+    R_HOST_SERVICE_SHARE = 0x0C45
+
+R_HOST_SERVICE_OPEN_FILES = RHostService.R_HOST_SERVICE_OPEN_FILES
+R_HOST_SERVICE_SAVE_FILE = RHostService.R_HOST_SERVICE_SAVE_FILE
+R_HOST_SERVICE_SELECT_FOLDER = RHostService.R_HOST_SERVICE_SELECT_FOLDER
+R_HOST_SERVICE_TAKE_PHOTO = RHostService.R_HOST_SERVICE_TAKE_PHOTO
+R_HOST_SERVICE_PICK_PHOTOS = RHostService.R_HOST_SERVICE_PICK_PHOTOS
+R_HOST_SERVICE_SHARE = RHostService.R_HOST_SERVICE_SHARE
 
 class RGoldenStatus(enum.IntEnum):
     R_GOLDEN_MATCH = 0x0BA0
@@ -2178,6 +2333,29 @@ class RFileDialogDesc(ctypes.Structure):
     ]
 
 
+class RPickedFile(ctypes.Structure):
+    """A file given by a service of the device. Valid during the callback only: copy what you keep."""
+    _fields_ = [
+        ("path", ctypes.c_char_p),
+        ("name", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("size", ctypes.c_uint64),
+        ("width", ctypes.c_int),
+        ("height", ctypes.c_int),
+    ]
+
+
+class RShareDesc(ctypes.Structure):
+    """What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them."""
+    _fields_ = [
+        ("text", ctypes.c_char_p),
+        ("path", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("title", ctypes.c_char_p),
+        ("anchor", ctypes.c_uint32),
+    ]
+
+
 class RViewportDrawInfo(ctypes.Structure):
     """Passed to the draw callback of a viewport. Sizes are in pixels."""
     _fields_ = [
@@ -2258,6 +2436,32 @@ class RAccessibilitySettings(ctypes.Structure):
     ]
 
 
+class RHostServiceRequest(ctypes.Structure):
+    """A request of a service of the device, valid during the call only. Fields that do not concern the service are zero."""
+    _fields_ = [
+        ("id", ctypes.c_uint32),
+        ("service", ctypes.c_int),
+        ("window", ctypes.c_uint32),
+        ("anchor_x", ctypes.c_float),
+        ("anchor_y", ctypes.c_float),
+        ("anchor_width", ctypes.c_float),
+        ("anchor_height", ctypes.c_float),
+        ("title", ctypes.c_char_p),
+        ("filters", ctypes.POINTER(RFileFilter)),
+        ("filter_count", ctypes.c_int),
+        ("flags", ctypes.c_uint32),
+        ("file_name", ctypes.c_char_p),
+        ("default_extension", ctypes.c_char_p),
+        ("data", ctypes.c_void_p),
+        ("size", ctypes.c_size_t),
+        ("path", ctypes.c_char_p),
+        ("max_count", ctypes.c_int),
+        ("text", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("share_title", ctypes.c_char_p),
+    ]
+
+
 class RHostPlatformDesc(ctypes.Structure):
     _fields_ = [
         ("set_cursor", ctypes.c_void_p),
@@ -2265,6 +2469,13 @@ class RHostPlatformDesc(ctypes.Structure):
         ("clipboard_get", ctypes.c_void_p),
         ("wake", ctypes.c_void_p),
         ("user_data", ctypes.c_void_p),
+        ("permission_status", ctypes.c_void_p),
+        ("permission_request", ctypes.c_void_p),
+        ("service_request", ctypes.c_void_p),
+        ("has_camera", ctypes.c_int),
+        ("open_url", ctypes.c_void_p),
+        ("haptic", ctypes.c_void_p),
+        ("download", ctypes.c_void_p),
     ]
 
 
@@ -2987,6 +3198,14 @@ def _adapt_RBlockEditorContextCallback(function):
         function(editor, block, x, y, user_data)
     return call
 
+RDiffViewLineCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDiffViewLineCallback(function):
+    def call(diff_view, side, line, in_gutter, user_data):
+        function(diff_view, _e(RDiffSide, side), line, in_gutter, user_data)
+    return call
+
 RDialogClosedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -3025,6 +3244,22 @@ RNotificationCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int, ct
 def _adapt_RNotificationCallback(function):
     def call(tag, event, action, user_data):
         function(_r(tag), _e(RNotificationEvent, event), _r(action), user_data)
+    return call
+
+RPermissionCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPermissionCallback(function):
+    def call(permission, status, user_data):
+        function(_e(RPermission, permission), _e(RPermissionStatus, status), user_data)
+    return call
+
+RDeviceCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDeviceCallback(function):
+    def call(result, files, count, user_data):
+        function(_e(RDeviceResult, result), files.contents if files else None, count, user_data)
     return call
 
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
@@ -3722,7 +3957,9 @@ _lib.Ropen_url.restype = ctypes.c_int
 def Ropen_url(url):
     """Opens an address with the program the user has for it: a web
     page in the browser, a mailto: in the mail program, a file in its
-    application. Returns at once.
+    application. Returns at once. On iOS and Android the system opens it
+    (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+    and Raven must be initialized and this be called on the UI thread.
     Returns: R_FALSE when the OS could not be asked (nothing tells whether
     a program then really opened it)."""
     return _lib.Ropen_url(_s(url))
@@ -3754,8 +3991,23 @@ _lib.Rclipboard_get_text.restype = ctypes.c_char_p
 
 
 def Rclipboard_get_text():
-    """Returns: The clipboard text, or "" when empty. Valid until the next call."""
+    """Returns: The clipboard text, or "" when empty. Valid until the next call.
+    On iOS a read that does not follow a paste of the user (the Paste of a
+    menu, a button, Command-V) shows the system's question "Allow Paste?",
+    and on Android 12+ the system says that the application pasted: read it
+    when the user pastes, not to look at it. Android lets only the
+    application in front read it."""
     return _r(_lib.Rclipboard_get_text())
+
+
+_lib.Rclipboard_has_text.argtypes = []
+_lib.Rclipboard_has_text.restype = ctypes.c_int
+
+
+def Rclipboard_has_text():
+    """Returns: R_TRUE when the clipboard holds text, without reading it (no
+    question of the system on iOS): to enable a Paste button."""
+    return _lib.Rclipboard_has_text()
 
 
 _lib.Rclipboard_set_data.argtypes = [ctypes.POINTER(RDataItem), ctypes.c_int]
@@ -5685,6 +5937,22 @@ _lib.Rtexture_create_from_file_async.restype = ctypes.c_uint32
 def Rtexture_create_from_file_async(path):
     """Reads and decodes the file on a worker thread."""
     return _lib.Rtexture_create_from_file_async(_s(path))
+
+
+_lib.Rtexture_create_from_url_async.argtypes = [ctypes.c_char_p]
+_lib.Rtexture_create_from_url_async.restype = ctypes.c_uint32
+
+
+def Rtexture_create_from_url_async(url):
+    """Downloads an http:// or https:// image and decodes it on a worker
+    thread, as an Image whose Source is a URL does. The handle is usable at
+    once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+    a texture that could not be downloaded is ready with a size of 0, and the
+    failure is reported as a warning). Desktops download with WinHTTP or
+    `curl`; iOS and Android through their platform. Android needs the INTERNET
+    permission in the manifest; iOS refuses http:// unless Info.plist allows
+    it (App Transport Security). Up to 32 MiB."""
+    return _lib.Rtexture_create_from_url_async(_s(url))
 
 
 _lib.Rtexture_create_from_pixels.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
@@ -7789,6 +8057,139 @@ def Rtext_input_set_committed_callback(text_input, callback, user_data=None):
     _lib.Rtext_input_set_committed_callback(text_input, _callback(RTextChangedCallback, _adapt_RTextChangedCallback, callback), user_data)
 
 
+_lib.Rtext_input_set_spell_check.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_input_set_spell_check.restype = None
+
+
+def Rtext_input_set_spell_check(text_input, enabled):
+    """Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    a right click on one offers corrections (see SPELL CHECKING). Off by
+    default. A password is never checked."""
+    _lib.Rtext_input_set_spell_check(text_input, enabled)
+
+
+_lib.Rtext_input_get_spell_check.argtypes = [ctypes.c_uint32]
+_lib.Rtext_input_get_spell_check.restype = ctypes.c_int
+
+
+def Rtext_input_get_spell_check(text_input):
+    return _lib.Rtext_input_get_spell_check(text_input)
+
+
+_lib.Rtext_input_set_spell_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_input_set_spell_language.restype = None
+
+
+def Rtext_input_set_spell_language(text_input, language):
+    """Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language)."""
+    _lib.Rtext_input_set_spell_language(text_input, _s(language))
+
+
+_lib.Rspell_is_supported.argtypes = []
+_lib.Rspell_is_supported.restype = ctypes.c_int
+
+
+def Rspell_is_supported():
+    """R_TRUE when the system has a spell checker that Raven can use."""
+    return _lib.Rspell_is_supported()
+
+
+_lib.Rspell_get_language_count.argtypes = []
+_lib.Rspell_get_language_count.restype = ctypes.c_int
+
+
+def Rspell_get_language_count():
+    """The languages the checker has dictionaries for."""
+    return _lib.Rspell_get_language_count()
+
+
+_lib.Rspell_get_language_at.argtypes = [ctypes.c_int]
+_lib.Rspell_get_language_at.restype = ctypes.c_char_p
+
+
+def Rspell_get_language_at(index):
+    return _r(_lib.Rspell_get_language_at(index))
+
+
+_lib.Rspell_set_language.argtypes = [ctypes.c_char_p]
+_lib.Rspell_set_language.restype = ctypes.c_int
+
+
+def Rspell_set_language(language):
+    """The language used when a widget or a call gives none. NULL
+    follows the locale again.
+    Returns: R_FALSE when the checker has no dictionary for it (the default
+    of the system is then used)."""
+    return _lib.Rspell_set_language(_s(language))
+
+
+_lib.Rspell_get_language.argtypes = []
+_lib.Rspell_get_language.restype = ctypes.c_char_p
+
+
+def Rspell_get_language():
+    """The code of the language used by default, as the checker names it; "" when there is no checker."""
+    return _r(_lib.Rspell_get_language())
+
+
+_lib.Rspell_check.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_check.restype = ctypes.c_int
+
+
+def Rspell_check(text, language):
+    """Checks a text. `language` NULL: the default.
+    Returns: The number of misspelled words, read with Rspell_get_misspelling."""
+    return _lib.Rspell_check(_s(text), _s(language))
+
+
+_lib.Rspell_get_misspelling.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rspell_get_misspelling.restype = ctypes.c_int
+
+
+def Rspell_get_misspelling(index):
+    """A misspelled word found by the last Rspell_check: bytes [start, end) of its text."""
+    start_ = ctypes.c_int()
+    end_ = ctypes.c_int()
+    result = _lib.Rspell_get_misspelling(index, ctypes.byref(start_), ctypes.byref(end_))
+    return (result, start_.value, end_.value)
+
+
+_lib.Rspell_suggest.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_suggest.restype = ctypes.c_int
+
+
+def Rspell_suggest(word, language):
+    """Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion."""
+    return _lib.Rspell_suggest(_s(word), _s(language))
+
+
+_lib.Rspell_get_suggestion.argtypes = [ctypes.c_int]
+_lib.Rspell_get_suggestion.restype = ctypes.c_char_p
+
+
+def Rspell_get_suggestion(index):
+    """A correction found by the last Rspell_suggest; valid until the next call."""
+    return _r(_lib.Rspell_get_suggestion(index))
+
+
+_lib.Rspell_learn.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_learn.restype = None
+
+
+def Rspell_learn(word, language):
+    """Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session)."""
+    _lib.Rspell_learn(_s(word), _s(language))
+
+
+_lib.Rspell_ignore.argtypes = [ctypes.c_char_p]
+_lib.Rspell_ignore.restype = None
+
+
+def Rspell_ignore(word):
+    """The word is no longer a misspelling, in every language, until the application quits."""
+    _lib.Rspell_ignore(_s(word))
+
+
 _lib.Rspin_box_set_range.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double]
 _lib.Rspin_box_set_range.restype = None
 
@@ -9016,8 +9417,26 @@ _lib.Rtable_set_multi_select.restype = None
 
 
 def Rtable_set_multi_select(table, enabled):
-    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default."""
+    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE)."""
     _lib.Rtable_set_multi_select(table, enabled)
+
+
+_lib.Rtable_set_selection_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_selection_mode.restype = None
+
+
+def Rtable_set_selection_mode(table, mode):
+    """Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+    Going to single keeps the selected row, going to none clears the selection."""
+    _lib.Rtable_set_selection_mode(table, int(mode))
+
+
+_lib.Rtable_get_selection_mode.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_mode.restype = ctypes.c_int
+
+
+def Rtable_get_selection_mode(table):
+    return _e(RTableSelectionMode, _lib.Rtable_get_selection_mode(table))
 
 
 _lib.Rtable_set_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
@@ -9034,6 +9453,26 @@ _lib.Rtable_is_row_selected.restype = ctypes.c_int
 
 def Rtable_is_row_selected(table, row):
     return _lib.Rtable_is_row_selected(table, row)
+
+
+_lib.Rtable_select_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_select_range.restype = None
+
+
+def Rtable_select_range(table, first, last, selected):
+    """Selects (`selected` R_TRUE) or deselects the rows first..last, both
+    included, keeping the others: multiple selection only (in single
+    selection, selecting a range selects `last`)."""
+    _lib.Rtable_select_range(table, first, last, selected)
+
+
+_lib.Rtable_select_all.argtypes = [ctypes.c_uint32]
+_lib.Rtable_select_all.restype = None
+
+
+def Rtable_select_all(table):
+    """Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes."""
+    _lib.Rtable_select_all(table)
 
 
 _lib.Rtable_clear_selection.argtypes = [ctypes.c_uint32]
@@ -9061,6 +9500,29 @@ def Rtable_get_selection(table, index):
     return _lib.Rtable_get_selection(table, index)
 
 
+_lib.Rtable_get_selection_range_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_range_count.restype = ctypes.c_int
+
+
+def Rtable_get_selection_range_count(table):
+    """The selection as runs of consecutive rows, top to bottom: the
+    fast way to go through a large selection (select all of a million rows
+    is one range)."""
+    return _lib.Rtable_get_selection_range_count(table)
+
+
+_lib.Rtable_get_selection_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtable_get_selection_range.restype = ctypes.c_int
+
+
+def Rtable_get_selection_range(table, index):
+    """The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges."""
+    first_ = ctypes.c_int()
+    last_ = ctypes.c_int()
+    result = _lib.Rtable_get_selection_range(table, index, ctypes.byref(first_), ctypes.byref(last_))
+    return (result, first_.value, last_.value)
+
+
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtable_set_selected.restype = None
 
@@ -9075,7 +9537,21 @@ _lib.Rtable_get_selected.restype = ctypes.c_int
 
 
 def Rtable_get_selected(table):
+    """The selected row (-1: none). In multiple selection, the one
+    selected last, or else the first one; the selection changed callback
+    receives it."""
     return _lib.Rtable_get_selected(table)
+
+
+_lib.Rtable_get_current_row.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_current_row.restype = ctypes.c_int
+
+
+def Rtable_get_current_row(table):
+    """The row the keyboard is on: the selected row in single
+    selection; in multiple selection the row last clicked or reached with
+    the arrows, which Space toggles (it may be unselected). -1: none."""
+    return _lib.Rtable_get_current_row(table)
 
 
 _lib.Rtable_scroll_to_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
@@ -9233,6 +9709,45 @@ _lib.Rtable_get_frozen_columns.restype = ctypes.c_int
 
 def Rtable_get_frozen_columns(table):
     return _lib.Rtable_get_frozen_columns(table)
+
+
+_lib.Rtable_set_column_kind.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_column_kind.restype = None
+
+
+def Rtable_set_column_kind(table, column, kind):
+    """Text (default), check box or progress bar: how the cells of the
+    column are drawn from their texts. A check column is made editable (the
+    user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+    only) and centered. For anything else, a cell color callback and the
+    texts are what the table offers: it draws no other widget in its cells."""
+    _lib.Rtable_set_column_kind(table, column, int(kind))
+
+
+_lib.Rtable_get_column_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_column_kind.restype = ctypes.c_int
+
+
+def Rtable_get_column_kind(table, column):
+    return _e(RTableColumnKind, _lib.Rtable_get_column_kind(table, column))
+
+
+_lib.Rtable_is_cell_checked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_is_cell_checked.restype = ctypes.c_int
+
+
+def Rtable_is_cell_checked(table, row, column):
+    """A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked."""
+    return _lib.Rtable_is_cell_checked(table, row, column)
+
+
+_lib.Rtable_set_cell_checked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_cell_checked.restype = None
+
+
+def Rtable_set_cell_checked(table, row, column, checked):
+    """Stored rows: writes "1" or "0" in the cell (no callback is called)."""
+    _lib.Rtable_set_cell_checked(table, row, column, checked)
 
 
 _lib.Rdate_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
@@ -12277,6 +12792,35 @@ def Rtext_editor_get_markdown(editor):
     return _lib.Rtext_editor_get_markdown(editor)
 
 
+_lib.Rtext_editor_set_spell_check.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_spell_check.restype = None
+
+
+def Rtext_editor_set_spell_check(editor, enabled):
+    """Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    a right click on one offers corrections (see SPELL CHECKING in
+    raven_controls.h). Only the lines shown are checked, again when they
+    change. Off by default: it is meant for prose, not for code."""
+    _lib.Rtext_editor_set_spell_check(editor, enabled)
+
+
+_lib.Rtext_editor_get_spell_check.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_spell_check.restype = ctypes.c_int
+
+
+def Rtext_editor_get_spell_check(editor):
+    return _lib.Rtext_editor_get_spell_check(editor)
+
+
+_lib.Rtext_editor_set_spell_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_editor_set_spell_language.restype = None
+
+
+def Rtext_editor_set_spell_language(editor, language):
+    """Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language)."""
+    _lib.Rtext_editor_set_spell_language(editor, _s(language))
+
+
 _lib.Rtext_editor_get_token.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rtext_editor_get_token.restype = ctypes.c_int
 
@@ -15047,6 +15591,322 @@ def Rblock_editor_set_view(editor, x, y, zoom):
     _lib.Rblock_editor_set_view(editor, x, y, zoom)
 
 
+_lib.Rdiff_unified.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rdiff_unified.restype = ctypes.c_void_p
+
+
+def Rdiff_unified(left, right, left_name, right_name, context, flags):
+    """The differences between two texts as a unified diff (the format
+    of `diff -u` and `git diff`), with `context` unchanged lines around each
+    change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+    (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+    the library: it may be called from any thread.
+    Returns: The patch followed by a '\\0' (an empty text when the texts are
+    the same), to release with Rmemory_free; NULL when a text is NULL.
+    `size` receives its length in bytes, and may be NULL."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rdiff_unified(_s(left), _s(right), _s(left_name), _s(right_name), context, flags, ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
+
+
+_lib.Rdiff_count_changes.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32]
+_lib.Rdiff_count_changes.restype = ctypes.c_int
+
+
+def Rdiff_count_changes(left, right, flags):
+    """The number of changes (runs of lines removed and / or added) between two texts. Any thread."""
+    return _lib.Rdiff_count_changes(_s(left), _s(right), flags)
+
+
+_lib.Rdiff_view_create.argtypes = []
+_lib.Rdiff_view_create.restype = ctypes.c_uint32
+
+
+def Rdiff_view_create():
+    return _lib.Rdiff_view_create()
+
+
+_lib.Rdiff_view_set_texts.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_set_texts.restype = None
+
+
+def Rdiff_view_set_texts(diff_view, left, right):
+    """The two texts to compare (NULL: empty). Lines end with "\\n" or "\\r\\n"."""
+    _lib.Rdiff_view_set_texts(diff_view, _s(left), _s(right))
+
+
+_lib.Rdiff_view_set_names.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_set_names.restype = None
+
+
+def Rdiff_view_set_names(diff_view, left_name, right_name):
+    """Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code."""
+    _lib.Rdiff_view_set_names(diff_view, _s(left_name), _s(right_name))
+
+
+_lib.Rdiff_view_load_files.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_load_files.restype = ctypes.c_int
+
+
+def Rdiff_view_load_files(diff_view, left_path, right_path):
+    """Compares two files. Their paths become the names unless names
+    were given. Returns: R_FALSE when a file cannot be read (it is compared
+    as empty)."""
+    return _lib.Rdiff_view_load_files(diff_view, _s(left_path), _s(right_path))
+
+
+_lib.Rdiff_view_set_patch.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdiff_view_set_patch.restype = ctypes.c_int
+
+
+def Rdiff_view_set_patch(diff_view, patch):
+    """Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+    instead of two texts: each file with its name, each hunk with its header.
+    Returns: R_FALSE when the text holds no hunk (nothing is shown)."""
+    return _lib.Rdiff_view_set_patch(diff_view, _s(patch))
+
+
+_lib.Rdiff_view_set_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_mode.restype = None
+
+
+def Rdiff_view_set_mode(diff_view, mode):
+    _lib.Rdiff_view_set_mode(diff_view, int(mode))
+
+
+_lib.Rdiff_view_get_mode.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_mode.restype = ctypes.c_int
+
+
+def Rdiff_view_get_mode(diff_view):
+    return _e(RDiffViewMode, _lib.Rdiff_view_get_mode(diff_view))
+
+
+_lib.Rdiff_view_set_context.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_context.restype = None
+
+
+def Rdiff_view_set_context(diff_view, lines):
+    """Unchanged lines shown around each change (3 by default); the
+    others are folded. A negative number shows every line."""
+    _lib.Rdiff_view_set_context(diff_view, lines)
+
+
+_lib.Rdiff_view_get_context.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_context.restype = ctypes.c_int
+
+
+def Rdiff_view_get_context(diff_view):
+    return _lib.Rdiff_view_get_context(diff_view)
+
+
+_lib.Rdiff_view_set_flags.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rdiff_view_set_flags.restype = None
+
+
+def Rdiff_view_set_flags(diff_view, flags):
+    """How lines are compared: RDiffFlags (0 by default). Not used by a patch."""
+    _lib.Rdiff_view_set_flags(diff_view, flags)
+
+
+_lib.Rdiff_view_get_flags.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_flags.restype = ctypes.c_uint32
+
+
+def Rdiff_view_get_flags(diff_view):
+    return _lib.Rdiff_view_get_flags(diff_view)
+
+
+_lib.Rdiff_view_set_word_diff.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_word_diff.restype = None
+
+
+def Rdiff_view_set_word_diff(diff_view, enabled):
+    """Marks the words that changed inside a changed line (default R_TRUE)."""
+    _lib.Rdiff_view_set_word_diff(diff_view, enabled)
+
+
+_lib.Rdiff_view_set_line_numbers.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_line_numbers.restype = None
+
+
+def Rdiff_view_set_line_numbers(diff_view, visible):
+    """Shows the numbers of the lines (default R_TRUE)."""
+    _lib.Rdiff_view_set_line_numbers(diff_view, visible)
+
+
+_lib.Rdiff_view_set_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdiff_view_set_language.restype = None
+
+
+def Rdiff_view_set_language(diff_view, language):
+    """Colors the code as the text editor does: a language name of
+    Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+    NULL (default) to guess it from the extension of the names."""
+    _lib.Rdiff_view_set_language(diff_view, _s(language))
+
+
+_lib.Rdiff_view_get_change_count.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_change_count.restype = ctypes.c_int
+
+
+def Rdiff_view_get_change_count(diff_view):
+    """The number of changes: runs of lines removed and / or added."""
+    return _lib.Rdiff_view_get_change_count(diff_view)
+
+
+_lib.Rdiff_view_get_change.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdiff_view_get_change.restype = ctypes.c_int
+
+
+def Rdiff_view_get_change(diff_view, change):
+    """Where a change is: its first line and its number of lines on
+    each side (a count of 0: nothing on that side; the line is then the one
+    after which the other side's lines go). Returns: R_FALSE when there is
+    no such change."""
+    left_line_ = ctypes.c_int()
+    left_count_ = ctypes.c_int()
+    right_line_ = ctypes.c_int()
+    right_count_ = ctypes.c_int()
+    result = _lib.Rdiff_view_get_change(diff_view, change, ctypes.byref(left_line_), ctypes.byref(left_count_), ctypes.byref(right_line_), ctypes.byref(right_count_))
+    return (result, left_line_.value, left_count_.value, right_line_.value, right_count_.value)
+
+
+_lib.Rdiff_view_go_to_change.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_go_to_change.restype = None
+
+
+def Rdiff_view_go_to_change(diff_view, change):
+    """Scrolls to a change (from 0) and marks it as the current one."""
+    _lib.Rdiff_view_go_to_change(diff_view, change)
+
+
+_lib.Rdiff_view_get_current_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_current_change.restype = ctypes.c_int
+
+
+def Rdiff_view_get_current_change(diff_view):
+    """The current change, -1 before the first one is gone to."""
+    return _lib.Rdiff_view_get_current_change(diff_view)
+
+
+_lib.Rdiff_view_next_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_next_change.restype = ctypes.c_int
+
+
+def Rdiff_view_next_change(diff_view):
+    """Goes to the next / previous change. Returns: Its index, -1 when there is none."""
+    return _lib.Rdiff_view_next_change(diff_view)
+
+
+_lib.Rdiff_view_prev_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_prev_change.restype = ctypes.c_int
+
+
+def Rdiff_view_prev_change(diff_view):
+    return _lib.Rdiff_view_prev_change(diff_view)
+
+
+_lib.Rdiff_view_get_row_count.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_row_count.restype = ctypes.c_int
+
+
+def Rdiff_view_get_row_count(diff_view):
+    """The rows shown, folds, hunk headers and notes included."""
+    return _lib.Rdiff_view_get_row_count(diff_view)
+
+
+_lib.Rdiff_view_get_row.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdiff_view_get_row.restype = ctypes.c_int
+
+
+def Rdiff_view_get_row(diff_view, row):
+    """What a row shows, and the numbers of its lines (0 for a side it
+    has no line of). A fold gives the first line it hides on each side."""
+    left_line_ = ctypes.c_int()
+    right_line_ = ctypes.c_int()
+    result = _e(RDiffRowKind, _lib.Rdiff_view_get_row(diff_view, row, ctypes.byref(left_line_), ctypes.byref(right_line_)))
+    return (result, left_line_.value, right_line_.value)
+
+
+_lib.Rdiff_view_get_row_text.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rdiff_view_get_row_text.restype = ctypes.c_char_p
+
+
+def Rdiff_view_get_row_text(diff_view, row, side):
+    """The text of a row on one side (in unified mode the side does not
+    matter for a line); a fold, a hunk, a file or a note give their label.
+    Valid until the next call. "" when there is none."""
+    return _r(_lib.Rdiff_view_get_row_text(diff_view, row, int(side)))
+
+
+_lib.Rdiff_view_expand.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_expand.restype = ctypes.c_int
+
+
+def Rdiff_view_expand(diff_view, row):
+    """Shows the lines of a fold. Returns: R_FALSE when the row is not a fold."""
+    return _lib.Rdiff_view_expand(diff_view, row)
+
+
+_lib.Rdiff_view_get_first_visible_row.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_first_visible_row.restype = ctypes.c_int
+
+
+def Rdiff_view_get_first_visible_row(diff_view):
+    """The first row at the top of the view; Rdiff_view_scroll_to_row brings one there."""
+    return _lib.Rdiff_view_get_first_visible_row(diff_view)
+
+
+_lib.Rdiff_view_scroll_to_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_scroll_to_row.restype = None
+
+
+def Rdiff_view_scroll_to_row(diff_view, row):
+    _lib.Rdiff_view_scroll_to_row(diff_view, row)
+
+
+_lib.Rdiff_view_add_annotation.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rdiff_view_add_annotation.restype = None
+
+
+def Rdiff_view_add_annotation(diff_view, side, line, text):
+    """Attaches a short note to a line (a review comment, an error): a
+    mark in the gutter and the text in a row under the line, which is never
+    folded away. Several notes may go to one line."""
+    _lib.Rdiff_view_add_annotation(diff_view, int(side), line, _s(text))
+
+
+_lib.Rdiff_view_clear_annotations.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_clear_annotations.restype = None
+
+
+def Rdiff_view_clear_annotations(diff_view):
+    _lib.Rdiff_view_clear_annotations(diff_view)
+
+
+_lib.Rdiff_view_get_selected_text.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_selected_text.restype = ctypes.c_char_p
+
+
+def Rdiff_view_get_selected_text(diff_view):
+    """The text selected by the user ("" when none), one line after another."""
+    return _r(_lib.Rdiff_view_get_selected_text(diff_view))
+
+
+_lib.Rdiff_view_set_line_clicked_callback.argtypes = [ctypes.c_uint32, RDiffViewLineCallback, ctypes.c_void_p]
+_lib.Rdiff_view_set_line_clicked_callback.restype = None
+
+
+def Rdiff_view_set_line_clicked_callback(diff_view, callback, user_data=None):
+    """Called when a line or its number is clicked (the action of the widget is fired too)."""
+    _lib.Rdiff_view_set_line_clicked_callback(diff_view, _callback(RDiffViewLineCallback, _adapt_RDiffViewLineCallback, callback), user_data)
+
+
 _lib.Rdialog_open.argtypes = [ctypes.c_uint32, ctypes.c_uint32, RDialogClosedCallback, ctypes.c_void_p]
 _lib.Rdialog_open.restype = None
 
@@ -15499,6 +16359,163 @@ _lib.Rnotification_supports.restype = ctypes.c_int
 def Rnotification_supports(feature):
     """Whether the notifications of the system have that feature here (R_FALSE where there are none)."""
     return _lib.Rnotification_supports(int(feature))
+
+
+_lib.Rpermission_get_status.argtypes = [ctypes.c_int]
+_lib.Rpermission_get_status.restype = ctypes.c_int
+
+
+def Rpermission_get_status(permission):
+    """What the user answered, without asking. Cheap: the platform
+    remembers it. On iOS the status of notifications is known shortly after
+    the start (R_PERMISSION_NOT_ASKED until then)."""
+    return _e(RPermissionStatus, _lib.Rpermission_get_status(int(permission)))
+
+
+_lib.Rpermission_request.argtypes = [ctypes.c_int, RPermissionCallback, ctypes.c_void_p]
+_lib.Rpermission_request.restype = None
+
+
+def Rpermission_request(permission, callback, user_data=None):
+    """Asks the user, with the question of the system, when the status
+    is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+    with the status. Several requests for the same permission share one
+    question. `callback` may be NULL."""
+    _lib.Rpermission_request(int(permission), _callback(RPermissionCallback, _adapt_RPermissionCallback, callback), user_data)
+
+
+_lib.Rpermission_open_settings.argtypes = []
+_lib.Rpermission_open_settings.restype = ctypes.c_int
+
+
+def Rpermission_open_settings():
+    """Opens the page of the application in the Settings of the system,
+    where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+    Returns: R_FALSE when the platform has no such page."""
+    return _lib.Rpermission_open_settings()
+
+
+_lib.Rpermission_to_string.argtypes = [ctypes.c_int]
+_lib.Rpermission_to_string.restype = ctypes.c_char_p
+
+
+def Rpermission_to_string(permission):
+    """Returns: The name of a permission or a status ("camera", "granted"...), for logs."""
+    return _r(_lib.Rpermission_to_string(int(permission)))
+
+
+_lib.Rpermission_status_to_string.argtypes = [ctypes.c_int]
+_lib.Rpermission_status_to_string.restype = ctypes.c_char_p
+
+
+def Rpermission_status_to_string(status):
+    return _r(_lib.Rpermission_status_to_string(int(status)))
+
+
+_lib.Rfile_open_async.argtypes = [ctypes.POINTER(RFileDialogDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_open_async.restype = None
+
+
+def Rfile_open_async(desc, callback, user_data=None):
+    """Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL."""
+    _lib.Rfile_open_async(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_save_async.argtypes = [ctypes.POINTER(RFileDialogDesc), ctypes.c_void_p, ctypes.c_size_t, RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_save_async.restype = None
+
+
+def Rfile_save_async(desc, data, callback, user_data=None):
+    """Saves `size` bytes (copied: `data` may be freed at once) as a
+    file where the user chooses, proposed under `desc->file_name`. The
+    callback gives the file as saved: its name, and its path on desktops."""
+    data = bytes(data) if data is not None else None
+    _lib.Rfile_save_async(_p(desc), data, len(data) if data is not None else 0, _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_export_async.argtypes = [ctypes.POINTER(RFileDialogDesc), ctypes.c_char_p, RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_export_async.restype = None
+
+
+def Rfile_export_async(desc, path, callback, user_data=None):
+    """Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses."""
+    _lib.Rfile_export_async(_p(desc), _s(path), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_select_folder_async.argtypes = [ctypes.POINTER(RFileDialogDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_select_folder_async.restype = None
+
+
+def Rfile_select_folder_async(desc, callback, user_data=None):
+    """Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android)."""
+    _lib.Rfile_select_folder_async(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rcamera_is_available.argtypes = []
+_lib.Rcamera_is_available.restype = ctypes.c_int
+
+
+def Rcamera_is_available():
+    """Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator)."""
+    return _lib.Rcamera_is_available()
+
+
+_lib.Rcamera_take_photo.argtypes = [RDeviceCallback, ctypes.c_void_p]
+_lib.Rcamera_take_photo.restype = None
+
+
+def Rcamera_take_photo(callback, user_data=None):
+    """Shows the camera of the system to take one photo. It asks for
+    R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+    The photo is a JPEG file in the cache of the application, with its
+    size in pixels, upright."""
+    _lib.Rcamera_take_photo(_callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rphoto_pick.argtypes = [ctypes.c_int, RDeviceCallback, ctypes.c_void_p]
+_lib.Rphoto_pick.restype = None
+
+
+def Rphoto_pick(max_count, callback, user_data=None):
+    """Shows the photo picker of the system (desktops: a file dialog for
+    images). No permission is needed: the application only sees what the
+    user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+    when it is HEIC).
+    max_count How many photos may be picked; 0: no limit."""
+    _lib.Rphoto_pick(max_count, _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rhaptic_is_supported.argtypes = []
+_lib.Rhaptic_is_supported.restype = ctypes.c_int
+
+
+def Rhaptic_is_supported():
+    """Returns: R_TRUE when the device can play haptics (a phone; never a desktop)."""
+    return _lib.Rhaptic_is_supported()
+
+
+_lib.Rhaptic_play.argtypes = [ctypes.c_int]
+_lib.Rhaptic_play.restype = ctypes.c_int
+
+
+def Rhaptic_play(haptic):
+    """A short vibration, as the controls of the system play when
+    touched. Nothing happens where there are none, or when the user turned
+    them off. Returns: R_TRUE when it was handed to the system."""
+    return _lib.Rhaptic_play(int(haptic))
+
+
+_lib.Rshare_show.argtypes = [ctypes.POINTER(RShareDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rshare_show.restype = None
+
+
+def Rshare_show(desc, callback, user_data=None):
+    """Shows the share sheet of the system with a text and / or a file,
+    to send them to another application (mail, chat, Files...). The
+    callback says R_DEVICE_DONE once something was chosen (Android: once the
+    sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+    closed. R_DEVICE_UNSUPPORTED on desktops."""
+    _lib.Rshare_show(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
 
 
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
@@ -17279,6 +18296,28 @@ _lib.Rhost_inject_close.restype = None
 def Rhost_inject_close(window):
     """The user asked to close the window (its close callback decides)."""
     _lib.Rhost_inject_close(window)
+
+
+_lib.Rhost_permission_answer.argtypes = [ctypes.c_int, ctypes.c_int]
+_lib.Rhost_permission_answer.restype = None
+
+
+def Rhost_permission_answer(permission, status):
+    """The user answered a permission_request (or the status changed
+    by itself). The waiting Rpermission_request callbacks get it at the
+    next frame. Any thread."""
+    _lib.Rhost_permission_answer(int(permission), int(status))
+
+
+_lib.Rhost_service_complete.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int]
+_lib.Rhost_service_complete.restype = None
+
+
+def Rhost_service_complete(request, result, files, count):
+    """The end of a service_request: the files it gave (copied; paths
+    Raven can read; size 0 is read from the file), at the next frame. Once
+    per request. Any thread."""
+    _lib.Rhost_service_complete(request, int(result), _p(files), count)
 
 
 _lib.Rtest_set_deterministic.argtypes = [ctypes.c_int]

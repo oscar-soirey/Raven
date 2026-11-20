@@ -2,11 +2,18 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_carousel, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
-#   test_testing
+#   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_notifications,
+#   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
+#   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
+#   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
+#   test_icons, test_spell, test_headless, test_web_input
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
+#   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
+#   headless_cli_quit, headless_cli_snap
+#       headless_app.c, an ordinary application, driven from outside by the
+#       environment (headless_cli.cmake); the pictures of headless_cli_snap need
+#       a GPU backend (skipped without).
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
@@ -72,16 +79,35 @@ if(NOT RAVEN_BUILD_SHARED)
 	target_compile_definitions(test_effect_hover PRIVATE "RAVEN_TEST_LIQUID=\"${PROJECT_SOURCE_DIR}/examples/effects/liquid.spv\"")
 endif()
 raven_add_test(test_locale)
+# the clock of the locale, the TimePicker on 12 hours, time zones read from tests/data/zoneinfo
+raven_add_test(test_datetime)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output")
+target_compile_definitions(test_datetime PRIVATE
+	"RAVEN_TEST_ZONEINFO=\"${CMAKE_CURRENT_SOURCE_DIR}/data/zoneinfo\""
+	"RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output\"")
+if(RAVEN_BUILD_SHARED)
+	target_compile_definitions(test_datetime PRIVATE RAVEN_TEST_SHARED)
+endif()
 if(NOT RAVEN_BUILD_SHARED)
 	# Tests the shared screen-reader tree/actions used by all native platforms.
 	raven_add_test(test_accessibility)
 endif()
 raven_add_test(test_host_platform)
+# permissions, pickers, camera, share, haptics, downloads: a phone played by the host platform, then a desktop
+raven_add_test(test_device)
+if(NOT RAVEN_BUILD_SHARED)
+	# the bookkeeping of the input methods of Linux (text-input-v3, XIM), apart from the window systems
+	raven_add_test(test_preedit)
+endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).
 	add_executable(test_cocoa_input test_cocoa_input.m test.h)
 	target_link_libraries(test_cocoa_input PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
 	add_test(NAME test_cocoa_input COMMAND test_cocoa_input)
+	# The real NSPasteboard (the general one is given back at the end) and the start of a drag session out of a window.
+	add_executable(test_cocoa_transfer test_cocoa_transfer.m test.h)
+	target_link_libraries(test_cocoa_transfer PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
+	add_test(NAME test_cocoa_transfer COMMAND test_cocoa_transfer)
 	# a real WKWebView in a Cocoa window: pages given as text, scripts, messages, where the view is placed
 	add_executable(test_cocoa_web_view test_cocoa_web_view.m test.h)
 	target_link_libraries(test_cocoa_web_view PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
@@ -95,15 +121,34 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 raven_add_test(test_touch)
+# the text field of the browser platform: UTF-16 offsets, the text around the caret, field attributes
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_web_input)
+endif()
 if(NOT RAVEN_BUILD_SHARED)
 	# pause / resume, low memory, the native surface lost and made again, Back (sent as a phone's window system would)
 	raven_add_test(test_lifecycle)
 endif()
 raven_add_test(test_more_widgets)
+# notifications with tags, buttons and an icon, through the fallback toast (the null platform has none of its own)
+raven_add_test(test_notifications)
+if(RAVEN_BUILD_SHARED)
+	# (what the platforms report and share is internal: checked with the static library)
+	target_compile_definitions(test_notifications PRIVATE RAVEN_TEST_SHARED)
+endif()
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
+# the clipboard formats and the drags out of the windows (the null platform's clipboard)
+raven_add_test(test_transfer)
 # SystemWebView where the system has no web view (headless): the widget, its API, its XML, its message
 raven_add_test(test_system_web_view)
+raven_add_test(test_animated_images)
+target_sources(test_animated_images PRIVATE anim_foreign_gif.h anim_foreign_expected.h)
+raven_add_test(test_diff_view)
+if(NOT RAVEN_BUILD_SHARED)
+	# the comparison itself (core/diff.c), through its internal header
+	raven_add_test(test_diff_engine)
+endif()
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
@@ -117,14 +162,41 @@ raven_add_test(test_pdf_document)
 target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_table_features)
+	# cells edited in place, frozen columns; editable and searchable combo boxes (the screen reader tree is internal)
+	raven_add_test(test_table_edit)
+	raven_add_test(test_combo_search)
 endif()
+# the icons shipped with Raven and SVGs in currentColor, tinted by the widgets (a backend of the test records what is drawn)
+raven_add_test(test_icons)
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
+	target_compile_definitions(test_icons PRIVATE RAVEN_TEST_NO_SVG)
 endif()
+if(NOT RAVEN_BUILD_SHARED)
+	# spell checking with a checker of the test (same results everywhere): underlines, menu, cost of a long text
+	raven_add_test(test_spell)
+endif()
+# the spell checker of the system (macOS, Windows, Enchant / Hunspell): skipped where there is none or no English
+raven_add_test(test_spell_native)
+set_tests_properties(test_spell_native PROPERTIES SKIP_RETURN_CODE 77)
 # raven_testing.h: widgets driven by name, frames until idle, golden images (headless, null backend)
 raven_add_test(test_testing)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_testing_output")
 target_compile_definitions(test_testing PRIVATE "RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_testing_output\"")
+# the tree as JSON and the scripts of steps, in the process (headless, null backend)
+raven_add_test(test_headless)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_headless_output")
+target_compile_definitions(test_headless PRIVATE "RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_headless_output\"")
+# an ordinary application driven from outside by the environment (RAVEN_HEADLESS, RAVEN_SCRIPT, RAVEN_TREE,
+# RAVEN_SNAP): the tree, a script, the exit codes; the pictures need a GPU backend (skipped without)
+add_executable(headless_app headless_app.c)
+target_link_libraries(headless_app PRIVATE raven::raven)
+set_target_properties(headless_app PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
+foreach(case tree script fail syntax quit snap)
+	add_test(NAME headless_cli_${case} COMMAND "${CMAKE_COMMAND}" "-DAPP=$<TARGET_FILE:headless_app>" -DCASE=${case}
+		"-DOUT=${CMAKE_CURRENT_BINARY_DIR}/headless_cli_output/${case}" -P "${CMAKE_CURRENT_SOURCE_DIR}/headless_cli.cmake")
+endforeach()
+set_tests_properties(headless_cli_snap PROPERTIES SKIP_REGULAR_EXPRESSION "SKIPPED")
 # trees far deeper than the stack allows a recursion to follow: the stack is made small (by the program itself elsewhere)
 raven_add_test(test_deep_trees)
 if(MSVC)

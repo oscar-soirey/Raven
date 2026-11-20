@@ -960,6 +960,19 @@ pattern R_COLOR_SEARCH_MATCH = RColorRole 292
 -- | The selected match of a search in a text editor.
 pattern R_COLOR_SEARCH_CURRENT :: RColorRole
 pattern R_COLOR_SEARCH_CURRENT = RColorRole 293
+-- | Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+pattern R_COLOR_SPELLING :: RColorRole
+pattern R_COLOR_SPELLING = RColorRole 294
+-- | Diff view: the background of an added line and of a removed line (see-through: the background shows).
+pattern R_COLOR_DIFF_ADDED :: RColorRole
+pattern R_COLOR_DIFF_ADDED = RColorRole 295
+pattern R_COLOR_DIFF_REMOVED :: RColorRole
+pattern R_COLOR_DIFF_REMOVED = RColorRole 296
+-- | Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+pattern R_COLOR_DIFF_ADDED_WORD :: RColorRole
+pattern R_COLOR_DIFF_ADDED_WORD = RColorRole 297
+pattern R_COLOR_DIFF_REMOVED_WORD :: RColorRole
+pattern R_COLOR_DIFF_REMOVED_WORD = RColorRole 298
 
 -- | Sizes, in logical units.
 newtype RMetric = RMetric CInt
@@ -1201,6 +1214,9 @@ pattern R_WIDGET_CAROUSEL = RWidgetType 566
 -- | A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
 pattern R_WIDGET_SYSTEM_WEB_VIEW :: RWidgetType
 pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
+-- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+pattern R_WIDGET_DIFF_VIEW :: RWidgetType
+pattern R_WIDGET_DIFF_VIEW = RWidgetType 568
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1628,6 +1644,36 @@ pattern R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent 2963
 pattern R_SYSTEM_WEB_VIEW_FAILED :: RSystemWebViewEvent
 pattern R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent 2964
 
+-- | How the rows of a Table are selected (Rtable_set_selection_mode).
+newtype RTableSelectionMode = RTableSelectionMode CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | One row at a time (the default).
+pattern R_TABLE_SELECTION_SINGLE :: RTableSelectionMode
+pattern R_TABLE_SELECTION_SINGLE = RTableSelectionMode 3008
+-- | Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+pattern R_TABLE_SELECTION_MULTIPLE :: RTableSelectionMode
+pattern R_TABLE_SELECTION_MULTIPLE = RTableSelectionMode 3009
+-- | The user selects nothing (the rows are only shown; cells may still be edited and checked).
+pattern R_TABLE_SELECTION_NONE :: RTableSelectionMode
+pattern R_TABLE_SELECTION_NONE = RTableSelectionMode 3010
+
+-- | What the cells of a column show (Rtable_set_column_kind).
+newtype RTableColumnKind = RTableColumnKind CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Their text (the default).
+pattern R_TABLE_COLUMN_TEXT :: RTableColumnKind
+pattern R_TABLE_COLUMN_TEXT = RTableColumnKind 3024
+-- | A check box, checked when the text is "1", "true" or "yes". The user
+-- toggles it with a click or Space unless the column is made not
+-- editable; the cell edited callback is then called with "1" or "0".
+pattern R_TABLE_COLUMN_CHECK :: RTableColumnKind
+pattern R_TABLE_COLUMN_CHECK = RTableColumnKind 3025
+-- | A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+pattern R_TABLE_COLUMN_PROGRESS :: RTableColumnKind
+pattern R_TABLE_COLUMN_PROGRESS = RTableColumnKind 3026
+
 -- | Shorthands of Rtext_editor_set_language for two languages.
 newtype RSyntax = RSyntax CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1856,6 +1902,68 @@ pattern R_BLOCK_BODY = RBlockPlace 1809
 pattern R_BLOCK_INPUT :: RBlockPlace
 pattern R_BLOCK_INPUT = RBlockPlace 1810
 
+newtype RDiffViewMode = RDiffViewMode CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | One column: the removed lines, then the added lines, between the lines kept.
+pattern R_DIFF_VIEW_UNIFIED :: RDiffViewMode
+pattern R_DIFF_VIEW_UNIFIED = RDiffViewMode 3152
+-- | Two columns: the left text and the right text side by side, aligned.
+pattern R_DIFF_VIEW_SPLIT :: RDiffViewMode
+pattern R_DIFF_VIEW_SPLIT = RDiffViewMode 3153
+
+newtype RDiffSide = RDiffSide CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The text before (the old one, "a/", the lines removed).
+pattern R_DIFF_LEFT :: RDiffSide
+pattern R_DIFF_LEFT = RDiffSide 3156
+-- | The text after (the new one, "b/", the lines added).
+pattern R_DIFF_RIGHT :: RDiffSide
+pattern R_DIFF_RIGHT = RDiffSide 3157
+
+newtype RDiffRowKind = RDiffRowKind CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | A line that is on both sides.
+pattern R_DIFF_ROW_SAME :: RDiffRowKind
+pattern R_DIFF_ROW_SAME = RDiffRowKind 3160
+-- | A line of the left text only.
+pattern R_DIFF_ROW_REMOVED :: RDiffRowKind
+pattern R_DIFF_ROW_REMOVED = RDiffRowKind 3161
+-- | A line of the right text only.
+pattern R_DIFF_ROW_ADDED :: RDiffRowKind
+pattern R_DIFF_ROW_ADDED = RDiffRowKind 3162
+-- | Split mode: a removed line facing the added line that replaces it.
+pattern R_DIFF_ROW_CHANGED :: RDiffRowKind
+pattern R_DIFF_ROW_CHANGED = RDiffRowKind 3163
+-- | Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+pattern R_DIFF_ROW_FOLD :: RDiffRowKind
+pattern R_DIFF_ROW_FOLD = RDiffRowKind 3164
+-- | A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+pattern R_DIFF_ROW_HUNK :: RDiffRowKind
+pattern R_DIFF_ROW_HUNK = RDiffRowKind 3165
+-- | A patch: the names of a file.
+pattern R_DIFF_ROW_FILE :: RDiffRowKind
+pattern R_DIFF_ROW_FILE = RDiffRowKind 3166
+-- | A note attached to the line above it (Rdiff_view_add_annotation).
+pattern R_DIFF_ROW_NOTE :: RDiffRowKind
+pattern R_DIFF_ROW_NOTE = RDiffRowKind 3167
+
+-- | How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+newtype RDiffFlags = RDiffFlags CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Spaces and tabs at the end of a line (and a carriage return) do not count.
+pattern R_DIFF_IGNORE_TRAILING_SPACE :: RDiffFlags
+pattern R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags 1
+-- | No space or tab counts, wherever it is.
+pattern R_DIFF_IGNORE_SPACE :: RDiffFlags
+pattern R_DIFF_IGNORE_SPACE = RDiffFlags 2
+-- | Upper and lower case letters are the same (A to Z).
+pattern R_DIFF_IGNORE_CASE :: RDiffFlags
+pattern R_DIFF_IGNORE_CASE = RDiffFlags 4
+
 -- | How much a notification of the system asks for attention (Rnotification_show).
 newtype RNotificationUrgency = RNotificationUrgency CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1955,6 +2063,97 @@ pattern R_MESSAGE_RESULT_YES :: RMessageResult
 pattern R_MESSAGE_RESULT_YES = RMessageResult 2
 pattern R_MESSAGE_RESULT_NO :: RMessageResult
 pattern R_MESSAGE_RESULT_NO = RMessageResult 3
+
+-- | What the application may be allowed to use (Rpermission_request).
+newtype RPermission = RPermission CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_PERMISSION_CAMERA :: RPermission
+pattern R_PERMISSION_CAMERA = RPermission 3072
+-- | Notifications of the system (Rnotification_show).
+pattern R_PERMISSION_NOTIFICATIONS :: RPermission
+pattern R_PERMISSION_NOTIFICATIONS = RPermission 3073
+-- | Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+pattern R_PERMISSION_PHOTOS :: RPermission
+pattern R_PERMISSION_PHOTOS = RPermission 3074
+pattern R_PERMISSION_MICROPHONE :: RPermission
+pattern R_PERMISSION_MICROPHONE = RPermission 3075
+-- | The location of the device while the application is in use.
+pattern R_PERMISSION_LOCATION :: RPermission
+pattern R_PERMISSION_LOCATION = RPermission 3076
+
+-- | What the user answered, or would be asked (Rpermission_get_status).
+newtype RPermissionStatus = RPermissionStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | There is nothing to ask for here: the platform has no such permission,
+-- or Raven cannot ask for it on this platform. Whether the service itself
+-- exists is told by its own function (Rcamera_is_available,
+-- Rnotification_is_supported).
+pattern R_PERMISSION_UNSUPPORTED :: RPermissionStatus
+pattern R_PERMISSION_UNSUPPORTED = RPermissionStatus 3088
+-- | Not asked yet: Rpermission_request shows the question of the system.
+pattern R_PERMISSION_NOT_ASKED :: RPermissionStatus
+pattern R_PERMISSION_NOT_ASKED = RPermissionStatus 3089
+-- | Allowed (also where the system asks nothing: notifications on Windows and Linux).
+pattern R_PERMISSION_GRANTED :: RPermissionStatus
+pattern R_PERMISSION_GRANTED = RPermissionStatus 3090
+-- | Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
+pattern R_PERMISSION_LIMITED :: RPermissionStatus
+pattern R_PERMISSION_LIMITED = RPermissionStatus 3091
+-- | Refused, and the system may ask again (Android, after a first refusal).
+pattern R_PERMISSION_DENIED :: RPermissionStatus
+pattern R_PERMISSION_DENIED = RPermissionStatus 3092
+-- | Refused for good, or not the user's to give (parental controls, a
+-- profile of the company): the system shows no question any more, only
+-- its Settings can change it (Rpermission_open_settings).
+pattern R_PERMISSION_BLOCKED :: RPermissionStatus
+pattern R_PERMISSION_BLOCKED = RPermissionStatus 3093
+
+-- | How a request of a picker, the camera or a share sheet ended.
+newtype RDeviceResult = RDeviceResult CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+pattern R_DEVICE_DONE :: RDeviceResult
+pattern R_DEVICE_DONE = RDeviceResult 3104
+-- | The user closed the screen of the system without choosing.
+pattern R_DEVICE_CANCELLED :: RDeviceResult
+pattern R_DEVICE_CANCELLED = RDeviceResult 3105
+-- | A permission it needs was refused (Rcamera_take_photo: the camera).
+pattern R_DEVICE_DENIED :: RDeviceResult
+pattern R_DEVICE_DENIED = RDeviceResult 3106
+-- | The platform does not have this service.
+pattern R_DEVICE_UNSUPPORTED :: RDeviceResult
+pattern R_DEVICE_UNSUPPORTED = RDeviceResult 3107
+-- | Another screen of the system is still open: one at a time.
+pattern R_DEVICE_BUSY :: RDeviceResult
+pattern R_DEVICE_BUSY = RDeviceResult 3108
+-- | The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+pattern R_DEVICE_FAILED :: RDeviceResult
+pattern R_DEVICE_FAILED = RDeviceResult 3109
+
+-- | A short vibration that answers a touch (Rhaptic_play).
+newtype RHaptic = RHaptic CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Impacts: something touched, snapped, landed.
+pattern R_HAPTIC_LIGHT :: RHaptic
+pattern R_HAPTIC_LIGHT = RHaptic 3120
+pattern R_HAPTIC_MEDIUM :: RHaptic
+pattern R_HAPTIC_MEDIUM = RHaptic 3121
+pattern R_HAPTIC_HEAVY :: RHaptic
+pattern R_HAPTIC_HEAVY = RHaptic 3122
+-- | The selection moved (a picker wheel, a switch, a segmented control).
+pattern R_HAPTIC_SELECTION :: RHaptic
+pattern R_HAPTIC_SELECTION = RHaptic 3123
+-- | The outcome of an action.
+pattern R_HAPTIC_SUCCESS :: RHaptic
+pattern R_HAPTIC_SUCCESS = RHaptic 3124
+pattern R_HAPTIC_WARNING :: RHaptic
+pattern R_HAPTIC_WARNING = RHaptic 3125
+pattern R_HAPTIC_ERROR :: RHaptic
+pattern R_HAPTIC_ERROR = RHaptic 3126
 
 -- | How a spring moves. Animations in Raven are springs, as on iOS: a value is
 -- pulled toward its target and may run past it before settling, which is what
@@ -2164,6 +2363,29 @@ pattern R_ROLE_SCROLL_BAR :: RAccessibleRole
 pattern R_ROLE_SCROLL_BAR = RAccessibleRole 1922
 pattern R_ROLE_PANE :: RAccessibleRole
 pattern R_ROLE_PANE = RAccessibleRole 1923
+
+-- | What a request of a service of the device asks the application for (RHostServiceRequest).
+newtype RHostService = RHostService CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+pattern R_HOST_SERVICE_OPEN_FILES :: RHostService
+pattern R_HOST_SERVICE_OPEN_FILES = RHostService 3136
+-- | Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+pattern R_HOST_SERVICE_SAVE_FILE :: RHostService
+pattern R_HOST_SERVICE_SAVE_FILE = RHostService 3137
+-- | A folder (Rfile_select_folder_async).
+pattern R_HOST_SERVICE_SELECT_FOLDER :: RHostService
+pattern R_HOST_SERVICE_SELECT_FOLDER = RHostService 3138
+-- | A photo from the camera (Rcamera_take_photo); camera permission already asked.
+pattern R_HOST_SERVICE_TAKE_PHOTO :: RHostService
+pattern R_HOST_SERVICE_TAKE_PHOTO = RHostService 3139
+-- | Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+pattern R_HOST_SERVICE_PICK_PHOTOS :: RHostService
+pattern R_HOST_SERVICE_PICK_PHOTOS = RHostService 3140
+-- | The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+pattern R_HOST_SERVICE_SHARE :: RHostService
+pattern R_HOST_SERVICE_SHARE = RHostService 3141
 
 newtype RGoldenStatus = RGoldenStatus CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -2878,6 +3100,16 @@ type RBlockEditorContextCallback = FunPtr (Rid -> CInt -> CFloat -> CFloat -> Pt
 -- no longer calls it.
 foreign import ccall "wrapper" mkRBlockEditorContextCallback :: (Rid -> CInt -> CFloat -> CFloat -> Ptr () -> IO ()) -> IO RBlockEditorContextCallback
 
+-- | A line, or its number in the gutter, was clicked. `side` is the side
+-- of the line clicked (in unified mode: the left side for a removed line
+-- and for the left column of numbers, else the right side), `line` its
+-- number on that side, from 1.
+type RDiffViewLineCallback = FunPtr (Rid -> RDiffSide -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDiffViewLineCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDiffViewLineCallback :: (Rid -> RDiffSide -> CInt -> CInt -> Ptr () -> IO ()) -> IO RDiffViewLineCallback
+
 -- | Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 type RDialogClosedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
 
@@ -2916,6 +3148,22 @@ type RNotificationCallback = FunPtr (CString -> RNotificationEvent -> CString ->
 -- | Makes a 'RNotificationCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRNotificationCallback :: (CString -> RNotificationEvent -> CString -> Ptr () -> IO ()) -> IO RNotificationCallback
+
+-- | The answer to Rpermission_request.
+type RPermissionCallback = FunPtr (RPermission -> RPermissionStatus -> Ptr () -> IO ())
+
+-- | Makes a 'RPermissionCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRPermissionCallback :: (RPermission -> RPermissionStatus -> Ptr () -> IO ()) -> IO RPermissionCallback
+
+-- | The end of a request of a picker, the camera, a save or a share
+-- sheet. `files` (count of them) are what it gave: none unless `result` is
+-- R_DEVICE_DONE. Called on the UI thread, once.
+type RDeviceCallback = FunPtr (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDeviceCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDeviceCallback :: (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ()) -> IO RDeviceCallback
 
 -- | Called on the render thread each time the window is rendered.
 -- State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -4089,6 +4337,81 @@ instance Storable RFileDialogDesc where
         pokeByteOff p 48 (rFileDialogDesc_default_extension v)
         pokeByteOff p 56 (rFileDialogDesc_flags v)
 
+-- | A file given by a service of the device. Valid during the callback only: copy what you keep.
+data RPickedFile = RPickedFile
+    { rPickedFile_path :: CString
+      -- ^ A path Raven and the C library can read (Rfile_read, textures, fonts,
+      -- fopen). On iOS and Android a copy in the cache of the application.
+      -- NULL for Rfile_save_async on iOS and Android: the file went where the
+      -- user chose, which the application cannot write to again.
+    , rPickedFile_name :: CString
+      -- ^ The name the user saw ("IMG_0042.JPG"), to show.
+    , rPickedFile_mime_type :: CString
+      -- ^ The MIME type when the system tells ("image/jpeg"), or NULL.
+    , rPickedFile_size :: Word64
+      -- ^ Bytes.
+    , rPickedFile_width :: CInt
+      -- ^ Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    , rPickedFile_height :: CInt
+      -- ^ Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RPickedFile x = {0};@ is in C).
+rPickedFile :: RPickedFile
+rPickedFile = RPickedFile (nullPtr) (nullPtr) (nullPtr) (0) (0) (0)
+
+instance Storable RPickedFile where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RPickedFile
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 36
+    poke p v = do
+        pokeByteOff p 0 (rPickedFile_path v)
+        pokeByteOff p 8 (rPickedFile_name v)
+        pokeByteOff p 16 (rPickedFile_mime_type v)
+        pokeByteOff p 24 (rPickedFile_size v)
+        pokeByteOff p 32 (rPickedFile_width v)
+        pokeByteOff p 36 (rPickedFile_height v)
+
+-- | What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+data RShareDesc = RShareDesc
+    { rShareDesc_text :: CString
+      -- ^ Text, or a link ("https://..."). May be NULL.
+    , rShareDesc_path :: CString
+      -- ^ A file to send (a path Raven can read), or NULL.
+    , rShareDesc_mime_type :: CString
+      -- ^ Its MIME type ("image/png"); NULL: guessed from its extension.
+    , rShareDesc_title :: CString
+      -- ^ The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    , rShareDesc_anchor :: Rid
+      -- ^ The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RShareDesc x = {0};@ is in C).
+rShareDesc :: RShareDesc
+rShareDesc = RShareDesc (nullPtr) (nullPtr) (nullPtr) (nullPtr) (0)
+
+instance Storable RShareDesc where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RShareDesc
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+    poke p v = do
+        pokeByteOff p 0 (rShareDesc_text v)
+        pokeByteOff p 8 (rShareDesc_path v)
+        pokeByteOff p 16 (rShareDesc_mime_type v)
+        pokeByteOff p 24 (rShareDesc_title v)
+        pokeByteOff p 32 (rShareDesc_anchor v)
+
 -- | Passed to the draw callback of a viewport. Sizes are in pixels.
 data RViewportDrawInfo = RViewportDrawInfo
     { rViewportDrawInfo_backend :: RBackend
@@ -4336,6 +4659,87 @@ instance Storable RAccessibilitySettings where
         pokeByteOff p 8 (rAccessibilitySettings_reduce_motion v)
         pokeByteOff p 12 (rAccessibilitySettings_screen_reader v)
 
+-- | A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+data RHostServiceRequest = RHostServiceRequest
+    { rHostServiceRequest_id :: Word32
+      -- ^ Given back to Rhost_service_complete.
+    , rHostServiceRequest_service :: RHostService
+    , rHostServiceRequest_window :: Rid
+      -- ^ The window it is for (R_INVALID_ID: none).
+    , rHostServiceRequest_anchor_x :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_y :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_width :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_height :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_title :: CString
+    , rHostServiceRequest_filters :: Ptr RFileFilter
+    , rHostServiceRequest_filter_count :: CInt
+    , rHostServiceRequest_flags :: Word32
+      -- ^ Bitmask of RFileDialogFlags.
+    , rHostServiceRequest_file_name :: CString
+    , rHostServiceRequest_default_extension :: CString
+    , rHostServiceRequest_data :: Ptr ()
+    , rHostServiceRequest_size :: CSize
+    , rHostServiceRequest_path :: CString
+    , rHostServiceRequest_max_count :: CInt
+    , rHostServiceRequest_text :: CString
+    , rHostServiceRequest_mime_type :: CString
+    , rHostServiceRequest_share_title :: CString
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RHostServiceRequest x = {0};@ is in C).
+rHostServiceRequest :: RHostServiceRequest
+rHostServiceRequest = RHostServiceRequest (0) (0) (0) (0) (0) (0) (0) (nullPtr) (nullPtr) (0) (0) (nullPtr) (nullPtr) (nullPtr) (0) (nullPtr) (0) (nullPtr) (nullPtr) (nullPtr)
+
+instance Storable RHostServiceRequest where
+    sizeOf _ = 128
+    alignment _ = 8
+    peek p = RHostServiceRequest
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+        <*> peekByteOff p 20
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 52
+        <*> peekByteOff p 56
+        <*> peekByteOff p 64
+        <*> peekByteOff p 72
+        <*> peekByteOff p 80
+        <*> peekByteOff p 88
+        <*> peekByteOff p 96
+        <*> peekByteOff p 104
+        <*> peekByteOff p 112
+        <*> peekByteOff p 120
+    poke p v = do
+        pokeByteOff p 0 (rHostServiceRequest_id v)
+        pokeByteOff p 4 (rHostServiceRequest_service v)
+        pokeByteOff p 8 (rHostServiceRequest_window v)
+        pokeByteOff p 12 (rHostServiceRequest_anchor_x v)
+        pokeByteOff p 16 (rHostServiceRequest_anchor_y v)
+        pokeByteOff p 20 (rHostServiceRequest_anchor_width v)
+        pokeByteOff p 24 (rHostServiceRequest_anchor_height v)
+        pokeByteOff p 32 (rHostServiceRequest_title v)
+        pokeByteOff p 40 (rHostServiceRequest_filters v)
+        pokeByteOff p 48 (rHostServiceRequest_filter_count v)
+        pokeByteOff p 52 (rHostServiceRequest_flags v)
+        pokeByteOff p 56 (rHostServiceRequest_file_name v)
+        pokeByteOff p 64 (rHostServiceRequest_default_extension v)
+        pokeByteOff p 72 (rHostServiceRequest_data v)
+        pokeByteOff p 80 (rHostServiceRequest_size v)
+        pokeByteOff p 88 (rHostServiceRequest_path v)
+        pokeByteOff p 96 (rHostServiceRequest_max_count v)
+        pokeByteOff p 104 (rHostServiceRequest_text v)
+        pokeByteOff p 112 (rHostServiceRequest_mime_type v)
+        pokeByteOff p 120 (rHostServiceRequest_share_title v)
+
 data RHostPlatformDesc = RHostPlatformDesc
     { rHostPlatformDesc_set_cursor :: FunPtr ()
       -- ^ The pointer over `window` should look like `cursor`. May be NULL.
@@ -4346,14 +4750,30 @@ data RHostPlatformDesc = RHostPlatformDesc
     , rHostPlatformDesc_wake :: FunPtr ()
       -- ^ Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     , rHostPlatformDesc_user_data :: Ptr ()
+    , rHostPlatformDesc_permission_status :: FunPtr ()
+      -- ^ An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    , rHostPlatformDesc_permission_request :: FunPtr ()
+      -- ^ Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    , rHostPlatformDesc_service_request :: FunPtr ()
+      -- ^ A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    , rHostPlatformDesc_has_camera :: CInt
+      -- ^ R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    , rHostPlatformDesc_open_url :: FunPtr ()
+      -- ^ Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    , rHostPlatformDesc_haptic :: FunPtr ()
+      -- ^ Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    , rHostPlatformDesc_download :: FunPtr ()
+      -- ^ Downloads an http(s) URL (images from a URL): returns its content in a
+      -- buffer from Rmemory_alloc and its size, or NULL. Called on worker
+      -- threads, several at a time, and may block. NULL: as on desktops.
     } deriving (Eq, Show)
 
 -- | The zeroed structure (what @RHostPlatformDesc x = {0};@ is in C).
 rHostPlatformDesc :: RHostPlatformDesc
-rHostPlatformDesc = RHostPlatformDesc (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullPtr)
+rHostPlatformDesc = RHostPlatformDesc (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (0) (nullFunPtr) (nullFunPtr) (nullFunPtr)
 
 instance Storable RHostPlatformDesc where
-    sizeOf _ = 40
+    sizeOf _ = 96
     alignment _ = 8
     peek p = RHostPlatformDesc
         <$> peekByteOff p 0
@@ -4361,12 +4781,26 @@ instance Storable RHostPlatformDesc where
         <*> peekByteOff p 16
         <*> peekByteOff p 24
         <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 56
+        <*> peekByteOff p 64
+        <*> peekByteOff p 72
+        <*> peekByteOff p 80
+        <*> peekByteOff p 88
     poke p v = do
         pokeByteOff p 0 (rHostPlatformDesc_set_cursor v)
         pokeByteOff p 8 (rHostPlatformDesc_clipboard_set v)
         pokeByteOff p 16 (rHostPlatformDesc_clipboard_get v)
         pokeByteOff p 24 (rHostPlatformDesc_wake v)
         pokeByteOff p 32 (rHostPlatformDesc_user_data v)
+        pokeByteOff p 40 (rHostPlatformDesc_permission_status v)
+        pokeByteOff p 48 (rHostPlatformDesc_permission_request v)
+        pokeByteOff p 56 (rHostPlatformDesc_service_request v)
+        pokeByteOff p 64 (rHostPlatformDesc_has_camera v)
+        pokeByteOff p 72 (rHostPlatformDesc_open_url v)
+        pokeByteOff p 80 (rHostPlatformDesc_haptic v)
+        pokeByteOff p 88 (rHostPlatformDesc_download v)
 
 -- | How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
 data RGoldenOptions = RGoldenOptions
@@ -4674,7 +5108,9 @@ foreign import ccall safe "Raction_is_builtin" raction_is_builtin :: CString -> 
 
 -- | Opens an address with the program the user has for it: a web
 -- page in the browser, a mailto: in the mail program, a file in its
--- application. Returns at once.
+-- application. Returns at once. On iOS and Android the system opens it
+-- (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+-- and Raven must be initialized and this be called on the UI thread.
 -- Returns: R_FALSE when the OS could not be asked (nothing tells whether
 -- a program then really opened it).
 foreign import ccall safe "Ropen_url" ropen_url :: CString -> IO CInt
@@ -4689,7 +5125,16 @@ foreign import ccall safe "Rclipboard_set_text" rclipboard_set_text :: CString -
 foreign import ccall safe "Rclipboard_set_html" rclipboard_set_html :: CString -> CString -> IO ()
 
 -- | Returns: The clipboard text, or "" when empty. Valid until the next call.
+-- On iOS a read that does not follow a paste of the user (the Paste of a
+-- menu, a button, Command-V) shows the system's question "Allow Paste?",
+-- and on Android 12+ the system says that the application pasted: read it
+-- when the user pastes, not to look at it. Android lets only the
+-- application in front read it.
 foreign import ccall safe "Rclipboard_get_text" rclipboard_get_text :: IO CString
+
+-- | Returns: R_TRUE when the clipboard holds text, without reading it (no
+-- question of the system on iOS): to enable a Paste button.
+foreign import ccall safe "Rclipboard_has_text" rclipboard_has_text :: IO CInt
 
 -- | Replaces what the clipboard holds with one content in several
 -- formats (RDataItem): each program pastes the one it prefers.
@@ -5452,6 +5897,16 @@ foreign import ccall safe "Rtexture_create_from_file" rtexture_create_from_file 
 -- | Reads and decodes the file on a worker thread.
 foreign import ccall safe "Rtexture_create_from_file_async" rtexture_create_from_file_async :: CString -> IO Rid
 
+-- | Downloads an http:// or https:// image and decodes it on a worker
+-- thread, as an Image whose Source is a URL does. The handle is usable at
+-- once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+-- a texture that could not be downloaded is ready with a size of 0, and the
+-- failure is reported as a warning). Desktops download with WinHTTP or
+-- `curl`; iOS and Android through their platform. Android needs the INTERNET
+-- permission in the manifest; iOS refuses http:// unless Info.plist allows
+-- it (App Transport Security). Up to 32 MiB.
+foreign import ccall safe "Rtexture_create_from_url_async" rtexture_create_from_url_async :: CString -> IO Rid
+
 -- | Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 foreign import ccall safe "Rtexture_create_from_pixels" rtexture_create_from_pixels :: Ptr Word8 -> CInt -> CInt -> IO Rid
 
@@ -6170,6 +6625,52 @@ foreign import ccall safe "Rtext_input_set_changed_callback" rtext_input_set_cha
 -- | Called when Enter is pressed. This also fires the action of the widget.
 foreign import ccall safe "Rtext_input_set_committed_callback" rtext_input_set_committed_callback :: Rid -> RTextChangedCallback -> Ptr () -> IO ()
 
+-- | Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+-- a right click on one offers corrections (see SPELL CHECKING). Off by
+-- default. A password is never checked.
+foreign import ccall safe "Rtext_input_set_spell_check" rtext_input_set_spell_check :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rtext_input_get_spell_check" rtext_input_get_spell_check :: Rid -> IO CInt
+
+-- | Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+foreign import ccall safe "Rtext_input_set_spell_language" rtext_input_set_spell_language :: Rid -> CString -> IO ()
+
+-- | R_TRUE when the system has a spell checker that Raven can use.
+foreign import ccall safe "Rspell_is_supported" rspell_is_supported :: IO CInt
+
+-- | The languages the checker has dictionaries for.
+foreign import ccall safe "Rspell_get_language_count" rspell_get_language_count :: IO CInt
+
+foreign import ccall safe "Rspell_get_language_at" rspell_get_language_at :: CInt -> IO CString
+
+-- | The language used when a widget or a call gives none. NULL
+-- follows the locale again.
+-- Returns: R_FALSE when the checker has no dictionary for it (the default
+-- of the system is then used).
+foreign import ccall safe "Rspell_set_language" rspell_set_language :: CString -> IO CInt
+
+-- | The code of the language used by default, as the checker names it; "" when there is no checker.
+foreign import ccall safe "Rspell_get_language" rspell_get_language :: IO CString
+
+-- | Checks a text. `language` NULL: the default.
+-- Returns: The number of misspelled words, read with Rspell_get_misspelling.
+foreign import ccall safe "Rspell_check" rspell_check :: CString -> CString -> IO CInt
+
+-- | A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+foreign import ccall safe "Rspell_get_misspelling" rspell_get_misspelling :: CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+foreign import ccall safe "Rspell_suggest" rspell_suggest :: CString -> CString -> IO CInt
+
+-- | A correction found by the last Rspell_suggest; valid until the next call.
+foreign import ccall safe "Rspell_get_suggestion" rspell_get_suggestion :: CInt -> IO CString
+
+-- | Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+foreign import ccall safe "Rspell_learn" rspell_learn :: CString -> CString -> IO ()
+
+-- | The word is no longer a misspelling, in every language, until the application quits.
+foreign import ccall safe "Rspell_ignore" rspell_ignore :: CString -> IO ()
+
 foreign import ccall safe "Rspin_box_set_range" rspin_box_set_range :: Rid -> CDouble -> CDouble -> IO ()
 
 foreign import ccall safe "Rspin_box_set_value" rspin_box_set_value :: Rid -> CDouble -> IO ()
@@ -6554,12 +7055,26 @@ foreign import ccall safe "Rtable_set_cell_color_callback" rtable_set_cell_color
 -- Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
 foreign import ccall safe "Rtable_set_cell_text_color" rtable_set_cell_text_color :: Rid -> CInt -> CInt -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
--- | Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+-- | Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
 foreign import ccall safe "Rtable_set_multi_select" rtable_set_multi_select :: Rid -> CInt -> IO ()
+
+-- | Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+-- Going to single keeps the selected row, going to none clears the selection.
+foreign import ccall safe "Rtable_set_selection_mode" rtable_set_selection_mode :: Rid -> RTableSelectionMode -> IO ()
+
+foreign import ccall safe "Rtable_get_selection_mode" rtable_get_selection_mode :: Rid -> IO RTableSelectionMode
 
 foreign import ccall safe "Rtable_set_row_selected" rtable_set_row_selected :: Rid -> CInt -> CInt -> IO ()
 
 foreign import ccall safe "Rtable_is_row_selected" rtable_is_row_selected :: Rid -> CInt -> IO CInt
+
+-- | Selects (`selected` R_TRUE) or deselects the rows first..last, both
+-- included, keeping the others: multiple selection only (in single
+-- selection, selecting a range selects `last`).
+foreign import ccall safe "Rtable_select_range" rtable_select_range :: Rid -> CInt -> CInt -> CInt -> IO ()
+
+-- | Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+foreign import ccall safe "Rtable_select_all" rtable_select_all :: Rid -> IO ()
 
 foreign import ccall safe "Rtable_clear_selection" rtable_clear_selection :: Rid -> IO ()
 
@@ -6568,10 +7083,26 @@ foreign import ccall safe "Rtable_get_selection_count" rtable_get_selection_coun
 -- | Selected row at index, top to bottom; -1 outside the selection.
 foreign import ccall safe "Rtable_get_selection" rtable_get_selection :: Rid -> CInt -> IO CInt
 
+-- | The selection as runs of consecutive rows, top to bottom: the
+-- fast way to go through a large selection (select all of a million rows
+-- is one range).
+foreign import ccall safe "Rtable_get_selection_range_count" rtable_get_selection_range_count :: Rid -> IO CInt
+
+-- | The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+foreign import ccall safe "Rtable_get_selection_range" rtable_get_selection_range :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
 -- | Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 foreign import ccall safe "Rtable_set_selected" rtable_set_selected :: Rid -> CInt -> IO ()
 
+-- | The selected row (-1: none). In multiple selection, the one
+-- selected last, or else the first one; the selection changed callback
+-- receives it.
 foreign import ccall safe "Rtable_get_selected" rtable_get_selected :: Rid -> IO CInt
+
+-- | The row the keyboard is on: the selected row in single
+-- selection; in multiple selection the row last clicked or reached with
+-- the arrows, which Space toggles (it may be unselected). -1: none.
+foreign import ccall safe "Rtable_get_current_row" rtable_get_current_row :: Rid -> IO CInt
 
 foreign import ccall safe "Rtable_scroll_to_row" rtable_scroll_to_row :: Rid -> CInt -> IO ()
 
@@ -6621,6 +7152,21 @@ foreign import ccall safe "Rtable_end_edit" rtable_end_edit :: Rid -> CInt -> IO
 foreign import ccall safe "Rtable_set_frozen_columns" rtable_set_frozen_columns :: Rid -> CInt -> IO ()
 
 foreign import ccall safe "Rtable_get_frozen_columns" rtable_get_frozen_columns :: Rid -> IO CInt
+
+-- | Text (default), check box or progress bar: how the cells of the
+-- column are drawn from their texts. A check column is made editable (the
+-- user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+-- only) and centered. For anything else, a cell color callback and the
+-- texts are what the table offers: it draws no other widget in its cells.
+foreign import ccall safe "Rtable_set_column_kind" rtable_set_column_kind :: Rid -> CInt -> RTableColumnKind -> IO ()
+
+foreign import ccall safe "Rtable_get_column_kind" rtable_get_column_kind :: Rid -> CInt -> IO RTableColumnKind
+
+-- | A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+foreign import ccall safe "Rtable_is_cell_checked" rtable_is_cell_checked :: Rid -> CInt -> CInt -> IO CInt
+
+-- | Stored rows: writes "1" or "0" in the cell (no callback is called).
+foreign import ccall safe "Rtable_set_cell_checked" rtable_set_cell_checked :: Rid -> CInt -> CInt -> CInt -> IO ()
 
 -- | Sets the date (today when the picker is created). An invalid date is refused.
 foreign import ccall safe "Rdate_picker_set_date" rdate_picker_set_date :: Rid -> CInt -> CInt -> CInt -> IO ()
@@ -7592,6 +8138,17 @@ foreign import ccall safe "Rtext_editor_set_markdown" rtext_editor_set_markdown 
 
 foreign import ccall safe "Rtext_editor_get_markdown" rtext_editor_get_markdown :: Rid -> IO CInt
 
+-- | Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+-- a right click on one offers corrections (see SPELL CHECKING in
+-- raven_controls.h). Only the lines shown are checked, again when they
+-- change. Off by default: it is meant for prose, not for code.
+foreign import ccall safe "Rtext_editor_set_spell_check" rtext_editor_set_spell_check :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rtext_editor_get_spell_check" rtext_editor_get_spell_check :: Rid -> IO CInt
+
+-- | Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+foreign import ccall safe "Rtext_editor_set_spell_language" rtext_editor_set_spell_language :: Rid -> CString -> IO ()
+
 -- | What the language of the editor makes of the character at a
 -- position: the colors come from it. R_TOKEN_TEXT without a language.
 foreign import ccall safe "Rtext_editor_get_token" rtext_editor_get_token :: Rid -> CInt -> CInt -> IO RToken
@@ -8553,6 +9110,116 @@ foreign import ccall safe "Rblock_editor_get_view" rblock_editor_get_view :: Rid
 
 foreign import ccall safe "Rblock_editor_set_view" rblock_editor_set_view :: Rid -> CFloat -> CFloat -> CFloat -> IO ()
 
+-- | The differences between two texts as a unified diff (the format
+-- of `diff -u` and `git diff`), with `context` unchanged lines around each
+-- change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+-- (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+-- the library: it may be called from any thread.
+-- Returns: The patch followed by a '\0' (an empty text when the texts are
+-- the same), to release with Rmemory_free; NULL when a text is NULL.
+-- `size` receives its length in bytes, and may be NULL.
+foreign import ccall safe "Rdiff_unified" rdiff_unified :: CString -> CString -> CString -> CString -> CInt -> Word32 -> Ptr CSize -> IO CString
+
+-- | The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+foreign import ccall safe "Rdiff_count_changes" rdiff_count_changes :: CString -> CString -> Word32 -> IO CInt
+
+foreign import ccall safe "Rdiff_view_create" rdiff_view_create :: IO Rid
+
+-- | The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+foreign import ccall safe "Rdiff_view_set_texts" rdiff_view_set_texts :: Rid -> CString -> CString -> IO ()
+
+-- | Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+foreign import ccall safe "Rdiff_view_set_names" rdiff_view_set_names :: Rid -> CString -> CString -> IO ()
+
+-- | Compares two files. Their paths become the names unless names
+-- were given. Returns: R_FALSE when a file cannot be read (it is compared
+-- as empty).
+foreign import ccall safe "Rdiff_view_load_files" rdiff_view_load_files :: Rid -> CString -> CString -> IO CInt
+
+-- | Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+-- instead of two texts: each file with its name, each hunk with its header.
+-- Returns: R_FALSE when the text holds no hunk (nothing is shown).
+foreign import ccall safe "Rdiff_view_set_patch" rdiff_view_set_patch :: Rid -> CString -> IO CInt
+
+foreign import ccall safe "Rdiff_view_set_mode" rdiff_view_set_mode :: Rid -> RDiffViewMode -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_mode" rdiff_view_get_mode :: Rid -> IO RDiffViewMode
+
+-- | Unchanged lines shown around each change (3 by default); the
+-- others are folded. A negative number shows every line.
+foreign import ccall safe "Rdiff_view_set_context" rdiff_view_set_context :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_context" rdiff_view_get_context :: Rid -> IO CInt
+
+-- | How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+foreign import ccall safe "Rdiff_view_set_flags" rdiff_view_set_flags :: Rid -> Word32 -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_flags" rdiff_view_get_flags :: Rid -> IO Word32
+
+-- | Marks the words that changed inside a changed line (default R_TRUE).
+foreign import ccall safe "Rdiff_view_set_word_diff" rdiff_view_set_word_diff :: Rid -> CInt -> IO ()
+
+-- | Shows the numbers of the lines (default R_TRUE).
+foreign import ccall safe "Rdiff_view_set_line_numbers" rdiff_view_set_line_numbers :: Rid -> CInt -> IO ()
+
+-- | Colors the code as the text editor does: a language name of
+-- Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+-- NULL (default) to guess it from the extension of the names.
+foreign import ccall safe "Rdiff_view_set_language" rdiff_view_set_language :: Rid -> CString -> IO ()
+
+-- | The number of changes: runs of lines removed and / or added.
+foreign import ccall safe "Rdiff_view_get_change_count" rdiff_view_get_change_count :: Rid -> IO CInt
+
+-- | Where a change is: its first line and its number of lines on
+-- each side (a count of 0: nothing on that side; the line is then the one
+-- after which the other side's lines go). Returns: R_FALSE when there is
+-- no such change.
+foreign import ccall safe "Rdiff_view_get_change" rdiff_view_get_change :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Scrolls to a change (from 0) and marks it as the current one.
+foreign import ccall safe "Rdiff_view_go_to_change" rdiff_view_go_to_change :: Rid -> CInt -> IO ()
+
+-- | The current change, -1 before the first one is gone to.
+foreign import ccall safe "Rdiff_view_get_current_change" rdiff_view_get_current_change :: Rid -> IO CInt
+
+-- | Goes to the next / previous change. Returns: Its index, -1 when there is none.
+foreign import ccall safe "Rdiff_view_next_change" rdiff_view_next_change :: Rid -> IO CInt
+
+foreign import ccall safe "Rdiff_view_prev_change" rdiff_view_prev_change :: Rid -> IO CInt
+
+-- | The rows shown, folds, hunk headers and notes included.
+foreign import ccall safe "Rdiff_view_get_row_count" rdiff_view_get_row_count :: Rid -> IO CInt
+
+-- | What a row shows, and the numbers of its lines (0 for a side it
+-- has no line of). A fold gives the first line it hides on each side.
+foreign import ccall safe "Rdiff_view_get_row" rdiff_view_get_row :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> IO RDiffRowKind
+
+-- | The text of a row on one side (in unified mode the side does not
+-- matter for a line); a fold, a hunk, a file or a note give their label.
+-- Valid until the next call. "" when there is none.
+foreign import ccall safe "Rdiff_view_get_row_text" rdiff_view_get_row_text :: Rid -> CInt -> RDiffSide -> IO CString
+
+-- | Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+foreign import ccall safe "Rdiff_view_expand" rdiff_view_expand :: Rid -> CInt -> IO CInt
+
+-- | The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+foreign import ccall safe "Rdiff_view_get_first_visible_row" rdiff_view_get_first_visible_row :: Rid -> IO CInt
+
+foreign import ccall safe "Rdiff_view_scroll_to_row" rdiff_view_scroll_to_row :: Rid -> CInt -> IO ()
+
+-- | Attaches a short note to a line (a review comment, an error): a
+-- mark in the gutter and the text in a row under the line, which is never
+-- folded away. Several notes may go to one line.
+foreign import ccall safe "Rdiff_view_add_annotation" rdiff_view_add_annotation :: Rid -> RDiffSide -> CInt -> CString -> IO ()
+
+foreign import ccall safe "Rdiff_view_clear_annotations" rdiff_view_clear_annotations :: Rid -> IO ()
+
+-- | The text selected by the user ("" when none), one line after another.
+foreign import ccall safe "Rdiff_view_get_selected_text" rdiff_view_get_selected_text :: Rid -> IO CString
+
+-- | Called when a line or its number is clicked (the action of the widget is fired too).
+foreign import ccall safe "Rdiff_view_set_line_clicked_callback" rdiff_view_set_line_clicked_callback :: Rid -> RDiffViewLineCallback -> Ptr () -> IO ()
+
 -- | Shows a widget as a dialog of a window. The window takes
 -- ownership of `content`: it is deleted when the dialog closes, so read
 -- what you need from it before, or in `closed`.
@@ -8722,6 +9389,72 @@ foreign import ccall safe "Rnotification_set_fallback_toast" rnotification_set_f
 
 -- | Whether the notifications of the system have that feature here (R_FALSE where there are none).
 foreign import ccall safe "Rnotification_supports" rnotification_supports :: RNotificationFeature -> IO CInt
+
+-- | What the user answered, without asking. Cheap: the platform
+-- remembers it. On iOS the status of notifications is known shortly after
+-- the start (R_PERMISSION_NOT_ASKED until then).
+foreign import ccall safe "Rpermission_get_status" rpermission_get_status :: RPermission -> IO RPermissionStatus
+
+-- | Asks the user, with the question of the system, when the status
+-- is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+-- with the status. Several requests for the same permission share one
+-- question. `callback` may be NULL.
+foreign import ccall safe "Rpermission_request" rpermission_request :: RPermission -> RPermissionCallback -> Ptr () -> IO ()
+
+-- | Opens the page of the application in the Settings of the system,
+-- where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+-- Returns: R_FALSE when the platform has no such page.
+foreign import ccall safe "Rpermission_open_settings" rpermission_open_settings :: IO CInt
+
+-- | Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+foreign import ccall safe "Rpermission_to_string" rpermission_to_string :: RPermission -> IO CString
+
+foreign import ccall safe "Rpermission_status_to_string" rpermission_status_to_string :: RPermissionStatus -> IO CString
+
+-- | Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+foreign import ccall safe "Rfile_open_async" rfile_open_async :: Ptr RFileDialogDesc -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Saves `size` bytes (copied: `data` may be freed at once) as a
+-- file where the user chooses, proposed under `desc->file_name`. The
+-- callback gives the file as saved: its name, and its path on desktops.
+foreign import ccall safe "Rfile_save_async" rfile_save_async :: Ptr RFileDialogDesc -> Ptr () -> CSize -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+foreign import ccall safe "Rfile_export_async" rfile_export_async :: Ptr RFileDialogDesc -> CString -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+foreign import ccall safe "Rfile_select_folder_async" rfile_select_folder_async :: Ptr RFileDialogDesc -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+foreign import ccall safe "Rcamera_is_available" rcamera_is_available :: IO CInt
+
+-- | Shows the camera of the system to take one photo. It asks for
+-- R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+-- The photo is a JPEG file in the cache of the application, with its
+-- size in pixels, upright.
+foreign import ccall safe "Rcamera_take_photo" rcamera_take_photo :: RDeviceCallback -> Ptr () -> IO ()
+
+-- | Shows the photo picker of the system (desktops: a file dialog for
+-- images). No permission is needed: the application only sees what the
+-- user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+-- when it is HEIC).
+-- max_count How many photos may be picked; 0: no limit.
+foreign import ccall safe "Rphoto_pick" rphoto_pick :: CInt -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+foreign import ccall safe "Rhaptic_is_supported" rhaptic_is_supported :: IO CInt
+
+-- | A short vibration, as the controls of the system play when
+-- touched. Nothing happens where there are none, or when the user turned
+-- them off. Returns: R_TRUE when it was handed to the system.
+foreign import ccall safe "Rhaptic_play" rhaptic_play :: RHaptic -> IO CInt
+
+-- | Shows the share sheet of the system with a text and / or a file,
+-- to send them to another application (mail, chat, Files...). The
+-- callback says R_DEVICE_DONE once something was chosen (Android: once the
+-- sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+-- closed. R_DEVICE_UNSUPPORTED on desktops.
+foreign import ccall safe "Rshare_show" rshare_show :: Ptr RShareDesc -> RDeviceCallback -> Ptr () -> IO ()
 
 -- | Shows a texture. R_INVALID_ID shows nothing.
 foreign import ccall safe "Rviewport_set_texture" rviewport_set_texture :: Rid -> Rid -> IO ()
@@ -9365,6 +10098,16 @@ foreign import ccall safe "Rhost_inject_focus" rhost_inject_focus :: Rid -> CInt
 -- | The user asked to close the window (its close callback decides).
 foreign import ccall safe "Rhost_inject_close" rhost_inject_close :: Rid -> IO ()
 
+-- | The user answered a permission_request (or the status changed
+-- by itself). The waiting Rpermission_request callbacks get it at the
+-- next frame. Any thread.
+foreign import ccall safe "Rhost_permission_answer" rhost_permission_answer :: RPermission -> RPermissionStatus -> IO ()
+
+-- | The end of a service_request: the files it gave (copied; paths
+-- Raven can read; size 0 is read from the file), at the next frame. Once
+-- per request. Any thread.
+foreign import ccall safe "Rhost_service_complete" rhost_service_complete :: Word32 -> RDeviceResult -> Ptr RPickedFile -> CInt -> IO ()
+
 -- | R_TRUE makes what is drawn depend only on what the test does:
 -- every frame advances the animations by 1/60 s (Rset_animation_time_step),
 -- and the carets of the text fields stay lit instead of blinking. R_FALSE
@@ -9482,3 +10225,45 @@ foreign import ccall safe "Rtest_expect_golden" rtest_expect_golden :: Rid -> CS
 -- Returns: The number of pixels farther apart than `channel_tolerance`;
 -- -1 when an image is missing.
 foreign import ccall safe "Rtest_compare_pixels" rtest_compare_pixels :: Ptr Word8 -> Ptr Word8 -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr Word8 -> IO CInt
+
+-- | The widgets as JSON, what a test, a script or an agent reads of
+-- the interface. Each widget gives its "type" (its XML tag), "name" and
+-- "path" (for Rtest_find) when it has a name, its accessibility "role",
+-- its "text" (Rtest_get_text), "label" and "value" when they differ,
+-- "bounds" [x, y, width, height] in logical units of its window,
+-- "shown", "enabled", and when they apply "focused", "checked",
+-- "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+-- list ("items") and its "children", in the order of the layout.
+-- target A window or a widget; R_INVALID_ID for every window of
+-- the application: {"raven": version, "backend": tag, "windows": [...]},
+-- each with its "title", "size", "scale", "content", "popups".
+-- Returns: The JSON text, valid until the next call. "" on error.
+foreign import ccall safe "Rtest_dump_tree" rtest_dump_tree :: Rid -> IO CString
+
+-- | Rtest_dump_tree written to a file ("-": the standard output).
+foreign import ccall safe "Rtest_save_tree" rtest_save_tree :: Rid -> CString -> IO CInt
+
+-- | Captures a window, or the rectangle of a widget, into a PNG
+-- file. The null backend draws nothing: its picture is the clear color.
+foreign import ccall safe "Rtest_save_png" rtest_save_png :: Rid -> CString -> IO CInt
+
+-- | Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+-- "Driving any application headlessly" in README.md):
+--
+--     click form/user
+--     type "ada"
+--     key Enter
+--     expect status text "Welcome, ada"
+--     snap after-login
+--
+-- The frames are produced by the function (Rdraw_frame) until the script
+-- ends. A widget is named by its name or path, by "text:Sign in" (the
+-- first one shown that reads it), or a point of the window by "@x,y".
+-- script The text of the script.
+-- source_name The name its messages give it ("login.script"); may be NULL.
+-- Returns: R_TRUE when every step was done and every check was true;
+-- R_FALSE otherwise, with the reason in Rtest_get_script_error.
+foreign import ccall safe "Rtest_run_script" rtest_run_script :: CString -> CString -> IO CInt
+
+-- | Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.
+foreign import ccall safe "Rtest_get_script_error" rtest_get_script_error :: IO CString

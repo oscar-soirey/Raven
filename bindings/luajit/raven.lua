@@ -396,6 +396,11 @@ typedef enum RColorRole {
 	R_COLOR_CODE = 291,
 	R_COLOR_SEARCH_MATCH = 292,
 	R_COLOR_SEARCH_CURRENT = 293,
+	R_COLOR_SPELLING = 294,
+	R_COLOR_DIFF_ADDED = 295,
+	R_COLOR_DIFF_REMOVED = 296,
+	R_COLOR_DIFF_ADDED_WORD = 297,
+	R_COLOR_DIFF_REMOVED_WORD = 298,
 } RColorRole;
 typedef enum RMetric {
 	R_METRIC_FONT_SIZE = 320,
@@ -487,6 +492,7 @@ typedef enum RWidgetType {
 	R_WIDGET_MAP_VIEW = 565,
 	R_WIDGET_CAROUSEL = 566,
 	R_WIDGET_SYSTEM_WEB_VIEW = 567,
+	R_WIDGET_DIFF_VIEW = 568,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -655,6 +661,16 @@ typedef enum RSystemWebViewEvent {
 	R_SYSTEM_WEB_VIEW_LOADED = 2963,
 	R_SYSTEM_WEB_VIEW_FAILED = 2964,
 } RSystemWebViewEvent;
+typedef enum RTableSelectionMode {
+	R_TABLE_SELECTION_SINGLE = 3008,
+	R_TABLE_SELECTION_MULTIPLE = 3009,
+	R_TABLE_SELECTION_NONE = 3010,
+} RTableSelectionMode;
+typedef enum RTableColumnKind {
+	R_TABLE_COLUMN_TEXT = 3024,
+	R_TABLE_COLUMN_CHECK = 3025,
+	R_TABLE_COLUMN_PROGRESS = 3026,
+} RTableColumnKind;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -747,6 +763,29 @@ typedef enum RBlockPlace {
 	R_BLOCK_BODY = 1809,
 	R_BLOCK_INPUT = 1810,
 } RBlockPlace;
+typedef enum RDiffViewMode {
+	R_DIFF_VIEW_UNIFIED = 3152,
+	R_DIFF_VIEW_SPLIT = 3153,
+} RDiffViewMode;
+typedef enum RDiffSide {
+	R_DIFF_LEFT = 3156,
+	R_DIFF_RIGHT = 3157,
+} RDiffSide;
+typedef enum RDiffRowKind {
+	R_DIFF_ROW_SAME = 3160,
+	R_DIFF_ROW_REMOVED = 3161,
+	R_DIFF_ROW_ADDED = 3162,
+	R_DIFF_ROW_CHANGED = 3163,
+	R_DIFF_ROW_FOLD = 3164,
+	R_DIFF_ROW_HUNK = 3165,
+	R_DIFF_ROW_FILE = 3166,
+	R_DIFF_ROW_NOTE = 3167,
+} RDiffRowKind;
+typedef enum RDiffFlags {
+	R_DIFF_IGNORE_TRAILING_SPACE = 1,
+	R_DIFF_IGNORE_SPACE = 2,
+	R_DIFF_IGNORE_CASE = 4,
+} RDiffFlags;
 typedef enum RNotificationUrgency {
 	R_NOTIFICATION_LOW = 1264,
 	R_NOTIFICATION_NORMAL = 1265,
@@ -787,6 +826,38 @@ typedef enum RMessageResult {
 	R_MESSAGE_RESULT_YES = 2,
 	R_MESSAGE_RESULT_NO = 3,
 } RMessageResult;
+typedef enum RPermission {
+	R_PERMISSION_CAMERA = 3072,
+	R_PERMISSION_NOTIFICATIONS = 3073,
+	R_PERMISSION_PHOTOS = 3074,
+	R_PERMISSION_MICROPHONE = 3075,
+	R_PERMISSION_LOCATION = 3076,
+} RPermission;
+typedef enum RPermissionStatus {
+	R_PERMISSION_UNSUPPORTED = 3088,
+	R_PERMISSION_NOT_ASKED = 3089,
+	R_PERMISSION_GRANTED = 3090,
+	R_PERMISSION_LIMITED = 3091,
+	R_PERMISSION_DENIED = 3092,
+	R_PERMISSION_BLOCKED = 3093,
+} RPermissionStatus;
+typedef enum RDeviceResult {
+	R_DEVICE_DONE = 3104,
+	R_DEVICE_CANCELLED = 3105,
+	R_DEVICE_DENIED = 3106,
+	R_DEVICE_UNSUPPORTED = 3107,
+	R_DEVICE_BUSY = 3108,
+	R_DEVICE_FAILED = 3109,
+} RDeviceResult;
+typedef enum RHaptic {
+	R_HAPTIC_LIGHT = 3120,
+	R_HAPTIC_MEDIUM = 3121,
+	R_HAPTIC_HEAVY = 3122,
+	R_HAPTIC_SELECTION = 3123,
+	R_HAPTIC_SUCCESS = 3124,
+	R_HAPTIC_WARNING = 3125,
+	R_HAPTIC_ERROR = 3126,
+} RHaptic;
 typedef enum RMotion {
 	R_MOTION_SNAPPY = 800,
 	R_MOTION_SMOOTH = 801,
@@ -874,6 +945,14 @@ typedef enum RAccessibleRole {
 	R_ROLE_SCROLL_BAR = 1922,
 	R_ROLE_PANE = 1923,
 } RAccessibleRole;
+typedef enum RHostService {
+	R_HOST_SERVICE_OPEN_FILES = 3136,
+	R_HOST_SERVICE_SAVE_FILE = 3137,
+	R_HOST_SERVICE_SELECT_FOLDER = 3138,
+	R_HOST_SERVICE_TAKE_PHOTO = 3139,
+	R_HOST_SERVICE_PICK_PHOTOS = 3140,
+	R_HOST_SERVICE_SHARE = 3141,
+} RHostService;
 typedef enum RGoldenStatus {
 	R_GOLDEN_MATCH = 2976,
 	R_GOLDEN_UPDATED = 2977,
@@ -905,12 +984,15 @@ typedef struct RNotificationAction RNotificationAction;
 typedef struct RNotificationDesc RNotificationDesc;
 typedef struct RFileFilter RFileFilter;
 typedef struct RFileDialogDesc RFileDialogDesc;
+typedef struct RPickedFile RPickedFile;
+typedef struct RShareDesc RShareDesc;
 typedef struct RViewportDrawInfo RViewportDrawInfo;
 typedef struct RSpring RSpring;
 typedef struct RShaderLook RShaderLook;
 typedef struct RXmlError RXmlError;
 typedef struct RXmlAttributeInfo RXmlAttributeInfo;
 typedef struct RAccessibilitySettings RAccessibilitySettings;
+typedef struct RHostServiceRequest RHostServiceRequest;
 typedef struct RHostPlatformDesc RHostPlatformDesc;
 typedef struct RGoldenOptions RGoldenOptions;
 typedef struct RGoldenResult RGoldenResult;
@@ -1000,11 +1082,14 @@ typedef void (*RNodeGraphContextCallback)(Rid graph, int node, float x, float y,
 typedef void (*RNodeGraphPointCallback)(Rid graph, int item, float x, float y, void* user_data);
 typedef void (*RBlockEditorCallback)(Rid editor, int block, void* user_data);
 typedef void (*RBlockEditorContextCallback)(Rid editor, int block, float x, float y, void* user_data);
+typedef void (*RDiffViewLineCallback)(Rid diff_view, RDiffSide side, int line, int in_gutter, void* user_data);
 typedef void (*RDialogClosedCallback)(Rid content, int result, void* user_data);
 typedef void (*RFileBrowserCallback)(Rid browser, const char* path, void* user_data);
 typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
 typedef void (*RNotificationClickedCallback)(void* user_data);
 typedef void (*RNotificationCallback)(const char* tag, RNotificationEvent event, const char* action, void* user_data);
+typedef void (*RPermissionCallback)(RPermission permission, RPermissionStatus status, void* user_data);
+typedef void (*RDeviceCallback)(RDeviceResult result, const RPickedFile* files, int count, void* user_data);
 typedef void (*RViewportDrawCallback)(const RViewportDrawInfo* info, void* user_data);
 typedef void (*RViewportResizeCallback)(Rid viewport, int width, int height, void* user_data);
 typedef void (*RPaintCallback)(Rid widget, RPainter* painter, float width, float height, void* user_data);
@@ -1253,6 +1338,21 @@ struct RFileDialogDesc {
 	const char* default_extension;
 	Ruint flags;
 };
+struct RPickedFile {
+	const char* path;
+	const char* name;
+	const char* mime_type;
+	uint64_t size;
+	int width;
+	int height;
+};
+struct RShareDesc {
+	const char* text;
+	const char* path;
+	const char* mime_type;
+	const char* title;
+	Rid anchor;
+};
 struct RViewportDrawInfo {
 	RBackend backend;
 	Rid viewport;
@@ -1309,12 +1409,41 @@ struct RAccessibilitySettings {
 	int reduce_motion;
 	int screen_reader;
 };
+struct RHostServiceRequest {
+	Ruint id;
+	RHostService service;
+	Rid window;
+	float anchor_x;
+	float anchor_y;
+	float anchor_width;
+	float anchor_height;
+	const char* title;
+	const RFileFilter* filters;
+	int filter_count;
+	Ruint flags;
+	const char* file_name;
+	const char* default_extension;
+	const void* data;
+	size_t size;
+	const char* path;
+	int max_count;
+	const char* text;
+	const char* mime_type;
+	const char* share_title;
+};
 struct RHostPlatformDesc {
 	void* set_cursor;
 	void* clipboard_set;
 	void* clipboard_get;
 	void* wake;
 	void* user_data;
+	void* permission_status;
+	void* permission_request;
+	void* service_request;
+	int has_camera;
+	void* open_url;
+	void* haptic;
+	void* download;
 };
 struct RGoldenOptions {
 	int channel_tolerance;
@@ -1396,6 +1525,7 @@ int Ropen_url(const char* url);
 void Rclipboard_set_text(const char* text);
 void Rclipboard_set_html(const char* text, const char* html);
 const char* Rclipboard_get_text(void);
+int Rclipboard_has_text(void);
 int Rclipboard_set_data(const RDataItem* items, int count);
 int Rclipboard_has_data(const char* mime);
 char* Rclipboard_get_data(const char* mime, size_t* size);
@@ -1582,6 +1712,7 @@ int Rtexture_uses_current_color(Rid texture);
 float Rtexture_get_density(Rid texture);
 Rid Rtexture_create_from_file(const char* path);
 Rid Rtexture_create_from_file_async(const char* path);
+Rid Rtexture_create_from_url_async(const char* url);
 Rid Rtexture_create_from_pixels(const uint8_t* rgba, int width, int height);
 void Rtexture_update(Rid texture, const uint8_t* rgba, int width, int height);
 uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* height);
@@ -1806,6 +1937,20 @@ void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
 RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
+void Rtext_input_set_spell_check(Rid text_input, int enabled);
+int Rtext_input_get_spell_check(Rid text_input);
+void Rtext_input_set_spell_language(Rid text_input, const char* language);
+int Rspell_is_supported(void);
+int Rspell_get_language_count(void);
+const char* Rspell_get_language_at(int index);
+int Rspell_set_language(const char* language);
+const char* Rspell_get_language(void);
+int Rspell_check(const char* text, const char* language);
+int Rspell_get_misspelling(int index, int* start, int* end);
+int Rspell_suggest(const char* word, const char* language);
+const char* Rspell_get_suggestion(int index);
+void Rspell_learn(const char* word, const char* language);
+void Rspell_ignore(const char* word);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
 void Rspin_box_set_value(Rid spin_box, double value);
 double Rspin_box_get_value(Rid spin_box);
@@ -1946,13 +2091,20 @@ void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callba
 void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
 void Rtable_set_multi_select(Rid table, int enabled);
+void Rtable_set_selection_mode(Rid table, RTableSelectionMode mode);
+RTableSelectionMode Rtable_get_selection_mode(Rid table);
 void Rtable_set_row_selected(Rid table, int row, int selected);
 int Rtable_is_row_selected(Rid table, int row);
+void Rtable_select_range(Rid table, int first, int last, int selected);
+void Rtable_select_all(Rid table);
 void Rtable_clear_selection(Rid table);
 int Rtable_get_selection_count(Rid table);
 int Rtable_get_selection(Rid table, int index);
+int Rtable_get_selection_range_count(Rid table);
+int Rtable_get_selection_range(Rid table, int index, int* first, int* last);
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);
+int Rtable_get_current_row(Rid table);
 void Rtable_scroll_to_row(Rid table, int row);
 void Rtable_sort(Rid table, int column, int descending);
 int Rtable_get_sort_column(Rid table);
@@ -1971,6 +2123,10 @@ int Rtable_is_editing(Rid table);
 int Rtable_end_edit(Rid table, int commit);
 void Rtable_set_frozen_columns(Rid table, int count);
 int Rtable_get_frozen_columns(Rid table);
+void Rtable_set_column_kind(Rid table, int column, RTableColumnKind kind);
+RTableColumnKind Rtable_get_column_kind(Rid table, int column);
+int Rtable_is_cell_checked(Rid table, int row, int column);
+void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
 void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
 void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);
 void Rdate_picker_set_range(Rid date_picker, int min_year, int min_month, int min_day, int max_year, int max_month, int max_day);
@@ -2305,6 +2461,9 @@ void Rtext_editor_set_language(Rid editor, const char* name);
 const char* Rtext_editor_get_language(Rid editor);
 void Rtext_editor_set_markdown(Rid editor, int enabled);
 int Rtext_editor_get_markdown(Rid editor);
+void Rtext_editor_set_spell_check(Rid editor, int enabled);
+int Rtext_editor_get_spell_check(Rid editor);
+void Rtext_editor_set_spell_language(Rid editor, const char* language);
 RToken Rtext_editor_get_token(Rid editor, int line, int column);
 void Rtext_editor_set_completion(Rid editor, int enabled);
 void Rtext_editor_show_completions(Rid editor);
@@ -2596,6 +2755,38 @@ int Rblock_editor_get_selected(Rid editor, int index);
 void Rblock_editor_select(Rid editor, int block, int add);
 void Rblock_editor_get_view(Rid editor, float* x, float* y, float* zoom);
 void Rblock_editor_set_view(Rid editor, float x, float y, float zoom);
+char* Rdiff_unified(const char* left, const char* right, const char* left_name, const char* right_name, int context, uint32_t flags, size_t* size);
+int Rdiff_count_changes(const char* left, const char* right, uint32_t flags);
+Rid Rdiff_view_create(void);
+void Rdiff_view_set_texts(Rid diff_view, const char* left, const char* right);
+void Rdiff_view_set_names(Rid diff_view, const char* left_name, const char* right_name);
+int Rdiff_view_load_files(Rid diff_view, const char* left_path, const char* right_path);
+int Rdiff_view_set_patch(Rid diff_view, const char* patch);
+void Rdiff_view_set_mode(Rid diff_view, RDiffViewMode mode);
+RDiffViewMode Rdiff_view_get_mode(Rid diff_view);
+void Rdiff_view_set_context(Rid diff_view, int lines);
+int Rdiff_view_get_context(Rid diff_view);
+void Rdiff_view_set_flags(Rid diff_view, uint32_t flags);
+uint32_t Rdiff_view_get_flags(Rid diff_view);
+void Rdiff_view_set_word_diff(Rid diff_view, int enabled);
+void Rdiff_view_set_line_numbers(Rid diff_view, int visible);
+void Rdiff_view_set_language(Rid diff_view, const char* language);
+int Rdiff_view_get_change_count(Rid diff_view);
+int Rdiff_view_get_change(Rid diff_view, int change, int* left_line, int* left_count, int* right_line, int* right_count);
+void Rdiff_view_go_to_change(Rid diff_view, int change);
+int Rdiff_view_get_current_change(Rid diff_view);
+int Rdiff_view_next_change(Rid diff_view);
+int Rdiff_view_prev_change(Rid diff_view);
+int Rdiff_view_get_row_count(Rid diff_view);
+RDiffRowKind Rdiff_view_get_row(Rid diff_view, int row, int* left_line, int* right_line);
+const char* Rdiff_view_get_row_text(Rid diff_view, int row, RDiffSide side);
+int Rdiff_view_expand(Rid diff_view, int row);
+int Rdiff_view_get_first_visible_row(Rid diff_view);
+void Rdiff_view_scroll_to_row(Rid diff_view, int row);
+void Rdiff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const char* text);
+void Rdiff_view_clear_annotations(Rid diff_view);
+const char* Rdiff_view_get_selected_text(Rid diff_view);
+void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
 void Rdialog_open(Rid window, Rid content, RDialogClosedCallback closed, void* user_data);
 void Rdialog_close(Rid widget, int result);
 int Rdialog_run(Rid window, Rid content);
@@ -2642,6 +2833,21 @@ void Rnotification_set_callback(RNotificationCallback callback, void* user_data)
 void Rnotification_set_bring_to_front(int enabled);
 void Rnotification_set_fallback_toast(Rid toast);
 int Rnotification_supports(RNotificationFeature feature);
+RPermissionStatus Rpermission_get_status(RPermission permission);
+void Rpermission_request(RPermission permission, RPermissionCallback callback, void* user_data);
+int Rpermission_open_settings(void);
+const char* Rpermission_to_string(RPermission permission);
+const char* Rpermission_status_to_string(RPermissionStatus status);
+void Rfile_open_async(const RFileDialogDesc* desc, RDeviceCallback callback, void* user_data);
+void Rfile_save_async(const RFileDialogDesc* desc, const void* data, size_t size, RDeviceCallback callback, void* user_data);
+void Rfile_export_async(const RFileDialogDesc* desc, const char* path, RDeviceCallback callback, void* user_data);
+void Rfile_select_folder_async(const RFileDialogDesc* desc, RDeviceCallback callback, void* user_data);
+int Rcamera_is_available(void);
+void Rcamera_take_photo(RDeviceCallback callback, void* user_data);
+void Rphoto_pick(int max_count, RDeviceCallback callback, void* user_data);
+int Rhaptic_is_supported(void);
+int Rhaptic_play(RHaptic haptic);
+void Rshare_show(const RShareDesc* desc, RDeviceCallback callback, void* user_data);
 void Rviewport_set_texture(Rid viewport, Rid texture);
 void Rviewport_set_stretch(Rid viewport, RStretch stretch);
 void Rviewport_set_flip_y(Rid viewport, int flip);
@@ -2828,6 +3034,8 @@ void Rhost_inject_text(Rid window, uint32_t codepoint);
 void Rhost_inject_composition(Rid window, const char* text, int selection_start, int selection_end);
 void Rhost_inject_focus(Rid window, int focused);
 void Rhost_inject_close(Rid window);
+void Rhost_permission_answer(RPermission permission, RPermissionStatus status);
+void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count);
 void Rtest_set_deterministic(int enabled);
 int Rtest_is_deterministic(void);
 const char* Rtest_get_platform_tag(void);

@@ -219,6 +219,7 @@ const _symbols = {
 	Rclipboard_set_text: { args: ["ptr"], returns: "void" },
 	Rclipboard_set_html: { args: ["ptr", "ptr"], returns: "void" },
 	Rclipboard_get_text: { args: [], returns: "cstring" },
+	Rclipboard_has_text: { args: [], returns: "i32" },
 	Rclipboard_set_data: { args: ["ptr", "i32"], returns: "i32" },
 	Rclipboard_has_data: { args: ["ptr"], returns: "i32" },
 	Rclipboard_get_data: { args: ["ptr", "ptr"], returns: "ptr" },
@@ -405,6 +406,7 @@ const _symbols = {
 	Rtexture_get_density: { args: ["u32"], returns: "f32" },
 	Rtexture_create_from_file: { args: ["ptr"], returns: "u32" },
 	Rtexture_create_from_file_async: { args: ["ptr"], returns: "u32" },
+	Rtexture_create_from_url_async: { args: ["ptr"], returns: "u32" },
 	Rtexture_create_from_pixels: { args: ["ptr", "i32", "i32"], returns: "u32" },
 	Rtexture_update: { args: ["u32", "ptr", "i32", "i32"], returns: "void" },
 	Rimage_decode: { args: ["ptr", "usize", "ptr", "ptr"], returns: "ptr" },
@@ -629,6 +631,20 @@ const _symbols = {
 	Rtext_input_get_return_key: { args: ["u32"], returns: "i32" },
 	Rtext_input_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_input_set_committed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_input_set_spell_check: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_spell_check: { args: ["u32"], returns: "i32" },
+	Rtext_input_set_spell_language: { args: ["u32", "ptr"], returns: "void" },
+	Rspell_is_supported: { args: [], returns: "i32" },
+	Rspell_get_language_count: { args: [], returns: "i32" },
+	Rspell_get_language_at: { args: ["i32"], returns: "cstring" },
+	Rspell_set_language: { args: ["ptr"], returns: "i32" },
+	Rspell_get_language: { args: [], returns: "cstring" },
+	Rspell_check: { args: ["ptr", "ptr"], returns: "i32" },
+	Rspell_get_misspelling: { args: ["i32", "ptr", "ptr"], returns: "i32" },
+	Rspell_suggest: { args: ["ptr", "ptr"], returns: "i32" },
+	Rspell_get_suggestion: { args: ["i32"], returns: "cstring" },
+	Rspell_learn: { args: ["ptr", "ptr"], returns: "void" },
+	Rspell_ignore: { args: ["ptr"], returns: "void" },
 	Rspin_box_set_range: { args: ["u32", "f64", "f64"], returns: "void" },
 	Rspin_box_set_value: { args: ["u32", "f64"], returns: "void" },
 	Rspin_box_get_value: { args: ["u32"], returns: "f64" },
@@ -769,13 +785,20 @@ const _symbols = {
 	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_cell_text_color: { args: ["u32", "i32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rtable_set_multi_select: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_selection_mode: { args: ["u32", "i32"], returns: "void" },
+	Rtable_get_selection_mode: { args: ["u32"], returns: "i32" },
 	Rtable_set_row_selected: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rtable_is_row_selected: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_select_range: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rtable_select_all: { args: ["u32"], returns: "void" },
 	Rtable_clear_selection: { args: ["u32"], returns: "void" },
 	Rtable_get_selection_count: { args: ["u32"], returns: "i32" },
 	Rtable_get_selection: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_get_selection_range_count: { args: ["u32"], returns: "i32" },
+	Rtable_get_selection_range: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
+	Rtable_get_current_row: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
 	Rtable_sort: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rtable_get_sort_column: { args: ["u32"], returns: "i32" },
@@ -794,6 +817,10 @@ const _symbols = {
 	Rtable_end_edit: { args: ["u32", "i32"], returns: "i32" },
 	Rtable_set_frozen_columns: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_frozen_columns: { args: ["u32"], returns: "i32" },
+	Rtable_set_column_kind: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_get_column_kind: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_is_cell_checked: { args: ["u32", "i32", "i32"], returns: "i32" },
+	Rtable_set_cell_checked: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rdate_picker_set_date: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rdate_picker_get_date: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rdate_picker_set_range: { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
@@ -1128,6 +1155,9 @@ const _symbols = {
 	Rtext_editor_get_language: { args: ["u32"], returns: "cstring" },
 	Rtext_editor_set_markdown: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_get_markdown: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_spell_check: { args: ["u32", "i32"], returns: "void" },
+	Rtext_editor_get_spell_check: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_spell_language: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_token: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rtext_editor_set_completion: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_show_completions: { args: ["u32"], returns: "void" },
@@ -1419,6 +1449,38 @@ const _symbols = {
 	Rblock_editor_select: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rblock_editor_get_view: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rblock_editor_set_view: { args: ["u32", "f32", "f32", "f32"], returns: "void" },
+	Rdiff_unified: { args: ["ptr", "ptr", "ptr", "ptr", "i32", "u32", "ptr"], returns: "ptr" },
+	Rdiff_count_changes: { args: ["ptr", "ptr", "u32"], returns: "i32" },
+	Rdiff_view_create: { args: [], returns: "u32" },
+	Rdiff_view_set_texts: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdiff_view_set_names: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdiff_view_load_files: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_set_patch: { args: ["u32", "ptr"], returns: "i32" },
+	Rdiff_view_set_mode: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_mode: { args: ["u32"], returns: "i32" },
+	Rdiff_view_set_context: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_context: { args: ["u32"], returns: "i32" },
+	Rdiff_view_set_flags: { args: ["u32", "u32"], returns: "void" },
+	Rdiff_view_get_flags: { args: ["u32"], returns: "u32" },
+	Rdiff_view_set_word_diff: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_set_line_numbers: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_set_language: { args: ["u32", "ptr"], returns: "void" },
+	Rdiff_view_get_change_count: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_change: { args: ["u32", "i32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_go_to_change: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_current_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_next_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_prev_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_row_count: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_row: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_get_row_text: { args: ["u32", "i32", "i32"], returns: "cstring" },
+	Rdiff_view_expand: { args: ["u32", "i32"], returns: "i32" },
+	Rdiff_view_get_first_visible_row: { args: ["u32"], returns: "i32" },
+	Rdiff_view_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_add_annotation: { args: ["u32", "i32", "i32", "ptr"], returns: "void" },
+	Rdiff_view_clear_annotations: { args: ["u32"], returns: "void" },
+	Rdiff_view_get_selected_text: { args: ["u32"], returns: "cstring" },
+	Rdiff_view_set_line_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_open: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_close: { args: ["u32", "i32"], returns: "void" },
 	Rdialog_run: { args: ["u32", "u32"], returns: "i32" },
@@ -1465,6 +1527,21 @@ const _symbols = {
 	Rnotification_set_bring_to_front: { args: ["i32"], returns: "void" },
 	Rnotification_set_fallback_toast: { args: ["u32"], returns: "void" },
 	Rnotification_supports: { args: ["i32"], returns: "i32" },
+	Rpermission_get_status: { args: ["i32"], returns: "i32" },
+	Rpermission_request: { args: ["i32", "ptr", "ptr"], returns: "void" },
+	Rpermission_open_settings: { args: [], returns: "i32" },
+	Rpermission_to_string: { args: ["i32"], returns: "cstring" },
+	Rpermission_status_to_string: { args: ["i32"], returns: "cstring" },
+	Rfile_open_async: { args: ["ptr", "ptr", "ptr"], returns: "void" },
+	Rfile_save_async: { args: ["ptr", "ptr", "usize", "ptr", "ptr"], returns: "void" },
+	Rfile_export_async: { args: ["ptr", "ptr", "ptr", "ptr"], returns: "void" },
+	Rfile_select_folder_async: { args: ["ptr", "ptr", "ptr"], returns: "void" },
+	Rcamera_is_available: { args: [], returns: "i32" },
+	Rcamera_take_photo: { args: ["ptr", "ptr"], returns: "void" },
+	Rphoto_pick: { args: ["i32", "ptr", "ptr"], returns: "void" },
+	Rhaptic_is_supported: { args: [], returns: "i32" },
+	Rhaptic_play: { args: ["i32"], returns: "i32" },
+	Rshare_show: { args: ["ptr", "ptr", "ptr"], returns: "void" },
 	Rviewport_set_texture: { args: ["u32", "u32"], returns: "void" },
 	Rviewport_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rviewport_set_flip_y: { args: ["u32", "i32"], returns: "void" },
@@ -1651,6 +1728,8 @@ const _symbols = {
 	Rhost_inject_composition: { args: ["u32", "ptr", "i32", "i32"], returns: "void" },
 	Rhost_inject_focus: { args: ["u32", "i32"], returns: "void" },
 	Rhost_inject_close: { args: ["u32"], returns: "void" },
+	Rhost_permission_answer: { args: ["i32", "i32"], returns: "void" },
+	Rhost_service_complete: { args: ["u32", "i32", "ptr", "i32"], returns: "void" },
 	Rtest_set_deterministic: { args: ["i32"], returns: "void" },
 	Rtest_is_deterministic: { args: [], returns: "i32" },
 	Rtest_get_platform_tag: { args: [], returns: "cstring" },
@@ -2614,6 +2693,14 @@ export enum RColorRole {
 	R_COLOR_SEARCH_MATCH = 0x0124,
 	/** The selected match of a search in a text editor. */
 	R_COLOR_SEARCH_CURRENT = 0x0125,
+	/** Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). */
+	R_COLOR_SPELLING = 0x0126,
+	/** Diff view: the background of an added line and of a removed line (see-through: the background shows). */
+	R_COLOR_DIFF_ADDED = 0x0127,
+	R_COLOR_DIFF_REMOVED = 0x0128,
+	/** Diff view: the words that changed inside an added line and inside a removed line, over the color of the line. */
+	R_COLOR_DIFF_ADDED_WORD = 0x0129,
+	R_COLOR_DIFF_REMOVED_WORD = 0x012A,
 }
 
 export const R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW;
@@ -2654,6 +2741,11 @@ export const R_COLOR_LINK = RColorRole.R_COLOR_LINK;
 export const R_COLOR_CODE = RColorRole.R_COLOR_CODE;
 export const R_COLOR_SEARCH_MATCH = RColorRole.R_COLOR_SEARCH_MATCH;
 export const R_COLOR_SEARCH_CURRENT = RColorRole.R_COLOR_SEARCH_CURRENT;
+export const R_COLOR_SPELLING = RColorRole.R_COLOR_SPELLING;
+export const R_COLOR_DIFF_ADDED = RColorRole.R_COLOR_DIFF_ADDED;
+export const R_COLOR_DIFF_REMOVED = RColorRole.R_COLOR_DIFF_REMOVED;
+export const R_COLOR_DIFF_ADDED_WORD = RColorRole.R_COLOR_DIFF_ADDED_WORD;
+export const R_COLOR_DIFF_REMOVED_WORD = RColorRole.R_COLOR_DIFF_REMOVED_WORD;
 
 /** Sizes, in logical units. */
 export enum RMetric {
@@ -2841,6 +2933,8 @@ export enum RWidgetType {
 	R_WIDGET_CAROUSEL = 0x0236,
 	/** A web page shown by the engine of the system (WKWebView) in a view kept over the widget. */
 	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
+	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
+	R_WIDGET_DIFF_VIEW = 0x0238,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2899,6 +2993,7 @@ export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
+export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3338,6 +3433,38 @@ export const R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_L
 export const R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED;
 export const R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED;
 
+/** How the rows of a Table are selected (Rtable_set_selection_mode). */
+export enum RTableSelectionMode {
+	/** One row at a time (the default). */
+	R_TABLE_SELECTION_SINGLE = 0x0BC0,
+	/** Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A. */
+	R_TABLE_SELECTION_MULTIPLE = 0x0BC1,
+	/** The user selects nothing (the rows are only shown; cells may still be edited and checked). */
+	R_TABLE_SELECTION_NONE = 0x0BC2,
+}
+
+export const R_TABLE_SELECTION_SINGLE = RTableSelectionMode.R_TABLE_SELECTION_SINGLE;
+export const R_TABLE_SELECTION_MULTIPLE = RTableSelectionMode.R_TABLE_SELECTION_MULTIPLE;
+export const R_TABLE_SELECTION_NONE = RTableSelectionMode.R_TABLE_SELECTION_NONE;
+
+/** What the cells of a column show (Rtable_set_column_kind). */
+export enum RTableColumnKind {
+	/** Their text (the default). */
+	R_TABLE_COLUMN_TEXT = 0x0BD0,
+	/**
+	 * A check box, checked when the text is "1", "true" or "yes". The user
+	 * toggles it with a click or Space unless the column is made not
+	 * editable; the cell edited callback is then called with "1" or "0".
+	 */
+	R_TABLE_COLUMN_CHECK = 0x0BD1,
+	/** A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing. */
+	R_TABLE_COLUMN_PROGRESS = 0x0BD2,
+}
+
+export const R_TABLE_COLUMN_TEXT = RTableColumnKind.R_TABLE_COLUMN_TEXT;
+export const R_TABLE_COLUMN_CHECK = RTableColumnKind.R_TABLE_COLUMN_CHECK;
+export const R_TABLE_COLUMN_PROGRESS = RTableColumnKind.R_TABLE_COLUMN_PROGRESS;
+
 /** Shorthands of Rtext_editor_set_language for two languages. */
 export enum RSyntax {
 	R_SYNTAX_NONE = 0x0340,
@@ -3570,6 +3697,68 @@ export const R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT;
 export const R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY;
 export const R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT;
 
+export enum RDiffViewMode {
+	/** One column: the removed lines, then the added lines, between the lines kept. */
+	R_DIFF_VIEW_UNIFIED = 0x0C50,
+	/** Two columns: the left text and the right text side by side, aligned. */
+	R_DIFF_VIEW_SPLIT = 0x0C51,
+}
+
+export const R_DIFF_VIEW_UNIFIED = RDiffViewMode.R_DIFF_VIEW_UNIFIED;
+export const R_DIFF_VIEW_SPLIT = RDiffViewMode.R_DIFF_VIEW_SPLIT;
+
+export enum RDiffSide {
+	/** The text before (the old one, "a/", the lines removed). */
+	R_DIFF_LEFT = 0x0C54,
+	/** The text after (the new one, "b/", the lines added). */
+	R_DIFF_RIGHT = 0x0C55,
+}
+
+export const R_DIFF_LEFT = RDiffSide.R_DIFF_LEFT;
+export const R_DIFF_RIGHT = RDiffSide.R_DIFF_RIGHT;
+
+export enum RDiffRowKind {
+	/** A line that is on both sides. */
+	R_DIFF_ROW_SAME = 0x0C58,
+	/** A line of the left text only. */
+	R_DIFF_ROW_REMOVED = 0x0C59,
+	/** A line of the right text only. */
+	R_DIFF_ROW_ADDED = 0x0C5A,
+	/** Split mode: a removed line facing the added line that replaces it. */
+	R_DIFF_ROW_CHANGED = 0x0C5B,
+	/** Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them. */
+	R_DIFF_ROW_FOLD = 0x0C5C,
+	/** A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main"). */
+	R_DIFF_ROW_HUNK = 0x0C5D,
+	/** A patch: the names of a file. */
+	R_DIFF_ROW_FILE = 0x0C5E,
+	/** A note attached to the line above it (Rdiff_view_add_annotation). */
+	R_DIFF_ROW_NOTE = 0x0C5F,
+}
+
+export const R_DIFF_ROW_SAME = RDiffRowKind.R_DIFF_ROW_SAME;
+export const R_DIFF_ROW_REMOVED = RDiffRowKind.R_DIFF_ROW_REMOVED;
+export const R_DIFF_ROW_ADDED = RDiffRowKind.R_DIFF_ROW_ADDED;
+export const R_DIFF_ROW_CHANGED = RDiffRowKind.R_DIFF_ROW_CHANGED;
+export const R_DIFF_ROW_FOLD = RDiffRowKind.R_DIFF_ROW_FOLD;
+export const R_DIFF_ROW_HUNK = RDiffRowKind.R_DIFF_ROW_HUNK;
+export const R_DIFF_ROW_FILE = RDiffRowKind.R_DIFF_ROW_FILE;
+export const R_DIFF_ROW_NOTE = RDiffRowKind.R_DIFF_ROW_NOTE;
+
+/** How lines are compared (Rdiff_view_set_flags, Rdiff_unified). */
+export enum RDiffFlags {
+	/** Spaces and tabs at the end of a line (and a carriage return) do not count. */
+	R_DIFF_IGNORE_TRAILING_SPACE = 1,
+	/** No space or tab counts, wherever it is. */
+	R_DIFF_IGNORE_SPACE = 2,
+	/** Upper and lower case letters are the same (A to Z). */
+	R_DIFF_IGNORE_CASE = 4,
+}
+
+export const R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE;
+export const R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE;
+export const R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE;
+
 /** How much a notification of the system asks for attention (Rnotification_show). */
 export enum RNotificationUrgency {
 	/** No sound; may only go to the list of notifications. */
@@ -3669,6 +3858,101 @@ export const R_MESSAGE_RESULT_CANCEL = RMessageResult.R_MESSAGE_RESULT_CANCEL;
 export const R_MESSAGE_RESULT_OK = RMessageResult.R_MESSAGE_RESULT_OK;
 export const R_MESSAGE_RESULT_YES = RMessageResult.R_MESSAGE_RESULT_YES;
 export const R_MESSAGE_RESULT_NO = RMessageResult.R_MESSAGE_RESULT_NO;
+
+/** What the application may be allowed to use (Rpermission_request). */
+export enum RPermission {
+	R_PERMISSION_CAMERA = 0x0C00,
+	/** Notifications of the system (Rnotification_show). */
+	R_PERMISSION_NOTIFICATIONS = 0x0C01,
+	/** Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose. */
+	R_PERMISSION_PHOTOS = 0x0C02,
+	R_PERMISSION_MICROPHONE = 0x0C03,
+	/** The location of the device while the application is in use. */
+	R_PERMISSION_LOCATION = 0x0C04,
+}
+
+export const R_PERMISSION_CAMERA = RPermission.R_PERMISSION_CAMERA;
+export const R_PERMISSION_NOTIFICATIONS = RPermission.R_PERMISSION_NOTIFICATIONS;
+export const R_PERMISSION_PHOTOS = RPermission.R_PERMISSION_PHOTOS;
+export const R_PERMISSION_MICROPHONE = RPermission.R_PERMISSION_MICROPHONE;
+export const R_PERMISSION_LOCATION = RPermission.R_PERMISSION_LOCATION;
+
+/** What the user answered, or would be asked (Rpermission_get_status). */
+export enum RPermissionStatus {
+	/**
+	 * There is nothing to ask for here: the platform has no such permission,
+	 * or Raven cannot ask for it on this platform. Whether the service itself
+	 * exists is told by its own function (Rcamera_is_available,
+	 * Rnotification_is_supported).
+	 */
+	R_PERMISSION_UNSUPPORTED = 0x0C10,
+	/** Not asked yet: Rpermission_request shows the question of the system. */
+	R_PERMISSION_NOT_ASKED = 0x0C11,
+	/** Allowed (also where the system asks nothing: notifications on Windows and Linux). */
+	R_PERMISSION_GRANTED = 0x0C12,
+	/** Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only. */
+	R_PERMISSION_LIMITED = 0x0C13,
+	/** Refused, and the system may ask again (Android, after a first refusal). */
+	R_PERMISSION_DENIED = 0x0C14,
+	/**
+	 * Refused for good, or not the user's to give (parental controls, a
+	 * profile of the company): the system shows no question any more, only
+	 * its Settings can change it (Rpermission_open_settings).
+	 */
+	R_PERMISSION_BLOCKED = 0x0C15,
+}
+
+export const R_PERMISSION_UNSUPPORTED = RPermissionStatus.R_PERMISSION_UNSUPPORTED;
+export const R_PERMISSION_NOT_ASKED = RPermissionStatus.R_PERMISSION_NOT_ASKED;
+export const R_PERMISSION_GRANTED = RPermissionStatus.R_PERMISSION_GRANTED;
+export const R_PERMISSION_LIMITED = RPermissionStatus.R_PERMISSION_LIMITED;
+export const R_PERMISSION_DENIED = RPermissionStatus.R_PERMISSION_DENIED;
+export const R_PERMISSION_BLOCKED = RPermissionStatus.R_PERMISSION_BLOCKED;
+
+/** How a request of a picker, the camera or a share sheet ended. */
+export enum RDeviceResult {
+	/** Done: the files were chosen, the photo taken, the file saved, the sheet shown. */
+	R_DEVICE_DONE = 0x0C20,
+	/** The user closed the screen of the system without choosing. */
+	R_DEVICE_CANCELLED = 0x0C21,
+	/** A permission it needs was refused (Rcamera_take_photo: the camera). */
+	R_DEVICE_DENIED = 0x0C22,
+	/** The platform does not have this service. */
+	R_DEVICE_UNSUPPORTED = 0x0C23,
+	/** Another screen of the system is still open: one at a time. */
+	R_DEVICE_BUSY = 0x0C24,
+	/** The system reported an error (also reported as an R_ERROR_PLATFORM warning). */
+	R_DEVICE_FAILED = 0x0C25,
+}
+
+export const R_DEVICE_DONE = RDeviceResult.R_DEVICE_DONE;
+export const R_DEVICE_CANCELLED = RDeviceResult.R_DEVICE_CANCELLED;
+export const R_DEVICE_DENIED = RDeviceResult.R_DEVICE_DENIED;
+export const R_DEVICE_UNSUPPORTED = RDeviceResult.R_DEVICE_UNSUPPORTED;
+export const R_DEVICE_BUSY = RDeviceResult.R_DEVICE_BUSY;
+export const R_DEVICE_FAILED = RDeviceResult.R_DEVICE_FAILED;
+
+/** A short vibration that answers a touch (Rhaptic_play). */
+export enum RHaptic {
+	/** Impacts: something touched, snapped, landed. */
+	R_HAPTIC_LIGHT = 0x0C30,
+	R_HAPTIC_MEDIUM = 0x0C31,
+	R_HAPTIC_HEAVY = 0x0C32,
+	/** The selection moved (a picker wheel, a switch, a segmented control). */
+	R_HAPTIC_SELECTION = 0x0C33,
+	/** The outcome of an action. */
+	R_HAPTIC_SUCCESS = 0x0C34,
+	R_HAPTIC_WARNING = 0x0C35,
+	R_HAPTIC_ERROR = 0x0C36,
+}
+
+export const R_HAPTIC_LIGHT = RHaptic.R_HAPTIC_LIGHT;
+export const R_HAPTIC_MEDIUM = RHaptic.R_HAPTIC_MEDIUM;
+export const R_HAPTIC_HEAVY = RHaptic.R_HAPTIC_HEAVY;
+export const R_HAPTIC_SELECTION = RHaptic.R_HAPTIC_SELECTION;
+export const R_HAPTIC_SUCCESS = RHaptic.R_HAPTIC_SUCCESS;
+export const R_HAPTIC_WARNING = RHaptic.R_HAPTIC_WARNING;
+export const R_HAPTIC_ERROR = RHaptic.R_HAPTIC_ERROR;
 
 /**
  * How a spring moves. Animations in Raven are springs, as on iOS: a value is
@@ -3880,6 +4164,29 @@ export const R_ROLE_CANVAS = RAccessibleRole.R_ROLE_CANVAS;
 export const R_ROLE_SEPARATOR = RAccessibleRole.R_ROLE_SEPARATOR;
 export const R_ROLE_SCROLL_BAR = RAccessibleRole.R_ROLE_SCROLL_BAR;
 export const R_ROLE_PANE = RAccessibleRole.R_ROLE_PANE;
+
+/** What a request of a service of the device asks the application for (RHostServiceRequest). */
+export enum RHostService {
+	/** Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE). */
+	R_HOST_SERVICE_OPEN_FILES = 0x0C40,
+	/** Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async). */
+	R_HOST_SERVICE_SAVE_FILE = 0x0C41,
+	/** A folder (Rfile_select_folder_async). */
+	R_HOST_SERVICE_SELECT_FOLDER = 0x0C42,
+	/** A photo from the camera (Rcamera_take_photo); camera permission already asked. */
+	R_HOST_SERVICE_TAKE_PHOTO = 0x0C43,
+	/** Up to `max_count` photos (0: no limit) from the library (Rphoto_pick). */
+	R_HOST_SERVICE_PICK_PHOTOS = 0x0C44,
+	/** The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show). */
+	R_HOST_SERVICE_SHARE = 0x0C45,
+}
+
+export const R_HOST_SERVICE_OPEN_FILES = RHostService.R_HOST_SERVICE_OPEN_FILES;
+export const R_HOST_SERVICE_SAVE_FILE = RHostService.R_HOST_SERVICE_SAVE_FILE;
+export const R_HOST_SERVICE_SELECT_FOLDER = RHostService.R_HOST_SERVICE_SELECT_FOLDER;
+export const R_HOST_SERVICE_TAKE_PHOTO = RHostService.R_HOST_SERVICE_TAKE_PHOTO;
+export const R_HOST_SERVICE_PICK_PHOTOS = RHostService.R_HOST_SERVICE_PICK_PHOTOS;
+export const R_HOST_SERVICE_SHARE = RHostService.R_HOST_SERVICE_SHARE;
 
 export enum RGoldenStatus {
 	/** The capture matches the golden. */
@@ -5788,6 +6095,127 @@ export class RFileDialogDesc extends RStruct {
 	}
 }
 
+/** A file given by a service of the device. Valid during the callback only: copy what you keep. */
+export class RPickedFile extends RStruct {
+	static readonly SIZE = 40;
+
+	constructor(pointer?: Pointer) {
+		super(RPickedFile.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RPickedFile | null {
+		return pointer ? new RPickedFile(pointer) : null;
+	}
+
+	/**
+	 * A path Raven and the C library can read (Rfile_read, textures, fonts,
+	 * fopen). On iOS and Android a copy in the cache of the application.
+	 * NULL for Rfile_save_async on iOS and Android: the file went where the
+	 * user chose, which the application cannot write to again.
+	 */
+	get path(): string | null {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set path(value: string | null) {
+		this._point("path", 0, _s(value));
+	}
+
+	/** The name the user saw ("IMG_0042.JPG"), to show. */
+	get name(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set name(value: string | null) {
+		this._point("name", 8, _s(value));
+	}
+
+	/** The MIME type when the system tells ("image/jpeg"), or NULL. */
+	get mime_type(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value: string | null) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	/** Bytes. */
+	get size(): bigint {
+		return this._view.getBigUint64(24, true);
+	}
+	set size(value: bigint) {
+		this._view.setBigUint64(24, value, true);
+	}
+
+	/** Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. */
+	get width(): number {
+		return this._view.getInt32(32, true);
+	}
+	set width(value: number) {
+		this._view.setInt32(32, value, true);
+	}
+
+	/** Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. */
+	get height(): number {
+		return this._view.getInt32(36, true);
+	}
+	set height(value: number) {
+		this._view.setInt32(36, value, true);
+	}
+}
+
+/** What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them. */
+export class RShareDesc extends RStruct {
+	static readonly SIZE = 40;
+
+	constructor(pointer?: Pointer) {
+		super(RShareDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RShareDesc | null {
+		return pointer ? new RShareDesc(pointer) : null;
+	}
+
+	/** Text, or a link ("https://..."). May be NULL. */
+	get text(): string | null {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set text(value: string | null) {
+		this._point("text", 0, _s(value));
+	}
+
+	/** A file to send (a path Raven can read), or NULL. */
+	get path(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set path(value: string | null) {
+		this._point("path", 8, _s(value));
+	}
+
+	/** Its MIME type ("image/png"); NULL: guessed from its extension. */
+	get mime_type(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value: string | null) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	/** The title of the sheet, where the system shows one (Android's chooser). May be NULL. */
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 24, _s(value));
+	}
+
+	/** The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window. */
+	get anchor(): Rid {
+		return this._view.getUint32(32, true);
+	}
+	set anchor(value: Rid) {
+		this._view.setUint32(32, value, true);
+	}
+}
+
 /** Passed to the draw callback of a viewport. Sizes are in pixels. */
 export class RViewportDrawInfo extends RStruct {
 	static readonly SIZE = 112;
@@ -6212,8 +6640,175 @@ export class RAccessibilitySettings extends RStruct {
 	}
 }
 
+/** A request of a service of the device, valid during the call only. Fields that do not concern the service are zero. */
+export class RHostServiceRequest extends RStruct {
+	static readonly SIZE = 128;
+
+	constructor(pointer?: Pointer) {
+		super(RHostServiceRequest.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RHostServiceRequest | null {
+		return pointer ? new RHostServiceRequest(pointer) : null;
+	}
+
+	/** Given back to Rhost_service_complete. */
+	get id(): number {
+		return this._view.getUint32(0, true);
+	}
+	set id(value: number) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get service(): RHostService {
+		return this._view.getInt32(4, true) as RHostService;
+	}
+	set service(value: RHostService) {
+		this._view.setInt32(4, value, true);
+	}
+
+	/** The window it is for (R_INVALID_ID: none). */
+	get window(): Rid {
+		return this._view.getUint32(8, true);
+	}
+	set window(value: Rid) {
+		this._view.setUint32(8, value, true);
+	}
+
+	/** What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. */
+	get anchor_x(): number {
+		return this._view.getFloat32(12, true);
+	}
+	set anchor_x(value: number) {
+		this._view.setFloat32(12, value, true);
+	}
+
+	/** What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. */
+	get anchor_y(): number {
+		return this._view.getFloat32(16, true);
+	}
+	set anchor_y(value: number) {
+		this._view.setFloat32(16, value, true);
+	}
+
+	/** What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. */
+	get anchor_width(): number {
+		return this._view.getFloat32(20, true);
+	}
+	set anchor_width(value: number) {
+		this._view.setFloat32(20, value, true);
+	}
+
+	/** What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. */
+	get anchor_height(): number {
+		return this._view.getFloat32(24, true);
+	}
+	set anchor_height(value: number) {
+		this._view.setFloat32(24, value, true);
+	}
+
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 32, _s(value));
+	}
+
+	get filters(): Pointer | null {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set filters(value: readonly RFileFilter[] | Pointer | null) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(40, BigInt(value), true);
+			return;
+		}
+		this._point("filters", 40, _structs(value, RFileFilter.SIZE));
+		(this._kept ??= new Map()).set("filters.items", value ?? this._bytes);
+		this.filter_count = value?.length ?? 0;
+	}
+
+	get filter_count(): number {
+		return this._view.getInt32(48, true);
+	}
+	set filter_count(value: number) {
+		this._view.setInt32(48, value, true);
+	}
+
+	/** Bitmask of RFileDialogFlags. */
+	get flags(): number {
+		return this._view.getUint32(52, true);
+	}
+	set flags(value: number) {
+		this._view.setUint32(52, value, true);
+	}
+
+	get file_name(): string | null {
+		return _text(_address(this._view.getBigUint64(56, true)));
+	}
+	set file_name(value: string | null) {
+		this._point("file_name", 56, _s(value));
+	}
+
+	get default_extension(): string | null {
+		return _text(_address(this._view.getBigUint64(64, true)));
+	}
+	set default_extension(value: string | null) {
+		this._point("default_extension", 64, _s(value));
+	}
+
+	get data(): Pointer | null {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set data(value: Pointer | null) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	get size(): number {
+		return Number(this._view.getBigUint64(80, true));
+	}
+	set size(value: number) {
+		this._view.setBigUint64(80, BigInt(value), true);
+	}
+
+	get path(): string | null {
+		return _text(_address(this._view.getBigUint64(88, true)));
+	}
+	set path(value: string | null) {
+		this._point("path", 88, _s(value));
+	}
+
+	get max_count(): number {
+		return this._view.getInt32(96, true);
+	}
+	set max_count(value: number) {
+		this._view.setInt32(96, value, true);
+	}
+
+	get text(): string | null {
+		return _text(_address(this._view.getBigUint64(104, true)));
+	}
+	set text(value: string | null) {
+		this._point("text", 104, _s(value));
+	}
+
+	get mime_type(): string | null {
+		return _text(_address(this._view.getBigUint64(112, true)));
+	}
+	set mime_type(value: string | null) {
+		this._point("mime_type", 112, _s(value));
+	}
+
+	get share_title(): string | null {
+		return _text(_address(this._view.getBigUint64(120, true)));
+	}
+	set share_title(value: string | null) {
+		this._point("share_title", 120, _s(value));
+	}
+}
+
 export class RHostPlatformDesc extends RStruct {
-	static readonly SIZE = 40;
+	static readonly SIZE = 96;
 
 	constructor(pointer?: Pointer) {
 		super(RHostPlatformDesc.SIZE, pointer);
@@ -6261,6 +6856,66 @@ export class RHostPlatformDesc extends RStruct {
 	}
 	set user_data(value: Pointer | null) {
 		this._view.setBigUint64(32, BigInt(value ?? 0), true);
+	}
+
+	/** An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported). */
+	get permission_status(): Pointer | null {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set permission_status(value: Pointer | null) {
+		this._view.setBigUint64(40, BigInt(value ?? 0), true);
+	}
+
+	/** Ask the user (the status is not asked or denied); answer with Rhost_permission_answer. */
+	get permission_request(): Pointer | null {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set permission_request(value: Pointer | null) {
+		this._view.setBigUint64(48, BigInt(value ?? 0), true);
+	}
+
+	/** A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else. */
+	get service_request(): Pointer | null {
+		return _address(this._view.getBigUint64(56, true));
+	}
+	set service_request(value: Pointer | null) {
+		this._view.setBigUint64(56, BigInt(value ?? 0), true);
+	}
+
+	/** R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO. */
+	get has_camera(): number {
+		return this._view.getInt32(64, true);
+	}
+	set has_camera(value: number) {
+		this._view.setInt32(64, value, true);
+	}
+
+	/** Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...). */
+	get open_url(): Pointer | null {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set open_url(value: Pointer | null) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	/** Rhaptic_play: an RHaptic. Returns R_TRUE when played. */
+	get haptic(): Pointer | null {
+		return _address(this._view.getBigUint64(80, true));
+	}
+	set haptic(value: Pointer | null) {
+		this._view.setBigUint64(80, BigInt(value ?? 0), true);
+	}
+
+	/**
+	 * Downloads an http(s) URL (images from a URL): returns its content in a
+	 * buffer from Rmemory_alloc and its size, or NULL. Called on worker
+	 * threads, several at a time, and may block. NULL: as on desktops.
+	 */
+	get download(): Pointer | null {
+		return _address(this._view.getBigUint64(88, true));
+	}
+	set download(value: Pointer | null) {
+		this._view.setBigUint64(88, BigInt(value ?? 0), true);
 	}
 }
 
@@ -7926,6 +8581,27 @@ function _adapt_RBlockEditorContextCallback(function_: RBlockEditorContextCallba
 	}, { args: ["u32", "i32", "f32", "f32", "ptr"], returns: "void", threadsafe }));
 }
 
+/**
+ * A line, or its number in the gutter, was clicked. `side` is the side
+ * of the line clicked (in unified mode: the left side for a removed line
+ * and for the left column of numbers, else the right side), `line` its
+ * number on that side, from 1.
+ */
+export type RDiffViewLineCallback = (diff_view: Rid, side: RDiffSide, line: number, in_gutter: number, user_data: Pointer | null) => void;
+
+function _adapt_RDiffViewLineCallback(function_: RDiffViewLineCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((diff_view: number, side: number, line: number, in_gutter: number, user_data: Pointer | null): void => {
+		try {
+			function_(diff_view, side as RDiffSide, line, in_gutter, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
 /** Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed. */
 export type RDialogClosedCallback = (content: Rid, result: number, user_data: Pointer | null) => void;
 
@@ -8012,6 +8688,42 @@ function _adapt_RNotificationCallback(function_: RNotificationCallback | Pointer
 			_report(error as Error);
 		}
 	}, { args: ["ptr", "i32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+/** The answer to Rpermission_request. */
+export type RPermissionCallback = (permission: RPermission, status: RPermissionStatus, user_data: Pointer | null) => void;
+
+function _adapt_RPermissionCallback(function_: RPermissionCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((permission: number, status: number, user_data: Pointer | null): void => {
+		try {
+			function_(permission as RPermission, status as RPermissionStatus, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * The end of a request of a picker, the camera, a save or a share
+ * sheet. `files` (count of them) are what it gave: none unless `result` is
+ * R_DEVICE_DONE. Called on the UI thread, once.
+ */
+export type RDeviceCallback = (result: RDeviceResult, files: RPickedFile | null, count: number, user_data: Pointer | null) => void;
+
+function _adapt_RDeviceCallback(function_: RDeviceCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((result: number, files: Pointer | null, count: number, user_data: Pointer | null): void => {
+		try {
+			function_(result as RDeviceResult, RPickedFile.from(files), count, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "ptr", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -8610,7 +9322,9 @@ export function Raction_is_builtin(name: string | null): number {
 /**
  * Opens an address with the program the user has for it: a web
  * page in the browser, a mailto: in the mail program, a file in its
- * application. Returns at once.
+ * application. Returns at once. On iOS and Android the system opens it
+ * (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+ * and Raven must be initialized and this be called on the UI thread.
  * Returns: R_FALSE when the OS could not be asked (nothing tells whether
  * a program then really opened it).
  */
@@ -8633,9 +9347,24 @@ export function Rclipboard_set_html(text: string | null, html: string | null): v
 	_lib.Rclipboard_set_html(_s(text), _s(html));
 }
 
-/** Returns: The clipboard text, or "" when empty. Valid until the next call. */
+/**
+ * Returns: The clipboard text, or "" when empty. Valid until the next call.
+ * On iOS a read that does not follow a paste of the user (the Paste of a
+ * menu, a button, Command-V) shows the system's question "Allow Paste?",
+ * and on Android 12+ the system says that the application pasted: read it
+ * when the user pastes, not to look at it. Android lets only the
+ * application in front read it.
+ */
 export function Rclipboard_get_text(): string | null {
 	return _lib.Rclipboard_get_text();
+}
+
+/**
+ * Returns: R_TRUE when the clipboard holds text, without reading it (no
+ * question of the system on iOS): to enable a Paste button.
+ */
+export function Rclipboard_has_text(): number {
+	return _lib.Rclipboard_has_text();
 }
 
 /**
@@ -9945,6 +10674,20 @@ export function Rtexture_create_from_file_async(path: string | null): Rid {
 	return _lib.Rtexture_create_from_file_async(_s(path));
 }
 
+/**
+ * Downloads an http:// or https:// image and decodes it on a worker
+ * thread, as an Image whose Source is a URL does. The handle is usable at
+ * once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+ * a texture that could not be downloaded is ready with a size of 0, and the
+ * failure is reported as a warning). Desktops download with WinHTTP or
+ * `curl`; iOS and Android through their platform. Android needs the INTERNET
+ * permission in the manifest; iOS refuses http:// unless Info.plist allows
+ * it (App Transport Security). Up to 32 MiB.
+ */
+export function Rtexture_create_from_url_async(url: string | null): Rid {
+	return _lib.Rtexture_create_from_url_async(_s(url));
+}
+
 /** Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. */
 export function Rtexture_create_from_pixels(rgba: RPointer, width: number, height: number): Rid {
 	return _lib.Rtexture_create_from_pixels(rgba, width, height);
@@ -11236,6 +11979,89 @@ export function Rtext_input_set_committed_callback(text_input: Rid, callback: RT
 	_lib.Rtext_input_set_committed_callback(text_input, _adapt_RTextChangedCallback(callback), user_data);
 }
 
+/**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING). Off by
+ * default. A password is never checked.
+ */
+export function Rtext_input_set_spell_check(text_input: Rid, enabled: number): void {
+	_lib.Rtext_input_set_spell_check(text_input, enabled);
+}
+
+export function Rtext_input_get_spell_check(text_input: Rid): number {
+	return _lib.Rtext_input_get_spell_check(text_input);
+}
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_input_set_spell_language(text_input: Rid, language: string | null): void {
+	_lib.Rtext_input_set_spell_language(text_input, _s(language));
+}
+
+/** R_TRUE when the system has a spell checker that Raven can use. */
+export function Rspell_is_supported(): number {
+	return _lib.Rspell_is_supported();
+}
+
+/** The languages the checker has dictionaries for. */
+export function Rspell_get_language_count(): number {
+	return _lib.Rspell_get_language_count();
+}
+
+export function Rspell_get_language_at(index: number): string | null {
+	return _lib.Rspell_get_language_at(index);
+}
+
+/**
+ * The language used when a widget or a call gives none. NULL
+ * follows the locale again.
+ * Returns: R_FALSE when the checker has no dictionary for it (the default
+ * of the system is then used).
+ */
+export function Rspell_set_language(language: string | null): number {
+	return _lib.Rspell_set_language(_s(language));
+}
+
+/** The code of the language used by default, as the checker names it; "" when there is no checker. */
+export function Rspell_get_language(): string | null {
+	return _lib.Rspell_get_language();
+}
+
+/**
+ * Checks a text. `language` NULL: the default.
+ * Returns: The number of misspelled words, read with Rspell_get_misspelling.
+ */
+export function Rspell_check(text: string | null, language: string | null): number {
+	return _lib.Rspell_check(_s(text), _s(language));
+}
+
+/** A misspelled word found by the last Rspell_check: bytes [start, end) of its text. */
+export function Rspell_get_misspelling(index: number): [result: number, start: number, end: number] {
+	const start_ = new Int32Array(1);
+	const end_ = new Int32Array(1);
+	const result_ = _lib.Rspell_get_misspelling(index, start_, end_);
+	return [result_, start_[0]!, end_[0]!];
+}
+
+/** Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion. */
+export function Rspell_suggest(word: string | null, language: string | null): number {
+	return _lib.Rspell_suggest(_s(word), _s(language));
+}
+
+/** A correction found by the last Rspell_suggest; valid until the next call. */
+export function Rspell_get_suggestion(index: number): string | null {
+	return _lib.Rspell_get_suggestion(index);
+}
+
+/** Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). */
+export function Rspell_learn(word: string | null, language: string | null): void {
+	_lib.Rspell_learn(_s(word), _s(language));
+}
+
+/** The word is no longer a misspelling, in every language, until the application quits. */
+export function Rspell_ignore(word: string | null): void {
+	_lib.Rspell_ignore(_s(word));
+}
+
 export function Rspin_box_set_range(spin_box: Rid, minimum: number, maximum: number): void {
 	_lib.Rspin_box_set_range(spin_box, minimum, maximum);
 }
@@ -11936,9 +12762,21 @@ export function Rtable_set_cell_text_color(table: Rid, row: number, column: numb
 	_lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a);
 }
 
-/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE). */
 export function Rtable_set_multi_select(table: Rid, enabled: number): void {
 	_lib.Rtable_set_multi_select(table, enabled);
+}
+
+/**
+ * Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+ * Going to single keeps the selected row, going to none clears the selection.
+ */
+export function Rtable_set_selection_mode(table: Rid, mode: RTableSelectionMode): void {
+	_lib.Rtable_set_selection_mode(table, mode);
+}
+
+export function Rtable_get_selection_mode(table: Rid): RTableSelectionMode {
+	return _lib.Rtable_get_selection_mode(table) as RTableSelectionMode;
 }
 
 export function Rtable_set_row_selected(table: Rid, row: number, selected: number): void {
@@ -11947,6 +12785,20 @@ export function Rtable_set_row_selected(table: Rid, row: number, selected: numbe
 
 export function Rtable_is_row_selected(table: Rid, row: number): number {
 	return _lib.Rtable_is_row_selected(table, row);
+}
+
+/**
+ * Selects (`selected` R_TRUE) or deselects the rows first..last, both
+ * included, keeping the others: multiple selection only (in single
+ * selection, selecting a range selects `last`).
+ */
+export function Rtable_select_range(table: Rid, first: number, last: number, selected: number): void {
+	_lib.Rtable_select_range(table, first, last, selected);
+}
+
+/** Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes. */
+export function Rtable_select_all(table: Rid): void {
+	_lib.Rtable_select_all(table);
 }
 
 export function Rtable_clear_selection(table: Rid): void {
@@ -11962,13 +12814,44 @@ export function Rtable_get_selection(table: Rid, index: number): number {
 	return _lib.Rtable_get_selection(table, index);
 }
 
+/**
+ * The selection as runs of consecutive rows, top to bottom: the
+ * fast way to go through a large selection (select all of a million rows
+ * is one range).
+ */
+export function Rtable_get_selection_range_count(table: Rid): number {
+	return _lib.Rtable_get_selection_range_count(table);
+}
+
+/** The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges. */
+export function Rtable_get_selection_range(table: Rid, index: number): [result: number, first: number, last: number] {
+	const first_ = new Int32Array(1);
+	const last_ = new Int32Array(1);
+	const result_ = _lib.Rtable_get_selection_range(table, index, first_, last_);
+	return [result_, first_[0]!, last_[0]!];
+}
+
 /** Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 export function Rtable_set_selected(table: Rid, row: number): void {
 	_lib.Rtable_set_selected(table, row);
 }
 
+/**
+ * The selected row (-1: none). In multiple selection, the one
+ * selected last, or else the first one; the selection changed callback
+ * receives it.
+ */
 export function Rtable_get_selected(table: Rid): number {
 	return _lib.Rtable_get_selected(table);
+}
+
+/**
+ * The row the keyboard is on: the selected row in single
+ * selection; in multiple selection the row last clicked or reached with
+ * the arrows, which Space toggles (it may be unselected). -1: none.
+ */
+export function Rtable_get_current_row(table: Rid): number {
+	return _lib.Rtable_get_current_row(table);
 }
 
 export function Rtable_scroll_to_row(table: Rid, row: number): void {
@@ -12060,6 +12943,31 @@ export function Rtable_set_frozen_columns(table: Rid, count: number): void {
 
 export function Rtable_get_frozen_columns(table: Rid): number {
 	return _lib.Rtable_get_frozen_columns(table);
+}
+
+/**
+ * Text (default), check box or progress bar: how the cells of the
+ * column are drawn from their texts. A check column is made editable (the
+ * user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+ * only) and centered. For anything else, a cell color callback and the
+ * texts are what the table offers: it draws no other widget in its cells.
+ */
+export function Rtable_set_column_kind(table: Rid, column: number, kind: RTableColumnKind): void {
+	_lib.Rtable_set_column_kind(table, column, kind);
+}
+
+export function Rtable_get_column_kind(table: Rid, column: number): RTableColumnKind {
+	return _lib.Rtable_get_column_kind(table, column) as RTableColumnKind;
+}
+
+/** A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked. */
+export function Rtable_is_cell_checked(table: Rid, row: number, column: number): number {
+	return _lib.Rtable_is_cell_checked(table, row, column);
+}
+
+/** Stored rows: writes "1" or "0" in the cell (no callback is called). */
+export function Rtable_set_cell_checked(table: Rid, row: number, column: number, checked: number): void {
+	_lib.Rtable_set_cell_checked(table, row, column, checked);
 }
 
 /** Sets the date (today when the picker is created). An invalid date is refused. */
@@ -13850,6 +14758,25 @@ export function Rtext_editor_get_markdown(editor: Rid): number {
 }
 
 /**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING in
+ * raven_controls.h). Only the lines shown are checked, again when they
+ * change. Off by default: it is meant for prose, not for code.
+ */
+export function Rtext_editor_set_spell_check(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_spell_check(editor, enabled);
+}
+
+export function Rtext_editor_get_spell_check(editor: Rid): number {
+	return _lib.Rtext_editor_get_spell_check(editor);
+}
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_editor_set_spell_language(editor: Rid, language: string | null): void {
+	_lib.Rtext_editor_set_spell_language(editor, _s(language));
+}
+
+/**
  * What the language of the editor makes of the character at a
  * position: the colors come from it. R_TOKEN_TEXT without a language.
  */
@@ -15590,6 +16517,214 @@ export function Rblock_editor_set_view(editor: Rid, x: number, y: number, zoom: 
 }
 
 /**
+ * The differences between two texts as a unified diff (the format
+ * of `diff -u` and `git diff`), with `context` unchanged lines around each
+ * change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+ * (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+ * the library: it may be called from any thread.
+ * Returns: The patch followed by a '\0' (an empty text when the texts are
+ * the same), to release with Rmemory_free; NULL when a text is NULL.
+ * `size` receives its length in bytes, and may be NULL.
+ */
+export function Rdiff_unified(left: string | null, right: string | null, left_name: string | null, right_name: string | null, context: number, flags: number): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rdiff_unified(_s(left), _s(right), _s(left_name), _s(right_name), context, flags, size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/** The number of changes (runs of lines removed and / or added) between two texts. Any thread. */
+export function Rdiff_count_changes(left: string | null, right: string | null, flags: number): number {
+	return _lib.Rdiff_count_changes(_s(left), _s(right), flags);
+}
+
+export function Rdiff_view_create(): Rid {
+	return _lib.Rdiff_view_create();
+}
+
+/** The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n". */
+export function Rdiff_view_set_texts(diff_view: Rid, left: string | null, right: string | null): void {
+	_lib.Rdiff_view_set_texts(diff_view, _s(left), _s(right));
+}
+
+/** Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code. */
+export function Rdiff_view_set_names(diff_view: Rid, left_name: string | null, right_name: string | null): void {
+	_lib.Rdiff_view_set_names(diff_view, _s(left_name), _s(right_name));
+}
+
+/**
+ * Compares two files. Their paths become the names unless names
+ * were given. Returns: R_FALSE when a file cannot be read (it is compared
+ * as empty).
+ */
+export function Rdiff_view_load_files(diff_view: Rid, left_path: string | null, right_path: string | null): number {
+	return _lib.Rdiff_view_load_files(diff_view, _s(left_path), _s(right_path));
+}
+
+/**
+ * Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+ * instead of two texts: each file with its name, each hunk with its header.
+ * Returns: R_FALSE when the text holds no hunk (nothing is shown).
+ */
+export function Rdiff_view_set_patch(diff_view: Rid, patch: string | null): number {
+	return _lib.Rdiff_view_set_patch(diff_view, _s(patch));
+}
+
+export function Rdiff_view_set_mode(diff_view: Rid, mode: RDiffViewMode): void {
+	_lib.Rdiff_view_set_mode(diff_view, mode);
+}
+
+export function Rdiff_view_get_mode(diff_view: Rid): RDiffViewMode {
+	return _lib.Rdiff_view_get_mode(diff_view) as RDiffViewMode;
+}
+
+/**
+ * Unchanged lines shown around each change (3 by default); the
+ * others are folded. A negative number shows every line.
+ */
+export function Rdiff_view_set_context(diff_view: Rid, lines: number): void {
+	_lib.Rdiff_view_set_context(diff_view, lines);
+}
+
+export function Rdiff_view_get_context(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_context(diff_view);
+}
+
+/** How lines are compared: RDiffFlags (0 by default). Not used by a patch. */
+export function Rdiff_view_set_flags(diff_view: Rid, flags: number): void {
+	_lib.Rdiff_view_set_flags(diff_view, flags);
+}
+
+export function Rdiff_view_get_flags(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_flags(diff_view);
+}
+
+/** Marks the words that changed inside a changed line (default R_TRUE). */
+export function Rdiff_view_set_word_diff(diff_view: Rid, enabled: number): void {
+	_lib.Rdiff_view_set_word_diff(diff_view, enabled);
+}
+
+/** Shows the numbers of the lines (default R_TRUE). */
+export function Rdiff_view_set_line_numbers(diff_view: Rid, visible: number): void {
+	_lib.Rdiff_view_set_line_numbers(diff_view, visible);
+}
+
+/**
+ * Colors the code as the text editor does: a language name of
+ * Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+ * NULL (default) to guess it from the extension of the names.
+ */
+export function Rdiff_view_set_language(diff_view: Rid, language: string | null): void {
+	_lib.Rdiff_view_set_language(diff_view, _s(language));
+}
+
+/** The number of changes: runs of lines removed and / or added. */
+export function Rdiff_view_get_change_count(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_change_count(diff_view);
+}
+
+/**
+ * Where a change is: its first line and its number of lines on
+ * each side (a count of 0: nothing on that side; the line is then the one
+ * after which the other side's lines go). Returns: R_FALSE when there is
+ * no such change.
+ */
+export function Rdiff_view_get_change(diff_view: Rid, change: number): [result: number, left_line: number, left_count: number, right_line: number, right_count: number] {
+	const left_line_ = new Int32Array(1);
+	const left_count_ = new Int32Array(1);
+	const right_line_ = new Int32Array(1);
+	const right_count_ = new Int32Array(1);
+	const result_ = _lib.Rdiff_view_get_change(diff_view, change, left_line_, left_count_, right_line_, right_count_);
+	return [result_, left_line_[0]!, left_count_[0]!, right_line_[0]!, right_count_[0]!];
+}
+
+/** Scrolls to a change (from 0) and marks it as the current one. */
+export function Rdiff_view_go_to_change(diff_view: Rid, change: number): void {
+	_lib.Rdiff_view_go_to_change(diff_view, change);
+}
+
+/** The current change, -1 before the first one is gone to. */
+export function Rdiff_view_get_current_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_current_change(diff_view);
+}
+
+/** Goes to the next / previous change. Returns: Its index, -1 when there is none. */
+export function Rdiff_view_next_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_next_change(diff_view);
+}
+
+export function Rdiff_view_prev_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_prev_change(diff_view);
+}
+
+/** The rows shown, folds, hunk headers and notes included. */
+export function Rdiff_view_get_row_count(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_row_count(diff_view);
+}
+
+/**
+ * What a row shows, and the numbers of its lines (0 for a side it
+ * has no line of). A fold gives the first line it hides on each side.
+ */
+export function Rdiff_view_get_row(diff_view: Rid, row: number): [result: RDiffRowKind, left_line: number, right_line: number] {
+	const left_line_ = new Int32Array(1);
+	const right_line_ = new Int32Array(1);
+	const result_ = _lib.Rdiff_view_get_row(diff_view, row, left_line_, right_line_) as RDiffRowKind;
+	return [result_, left_line_[0]!, right_line_[0]!];
+}
+
+/**
+ * The text of a row on one side (in unified mode the side does not
+ * matter for a line); a fold, a hunk, a file or a note give their label.
+ * Valid until the next call. "" when there is none.
+ */
+export function Rdiff_view_get_row_text(diff_view: Rid, row: number, side: RDiffSide): string | null {
+	return _lib.Rdiff_view_get_row_text(diff_view, row, side);
+}
+
+/** Shows the lines of a fold. Returns: R_FALSE when the row is not a fold. */
+export function Rdiff_view_expand(diff_view: Rid, row: number): number {
+	return _lib.Rdiff_view_expand(diff_view, row);
+}
+
+/** The first row at the top of the view; Rdiff_view_scroll_to_row brings one there. */
+export function Rdiff_view_get_first_visible_row(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_first_visible_row(diff_view);
+}
+
+export function Rdiff_view_scroll_to_row(diff_view: Rid, row: number): void {
+	_lib.Rdiff_view_scroll_to_row(diff_view, row);
+}
+
+/**
+ * Attaches a short note to a line (a review comment, an error): a
+ * mark in the gutter and the text in a row under the line, which is never
+ * folded away. Several notes may go to one line.
+ */
+export function Rdiff_view_add_annotation(diff_view: Rid, side: RDiffSide, line: number, text: string | null): void {
+	_lib.Rdiff_view_add_annotation(diff_view, side, line, _s(text));
+}
+
+export function Rdiff_view_clear_annotations(diff_view: Rid): void {
+	_lib.Rdiff_view_clear_annotations(diff_view);
+}
+
+/** The text selected by the user ("" when none), one line after another. */
+export function Rdiff_view_get_selected_text(diff_view: Rid): string | null {
+	return _lib.Rdiff_view_get_selected_text(diff_view);
+}
+
+/** Called when a line or its number is clicked (the action of the widget is fired too). */
+export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdiff_view_set_line_clicked_callback(diff_view, _adapt_RDiffViewLineCallback(callback), user_data);
+}
+
+/**
  * Shows a widget as a dialog of a window. The window takes
  * ownership of `content`: it is deleted when the dialog closes, so read
  * what you need from it before, or in `closed`.
@@ -15883,6 +17018,118 @@ export function Rnotification_set_fallback_toast(toast: Rid): void {
 /** Whether the notifications of the system have that feature here (R_FALSE where there are none). */
 export function Rnotification_supports(feature: RNotificationFeature): number {
 	return _lib.Rnotification_supports(feature);
+}
+
+/**
+ * What the user answered, without asking. Cheap: the platform
+ * remembers it. On iOS the status of notifications is known shortly after
+ * the start (R_PERMISSION_NOT_ASKED until then).
+ */
+export function Rpermission_get_status(permission: RPermission): RPermissionStatus {
+	return _lib.Rpermission_get_status(permission) as RPermissionStatus;
+}
+
+/**
+ * Asks the user, with the question of the system, when the status
+ * is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+ * with the status. Several requests for the same permission share one
+ * question. `callback` may be NULL.
+ */
+export function Rpermission_request(permission: RPermission, callback: RPermissionCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rpermission_request(permission, _adapt_RPermissionCallback(callback), user_data);
+}
+
+/**
+ * Opens the page of the application in the Settings of the system,
+ * where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+ * Returns: R_FALSE when the platform has no such page.
+ */
+export function Rpermission_open_settings(): number {
+	return _lib.Rpermission_open_settings();
+}
+
+/** Returns: The name of a permission or a status ("camera", "granted"...), for logs. */
+export function Rpermission_to_string(permission: RPermission): string | null {
+	return _lib.Rpermission_to_string(permission);
+}
+
+export function Rpermission_status_to_string(status: RPermissionStatus): string | null {
+	return _lib.Rpermission_status_to_string(status);
+}
+
+/** Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL. */
+export function Rfile_open_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rfile_open_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+
+/**
+ * Saves `size` bytes (copied: `data` may be freed at once) as a
+ * file where the user chooses, proposed under `desc->file_name`. The
+ * callback gives the file as saved: its name, and its path on desktops.
+ */
+export function Rfile_save_async(desc: RFileDialogDesc | null, data: NodeJS.TypedArray | null, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rfile_save_async(_p(desc), _b(data), data?.byteLength ?? 0, _adapt_RDeviceCallback(callback), user_data);
+}
+
+/** Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses. */
+export function Rfile_export_async(desc: RFileDialogDesc | null, path: string | null, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rfile_export_async(_p(desc), _s(path), _adapt_RDeviceCallback(callback), user_data);
+}
+
+/** Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android). */
+export function Rfile_select_folder_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rfile_select_folder_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+
+/** Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator). */
+export function Rcamera_is_available(): number {
+	return _lib.Rcamera_is_available();
+}
+
+/**
+ * Shows the camera of the system to take one photo. It asks for
+ * R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+ * The photo is a JPEG file in the cache of the application, with its
+ * size in pixels, upright.
+ */
+export function Rcamera_take_photo(callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rcamera_take_photo(_adapt_RDeviceCallback(callback), user_data);
+}
+
+/**
+ * Shows the photo picker of the system (desktops: a file dialog for
+ * images). No permission is needed: the application only sees what the
+ * user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+ * when it is HEIC).
+ * max_count How many photos may be picked; 0: no limit.
+ */
+export function Rphoto_pick(max_count: number, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rphoto_pick(max_count, _adapt_RDeviceCallback(callback), user_data);
+}
+
+/** Returns: R_TRUE when the device can play haptics (a phone; never a desktop). */
+export function Rhaptic_is_supported(): number {
+	return _lib.Rhaptic_is_supported();
+}
+
+/**
+ * A short vibration, as the controls of the system play when
+ * touched. Nothing happens where there are none, or when the user turned
+ * them off. Returns: R_TRUE when it was handed to the system.
+ */
+export function Rhaptic_play(haptic: RHaptic): number {
+	return _lib.Rhaptic_play(haptic);
+}
+
+/**
+ * Shows the share sheet of the system with a text and / or a file,
+ * to send them to another application (mail, chat, Files...). The
+ * callback says R_DEVICE_DONE once something was chosen (Android: once the
+ * sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+ * closed. R_DEVICE_UNSUPPORTED on desktops.
+ */
+export function Rshare_show(desc: RShareDesc | null, callback: RDeviceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rshare_show(_p(desc), _adapt_RDeviceCallback(callback), user_data);
 }
 
 /** Shows a texture. R_INVALID_ID shows nothing. */
@@ -17019,6 +18266,24 @@ export function Rhost_inject_focus(window: Rid, focused: number): void {
 /** The user asked to close the window (its close callback decides). */
 export function Rhost_inject_close(window: Rid): void {
 	_lib.Rhost_inject_close(window);
+}
+
+/**
+ * The user answered a permission_request (or the status changed
+ * by itself). The waiting Rpermission_request callbacks get it at the
+ * next frame. Any thread.
+ */
+export function Rhost_permission_answer(permission: RPermission, status: RPermissionStatus): void {
+	_lib.Rhost_permission_answer(permission, status);
+}
+
+/**
+ * The end of a service_request: the files it gave (copied; paths
+ * Raven can read; size 0 is read from the file), at the next frame. Once
+ * per request. Any thread.
+ */
+export function Rhost_service_complete(request: number, result: RDeviceResult, files: readonly RPickedFile[] | null): void {
+	_lib.Rhost_service_complete(request, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
 }
 
 /**

@@ -431,6 +431,17 @@ const (
 	R_DROP_DROPPED RDropPhase = 0x00E3
 )
 
+// RDragOperation: What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of
+// what is allowed, or the one done.
+type RDragOperation int32
+
+const (
+	R_DRAG_OPERATION_NONE RDragOperation = 0
+	R_DRAG_OPERATION_COPY RDragOperation = 1
+	R_DRAG_OPERATION_MOVE RDragOperation = 2
+	R_DRAG_OPERATION_LINK RDragOperation = 4
+)
+
 // RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
 type RTouchMode int32
 
@@ -551,44 +562,49 @@ const (
 type RColorRole int32
 
 const (
-	R_COLOR_WINDOW           RColorRole = 0x0100
-	R_COLOR_PANEL            RColorRole = 0x0101
-	R_COLOR_BORDER           RColorRole = 0x0102
-	R_COLOR_TEXT             RColorRole = 0x0103
-	R_COLOR_TEXT_DISABLED    RColorRole = 0x0104
-	R_COLOR_TEXT_PLACEHOLDER RColorRole = 0x0105
-	R_COLOR_ACCENT           RColorRole = 0x0106
-	R_COLOR_ACCENT_HOVERED   RColorRole = 0x0107
-	R_COLOR_ACCENT_PRESSED   RColorRole = 0x0108
-	R_COLOR_ACCENT_TEXT      RColorRole = 0x0109
-	R_COLOR_CONTROL          RColorRole = 0x010A
-	R_COLOR_CONTROL_HOVERED  RColorRole = 0x010B
-	R_COLOR_CONTROL_PRESSED  RColorRole = 0x010C
-	R_COLOR_CONTROL_BORDER   RColorRole = 0x010D
-	R_COLOR_INPUT            RColorRole = 0x010E
-	R_COLOR_FOCUS            RColorRole = 0x010F
-	R_COLOR_SELECTION        RColorRole = 0x0110
-	R_COLOR_ROW_HOVERED      RColorRole = 0x0111
-	R_COLOR_TRACK            RColorRole = 0x0112
-	R_COLOR_HANDLE           RColorRole = 0x0113
-	R_COLOR_HANDLE_HOVERED   RColorRole = 0x0114
-	R_COLOR_SEPARATOR        RColorRole = 0x0115
-	R_COLOR_HEADER           RColorRole = 0x0116
-	R_COLOR_HEADER_HOVERED   RColorRole = 0x0117
-	R_COLOR_TAB_ACTIVE       RColorRole = 0x0118
-	R_COLOR_POPUP            RColorRole = 0x0119
-	R_COLOR_POPUP_BORDER     RColorRole = 0x011A
-	R_COLOR_SHADOW           RColorRole = 0x011B
-	R_COLOR_TOOLTIP          RColorRole = 0x011C
-	R_COLOR_TOOLTIP_TEXT     RColorRole = 0x011D
-	R_COLOR_SWITCH           RColorRole = 0x011E
-	R_COLOR_SUCCESS          RColorRole = 0x011F
-	R_COLOR_WARNING          RColorRole = 0x0120
-	R_COLOR_DANGER           RColorRole = 0x0121
-	R_COLOR_LINK             RColorRole = 0x0122
-	R_COLOR_CODE             RColorRole = 0x0123
-	R_COLOR_SEARCH_MATCH     RColorRole = 0x0124
-	R_COLOR_SEARCH_CURRENT   RColorRole = 0x0125
+	R_COLOR_WINDOW            RColorRole = 0x0100
+	R_COLOR_PANEL             RColorRole = 0x0101
+	R_COLOR_BORDER            RColorRole = 0x0102
+	R_COLOR_TEXT              RColorRole = 0x0103
+	R_COLOR_TEXT_DISABLED     RColorRole = 0x0104
+	R_COLOR_TEXT_PLACEHOLDER  RColorRole = 0x0105
+	R_COLOR_ACCENT            RColorRole = 0x0106
+	R_COLOR_ACCENT_HOVERED    RColorRole = 0x0107
+	R_COLOR_ACCENT_PRESSED    RColorRole = 0x0108
+	R_COLOR_ACCENT_TEXT       RColorRole = 0x0109
+	R_COLOR_CONTROL           RColorRole = 0x010A
+	R_COLOR_CONTROL_HOVERED   RColorRole = 0x010B
+	R_COLOR_CONTROL_PRESSED   RColorRole = 0x010C
+	R_COLOR_CONTROL_BORDER    RColorRole = 0x010D
+	R_COLOR_INPUT             RColorRole = 0x010E
+	R_COLOR_FOCUS             RColorRole = 0x010F
+	R_COLOR_SELECTION         RColorRole = 0x0110
+	R_COLOR_ROW_HOVERED       RColorRole = 0x0111
+	R_COLOR_TRACK             RColorRole = 0x0112
+	R_COLOR_HANDLE            RColorRole = 0x0113
+	R_COLOR_HANDLE_HOVERED    RColorRole = 0x0114
+	R_COLOR_SEPARATOR         RColorRole = 0x0115
+	R_COLOR_HEADER            RColorRole = 0x0116
+	R_COLOR_HEADER_HOVERED    RColorRole = 0x0117
+	R_COLOR_TAB_ACTIVE        RColorRole = 0x0118
+	R_COLOR_POPUP             RColorRole = 0x0119
+	R_COLOR_POPUP_BORDER      RColorRole = 0x011A
+	R_COLOR_SHADOW            RColorRole = 0x011B
+	R_COLOR_TOOLTIP           RColorRole = 0x011C
+	R_COLOR_TOOLTIP_TEXT      RColorRole = 0x011D
+	R_COLOR_SWITCH            RColorRole = 0x011E
+	R_COLOR_SUCCESS           RColorRole = 0x011F
+	R_COLOR_WARNING           RColorRole = 0x0120
+	R_COLOR_DANGER            RColorRole = 0x0121
+	R_COLOR_LINK              RColorRole = 0x0122
+	R_COLOR_CODE              RColorRole = 0x0123
+	R_COLOR_SEARCH_MATCH      RColorRole = 0x0124
+	R_COLOR_SEARCH_CURRENT    RColorRole = 0x0125
+	R_COLOR_SPELLING          RColorRole = 0x0126
+	R_COLOR_DIFF_ADDED        RColorRole = 0x0127
+	R_COLOR_DIFF_REMOVED      RColorRole = 0x0128
+	R_COLOR_DIFF_ADDED_WORD   RColorRole = 0x0129
+	R_COLOR_DIFF_REMOVED_WORD RColorRole = 0x012A
 )
 
 // RMetric: Sizes, in logical units.
@@ -693,6 +709,8 @@ const (
 	R_WIDGET_CHART           RWidgetType = 0x0234
 	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
+	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
+	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0238
 )
 
 type RHAlign int32
@@ -952,6 +970,17 @@ const (
 	R_CHART_SPARKLINE RChartKind = 0x0594
 )
 
+// RSystemWebViewEvent: What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+type RSystemWebViewEvent int32
+
+const (
+	R_SYSTEM_WEB_VIEW_NAVIGATED RSystemWebViewEvent = 0x0B90
+	R_SYSTEM_WEB_VIEW_TITLE     RSystemWebViewEvent = 0x0B91
+	R_SYSTEM_WEB_VIEW_LOADING   RSystemWebViewEvent = 0x0B92
+	R_SYSTEM_WEB_VIEW_LOADED    RSystemWebViewEvent = 0x0B93
+	R_SYSTEM_WEB_VIEW_FAILED    RSystemWebViewEvent = 0x0B94
+)
+
 // RTableSelectionMode: How the rows of a Table are selected (Rtable_set_selection_mode).
 type RTableSelectionMode int32
 
@@ -1109,6 +1138,42 @@ const (
 	R_BLOCK_INPUT RBlockPlace = 0x0712
 )
 
+type RDiffViewMode int32
+
+const (
+	R_DIFF_VIEW_UNIFIED RDiffViewMode = 0x0C50
+	R_DIFF_VIEW_SPLIT   RDiffViewMode = 0x0C51
+)
+
+type RDiffSide int32
+
+const (
+	R_DIFF_LEFT  RDiffSide = 0x0C54
+	R_DIFF_RIGHT RDiffSide = 0x0C55
+)
+
+type RDiffRowKind int32
+
+const (
+	R_DIFF_ROW_SAME    RDiffRowKind = 0x0C58
+	R_DIFF_ROW_REMOVED RDiffRowKind = 0x0C59
+	R_DIFF_ROW_ADDED   RDiffRowKind = 0x0C5A
+	R_DIFF_ROW_CHANGED RDiffRowKind = 0x0C5B
+	R_DIFF_ROW_FOLD    RDiffRowKind = 0x0C5C
+	R_DIFF_ROW_HUNK    RDiffRowKind = 0x0C5D
+	R_DIFF_ROW_FILE    RDiffRowKind = 0x0C5E
+	R_DIFF_ROW_NOTE    RDiffRowKind = 0x0C5F
+)
+
+// RDiffFlags: How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+type RDiffFlags int32
+
+const (
+	R_DIFF_IGNORE_TRAILING_SPACE RDiffFlags = 1
+	R_DIFF_IGNORE_SPACE          RDiffFlags = 2
+	R_DIFF_IGNORE_CASE           RDiffFlags = 4
+)
+
 // RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
 type RNotificationUrgency int32
 
@@ -1116,6 +1181,27 @@ const (
 	R_NOTIFICATION_LOW      RNotificationUrgency = 0x04F0
 	R_NOTIFICATION_NORMAL   RNotificationUrgency = 0x04F1
 	R_NOTIFICATION_CRITICAL RNotificationUrgency = 0x04F2
+)
+
+// RNotificationEvent: What happened to a notification (Rnotification_set_callback).
+type RNotificationEvent int32
+
+const (
+	R_NOTIFICATION_ACTIVATED      RNotificationEvent = 0x0C20
+	R_NOTIFICATION_ACTION_INVOKED RNotificationEvent = 0x0C21
+	R_NOTIFICATION_DISMISSED      RNotificationEvent = 0x0C22
+)
+
+// RNotificationFeature: What the notifications of the system can do here (Rnotification_supports).
+type RNotificationFeature int32
+
+const (
+	R_NOTIFICATION_FEATURE_ACTIONS   RNotificationFeature = 1
+	R_NOTIFICATION_FEATURE_REPLACE   RNotificationFeature = 2
+	R_NOTIFICATION_FEATURE_CLOSE     RNotificationFeature = 4
+	R_NOTIFICATION_FEATURE_ICON      RNotificationFeature = 8
+	R_NOTIFICATION_FEATURE_ACTIVATED RNotificationFeature = 0x0010
+	R_NOTIFICATION_FEATURE_DISMISSED RNotificationFeature = 0x0020
 )
 
 type RFileDialogFlags int32
@@ -1558,8 +1644,8 @@ func ClipboardSetText(text string) {
 
 // ClipboardSetHtml: Copies one content in two formats: `html` for the programs that paste formatting (word
 // processors, chat, mail) and `text` for the others (editors, terminals). Each program takes the format it
-// prefers. Where the window system has no clipboard formats (Win32 and macOS for now), or `html` is NULL, it
-// is Rclipboard_set_text(text).
+// prefers. Where the window system has no clipboard formats, or `html` is NULL, it is
+// Rclipboard_set_text(text).
 func ClipboardSetHtml(text string, html string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
@@ -1580,6 +1666,19 @@ func ClipboardGetText() string {
 // system on iOS): to enable a Paste button.
 func ClipboardHasText() int {
 	return int(C.Rclipboard_has_text())
+}
+
+// ClipboardHasData: Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven
+// converts to it.
+func ClipboardHasData(mime string) int {
+	mime_ := C.CString(mime)
+	defer C.free(unsafe.Pointer(mime_))
+	return int(C.Rclipboard_has_data(mime_))
+}
+
+// ClipboardHasImage: Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+func ClipboardHasImage() int {
+	return int(C.Rclipboard_has_image())
 }
 
 func ErrorToString(error_ RError) string {
@@ -1959,6 +2058,13 @@ func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
 	return int(C.Rwindow_inject_drag(C.Rid(window), C.float(x), C.float(y), C.int(inside)))
 }
 
+// WindowInjectDragEnd: The end of the drag out of the window that the window system holds
+// (Rdrag_begin_external), as it reports it: `operation` is what the target did (an RDragOperation). Returns
+// R_FALSE when no such drag is in progress.
+func WindowInjectDragEnd(window ID, operation RDragOperation) int {
+	return int(C.Rwindow_inject_drag_end(C.Rid(window), C.RDragOperation(operation)))
+}
+
 // WindowInjectBack: Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something
 // took it.
 func WindowInjectBack(window ID) int {
@@ -2104,6 +2210,17 @@ func DragGetData(window ID) string {
 // DragCancel: Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 func DragCancel(window ID) {
 	C.Rdrag_cancel(C.Rid(window))
+}
+
+// DragExternalSupported: R_TRUE when the window system lets Raven drag data out of its windows
+// (Rdrag_begin_external).
+func DragExternalSupported() int {
+	return int(C.Rdrag_external_supported())
+}
+
+// DragExternalIsActive: R_TRUE from Rdrag_begin_external until its callback was called.
+func DragExternalIsActive() int {
+	return int(C.Rdrag_external_is_active())
 }
 
 func WindowRegisterShortcut(window ID, key RKey, modifiers uint32, action string) {
@@ -2464,7 +2581,8 @@ func FontMeasureText(font ID, size float32, text string) (width float32, height 
 }
 
 // TextureCreate: Creates a texture from the content of an image file (PNG, JPEG, BMP, TGA, GIF, PSD, SVG).
-// Decoding happens on the calling thread. Returns: R_INVALID_ID on failure.
+// Decoding happens on the calling thread. An animated GIF or APNG keeps its frames: an Image showing it plays
+// them. Returns: R_INVALID_ID on failure.
 func TextureCreate(data []byte) ID {
 	var data_ *C.char
 	if len(data) > 0 {
@@ -2537,6 +2655,26 @@ func TextureCreateFromUrlAsync(url string) ID {
 	url_ := C.CString(url)
 	defer C.free(unsafe.Pointer(url_))
 	return ID(C.Rtexture_create_from_url_async(url_))
+}
+
+// ImageDecodeInfo: Reads what an image file in memory holds without keeping its pixels: its size, its frames
+// (1 for a still image, more for an animated GIF or APNG) and how many times it plays (0: forever).
+// Thread-safe. Each pointer may be NULL. Returns: R_FALSE when the data is not an image Raven can read.
+func ImageDecodeInfo(data []byte) (result int, width int, height int, frame_count int, loop_count int) {
+	var data_ unsafe.Pointer
+	if len(data) > 0 {
+		data_ = unsafe.Pointer(&data[0])
+	}
+	var width_ C.int
+	var height_ C.int
+	var frame_count_ C.int
+	var loop_count_ C.int
+	result = int(C.Rimage_decode_info(data_, C.size_t(len(data)), &width_, &height_, &frame_count_, &loop_count_))
+	width = int(width_)
+	height = int(height_)
+	frame_count = int(frame_count_)
+	loop_count = int(loop_count_)
+	return
 }
 
 // TextureIsReady: Returns: R_TRUE once an asynchronous texture is decoded (or failed).
@@ -3504,6 +3642,67 @@ func ImageSetCornerRadius(image ID, radius float32) {
 	C.Rimage_set_corner_radius(C.Rid(image), C.float(radius))
 }
 
+// ImageIsAnimated: R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+func ImageIsAnimated(image ID) int {
+	return int(C.Rimage_is_animated(C.Rid(image)))
+}
+
+// ImageGetFrameCount: Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+func ImageGetFrameCount(image ID) int {
+	return int(C.Rimage_get_frame_count(C.Rid(image)))
+}
+
+// ImageGetDuration: Returns: The seconds one play of its animation lasts (0 for a still image).
+func ImageGetDuration(image ID) float64 {
+	return float64(C.Rimage_get_duration(C.Rid(image)))
+}
+
+// ImageGetFrameDelay: Returns: The seconds a frame of its animation is shown (0 for a frame that does not
+// exist).
+func ImageGetFrameDelay(image ID, frame int) float64 {
+	return float64(C.Rimage_get_frame_delay(C.Rid(image), C.int(frame)))
+}
+
+// ImagePlay: Plays the animation from the frame it is on (from the first again when it had finished). An
+// Image plays as soon as it is given an animated texture, unless XML says Animate="false".
+func ImagePlay(image ID) {
+	C.Rimage_play(C.Rid(image))
+}
+
+// ImagePause: Stops the animation on the frame it is on.
+func ImagePause(image ID) {
+	C.Rimage_pause(C.Rid(image))
+}
+
+// ImageStop: Stops the animation and shows its first frame.
+func ImageStop(image ID) {
+	C.Rimage_stop(C.Rid(image))
+}
+
+func ImageIsPlaying(image ID) int {
+	return int(C.Rimage_is_playing(C.Rid(image)))
+}
+
+// ImageSetFrame: Shows a frame (from 0), playing on from it if it plays.
+func ImageSetFrame(image ID, frame int) {
+	C.Rimage_set_frame(C.Rid(image), C.int(frame))
+}
+
+func ImageGetFrame(image ID) int {
+	return int(C.Rimage_get_frame(C.Rid(image)))
+}
+
+// ImageSetLoopCount: How many times the animation plays before it stops on its last frame: 0 forever, -1 what
+// the file says (the default). XML: Loop (a number; also Forever, Once).
+func ImageSetLoopCount(image ID, count int) {
+	C.Rimage_set_loop_count(C.Rid(image), C.int(count))
+}
+
+// ImageGetLoopCount: Returns: The plays of the animation (0: forever), the file's unless it was set.
+func ImageGetLoopCount(image ID) int {
+	return int(C.Rimage_get_loop_count(C.Rid(image)))
+}
+
 func TextInputSetText(text_input ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
@@ -3564,6 +3763,103 @@ func TextInputSetReturnKey(text_input ID, key RReturnKey) {
 
 func TextInputGetReturnKey(text_input ID) RReturnKey {
 	return RReturnKey(C.Rtext_input_get_return_key(C.Rid(text_input)))
+}
+
+// TextInputSetSpellCheck: Underlines the misspelled words with a wavy line (R_COLOR_SPELLING); a right click
+// on one offers corrections (see SPELL CHECKING). Off by default. A password is never checked.
+func TextInputSetSpellCheck(text_input ID, enabled int) {
+	C.Rtext_input_set_spell_check(C.Rid(text_input), C.int(enabled))
+}
+
+func TextInputGetSpellCheck(text_input ID) int {
+	return int(C.Rtext_input_get_spell_check(C.Rid(text_input)))
+}
+
+// TextInputSetSpellLanguage: Language of the spell checking ("en_US", "fr"...). NULL: the default
+// (Rspell_set_language).
+func TextInputSetSpellLanguage(text_input ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rtext_input_set_spell_language(C.Rid(text_input), language_)
+}
+
+// SpellIsSupported: R_TRUE when the system has a spell checker that Raven can use.
+func SpellIsSupported() int {
+	return int(C.Rspell_is_supported())
+}
+
+// SpellGetLanguageCount: The languages the checker has dictionaries for.
+func SpellGetLanguageCount() int {
+	return int(C.Rspell_get_language_count())
+}
+
+func SpellGetLanguageAt(index int) string {
+	return C.GoString(C.Rspell_get_language_at(C.int(index)))
+}
+
+// SpellSetLanguage: The language used when a widget or a call gives none. NULL follows the locale again.
+// Returns: R_FALSE when the checker has no dictionary for it (the default of the system is then used).
+func SpellSetLanguage(language string) int {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_set_language(language_))
+}
+
+// SpellGetLanguage: The code of the language used by default, as the checker names it; "" when there is no
+// checker.
+func SpellGetLanguage() string {
+	return C.GoString(C.Rspell_get_language())
+}
+
+// SpellCheck: Checks a text. `language` NULL: the default. Returns: The number of misspelled words, read with
+// Rspell_get_misspelling.
+func SpellCheck(text string, language string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_check(text_, language_))
+}
+
+// SpellGetMisspelling: A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+func SpellGetMisspelling(index int) (result int, start int, end int) {
+	var start_ C.int
+	var end_ C.int
+	result = int(C.Rspell_get_misspelling(C.int(index), &start_, &end_))
+	start = int(start_)
+	end = int(end_)
+	return
+}
+
+// SpellSuggest: Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+func SpellSuggest(word string, language string) int {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_suggest(word_, language_))
+}
+
+// SpellGetSuggestion: A correction found by the last Rspell_suggest; valid until the next call.
+func SpellGetSuggestion(index int) string {
+	return C.GoString(C.Rspell_get_suggestion(C.int(index)))
+}
+
+// SpellLearn: Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the
+// session).
+func SpellLearn(word string, language string) {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rspell_learn(word_, language_)
+}
+
+// SpellIgnore: The word is no longer a misspelling, in every language, until the application quits.
+func SpellIgnore(word string) {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	C.Rspell_ignore(word_)
 }
 
 func SpinBoxSetRange(spin_box ID, minimum float64, maximum float64) {
@@ -5541,6 +5837,85 @@ func MapViewGetAttribution(map_ ID) string {
 	return C.GoString(C.Rmap_view_get_attribution(C.Rid(map_)))
 }
 
+// SystemWebViewIsSupported: Returns: R_TRUE when web views show pages here (the system has an engine Raven
+// can embed, and Raven runs with a window system).
+func SystemWebViewIsSupported() int {
+	return int(C.Rsystem_web_view_is_supported())
+}
+
+func SystemWebViewCreate() ID {
+	return ID(C.Rsystem_web_view_create())
+}
+
+// SystemWebViewLoadUrl: Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may
+// read the files of its folder.
+func SystemWebViewLoadUrl(view ID, url string) {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	C.Rsystem_web_view_load_url(C.Rid(view), url_)
+}
+
+// SystemWebViewLoadFile: Shows a file of the computer (an .html file, and what it refers to in its folder).
+func SystemWebViewLoadFile(view ID, path string) {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	C.Rsystem_web_view_load_file(C.Rid(view), path_)
+}
+
+// SystemWebViewLoadHtml: Shows HTML given as text. base_url Where the relative addresses of the text are
+// looked for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+func SystemWebViewLoadHtml(view ID, html string, base_url string) {
+	html_ := C.CString(html)
+	defer C.free(unsafe.Pointer(html_))
+	base_url_ := C.CString(base_url)
+	defer C.free(unsafe.Pointer(base_url_))
+	C.Rsystem_web_view_load_html(C.Rid(view), html_, base_url_)
+}
+
+func SystemWebViewReload(view ID) {
+	C.Rsystem_web_view_reload(C.Rid(view))
+}
+
+func SystemWebViewStop(view ID) {
+	C.Rsystem_web_view_stop(C.Rid(view))
+}
+
+func SystemWebViewGoBack(view ID) {
+	C.Rsystem_web_view_go_back(C.Rid(view))
+}
+
+func SystemWebViewGoForward(view ID) {
+	C.Rsystem_web_view_go_forward(C.Rid(view))
+}
+
+func SystemWebViewCanGoBack(view ID) int {
+	return int(C.Rsystem_web_view_can_go_back(C.Rid(view)))
+}
+
+func SystemWebViewCanGoForward(view ID) int {
+	return int(C.Rsystem_web_view_can_go_forward(C.Rid(view)))
+}
+
+// SystemWebViewGetUrl: Returns: The address of the page shown (the one asked for, where unsupported). Valid
+// until it changes.
+func SystemWebViewGetUrl(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_url(C.Rid(view)))
+}
+
+// SystemWebViewGetTitle: Returns: The title of the page, "" when it has none. Valid until it changes.
+func SystemWebViewGetTitle(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_title(C.Rid(view)))
+}
+
+func SystemWebViewIsLoading(view ID) int {
+	return int(C.Rsystem_web_view_is_loading(C.Rid(view)))
+}
+
+// SystemWebViewGetError: Returns: Why the last page could not be shown, or "" when all is well.
+func SystemWebViewGetError(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_error(C.Rid(view)))
+}
+
 func PdfDocumentCreate() ID {
 	return ID(C.Rpdf_document_create())
 }
@@ -5986,6 +6361,25 @@ func TextEditorSetMarkdown(editor ID, enabled int) {
 
 func TextEditorGetMarkdown(editor ID) int {
 	return int(C.Rtext_editor_get_markdown(C.Rid(editor)))
+}
+
+// TextEditorSetSpellCheck: Underlines the misspelled words with a wavy line (R_COLOR_SPELLING); a right click
+// on one offers corrections (see SPELL CHECKING in raven_controls.h). Only the lines shown are checked, again
+// when they change. Off by default: it is meant for prose, not for code.
+func TextEditorSetSpellCheck(editor ID, enabled int) {
+	C.Rtext_editor_set_spell_check(C.Rid(editor), C.int(enabled))
+}
+
+func TextEditorGetSpellCheck(editor ID) int {
+	return int(C.Rtext_editor_get_spell_check(C.Rid(editor)))
+}
+
+// TextEditorSetSpellLanguage: Language of the spell checking ("en_US", "fr"...). NULL: the default
+// (Rspell_set_language).
+func TextEditorSetSpellLanguage(editor ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rtext_editor_set_spell_language(C.Rid(editor), language_)
 }
 
 // TextEditorGetToken: What the language of the editor makes of the character at a position: the colors come
@@ -7569,6 +7963,197 @@ func BlockEditorSetView(editor ID, x float32, y float32, zoom float32) {
 	C.Rblock_editor_set_view(C.Rid(editor), C.float(x), C.float(y), C.float(zoom))
 }
 
+// DiffCountChanges: The number of changes (runs of lines removed and / or added) between two texts. Any
+// thread.
+func DiffCountChanges(left string, right string, flags uint32) int {
+	left_ := C.CString(left)
+	defer C.free(unsafe.Pointer(left_))
+	right_ := C.CString(right)
+	defer C.free(unsafe.Pointer(right_))
+	return int(C.Rdiff_count_changes(left_, right_, C.Ruint(flags)))
+}
+
+func DiffViewCreate() ID {
+	return ID(C.Rdiff_view_create())
+}
+
+// DiffViewSetTexts: The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+func DiffViewSetTexts(diff_view ID, left string, right string) {
+	left_ := C.CString(left)
+	defer C.free(unsafe.Pointer(left_))
+	right_ := C.CString(right)
+	defer C.free(unsafe.Pointer(right_))
+	C.Rdiff_view_set_texts(C.Rid(diff_view), left_, right_)
+}
+
+// DiffViewSetNames: Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their
+// extension chooses the colors of the code.
+func DiffViewSetNames(diff_view ID, left_name string, right_name string) {
+	left_name_ := C.CString(left_name)
+	defer C.free(unsafe.Pointer(left_name_))
+	right_name_ := C.CString(right_name)
+	defer C.free(unsafe.Pointer(right_name_))
+	C.Rdiff_view_set_names(C.Rid(diff_view), left_name_, right_name_)
+}
+
+// DiffViewLoadFiles: Compares two files. Their paths become the names unless names were given. Returns:
+// R_FALSE when a file cannot be read (it is compared as empty).
+func DiffViewLoadFiles(diff_view ID, left_path string, right_path string) int {
+	left_path_ := C.CString(left_path)
+	defer C.free(unsafe.Pointer(left_path_))
+	right_path_ := C.CString(right_path)
+	defer C.free(unsafe.Pointer(right_path_))
+	return int(C.Rdiff_view_load_files(C.Rid(diff_view), left_path_, right_path_))
+}
+
+// DiffViewSetPatch: Shows a patch (unified diff: the output of `git diff`, `diff -u`) instead of two texts:
+// each file with its name, each hunk with its header. Returns: R_FALSE when the text holds no hunk (nothing
+// is shown).
+func DiffViewSetPatch(diff_view ID, patch string) int {
+	patch_ := C.CString(patch)
+	defer C.free(unsafe.Pointer(patch_))
+	return int(C.Rdiff_view_set_patch(C.Rid(diff_view), patch_))
+}
+
+func DiffViewSetMode(diff_view ID, mode RDiffViewMode) {
+	C.Rdiff_view_set_mode(C.Rid(diff_view), C.RDiffViewMode(mode))
+}
+
+func DiffViewGetMode(diff_view ID) RDiffViewMode {
+	return RDiffViewMode(C.Rdiff_view_get_mode(C.Rid(diff_view)))
+}
+
+// DiffViewSetContext: Unchanged lines shown around each change (3 by default); the others are folded. A
+// negative number shows every line.
+func DiffViewSetContext(diff_view ID, lines int) {
+	C.Rdiff_view_set_context(C.Rid(diff_view), C.int(lines))
+}
+
+func DiffViewGetContext(diff_view ID) int {
+	return int(C.Rdiff_view_get_context(C.Rid(diff_view)))
+}
+
+// DiffViewSetFlags: How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+func DiffViewSetFlags(diff_view ID, flags uint32) {
+	C.Rdiff_view_set_flags(C.Rid(diff_view), C.Ruint(flags))
+}
+
+func DiffViewGetFlags(diff_view ID) uint32 {
+	return uint32(C.Rdiff_view_get_flags(C.Rid(diff_view)))
+}
+
+// DiffViewSetWordDiff: Marks the words that changed inside a changed line (default R_TRUE).
+func DiffViewSetWordDiff(diff_view ID, enabled int) {
+	C.Rdiff_view_set_word_diff(C.Rid(diff_view), C.int(enabled))
+}
+
+// DiffViewSetLineNumbers: Shows the numbers of the lines (default R_TRUE).
+func DiffViewSetLineNumbers(diff_view ID, visible int) {
+	C.Rdiff_view_set_line_numbers(C.Rid(diff_view), C.int(visible))
+}
+
+// DiffViewSetLanguage: Colors the code as the text editor does: a language name of Rlanguage_register ("C",
+// "Python", "JSON"...), "None" for plain text, NULL (default) to guess it from the extension of the names.
+func DiffViewSetLanguage(diff_view ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rdiff_view_set_language(C.Rid(diff_view), language_)
+}
+
+// DiffViewGetChangeCount: The number of changes: runs of lines removed and / or added.
+func DiffViewGetChangeCount(diff_view ID) int {
+	return int(C.Rdiff_view_get_change_count(C.Rid(diff_view)))
+}
+
+// DiffViewGetChange: Where a change is: its first line and its number of lines on each side (a count of 0:
+// nothing on that side; the line is then the one after which the other side's lines go). Returns: R_FALSE
+// when there is no such change.
+func DiffViewGetChange(diff_view ID, change int) (result int, left_line int, left_count int, right_line int, right_count int) {
+	var left_line_ C.int
+	var left_count_ C.int
+	var right_line_ C.int
+	var right_count_ C.int
+	result = int(C.Rdiff_view_get_change(C.Rid(diff_view), C.int(change), &left_line_, &left_count_, &right_line_, &right_count_))
+	left_line = int(left_line_)
+	left_count = int(left_count_)
+	right_line = int(right_line_)
+	right_count = int(right_count_)
+	return
+}
+
+// DiffViewGoToChange: Scrolls to a change (from 0) and marks it as the current one.
+func DiffViewGoToChange(diff_view ID, change int) {
+	C.Rdiff_view_go_to_change(C.Rid(diff_view), C.int(change))
+}
+
+// DiffViewGetCurrentChange: The current change, -1 before the first one is gone to.
+func DiffViewGetCurrentChange(diff_view ID) int {
+	return int(C.Rdiff_view_get_current_change(C.Rid(diff_view)))
+}
+
+// DiffViewNextChange: Goes to the next / previous change. Returns: Its index, -1 when there is none.
+func DiffViewNextChange(diff_view ID) int {
+	return int(C.Rdiff_view_next_change(C.Rid(diff_view)))
+}
+
+func DiffViewPrevChange(diff_view ID) int {
+	return int(C.Rdiff_view_prev_change(C.Rid(diff_view)))
+}
+
+// DiffViewGetRowCount: The rows shown, folds, hunk headers and notes included.
+func DiffViewGetRowCount(diff_view ID) int {
+	return int(C.Rdiff_view_get_row_count(C.Rid(diff_view)))
+}
+
+// DiffViewGetRow: What a row shows, and the numbers of its lines (0 for a side it has no line of). A fold
+// gives the first line it hides on each side.
+func DiffViewGetRow(diff_view ID, row int) (result RDiffRowKind, left_line int, right_line int) {
+	var left_line_ C.int
+	var right_line_ C.int
+	result = RDiffRowKind(C.Rdiff_view_get_row(C.Rid(diff_view), C.int(row), &left_line_, &right_line_))
+	left_line = int(left_line_)
+	right_line = int(right_line_)
+	return
+}
+
+// DiffViewGetRowText: The text of a row on one side (in unified mode the side does not matter for a line); a
+// fold, a hunk, a file or a note give their label. Valid until the next call. "" when there is none.
+func DiffViewGetRowText(diff_view ID, row int, side RDiffSide) string {
+	return C.GoString(C.Rdiff_view_get_row_text(C.Rid(diff_view), C.int(row), C.RDiffSide(side)))
+}
+
+// DiffViewExpand: Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+func DiffViewExpand(diff_view ID, row int) int {
+	return int(C.Rdiff_view_expand(C.Rid(diff_view), C.int(row)))
+}
+
+// DiffViewGetFirstVisibleRow: The first row at the top of the view; Rdiff_view_scroll_to_row brings one
+// there.
+func DiffViewGetFirstVisibleRow(diff_view ID) int {
+	return int(C.Rdiff_view_get_first_visible_row(C.Rid(diff_view)))
+}
+
+func DiffViewScrollToRow(diff_view ID, row int) {
+	C.Rdiff_view_scroll_to_row(C.Rid(diff_view), C.int(row))
+}
+
+// DiffViewAddAnnotation: Attaches a short note to a line (a review comment, an error): a mark in the gutter
+// and the text in a row under the line, which is never folded away. Several notes may go to one line.
+func DiffViewAddAnnotation(diff_view ID, side RDiffSide, line int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rdiff_view_add_annotation(C.Rid(diff_view), C.RDiffSide(side), C.int(line), text_)
+}
+
+func DiffViewClearAnnotations(diff_view ID) {
+	C.Rdiff_view_clear_annotations(C.Rid(diff_view))
+}
+
+// DiffViewGetSelectedText: The text selected by the user ("" when none), one line after another.
+func DiffViewGetSelectedText(diff_view ID) string {
+	return C.GoString(C.Rdiff_view_get_selected_text(C.Rid(diff_view)))
+}
+
 // DialogClose: Closes the dialog that contains a widget (the content itself or anything inside it: the button
 // that was clicked). result Passed to the closed callback and returned by Rdialog_run.
 func DialogClose(widget ID, result int) {
@@ -7739,10 +8324,40 @@ func NotificationShow(title string, body string, urgency RNotificationUrgency) i
 	return int(C.Rnotification_show(title_, body_, C.RNotificationUrgency(urgency)))
 }
 
-// NotificationIsSupported: R_FALSE when the platform has no notifications (Rnotification_show then always
-// uses the fallback).
+// NotificationIsSupported: R_FALSE when the system shows no notifications here (Rnotification_show then
+// always uses the fallback): the null platform, no notification server on Linux, an executable outside of a
+// bundle on macOS.
 func NotificationIsSupported() int {
 	return int(C.Rnotification_is_supported())
+}
+
+// NotificationClose: Takes away the notification of that tag, shown by the system or by the fallback toast.
+// The callback is not called.
+func NotificationClose(tag string) {
+	tag_ := C.CString(tag)
+	defer C.free(unsafe.Pointer(tag_))
+	C.Rnotification_close(tag_)
+}
+
+// NotificationSetBringToFront: R_TRUE (the default): a click on a notification (not on one of its buttons)
+// brings its window back before the callback is called: shown again if it was hidden or minimized, in front,
+// with the keyboard. R_FALSE: the application does what it wants in the callback.
+func NotificationSetBringToFront(enabled int) {
+	C.Rnotification_set_bring_to_front(C.int(enabled))
+}
+
+// NotificationSetFallbackToast: A Toast that shows the notifications the system could not show, with their
+// title, icon and buttons; a click on one, or on a button, is reported to Rnotification_set_callback as for
+// the system's. Put it in an Overlay (Queue="Stack" shows several at once). It takes the place of the
+// fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+func NotificationSetFallbackToast(toast ID) {
+	C.Rnotification_set_fallback_toast(C.Rid(toast))
+}
+
+// NotificationSupports: Whether the notifications of the system have that feature here (R_FALSE where there
+// are none).
+func NotificationSupports(feature RNotificationFeature) int {
+	return int(C.Rnotification_supports(C.RNotificationFeature(feature)))
 }
 
 // PermissionGetStatus: What the user answered, without asking. Cheap: the platform remembers it. On iOS the
@@ -8922,18 +9537,20 @@ func TestGetScriptError() string {
 // Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Raction_bind_with_parameters
 // Raction_get_sender, Raction_get_name, Raction_get_argument_count, Raction_get_number, Raction_get_string
 // Raction_get_bool, Raction_return_number, Raction_return_string, Raction_return_bool, Raction_fail
-// Rerror_get_last, Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats
-// Rwindow_get_safe_area, Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback
-// Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
+// Rclipboard_set_data, Rclipboard_get_data, Rclipboard_set_image, Rclipboard_get_image, Rerror_get_last
+// Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area
+// Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback, Rwindow_set_icon
+// Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
 // Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
-// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
-// Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
-// Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
-// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rimage_encode_png
-// Rimage_save_png, Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback
-// Rwidget_set_event_callback, Rwidget_set_drop_callback, Rtab_view_set_changed_callback
-// Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
-// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
+// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rdrag_begin_external
+// Rdrag_set_image, Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings
+// Rwindow_set_touch_settings, Rwindow_get_touch_settings, Rwidget_set_touch_callback
+// Rwidget_set_pen_callback, Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update
+// Rimage_decode, Rimage_decode_frame, Rpixels_free, Rimage_encode_png, Rimage_save_png
+// Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
+// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
+// Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rimage_set_finished_callback
 // Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
 // Rcombo_box_set_changed_callback, Rcombo_box_set_text_changed_callback, Rlist_view_set_virtual_items
 // Rlist_view_set_item_color_callback, Rlist_view_set_selection_changed_callback
@@ -8941,16 +9558,18 @@ func TestGetScriptError() string {
 // Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
 // Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
-// Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
-// Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
-// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
-// Rtable_set_cell_edited_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
-// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
-// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
-// Rpdf_view_set_page_changed_callback, Rcarousel_set_page_changed_callback, Rpdf_view_print
-// Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
-// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback, Rpdf_document_draw_image
+// Rtile_view_set_drag_out_callback, Rtile_view_set_selection_changed_callback
+// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
+// Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
+// Rtable_set_sort_callback, Rtable_set_cell_edited_callback, Rdate_picker_set_changed_callback
+// Rtime_picker_set_changed_callback, Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback
+// Rrating_set_changed_callback, Rpagination_set_changed_callback, Rplot_set_view_changed_callback
+// Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback
+// Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback, Rcarousel_set_page_changed_callback
+// Rpdf_view_print, Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
+// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback
+// Rsystem_web_view_run_javascript, Rsystem_web_view_set_message_callback
+// Rsystem_web_view_set_event_callback, Rsystem_web_view_get_native_handle, Rpdf_document_draw_image
 // Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
 // Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
@@ -8963,18 +9582,19 @@ func TestGetScriptError() string {
 // Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
 // Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
 // Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
-// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
-// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
-// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
-// Rnotification_set_clicked_callback, Rpermission_request, Rfile_open_async, Rfile_save_async
-// Rfile_export_async, Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show
-// Rviewport_set_draw_callback, Rviewport_get_native_handle, Rviewport_set_resize_callback
-// Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline
-// Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring
-// Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults
-// Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback
-// Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info, Rscript_set_log_callback
-// Rscript_set_diagnostic_callback, Rlocale_set_changed_callback, Rtr_format
-// Raccessibility_get_system_settings, Rwidget_set_accessible_action, Rhost_platform_register
-// Rhost_window_set_insets, Rhost_service_complete, Rtest_expect_golden, Rtest_compare_pixels
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdiff_unified
+// Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
+// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
+// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
+// Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc
+// Rnotification_set_callback, Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async
+// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback
+// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
+// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line
+// Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
+// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
+// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
+// Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
+// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
+// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rhost_service_complete
+// Rtest_expect_golden, Rtest_compare_pixels
