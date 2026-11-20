@@ -1,5 +1,6 @@
 /* DOM adapter for Raven. Browser callbacks execute on the Raven UI thread. */
 #include "../platform.h"
+#include "../web_input.h"
 #include "../../widget/widget.h"
 #include "raven/raven_accessibility.h"
 #include <emscripten.h>
@@ -18,6 +19,32 @@ static rvn_pwindow_t* g_window;
 static rvn_pwindow_t* g_windows;
 static rvn_pevent_handler_t g_handler;
 static char* g_clipboard;
+
+/* The UTF-16 units the textarea holds on each side of the selection of a TextInput. */
+#define RVN_WEB_SURROUNDING 512
+
+/*
+ * What the page was told of the focused field (rvn_web_field_sync): its mode
+ * and attributes, and for a TextInput the part of its text the textarea
+ * holds. The page sends its edits relative to that part.
+ */
+static struct {
+    rvn_pwindow_t* window;
+    Rid focus;
+    rvn_web_field_hints_t hints;
+    /* the part of the text in the textarea (NULL: not sent yet), where it starts, its selection */
+    char* mirror;
+    int offset;
+    int start16, end16;
+    /* the page composes: nothing is sent until it ends */
+    int composing;
+    /* a composition is shown in the field */
+    int composition;
+    /* counts what was sent to the page: an answer about an older text is not applied */
+    uint32_t serial;
+    /* an edit of the page is being applied: the page is told once it is done */
+    int applying;
+} g_field;
 
 EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
                             int width, int height, Rid window_id), {
@@ -42,17 +69,37 @@ EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
         target.addEventListener(event, e => {
             _rvn_web_target(handle); fn(e);
         }, Object.assign({signal}, options));
-    const textarea = document.createElement('textarea');
-    textarea.setAttribute('aria-label', 'Raven text input');
-    textarea.autocapitalize = 'off';
-    textarea.spellcheck = false;
-    Object.assign(textarea.style, {position:'fixed', left:'0', top:'0',
-        width:'1px', height:'1px', opacity:'0', pointerEvents:'none'});
-    document.body.appendChild(textarea);
-    const state = {controller, textarea, canvas, window_id, visible:false,
-                   originalId, originalStyle, originalTabIndex};
+    // The elements the keyboard types into: a textarea, and a password input
+    // for secret fields. 16px: iOS zooms into a focused field with a smaller font.
+    const makeInput = (tag, label) => {
+        const node = document.createElement(tag);
+        if (tag === 'input') node.type = 'password';
+        node.setAttribute('aria-label', label);
+        node.setAttribute('autocapitalize', 'off');
+        node.setAttribute('autocorrect', 'off');
+        node.setAttribute('autocomplete', tag === 'input' ? 'current-password' : 'off');
+        node.spellcheck = false;
+        Object.assign(node.style, {position:'fixed', left:'0', top:'0', width:'1px',
+            height:'1px', opacity:'0', pointerEvents:'none', fontSize:'16px', padding:'0',
+            border:'0', margin:'0', resize:'none', overflow:'hidden'});
+        document.body.appendChild(node);
+        return node;
+    };
+    const textarea = makeInput('textarea', 'Raven text input');
+    const secure = makeInput('input', 'Raven password input');
+    // mode: 0 no text, 1 the textarea mirrors the text around the caret of a
+    // TextInput, 2 password, 3 keys and typed text (TextEditor, SpinBox).
+    const field = {mode:0, mirror:"", start:0, end:0, composing:false, data:"", committed:null};
+    const state = {controller, textarea, secure, field, canvas, window_id, visible:false,
+                   originalId, originalStyle, originalTabIndex,
+                   insets:[0,0,0,0], keyboard:0};
     Module.ravenWindows.set(handle, state);
     if (primary) Module.ravenDOM = state;
+    const ours = node => node === textarea || node === secure;
+    state.focusInput = () => {
+        const target = field.mode === 2 ? secure : field.mode ? textarea : canvas;
+        if (document.activeElement !== target) target.focus({preventScroll:true});
+    };
     const mods = e => (e.shiftKey ? 1 : 0) | (e.ctrlKey ? 2 : 0)
                      | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
     const sendText = text => {
@@ -61,55 +108,177 @@ EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
         _rvn_web_text(ptr);
         _free(ptr);
     };
-    let composing = false;
-    let committed = null;
-    listen(textarea, 'compositionstart', () => { composing = true; });
-    listen(textarea, 'compositionend', e => {
-        composing = false; committed = e.data; sendText(e.data); textarea.value = "";
-    });
-    listen(textarea, 'input', e => {
-        if (!composing && !e.isComposing) {
-            if (committed !== null && e.data === committed) {
-                committed = null; textarea.value = ""; return;
+    const pressKey = code => {
+        const ptr = stringToNewUTF8(code);
+        _rvn_web_key(ptr, 1, 0, 0); _rvn_web_key(ptr, 0, 0, 0);
+        _free(ptr);
+    };
+    const compose = (text, start, end) => {
+        const ptr = text ? stringToNewUTF8(text) : 0;
+        _rvn_web_field_compose(ptr, start, end);
+        if (ptr) _free(ptr);
+    };
+    // The textarea went from field.mirror to value (UTF-16 selection start..end):
+    // the changed range is sent as one replacement, attributed to the caret
+    // (it starts at `at` at the latest: by default where the selection was or is).
+    const apply = (value, start, end, at) => {
+        const from = field.mirror;
+        if (value === from) {
+            if (start !== field.start || end !== field.end) {
+                field.start = start; field.end = end;
+                _rvn_web_field_select(start, end);
             }
-            committed = null;
+            return false;
+        }
+        const limit = Math.min(from.length, value.length,
+                               at === undefined ? Math.min(field.start, start) : at);
+        let head = 0, tail = 0;
+        while (head < limit && from.charCodeAt(head) === value.charCodeAt(head)) head++;
+        if (head > 0 && (from.charCodeAt(head - 1) & 0xFC00) === 0xD800) head--;
+        while (tail < from.length - head && tail < value.length - head &&
+               from.charCodeAt(from.length - 1 - tail) ===
+               value.charCodeAt(value.length - 1 - tail)) tail++;
+        if (tail > 0 && (from.charCodeAt(from.length - tail) & 0xFC00) === 0xDC00) tail--;
+        field.mirror = value; field.start = start; field.end = end;
+        const ptr = stringToNewUTF8(value.slice(head, value.length - tail));
+        _rvn_web_field_edit(head, from.length - tail - head, ptr, start, end);
+        _free(ptr);
+        return true;
+    };
+    // Where the composition `data` is in the textarea: around the caret.
+    const composedAt = (value, data, caret) => {
+        if (!data) return -1;
+        let at = caret - data.length;
+        if (at >= 0 && value.substr(at, data.length) === data) return at;
+        at = value.indexOf(data, Math.max(0, caret - data.length));
+        return at >= 0 && at <= caret ? at : -1;
+    };
+    const beginComposition = () => {
+        if (field.composing) return;
+        field.composing = true; field.data = ""; field.committed = null;
+        _rvn_web_field_composing(1);
+    };
+    // An update of the composition: the field holds the text without it (a
+    // word composed again leaves the field), the composition is drawn at the caret.
+    const composing = data => {
+        field.data = data = data == null ? field.data : data;
+        if (field.mode !== 1) return compose(data, data.length, data.length);
+        const value = textarea.value;
+        const at = composedAt(value, data, textarea.selectionEnd);
+        let start = data.length, end = data.length;
+        if (at >= 0) {
+            apply(value.slice(0, at) + value.slice(at + data.length), at, at, at);
+            start = Math.max(0, Math.min(data.length, textarea.selectionStart - at));
+            end = Math.max(0, Math.min(data.length, textarea.selectionEnd - at));
+        }
+        compose(data, start, end);
+    };
+    const endComposition = data => {
+        field.composing = false;
+        _rvn_web_field_composing(0);
+        if (field.mode !== 1) {
+            field.committed = data;
+            if (data) sendText(data); else compose(null, 0, 0);
+            textarea.value = "";
+            return;
+        }
+        compose(null, 0, 0);
+        field.committed = null;
+        if (!apply(textarea.value, textarea.selectionStart, textarea.selectionEnd) && data) {
+            // (the textarea did not change: the event did not come from an input method)
+            field.committed = data;
+            sendText(data);
+        }
+    };
+    for (const node of [textarea, secure]) {
+        listen(node, 'compositionstart', () => beginComposition());
+        // (the textarea changes after compositionupdate: a mirrored field follows its input events)
+        listen(node, 'compositionupdate', e => {
+            field.data = e.data;
+            if (field.composing && field.mode !== 1) composing(e.data);
+        });
+        listen(node, 'compositionend', e => endComposition(e.data));
+        listen(node, 'beforeinput', e => {
+            const type = e.inputType;
+            if (type === 'historyUndo' || type === 'historyRedo') {
+                // Raven undoes on its own shortcut: the history of the textarea is not the field
+                e.preventDefault(); return;
+            }
+            if (e.isComposing || field.composing) return;
+            const mirror = node === textarea && field.mode === 1;
+            const code = type === 'insertLineBreak' || type === 'insertParagraph' ? 'Enter' :
+                         mirror ? null :
+                         type === 'deleteContentBackward' ? 'Backspace' :
+                         type === 'deleteContentForward' ? 'Delete' : null;
+            if (code) { pressKey(code); e.preventDefault(); }
+        });
+    }
+    listen(textarea, 'input', e => {
+        if (e.isComposing || field.composing) {
+            beginComposition(); composing(e.data); return;
+        }
+        if (field.mode !== 1) {
+            if (field.committed !== null && e.data === field.committed) {
+                field.committed = null; textarea.value = ""; return;
+            }
+            field.committed = null;
             sendText(e.data || textarea.value); textarea.value = "";
+            return;
+        }
+        if (field.committed !== null && e.data === field.committed &&
+            textarea.value === field.mirror) { field.committed = null; return; }
+        field.committed = null;
+        if (!apply(textarea.value, textarea.selectionStart, textarea.selectionEnd) &&
+            !e.inputType && e.data)
+            sendText(e.data);   // (an event without an edit of the textarea)
+    });
+    listen(secure, 'input', e => {
+        // never kept in the page: each input goes to Raven and the element is emptied
+        const value = secure.value;
+        secure.value = "";
+        if (e.isComposing || field.composing) return;
+        if (e.data && e.inputType && e.inputType !== 'insertReplacementText') sendText(e.data);
+        else if (value || e.data) {
+            // a password manager filled the field
+            const ptr = stringToNewUTF8(value || e.data);
+            _rvn_web_field_fill(ptr); _free(ptr);
         }
     });
-    listen(textarea, 'beforeinput', e => {
-        const code = e.inputType === 'deleteContentBackward' ? 'Backspace' :
-                     e.inputType === 'deleteContentForward' ? 'Delete' :
-                     e.inputType === 'insertLineBreak' ? 'Enter' : null;
-        if (code && !e.isComposing) {
-            const ptr = stringToNewUTF8(code);
-            _rvn_web_key(ptr, 1, 0, 0); _rvn_web_key(ptr, 0, 0, 0);
-            _free(ptr); e.preventDefault();
-        }
-    });
+    // The selection moved in the textarea (the cursor keys of an on-screen keyboard, its menu).
+    const selected = () => {
+        if (field.mode !== 1 || field.composing || document.activeElement !== textarea ||
+            textarea.value !== field.mirror) return;
+        apply(field.mirror, textarea.selectionStart, textarea.selectionEnd);
+    };
+    listen(document, 'selectionchange', selected);
+    listen(textarea, 'selectionchange', selected);
     const key = (e, pressed) => {
         // Let the browser finish IME composition before forwarding editing keys.
-        if (composing || e.isComposing || e.keyCode === 229) return;
+        if (field.composing || e.isComposing || e.keyCode === 229) return;
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') return;
         const ptr = stringToNewUTF8(e.code);
         _rvn_web_key(ptr, pressed, mods(e), e.repeat ? 1 : 0);
         _free(ptr);
         _rvn_web_target(handle);
-        if (e.code === 'Tab')
-            (_rvn_web_wants_text() ? textarea : canvas).focus({preventScroll:true});
+        if (e.code === 'Tab') state.focusInput();
         if (['Tab','Backspace','Delete','Enter','Escape','ArrowLeft',
              'ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp',
              'PageDown'].includes(e.code)) e.preventDefault();
+        // Shortcuts Raven applies to the field itself: the textarea must not apply
+        // them to its copy too (Control+A moves to the line start in a macOS textarea).
+        else if (pressed && ours(e.target) && (e.ctrlKey || e.metaKey) &&
+                 ['KeyA','KeyZ','KeyY'].includes(e.code)) e.preventDefault();
     };
-    for (const target of [canvas, textarea]) {
+    for (const target of [canvas, textarea, secure]) {
         listen(target, 'keydown', e => key(e, 1));
         listen(target, 'keyup', e => key(e, 0));
-        listen(target, 'focus', () => _rvn_web_focus(1));
+        listen(target, 'focus', () => { _rvn_web_focus(1); state.measure(); });
         listen(target, 'blur', () => {
             queueMicrotask(() => {
                 if (Module.ravenWindows.get(handle) !== state) return;
                 _rvn_web_target(handle);
-                if (document.activeElement !== canvas &&
-                    document.activeElement !== textarea &&
+                state.measure();
+                if (document.activeElement !== canvas && !ours(document.activeElement) &&
                     !document.activeElement.closest('#raven-access-window-' + window_id))
                     _rvn_web_focus(0);
             });
@@ -160,9 +329,10 @@ EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
         _rvn_web_pointer(phase, e.pointerType === 'touch' ? 1 :
             e.pointerType === 'pen' ? 2 : 0, e.pointerId, x, y,
             e.button, e.buttons, e.pressure, e.tiltX, e.tiltY, mods(e));
-        if (phase === 0) {
+        // (a tap focuses a field when the finger leaves it: the keyboard comes in the gesture)
+        if (phase === 0 || phase === 2) {
             _rvn_web_target(handle);
-            (_rvn_web_wants_text() ? textarea : canvas).focus({preventScroll:true});
+            if (phase === 0 || field.mode) state.focusInput();
         }
         if (phase === 2 || phase === 3) {
             if (canvas.hasPointerCapture(e.pointerId))
@@ -187,7 +357,7 @@ EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
     }, {passive:false});
     const ownsFocus = target => {
         const tree = document.getElementById('raven-access-window-' + window_id);
-        return target === canvas || target === textarea || (tree && tree.contains(target));
+        return target === canvas || ours(target) || (tree && tree.contains(target));
     };
     listen(document, 'focusin', e => _rvn_web_focus(ownsFocus(e.target) ? 1 : 0));
     listen(window, 'blur', () => _rvn_web_focus(0));
@@ -243,15 +413,61 @@ EM_JS(void, rvn_dom_attach, (rvn_pwindow_t* handle, int primary,
         }
         _rvn_web_resize(width, height, scale);
     };
-    const observer = new ResizeObserver(resize);
+    // What covers the canvas: the safe area of the screen (env(safe-area-inset-*),
+    // with viewport-fit=cover) and the on-screen keyboard, which shrinks the
+    // visual viewport while a field has the focus. In device pixels.
+    const measure = () => {
+        if (typeof getComputedStyle !== 'function') return;
+        const scale = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        let probe = Module.ravenSafeArea;
+        if (!probe || !probe.isConnected) {
+            probe = Module.ravenSafeArea = document.createElement('div');
+            probe.setAttribute('aria-hidden', 'true');
+            probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;' +
+                'visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) ' +
+                'env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+            document.body.appendChild(probe);
+        }
+        const style = getComputedStyle(probe);
+        const safe = ['Top','Right','Bottom','Left'].map(side =>
+            parseFloat(style['padding' + side]) || 0);
+        const width = document.documentElement.clientWidth || innerWidth;
+        const height = innerHeight;
+        // (only the part of each band the canvas reaches into)
+        const band = (inset, overlap) => inset > 0 ? Math.min(inset, Math.max(0, overlap)) : 0;
+        const insets = [band(safe[0], safe[0] - rect.top),
+                        band(safe[1], rect.right - (width - safe[1])),
+                        band(safe[2], rect.bottom - (height - safe[2])),
+                        band(safe[3], safe[3] - rect.left)].map(v => Math.round(v * scale));
+        let keyboard = 0;
+        const viewport = window.visualViewport;
+        if (viewport && field.mode && ours(document.activeElement) &&
+            Math.abs((viewport.scale || 1) - 1) < 0.01) {
+            const covered = rect.bottom - (viewport.offsetTop + viewport.height);
+            // (a few pixels are toolbars coming and going, not a keyboard)
+            if (covered > 60) keyboard = Math.round(Math.min(covered, rect.height) * scale);
+        }
+        if (keyboard === state.keyboard && insets.every((v, i) => v === state.insets[i])) return;
+        state.insets = insets; state.keyboard = keyboard;
+        _rvn_web_target(handle);
+        _rvn_web_insets();
+    };
+    state.measure = measure;
+    const observer = new ResizeObserver(() => { resize(); measure(); });
     observer.observe(canvas);
     state.observer = observer;
-    listen(window, 'resize', resize);
+    listen(window, 'resize', () => { resize(); measure(); });
+    if (window.visualViewport) {
+        listen(window.visualViewport, 'resize', measure);
+        listen(window.visualViewport, 'scroll', measure);
+    }
     listen(document, 'visibilitychange', () => {
         if (document.hidden) _rvn_web_focus(0);
-        else { resize(); _rvn_web_expose(); }
+        else { resize(); measure(); _rvn_web_expose(); }
     });
     state.resize = resize;
+    measure();
     _rvn_web_target(handle);
     const initial = canvas.getBoundingClientRect();
     _rvn_web_window_moved(initial.left*(window.devicePixelRatio||1),
@@ -262,6 +478,7 @@ EM_JS(void, rvn_dom_detach, (rvn_pwindow_t* handle), {
     const state = Module.ravenWindows.get(handle);
     if (!state) return;
     state.controller.abort(); state.observer.disconnect(); state.textarea.remove();
+    state.secure.remove();
     if (state.canvas.id !== 'canvas') state.canvas.remove();
     else {
         const context = state.canvas.getContext('2d');
@@ -297,6 +514,8 @@ EM_JS(void, rvn_dom_shutdown, (void), {
         document.title = Module.ravenLifecycle.originalTitle;
     }
     delete Module.ravenLifecycle;
+    if (Module.ravenSafeArea) Module.ravenSafeArea.remove();
+    delete Module.ravenSafeArea;
     for (const id of ['raven-accessibility', 'raven-announcement']) {
         const node = document.getElementById(id); if (node) node.remove();
     }
@@ -304,20 +523,296 @@ EM_JS(void, rvn_dom_shutdown, (void), {
 
 EMSCRIPTEN_KEEPALIVE void rvn_web_target(rvn_pwindow_t* handle) {
     rvn_pwindow_t* window;
+    /* (every DOM event comes through here first: the loop may be asleep) */
+    rvn_web_loop_poke();
     g_window = NULL;
     for (window = g_windows; window; window = window->next)
         if (window == handle) { g_window = window; break; }
 }
 
+static void rvn_web_field_sync(rvn_pwindow_t* window);
+EMSCRIPTEN_KEEPALIVE void rvn_web_text(const char* text);
+
 static void rvn_web_emit(rvn_pevent_t* event) {
-    if (!g_window || !g_handler) return;
-    event->user = g_window->user;
+    rvn_pwindow_t* window = g_window;
+    if (!window || !g_handler) return;
+    event->user = window->user;
     g_handler(event);
+    /* what may have moved the focus, the caret or the text: the page follows at once */
+    switch (event->type) {
+        case RVN_PEVENT_KEY: case RVN_PEVENT_TEXT: case RVN_PEVENT_MOUSE_BUTTON:
+        case RVN_PEVENT_FOCUS: case RVN_PEVENT_PEN:
+            rvn_web_field_sync(window);
+            break;
+        case RVN_PEVENT_TOUCH:
+            if (event->phase != R_TOUCH_MOVE) rvn_web_field_sync(window);
+            break;
+        default:
+            break;
+    }
 }
 
-EMSCRIPTEN_KEEPALIVE int rvn_web_wants_text(void) {
-    rvn_window_t* window = g_window ? g_window->user : NULL;
-    return window ? Rwindow_wants_text_input(window->id) : R_FALSE;
+/* ---------------------------------------------------------------------------
+ *  The text field: the textarea (or password input) the keyboard types into
+ * ------------------------------------------------------------------------- */
+
+EM_JS(void, rvn_dom_field, (rvn_pwindow_t* handle, int mode, const char* inputmode,
+                           const char* enterkeyhint, const char* autocomplete,
+                           const char* autocapitalize, int spellcheck, int read_only), {
+    const state = Module.ravenWindows.get(handle);
+    if (!state) return;
+    const field = state.field;
+    const focused = document.activeElement === state.textarea ||
+                    document.activeElement === state.secure;
+    Object.assign(field, {mode, mirror:"", start:0, end:0, composing:false, committed:null});
+    state.textarea.value = ""; state.secure.value = "";
+    const node = mode === 2 ? state.secure : state.textarea;
+    const set = (name, value) => value ? node.setAttribute(name, value) : node.removeAttribute(name);
+    set('inputmode', UTF8ToString(inputmode));
+    set('enterkeyhint', UTF8ToString(enterkeyhint));
+    set('autocomplete', UTF8ToString(autocomplete));
+    set('autocapitalize', UTF8ToString(autocapitalize));
+    node.spellcheck = !!spellcheck;
+    node.setAttribute('autocorrect', spellcheck ? 'on' : 'off');
+    node.readOnly = !!read_only;
+    // the keyboard follows the focus of Raven: another kind of field, or none (it goes away)
+    // (unless the page moved the focus elsewhere meanwhile: another canvas, its field)
+    if (focused) queueMicrotask(() => {
+        if (Module.ravenWindows.get(handle) === state &&
+            (document.activeElement === state.textarea ||
+             document.activeElement === state.secure)) state.focusInput();
+    });
+})
+
+EM_JS(void, rvn_dom_field_text, (rvn_pwindow_t* handle, const char* text, int length,
+                                int start, int end), {
+    const state = Module.ravenWindows.get(handle);
+    if (!state) return;
+    const field = state.field, node = state.textarea;
+    const value = length ? UTF8ToString(text, length) : "";
+    Object.assign(field, {mirror:value, start, end});
+    if (node.value !== value) node.value = value;
+    if (node.selectionStart !== start || node.selectionEnd !== end)
+        node.setSelectionRange(start, end);
+})
+
+static Rid rvn_web_core(rvn_pwindow_t* window) {
+    rvn_window_t* owner = window ? window->user : NULL;
+    return owner && !owner->dead ? owner->id : R_INVALID_ID;
+}
+
+static void rvn_web_emit_to(rvn_pwindow_t* window, rvn_pevent_t* event) {
+    rvn_pwindow_t* previous = g_window;
+    g_window = window;
+    rvn_web_emit(event);
+    g_window = previous;
+}
+
+/* The composition shown in the field ends (before an edit of the field). */
+static void rvn_web_field_end_composition(void) {
+    rvn_pevent_t event = {0};
+    if (!g_field.composition || !g_field.window) return;
+    g_field.composition = R_FALSE;
+    event.type = RVN_PEVENT_COMPOSITION;
+    rvn_web_emit_to(g_field.window, &event);
+}
+
+static void rvn_web_field_forget(void) {
+    g_field.serial++;
+    rvn_free(g_field.mirror);
+    g_field.mirror = NULL;
+    g_field.offset = 0;
+    g_field.start16 = g_field.end16 = 0;
+}
+
+/*
+ * The page follows the focus of `window`: the mode and attributes of the
+ * field when they change, and for a TextInput the text around its selection
+ * when it changed (not while the page composes).
+ */
+static void rvn_web_field_sync(rvn_pwindow_t* window) {
+    rvn_window_t* owner = window ? window->user : NULL;
+    rvn_web_field_hints_t hints;
+    RTextInputInfo info;
+    rvn_web_field_kind_t kind = RVN_WEB_KIND_OTHER;
+    int wants, has_info;
+    Rid core = rvn_web_core(window), focus;
+    if (core == R_INVALID_ID || g_field.applying) return;
+    wants = Rwindow_wants_text_input(core);
+    has_info = wants && Rwindow_get_text_input_info(core, &info);
+    if (wants && owner->focus) {
+        RWidgetType type = owner->focus->cls->type;
+        kind = type == R_WIDGET_TEXT_INPUT ? RVN_WEB_KIND_TEXT_INPUT :
+               type == R_WIDGET_TEXT_EDITOR ? RVN_WEB_KIND_TEXT_EDITOR :
+               type == R_WIDGET_SPIN_BOX ? RVN_WEB_KIND_SPIN_BOX : RVN_WEB_KIND_OTHER;
+    }
+    rvn_web_field_hints(wants, kind, has_info ? &info : NULL, &hints);
+    focus = wants && owner->focus ? owner->focus->id : R_INVALID_ID;
+    if (window != g_field.window || focus != g_field.focus || hints.mode != g_field.hints.mode ||
+        hints.spellcheck != g_field.hints.spellcheck || hints.read_only != g_field.hints.read_only ||
+        strcmp(hints.inputmode, g_field.hints.inputmode) != 0 ||
+        strcmp(hints.enterkeyhint, g_field.hints.enterkeyhint) != 0 ||
+        strcmp(hints.autocomplete, g_field.hints.autocomplete) != 0 ||
+        strcmp(hints.autocapitalize, g_field.hints.autocapitalize) != 0) {
+        /* (the textarea of the window the focus left takes no text any more) */
+        if (g_field.window && window != g_field.window && g_field.hints.mode != RVN_WEB_FIELD_NONE)
+            rvn_dom_field(g_field.window, RVN_WEB_FIELD_NONE, "text", "", "off", "off", 0, 0);
+        g_field.window = window;
+        g_field.focus = focus;
+        g_field.hints = hints;
+        g_field.composing = R_FALSE;
+        g_field.composition = R_FALSE;
+        rvn_web_field_forget();
+        rvn_dom_field(window, hints.mode, hints.inputmode, hints.enterkeyhint, hints.autocomplete,
+                      hints.autocapitalize, hints.spellcheck, hints.read_only);
+    }
+    if (hints.mode == RVN_WEB_FIELD_MIRROR && !g_field.composing) {
+        const char* text = Rwindow_get_text_input_text(core);
+        rvn_web_surrounding_t part;
+        int start, end;
+        if (!text || !Rwindow_get_text_input_selection(core, &start, &end)) return;
+        rvn_web_surrounding(text, start, end, RVN_WEB_SURROUNDING, &part);
+        if (g_field.mirror && part.offset == g_field.offset && part.start16 == g_field.start16 &&
+            part.end16 == g_field.end16 && (int)strlen(g_field.mirror) == part.length &&
+            memcmp(g_field.mirror, text + part.offset, (size_t)part.length) == 0) return;
+        rvn_free(g_field.mirror);
+        g_field.mirror = rvn_strndup(text + part.offset, (size_t)part.length);
+        g_field.offset = part.offset;
+        g_field.start16 = part.start16;
+        g_field.end16 = part.end16;
+        g_field.serial++;
+        rvn_dom_field_text(window, g_field.mirror, part.length, part.start16, part.end16);
+    }
+}
+
+/* The page's textarea is the window of the field it was last sent: R_TRUE when Raven still has that text there. */
+static int rvn_web_field_current(Rid core, const char** text) {
+    int length, mirror;
+    *text = Rwindow_get_text_input_text(core);
+    if (!*text || !g_field.mirror) return R_FALSE;
+    length = (int)strlen(*text);
+    mirror = (int)strlen(g_field.mirror);
+    return g_field.offset + mirror <= length &&
+           memcmp(*text + g_field.offset, g_field.mirror, (size_t)mirror) == 0;
+}
+
+/* Selects UTF-16 [start16, end16) of the mirrored text in the field. */
+static void rvn_web_field_select_mirror(Rid core, int start16, int end16) {
+    int length = (int)strlen(g_field.mirror), start, end, now_start, now_end;
+    start = g_field.offset + rvn_utf16_to_utf8(g_field.mirror, length, start16);
+    end = g_field.offset + rvn_utf16_to_utf8(g_field.mirror, length, end16);
+    g_field.start16 = start16;
+    g_field.end16 = end16;
+    if (Rwindow_get_text_input_selection(core, &now_start, &now_end) &&
+        (now_start != rvn_mini(start, end) || now_end != rvn_maxi(start, end)))
+        Rwindow_set_text_input_selection(core, start, end);
+}
+
+/* Text that typing can insert: no control characters. */
+static int rvn_web_typeable(const char* text) {
+    const unsigned char* p = (const unsigned char*)text;
+    if (!*p) return R_FALSE;
+    for (; *p; p++) if (*p < 0x20 || *p == 0x7F) return R_FALSE;
+    return R_TRUE;
+}
+
+/*
+ * The page's textarea changed: UTF-16 units [head, head + removed) of the
+ * text it had were replaced by `inserted`, and its selection is [start16,
+ * end16) of its new text. An insertion at the selection is typed (text
+ * events, as a hardware keyboard types); anything else replaces the range.
+ */
+EMSCRIPTEN_KEEPALIVE void rvn_web_field_edit(int head, int removed, const char* inserted,
+                                             int start16, int end16) {
+    rvn_pwindow_t* window = g_field.window;
+    Rid core = rvn_web_core(window);
+    const char* text;
+    int length, from, to, start, end, typed;
+    uint32_t serial;
+    char* mirror;
+    if (core == R_INVALID_ID || g_window != window || g_field.hints.mode != RVN_WEB_FIELD_MIRROR) return;
+    rvn_web_field_end_composition();
+    if (!rvn_web_field_current(core, &text)) {
+        /* the field changed since the page was told (the application): what was typed goes at the caret */
+        if (inserted[0] && Rwindow_get_text_input_selection(core, &start, &end)) {
+            if (rvn_web_typeable(inserted)) rvn_web_text(inserted);
+            else Rwindow_replace_text_input(core, start, end, inserted);
+        }
+        rvn_web_field_forget();
+        rvn_web_field_sync(window);
+        return;
+    }
+    length = (int)strlen(g_field.mirror);
+    from = rvn_utf16_to_utf8(g_field.mirror, length, head);
+    to = rvn_utf16_to_utf8(g_field.mirror, length, head + removed);
+    if (to < from) to = from;
+    typed = Rwindow_get_text_input_selection(core, &start, &end) && start == g_field.offset + from &&
+            end == g_field.offset + to && rvn_web_typeable(inserted);
+    /* the textarea has this now (set first: the text events below send what differs from it) */
+    mirror = rvn_alloc((size_t)(length - (to - from)) + strlen(inserted) + 1);
+    memcpy(mirror, g_field.mirror, (size_t)from);
+    strcpy(mirror + from, inserted);
+    strcat(mirror, g_field.mirror + to);
+    rvn_free(g_field.mirror);
+    g_field.mirror = mirror;
+    serial = g_field.serial;
+    if (typed) {
+        /* (one sync once all of it is typed, not one per character) */
+        g_field.applying = R_TRUE;
+        rvn_web_text(inserted);
+        g_field.applying = R_FALSE;
+    } else if (to > from || inserted[0]) {
+        Rwindow_replace_text_input(core, g_field.offset + from, g_field.offset + to, inserted);
+    }
+    /* (the text callbacks may have moved the focus or changed the text, or the part sent moved: the sync sends it all) */
+    if (serial == g_field.serial && rvn_web_core(g_field.window) == core && rvn_web_field_current(core, &text))
+        rvn_web_field_select_mirror(core, start16, end16);
+    rvn_web_field_sync(window);
+}
+
+/* The selection moved in the page's textarea. */
+EMSCRIPTEN_KEEPALIVE void rvn_web_field_select(int start16, int end16) {
+    rvn_pwindow_t* window = g_field.window;
+    Rid core = rvn_web_core(window);
+    const char* text;
+    if (core == R_INVALID_ID || g_window != window || g_field.hints.mode != RVN_WEB_FIELD_MIRROR) return;
+    if (rvn_web_field_current(core, &text)) rvn_web_field_select_mirror(core, start16, end16);
+    rvn_web_field_sync(window);
+}
+
+/* The page composes: the composition `text` (NULL or "": none) with its selection in UTF-16 units. */
+EMSCRIPTEN_KEEPALIVE void rvn_web_field_compose(const char* text, int start16, int end16) {
+    rvn_pevent_t event = {0};
+    int length;
+    if (!g_window || g_window != g_field.window) return;
+    if (!text || !text[0]) {
+        rvn_web_field_end_composition();
+        return;
+    }
+    length = (int)strlen(text);
+    event.type = RVN_PEVENT_COMPOSITION;
+    event.composition = text;
+    event.composition_start = rvn_utf16_to_utf8(text, length, rvn_mini(start16, end16));
+    event.composition_end = rvn_utf16_to_utf8(text, length, rvn_maxi(start16, end16));
+    g_field.composition = R_TRUE;
+    rvn_web_emit_to(g_field.window, &event);
+}
+
+EMSCRIPTEN_KEEPALIVE void rvn_web_field_composing(int composing) {
+    if (g_window != g_field.window) return;
+    g_field.composing = composing != 0;
+    /* (what changed while it composed is sent now) */
+    if (!composing) rvn_web_field_sync(g_field.window);
+}
+
+/* The password input was filled at once (a password manager): it replaces the whole field. */
+EMSCRIPTEN_KEEPALIVE void rvn_web_field_fill(const char* text) {
+    Rid core = rvn_web_core(g_field.window);
+    const char* current;
+    if (core == R_INVALID_ID || g_window != g_field.window) return;
+    current = Rwindow_get_text_input_text(core);
+    if (current) Rwindow_replace_text_input(core, 0, (int)strlen(current), text);
+    else rvn_web_text(text);
 }
 
 EMSCRIPTEN_KEEPALIVE const char* rvn_web_clipboard_pointer(void) {
@@ -345,13 +840,37 @@ EMSCRIPTEN_KEEPALIVE void rvn_web_resize(int width, int height, float scale) {
 void rvn_webgl_context_lost(void);
 #endif
 EMSCRIPTEN_KEEPALIVE void rvn_web_context_lost(void) {
+    rvn_web_loop_poke();
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
     rvn_webgl_context_lost();
 #endif
 }
 
 EMSCRIPTEN_KEEPALIVE void rvn_web_context_restored(void) {
+    rvn_web_loop_poke();
     Rbackend_device_lost();
+}
+
+/* The safe area or the on-screen keyboard over the canvas changed (state.measure). */
+EMSCRIPTEN_KEEPALIVE void rvn_web_insets(void) {
+    rvn_pevent_t event = {0};
+    event.type = RVN_PEVENT_INSETS;
+    rvn_web_emit(&event);
+}
+
+static void rvn_web_safe_area(rvn_pwindow_t* window, float insets[4]) {
+    int i;
+    for (i = 0; i < 4; i++) insets[i] = (float)EM_ASM_DOUBLE({
+        const state = Module.ravenWindows.get($0);
+        return state ? state.insets[$1] : 0;
+    }, window, i);
+}
+
+static float rvn_web_keyboard_height(rvn_pwindow_t* window) {
+    return (float)EM_ASM_DOUBLE({
+        const state = Module.ravenWindows.get($0);
+        return state ? state.keyboard : 0;
+    }, window);
 }
 
 EMSCRIPTEN_KEEPALIVE void rvn_web_expose(void) {
@@ -512,6 +1031,8 @@ void rvn_web_services_shutdown(void);
 static void rvn_web_shutdown(void) {
     rvn_web_services_shutdown();
     rvn_dom_shutdown();
+    rvn_free(g_field.mirror);
+    memset(&g_field, 0, sizeof(g_field));
     rvn_free(g_clipboard); g_clipboard = NULL;
     g_handler = NULL;
 }
@@ -542,6 +1063,13 @@ static void rvn_web_destroy(rvn_pwindow_t* window) {
         if (node) node.remove();
     }, owner->id);
     rvn_dom_detach(window);
+    if (g_field.window == window) {
+        rvn_web_field_forget();
+        memset(&g_field.hints, 0, sizeof(g_field.hints));
+        g_field.window = NULL;
+        g_field.focus = R_INVALID_ID;
+        g_field.composing = g_field.composition = R_FALSE;
+    }
     while (*link && *link != window) link = &(*link)->next;
     if (*link) *link = window->next;
     if (g_window == window) g_window = NULL;
@@ -690,18 +1218,30 @@ static void rvn_web_pump(double timeout) {
         int x, y, width, height;
         if (!owner || !Rwindow_get_text_input_rect(owner->id, &x, &y, &width, &height))
             continue;
+        /* (at the caret: the candidates of an input method go there) */
         EM_ASM({
             const state = Module.ravenWindows.get($0);
             if (!state) return;
             const rect = state.canvas.getBoundingClientRect();
             const scale = state.canvas.width / rect.width;
-            state.textarea.style.left = (rect.left + $1 / scale) + 'px';
-            state.textarea.style.top = (rect.top + $2 / scale) + 'px';
-            state.textarea.style.height = Math.max(1, $3 / scale) + 'px';
+            for (const node of [state.textarea, state.secure]) {
+                node.style.left = (rect.left + $1 / scale) + 'px';
+                node.style.top = (rect.top + $2 / scale) + 'px';
+                node.style.height = Math.max(1, $3 / scale) + 'px';
+            }
         }, window, x, y, height);
     }
+    /* what the application changed in the focused field since (a timer, a call from JavaScript) */
+    {
+        rvn_pwindow_t* field = NULL;
+        for (window = g_windows; window; window = window->next) {
+            rvn_window_t* owner = window->user;
+            if (owner && !owner->dead && owner->active && (!field || window == g_field.window)) field = window;
+        }
+        if (field) rvn_web_field_sync(field);
+    }
 }
-static void rvn_web_wake(void) {}
+static void rvn_web_wake(void) { rvn_web_loop_poke(); }
 static void rvn_web_clipboard_set(const char* text) {
     rvn_str_set(&g_clipboard, text);
     EM_ASM({
@@ -738,7 +1278,9 @@ const rvn_platform_t* rvn_platform_emscripten(void) {
         .clipboard_set = rvn_web_clipboard_set,
         .clipboard_get = rvn_web_clipboard_get,
         .a11y_event = rvn_web_a11y_event, .a11y_announce = rvn_web_a11y_announce,
-        .a11y_active = rvn_web_a11y_active, .a11y_settings = rvn_web_a11y_settings
+        .a11y_active = rvn_web_a11y_active, .a11y_settings = rvn_web_a11y_settings,
+        .window_get_safe_area = rvn_web_safe_area,
+        .window_get_keyboard_height = rvn_web_keyboard_height
     };
     return &table;
 }

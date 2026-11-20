@@ -197,6 +197,65 @@ EMSCRIPTEN_KEEPALIVE void test_secondary_state(int state) {
     else if(state==3) Rwindow_begin_move(secondary);
     else Rwindow_restore(secondary);
 }
+/* The text field of the page: password and email fields, selection, composition, keyboard. */
+static Rid fields = R_INVALID_ID, password, email;
+static Rid field_widget(int which) {
+    return which == 1 ? password : which == 2 ? email : input;
+}
+EMSCRIPTEN_KEEPALIVE void test_fields(int close) {
+    Rid box;
+    if (close) { Rwindow_destroy(fields); fields = R_INVALID_ID; return; }
+    fields = Rwindow_create("Fields", 320, 160, 0);
+    box = Rwidget_create(R_WIDGET_VBOX);
+    Rpanel_set_spacing(box, 8);
+    password = Rwidget_create(R_WIDGET_TEXT_INPUT);
+    Rwidget_set_accessible_name(password, "Password");
+    Rtext_input_set_password(password, R_TRUE);
+    email = Rwidget_create(R_WIDGET_TEXT_INPUT);
+    Rwidget_set_accessible_name(email, "Email");
+    Rtext_input_set_input_type(email, R_TEXT_INPUT_TYPE_EMAIL);
+    Rtext_input_set_return_key(email, R_RETURN_KEY_NEXT);
+    Rwidget_add_child(box, password);
+    Rwidget_add_child(box, email);
+    Rwindow_set_content(fields, box);
+    Rwindow_set_position(fields, 420, 300);
+    Rwindow_show(fields);
+}
+/* The middle of a field, in logical units of its window. */
+EMSCRIPTEN_KEEPALIVE double test_field_x(int which) {
+    float x, y, w, h; Rwidget_get_rect(field_widget(which), &x, &y, &w, &h); return x + w / 2;
+}
+EMSCRIPTEN_KEEPALIVE double test_field_y(int which) {
+    float x, y, w, h; Rwidget_get_rect(field_widget(which), &x, &y, &w, &h); return y + h / 2;
+}
+EMSCRIPTEN_KEEPALIVE const char* test_field_text(int which) {
+    return Rtext_input_get_text(field_widget(which));
+}
+EMSCRIPTEN_KEEPALIVE void test_set_text(const char* text) { Rtext_input_set_text(input, text); }
+/* The selection of the main field in bytes: start * 10000 + end. */
+EMSCRIPTEN_KEEPALIVE int test_selection(void) {
+    int start = -1, end = -1;
+    if (!Rwindow_get_text_input_selection(window, &start, &end)) return -1;
+    return start * 10000 + end;
+}
+EMSCRIPTEN_KEEPALIVE void test_select(int start, int end) {
+    Rwindow_set_text_input_selection(window, start, end);
+}
+EMSCRIPTEN_KEEPALIVE const char* test_composition(void) {
+    const char* text = Rwindow_get_text_composition(window, NULL, NULL);
+    return text ? text : "";
+}
+EMSCRIPTEN_KEEPALIVE double test_keyboard(void) {
+    RInsets insets; Rwindow_get_keyboard_area(window, &insets); return insets.bottom;
+}
+static void timer_fired(Rid timer, void* user) {
+    (void)timer; (void)user;
+    Rlabel_set_text(heading, "Timer fired");
+}
+EMSCRIPTEN_KEEPALIVE void test_timer(double seconds) {
+    Rlabel_set_text(heading, "Timer waiting");
+    Rtimer_create(seconds, R_FALSE, timer_fired, NULL);
+}
 EMSCRIPTEN_KEEPALIVE void test_quit(void) { Rquit(0); }
 
 int main(void) {

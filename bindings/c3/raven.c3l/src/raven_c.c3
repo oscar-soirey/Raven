@@ -1832,6 +1832,8 @@ alias RVulkanQueueLockCallback = fn void(void* user_data);
  Pending callbacks are cancelled without delivery when Raven shuts down.
 *>
 alias RWebCallback = fn void(CInt success, char* result, void* user_data);
+<* Called when the loop of Rweb_start_ex ends, in place of Rshutdown. *>
+alias RWebShutdownCallback = fn void();
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -7629,9 +7631,10 @@ extern fn void r_xml_set_auto_load(CInt enabled) @cname("Rxml_set_auto_load");
 extern fn CInt r_xml_get_auto_load() @cname("Rxml_get_auto_load");
 
 <*
- Turns live reload on or off. It is on by default; the
- environment variable RAVEN_LIVE_RELOAD=0 turns it off without
- rebuilding. When off, files are never looked at again.
+ Turns live reload on or off. It is on by default, except in
+ the browser (Emscripten), where watching files would keep the page
+ drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+ default without rebuilding. When off, files are never looked at again.
 *>
 extern fn void r_xml_set_live_reload(CInt enabled) @cname("Rxml_set_live_reload");
 
@@ -8451,8 +8454,19 @@ extern fn Rid r_web_shader_create(char* source, Ruint flags) @cname("Rweb_shader
  Starts a browser animation-frame loop and returns immediately.
  The loop calls Rdraw_frame; when Raven quits it cancels itself and shuts down.
  Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead.
+ The loop asks the browser for frames only while something is to be done
+ (input, layout, redraws, animations, tasks, due timers): an idle page uses
+ no CPU. Browser events, Raven API calls (also from JavaScript), timers and
+ the completion of fetches and browser services wake it.
 *>
 extern fn void r_web_start() @cname("Rweb_start") @feat(EMSCRIPTEN);
+
+<*
+ Rweb_start, with `shutdown` called in place of Rshutdown when the loop
+ ends (the application frees its own state, then calls Rshutdown).
+ NULL: Rshutdown.
+*>
+extern fn void r_web_start_ex(RWebShutdownCallback shutdown) @cname("Rweb_start_ex") @feat(EMSCRIPTEN);
 
 <*
  Opens a browser file picker. A successful result is a path in /uploads.

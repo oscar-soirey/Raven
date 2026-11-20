@@ -261,6 +261,10 @@ static void rvn_web_image_complete(emscripten_fetch_t* fetch, int success) {
     emscripten_fetch_close(fetch);
     rvn_free(request);
     rvn_texture_job_finish(job);
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+    /* (a browser callback, between frames: the loop may be asleep) */
+    rvn_web_loop_poke();
+#endif
 }
 
 static void rvn_web_image_done(emscripten_fetch_t* fetch) {

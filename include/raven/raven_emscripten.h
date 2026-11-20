@@ -16,8 +16,18 @@ typedef void (*RWebCallback)(int success, const char* result, void* user_data);
 RAVEN_API Rid Rweb_shader_create(const char* source, Ruint flags);
 /** Starts a browser animation-frame loop and returns immediately.
  * The loop calls Rdraw_frame; when Raven quits it cancels itself and shuts down.
- * Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead. */
+ * Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead.
+ * The loop asks the browser for frames only while something is to be done
+ * (input, layout, redraws, animations, tasks, due timers): an idle page uses
+ * no CPU. Browser events, Raven API calls (also from JavaScript), timers and
+ * the completion of fetches and browser services wake it. */
 RAVEN_API void Rweb_start(void);
+/** Called when the loop of Rweb_start_ex ends, in place of Rshutdown. */
+typedef void (*RWebShutdownCallback)(void);
+/** Rweb_start, with `shutdown` called in place of Rshutdown when the loop
+ * ends (the application frees its own state, then calls Rshutdown).
+ * NULL: Rshutdown. */
+RAVEN_API void Rweb_start_ex(RWebShutdownCallback shutdown);
 /** Opens a browser file picker. A successful result is a path in /uploads.
  * accept is a browser accept filter, e.g. ".xml,image/png". Maximum size: 32 MiB. */
 RAVEN_API void Rweb_import_file(const char* accept, RWebCallback callback,

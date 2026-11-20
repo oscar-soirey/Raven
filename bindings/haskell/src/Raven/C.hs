@@ -8884,9 +8884,10 @@ foreign import ccall safe "Rxml_set_auto_load" rxml_set_auto_load :: CInt -> IO 
 
 foreign import ccall safe "Rxml_get_auto_load" rxml_get_auto_load :: IO CInt
 
--- | Turns live reload on or off. It is on by default; the
--- environment variable RAVEN_LIVE_RELOAD=0 turns it off without
--- rebuilding. When off, files are never looked at again.
+-- | Turns live reload on or off. It is on by default, except in
+-- the browser (Emscripten), where watching files would keep the page
+-- drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+-- default without rebuilding. When off, files are never looked at again.
 foreign import ccall safe "Rxml_set_live_reload" rxml_set_live_reload :: CInt -> IO ()
 
 foreign import ccall safe "Rxml_get_live_reload" rxml_get_live_reload :: IO CInt

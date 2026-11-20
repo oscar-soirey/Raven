@@ -1,5 +1,6 @@
 #include "../platform.h"
 #include "../../core/accessibility.h"
+#include "../../core/context.h"
 #include <emscripten.h>
 
 EM_JS(void, rvn_web_access_begin, (Rid window), {
@@ -137,10 +138,12 @@ EM_JS(void, rvn_web_access_end, (void), {
 
 EMSCRIPTEN_KEEPALIVE int rvn_web_access_value(uint32_t lo, uint32_t hi,
                                              const char* text) {
+    rvn_web_loop_poke();
     return rvn_a11y_set_value(((uint64_t)hi << 32) | lo, text);
 }
 EMSCRIPTEN_KEEPALIVE int rvn_web_access_number(uint32_t lo, uint32_t hi,
                                               double value) {
+    rvn_web_loop_poke();
     return rvn_a11y_set_number(((uint64_t)hi << 32) | lo, value);
 }
 
@@ -148,6 +151,7 @@ void rvn_web_access_focus_window(Rid window);
 EMSCRIPTEN_KEEPALIVE int rvn_web_access_act(uint32_t lo, uint32_t hi,
                                             int action) {
     rvn_a11y_id_t id = ((uint64_t)hi << 32) | lo;
+    rvn_web_loop_poke();
     if (action == RVN_A11Y_FOCUS) rvn_web_access_focus_window(rvn_a11y_window(id));
     return rvn_a11y_act(id, (rvn_a11y_action_t)action);
 }

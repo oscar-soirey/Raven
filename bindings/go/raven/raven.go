@@ -7920,8 +7920,9 @@ func XmlGetAutoLoad() int {
 	return int(C.Rxml_get_auto_load())
 }
 
-// XmlSetLiveReload: Turns live reload on or off. It is on by default; the environment variable
-// RAVEN_LIVE_RELOAD=0 turns it off without rebuilding. When off, files are never looked at again.
+// XmlSetLiveReload: Turns live reload on or off. It is on by default, except in the browser (Emscripten),
+// where watching files would keep the page drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes
+// the default without rebuilding. When off, files are never looked at again.
 func XmlSetLiveReload(enabled int) {
 	C.Rxml_set_live_reload(C.int(enabled))
 }

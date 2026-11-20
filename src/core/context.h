@@ -319,6 +319,16 @@ extern rvn_context_t g_rvn;
  */
 int rvn_api_check(const char* function);
 
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+/*
+ * The loop of the browser (Rweb_start) sleeps while nothing is to be done:
+ * something may have changed outside of a frame (a call of the application
+ * from JavaScript, a browser callback), so a frame is asked for. Cheap when
+ * one is already coming (platform/emscripten/emscripten_services.c).
+ */
+void rvn_web_loop_poke(void);
+#endif
+
 #define RVN_API_GUARD(result) do { if (!rvn_api_check(__func__)) return result; } while (0)
 #define RVN_API_GUARD_VOID() do { if (!rvn_api_check(__func__)) return; } while (0)
 
@@ -333,6 +343,13 @@ void rvn_script_shutdown(void);
 double rvn_timers_next_delay(void);
 /** R_TRUE while tasks posted with Rtask_post wait for the next frame. */
 int rvn_tasks_pending(void);
+/**
+ * How long Rwait_events may sleep, `timeout_seconds` (negative: no limit)
+ * shortened by what is due: 0 when tasks, a redraw or a quit wait, when a
+ * window wants a frame (or will once the compositor allows it), until the
+ * next timer otherwise.
+ */
+double rvn_wait_timeout(double timeout_seconds);
 
 /** Brackets code that calls application callbacks (see dispatch_depth). */
 void rvn_dispatch_begin(void);

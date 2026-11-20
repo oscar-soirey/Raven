@@ -31,6 +31,9 @@ int rvn_api_check(const char* function) {
 			"%s must be called from the UI thread (use Rtask_post from other threads)", function);
 		return R_FALSE;
 	}
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+	rvn_web_loop_poke();
+#endif
 	return R_TRUE;
 }
 
@@ -877,11 +880,9 @@ void Rpoll_events(void) {
 	g_rvn.platform->pump(0.0);
 }
 
-void Rwait_events(double timeout_seconds) {
+double rvn_wait_timeout(double timeout_seconds) {
 	uint32_t i;
 	double timer_delay;
-	RVN_API_GUARD_VOID();
-
 	/* do not sleep when there is already something to do */
 	if (rvn_tasks_pending() || rvn_atomic_load(&g_rvn.redraw_all) || rvn_atomic_load(&g_rvn.quit_requested) || rvn_headless_busy()) {
 		timeout_seconds = 0.0;
@@ -894,7 +895,12 @@ void Rwait_events(double timeout_seconds) {
 	}
 	timer_delay = rvn_timers_next_delay();
 	if (timer_delay >= 0.0 && (timeout_seconds < 0.0 || timer_delay < timeout_seconds)) timeout_seconds = timer_delay;
-	g_rvn.platform->pump(timeout_seconds);
+	return timeout_seconds;
+}
+
+void Rwait_events(double timeout_seconds) {
+	RVN_API_GUARD_VOID();
+	g_rvn.platform->pump(rvn_wait_timeout(timeout_seconds));
 }
 
 void rvn_update(void) {
