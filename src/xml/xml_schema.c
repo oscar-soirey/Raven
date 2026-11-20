@@ -469,6 +469,7 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 	B("Markdown", "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."),
 	B("FindBar", "The find bar (Ctrl+F, Ctrl+H) and its keys (on by default)."),
 	T("Search", "Text searched for: its matches are highlighted."),
+	B("Folding", "Regions of the text can be folded: markers beside the line numbers, Ctrl+Shift+[ and ] (on by default)."),
 	A("OnChanged", "Action fired at each change."),
 };
 static const rvn_schema_attribute_t g_header_bar[] = {

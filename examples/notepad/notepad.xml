@@ -30,10 +30,15 @@
 					<Separator/>
 					<MenuItem Text="Find..." Shortcut="Ctrl+F" OnClicked="edit.find"/>
 					<MenuItem Text="Replace..." Shortcut="Ctrl+H" OnClicked="edit.replace"/>
+					<Separator/>
+					<MenuItem Text="Add next occurrence" Shortcut="Ctrl+D" OnClicked="edit.next_occurrence"/>
+					<MenuItem Text="Select all occurrences" Shortcut="Ctrl+Shift+L" OnClicked="edit.all_occurrences"/>
 				</Menu>
 				<Menu Text="View">
 					<MenuItem Name="view.numbers" Text="Line numbers" Checkable="true" Checked="true" OnClicked="view.numbers"/>
 					<MenuItem Name="view.wrap" Text="Word wrap" Checkable="true" OnClicked="view.wrap"/>
+					<MenuItem Text="Fold all" OnClicked="view.fold_all"/>
+					<MenuItem Text="Unfold all" OnClicked="view.unfold_all"/>
 					<Separator/>
 					<MenuItem Text="Dark" OnClicked="view.dark"/>
 					<MenuItem Text="Light" OnClicked="view.light"/>

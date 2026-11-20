@@ -18,6 +18,15 @@
  * line, so that counting again after an edit only reads the lines that
  * changed; the find bar is drawn by the editor itself, over its text, and
  * its two fields are single-line editing models (textedit.c).
+ *
+ * Besides the main cursor (caret / anchor) there may be others (extra). A
+ * command that edits runs once per cursor, from the last one in the text to
+ * the first, and its changes make a single step of the history; each change
+ * moves the cursors it passes (rvn_ed_run).
+ *
+ * Folded regions hide lines: a hidden line has no row, so painting, the
+ * pointer, the arrows and the scrollbar skip it. Folds are kept as ranges
+ * of lines that follow the edits made above them.
  */
 
 #include "common.h"
@@ -48,6 +57,9 @@ typedef struct rvn_ed_line_t {
 	/** Number of matches of the search in the line, counted for the search whose stamp is search_stamp (0: not counted). */
 	uint32_t search_stamp;
 	int search_count;
+	/** The last line of the region the line starts (folding), or -1; computed for fold_stamp (0: not computed). */
+	uint32_t fold_stamp;
+	int fold_end;
 } rvn_ed_line_t;
 
 /** A part of a line underlined with a message (Rtext_editor_add_marker). */
@@ -60,6 +72,19 @@ typedef struct rvn_ed_marker_t {
 	char* message;
 } rvn_ed_marker_t;
 
+/** A cursor: a caret and the anchor of its selection, and the horizontal position kept while moving up and down. */
+typedef struct rvn_ed_cursor_t {
+	rvn_ed_pos_t caret;
+	rvn_ed_pos_t anchor;
+	float goal_x;
+} rvn_ed_cursor_t;
+
+/** A folded region: `line` stays visible, the lines after it up to `end` are hidden. */
+typedef struct rvn_ed_fold_t {
+	int line;
+	int end;
+} rvn_ed_fold_t;
+
 /** One step of the history: `removed` was replaced by `inserted` at `start`. */
 typedef struct rvn_ed_edit_t {
 	rvn_ed_pos_t start;
@@ -70,6 +95,19 @@ typedef struct rvn_ed_edit_t {
 	rvn_ed_pos_t caret_before, anchor_before, caret_after;
 	/** A run of typed characters that the next one may join. */
 	int typing;
+	/**
+	 * A step made at several cursors: its changes, in the order they were
+	 * made (each one at positions of the text as it was then), and the
+	 * cursors before and after it, the main one first. For such a step,
+	 * inserted_length counts the keys typed into it.
+	 */
+	struct rvn_ed_edit_t* subs;
+	uint32_t sub_count;
+	uint32_t sub_cap;
+	rvn_ed_cursor_t* before;
+	uint32_t before_count;
+	rvn_ed_cursor_t* after;
+	uint32_t after_count;
 } rvn_ed_edit_t;
 
 /** What is searched for (Rtext_editor_set_search). */
@@ -104,6 +142,35 @@ typedef struct rvn_text_editor_t {
 	rvn_ed_pos_t anchor;
 	/** Horizontal position kept while moving up and down; negative = take it from the caret. */
 	float goal_x;
+	/** The other cursors, in the order of the text, none overlapping another or the main one. */
+	rvn_ed_cursor_t* extra;
+	uint32_t extra_count;
+	uint32_t extra_cap;
+	/**
+	 * While a command runs at each cursor (rvn_ed_run): all of them in the
+	 * order of the text, the one it runs at, those that the change of
+	 * another one swallowed, and the step of the history being made.
+	 */
+	rvn_ed_cursor_t* each;
+	uint8_t* each_gone;
+	int each_count;
+	int each_index;
+	rvn_ed_edit_t* group;
+	/** The word Ctrl+D selected at a caret: the next ones it adds are whole words. */
+	char* next_word;
+	/** Alt+Shift+drag: a column of selections from this point of the text. */
+	int box_selecting;
+	float box_x;
+	float box_y;
+	/** Folded regions, in the order of their lines; R_TRUE: no folding (Rtext_editor_set_folding). */
+	rvn_ed_fold_t* folds;
+	uint32_t fold_count;
+	uint32_t fold_cap;
+	int no_folding;
+	/** Changes with the text and the options: the regions of the lines are found again. Never 0. */
+	uint32_t fold_stamp;
+	/** The pointer is over the margin: the markers of the regions that can be folded show. */
+	int gutter_hover;
 
 	int read_only;
 	int wrap;
@@ -165,8 +232,9 @@ typedef struct rvn_text_editor_t {
 
 	rvn_scrollbar_t vbar;
 	rvn_scrollbar_t hbar;
-	/** Word wrap: width the rows were cut for, and the first row of each line. */
+	/** Word wrap: width the rows were cut for, and the first row of each line (also used, without word wrap, when lines are folded). */
 	float wrap_width;
+	int row_table;
 	uint32_t* row_starts;
 	uint32_t row_starts_cap;
 	uint32_t total_rows;
@@ -210,8 +278,9 @@ typedef struct rvn_ed_metrics_t {
 	float line_height;
 	float space;
 	float tab;
-	/** Width of the margin of the line numbers, 0 without it. */
+	/** Width of the margin of the line numbers, 0 without it; the part of it where the folding markers are. */
 	float gutter;
+	float fold_width;
 	/** Where the text is drawn, in the widget. */
 	rvn_rect_t area;
 	float bar;
@@ -278,6 +347,152 @@ static rvn_ed_pos_t rvn_ed_pos_after(rvn_ed_pos_t start, const char* text, int l
 		}
 	}
 	return start;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Cursors
+ *
+ *  The main cursor is (caret, anchor): what has one cursor only never sees
+ *  the others. The others (extra) are kept in the order of the text.
+ * ------------------------------------------------------------------------- */
+
+static rvn_ed_cursor_t rvn_ed_cursor(rvn_ed_pos_t anchor, rvn_ed_pos_t caret, float goal_x) {
+	rvn_ed_cursor_t cursor;
+	cursor.anchor = anchor;
+	cursor.caret = caret;
+	cursor.goal_x = goal_x;
+	return cursor;
+}
+
+static rvn_ed_pos_t rvn_ed_cursor_min(const rvn_ed_cursor_t* cursor) {
+	return rvn_ed_pos_cmp(cursor->caret, cursor->anchor) <= 0 ? cursor->caret : cursor->anchor;
+}
+
+static rvn_ed_pos_t rvn_ed_cursor_max(const rvn_ed_cursor_t* cursor) {
+	return rvn_ed_pos_cmp(cursor->caret, cursor->anchor) <= 0 ? cursor->anchor : cursor->caret;
+}
+
+static int rvn_ed_cursor_order(const rvn_ed_cursor_t* a, const rvn_ed_cursor_t* b) {
+	int order = rvn_ed_pos_cmp(rvn_ed_cursor_min(a), rvn_ed_cursor_min(b));
+	return order ? order : rvn_ed_pos_cmp(rvn_ed_cursor_max(a), rvn_ed_cursor_max(b));
+}
+
+static rvn_ed_cursor_t rvn_ed_main_cursor(const rvn_text_editor_t* ed) {
+	return rvn_ed_cursor(ed->anchor, ed->caret, ed->goal_x);
+}
+
+/* Number of cursors before the main one, in the order of the text. */
+static int rvn_ed_main_index(const rvn_text_editor_t* ed) {
+	rvn_ed_cursor_t main_cursor = rvn_ed_main_cursor(ed);
+	uint32_t low = 0, high = ed->extra_count;
+	while (low < high) {
+		uint32_t middle = (low + high) / 2;
+		if (rvn_ed_cursor_order(&ed->extra[middle], &main_cursor) < 0) low = middle + 1;
+		else high = middle;
+	}
+	return (int)low;
+}
+
+/* Every cursor in the order of the text, in a new block; *main_index is the main one. */
+static int rvn_ed_cursors_sorted(const rvn_text_editor_t* ed, rvn_ed_cursor_t** out, int* main_index) {
+	int count = (int)ed->extra_count + 1, at = rvn_ed_main_index(ed);
+	rvn_ed_cursor_t* list = (rvn_ed_cursor_t*)rvn_alloc(sizeof(rvn_ed_cursor_t) * (size_t)count);
+	if (at > 0) memcpy(list, ed->extra, sizeof(rvn_ed_cursor_t) * (size_t)at);
+	list[at] = rvn_ed_main_cursor(ed);
+	if (count - at - 1 > 0) memcpy(list + at + 1, ed->extra + at, sizeof(rvn_ed_cursor_t) * (size_t)(count - at - 1));
+	*out = list;
+	*main_index = at;
+	return count;
+}
+
+/* Every cursor, the main one first, in a new block (the history keeps them). */
+static uint32_t rvn_ed_cursors_copy(const rvn_text_editor_t* ed, rvn_ed_cursor_t** out) {
+	rvn_ed_cursor_t* list = (rvn_ed_cursor_t*)rvn_alloc(sizeof(rvn_ed_cursor_t) * (size_t)(ed->extra_count + 1));
+	list[0] = rvn_ed_main_cursor(ed);
+	if (ed->extra_count) memcpy(list + 1, ed->extra, sizeof(rvn_ed_cursor_t) * ed->extra_count);
+	*out = list;
+	return ed->extra_count + 1;
+}
+
+typedef struct rvn_ed_tagged_t {
+	rvn_ed_cursor_t cursor;
+	int main;
+} rvn_ed_tagged_t;
+
+static int rvn_ed_tagged_compare(const void* a, const void* b) {
+	return rvn_ed_cursor_order(&((const rvn_ed_tagged_t*)a)->cursor, &((const rvn_ed_tagged_t*)b)->cursor);
+}
+
+/*
+ * Makes these the cursors, `main_index` the main one (-1: the first).
+ * Cursors that overlap, or carets at the same place, become one; the
+ * main one stays main. The list is left unchanged.
+ */
+static void rvn_ed_cursors_set(rvn_text_editor_t* ed, const rvn_ed_cursor_t* list, int count, int main_index) {
+	rvn_ed_tagged_t* tagged;
+	int i, kept = 0, main_at = 0;
+	if (count <= 0) return;
+	if (main_index < 0 || main_index >= count) main_index = 0;
+	if (count == 1) {
+		ed->caret = rvn_ed_clamp(ed, list[0].caret);
+		ed->anchor = rvn_ed_clamp(ed, list[0].anchor);
+		ed->goal_x = list[0].goal_x;
+		ed->extra_count = 0;
+		return;
+	}
+	tagged = (rvn_ed_tagged_t*)rvn_alloc(sizeof(rvn_ed_tagged_t) * (size_t)count);
+	for (i = 0; i < count; i++) {
+		tagged[i].cursor = list[i];
+		tagged[i].cursor.caret = rvn_ed_clamp(ed, list[i].caret);
+		tagged[i].cursor.anchor = rvn_ed_clamp(ed, list[i].anchor);
+		tagged[i].main = i == main_index;
+	}
+	qsort(tagged, (size_t)count, sizeof(rvn_ed_tagged_t), rvn_ed_tagged_compare);
+	for (i = 1; i < count; i++) {
+		rvn_ed_tagged_t* last = &tagged[kept];
+		rvn_ed_tagged_t* next = &tagged[i];
+		rvn_ed_pos_t last_max = rvn_ed_cursor_max(&last->cursor), next_min = rvn_ed_cursor_min(&next->cursor);
+		int last_empty = rvn_ed_pos_cmp(last->cursor.caret, last->cursor.anchor) == 0;
+		int next_empty = rvn_ed_pos_cmp(next->cursor.caret, next->cursor.anchor) == 0;
+		int order = rvn_ed_pos_cmp(next_min, last_max);
+		if (order < 0 || (order == 0 && (last_empty || next_empty))) {
+			/* one cursor over both, in the direction of the one that selects */
+			rvn_ed_pos_t from = rvn_ed_cursor_min(&last->cursor), to = last_max;
+			int backward = last_empty ? rvn_ed_pos_cmp(next->cursor.caret, next->cursor.anchor) < 0
+				: rvn_ed_pos_cmp(last->cursor.caret, last->cursor.anchor) < 0;
+			if (rvn_ed_pos_cmp(rvn_ed_cursor_max(&next->cursor), to) > 0) to = rvn_ed_cursor_max(&next->cursor);
+			last->cursor.anchor = backward ? to : from;
+			last->cursor.caret = backward ? from : to;
+			if (next->main) {
+				last->main = R_TRUE;
+				last->cursor.goal_x = next->cursor.goal_x;
+			}
+			continue;
+		}
+		tagged[++kept] = *next;
+	}
+	kept++;
+	RVN_ARRAY_RESERVE(ed->extra, ed->extra_cap, (uint32_t)kept);
+	ed->extra_count = 0;
+	for (i = 0; i < kept; i++) {
+		if (tagged[i].main) main_at = i;
+	}
+	for (i = 0; i < kept; i++) {
+		if (i == main_at) {
+			ed->caret = tagged[i].cursor.caret;
+			ed->anchor = tagged[i].cursor.anchor;
+			ed->goal_x = tagged[i].cursor.goal_x;
+		} else {
+			ed->extra[ed->extra_count++] = tagged[i].cursor;
+		}
+	}
+	rvn_free(tagged);
+}
+
+/* Back to the main cursor alone. */
+static void rvn_ed_single(rvn_text_editor_t* ed) {
+	if (ed->extra_count) rvn_widget_invalidate_paint(&ed->base);
+	ed->extra_count = 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -362,8 +577,13 @@ static char* rvn_ed_range(const rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed
  * ------------------------------------------------------------------------- */
 
 static void rvn_ed_edit_free(rvn_ed_edit_t* edit) {
+	uint32_t i;
 	rvn_free(edit->removed);
 	rvn_free(edit->inserted);
+	for (i = 0; i < edit->sub_count; i++) rvn_ed_edit_free(&edit->subs[i]);
+	rvn_free(edit->subs);
+	rvn_free(edit->before);
+	rvn_free(edit->after);
 }
 
 static void rvn_ed_history_clear(rvn_ed_edit_t* edits, uint32_t* count) {
@@ -373,11 +593,93 @@ static void rvn_ed_history_clear(rvn_ed_edit_t* edits, uint32_t* count) {
 }
 
 static void rvn_ed_changed_state(rvn_text_editor_t* ed, int first_line) {
+	if (++ed->fold_stamp == 0) ed->fold_stamp = 1;
 	ed->rows_dirty = R_TRUE;
 	ed->text_cache_valid = R_FALSE;
 	ed->version++;
 	if ((uint32_t)first_line + 1 < ed->lex_valid) ed->lex_valid = (uint32_t)first_line + 1;
 	rvn_widget_invalidate_paint(&ed->base);
+}
+
+/*
+ * What lies between `from` and `to` is about to become a text of `breaks`
+ * line breaks: a fold after it moves with its lines (a change that ends on
+ * its first line too, unless it adds line breaks at the end of that line);
+ * one whose hidden lines the change touches, or the line break after its
+ * first line, is unfolded.
+ */
+static void rvn_ed_folds_edit(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to, int breaks) {
+	uint32_t i, kept = 0;
+	int delta = breaks - (to.line - from.line);
+	for (i = 0; i < ed->fold_count; i++) {
+		rvn_ed_fold_t fold = ed->folds[i];
+		if (to.line < fold.line || (to.line == fold.line && (breaks == 0 || to.column < ed->lines[to.line].length))) {
+			fold.line += delta;
+			fold.end += delta;
+		} else if (from.line <= fold.end) {
+			continue;
+		}
+		ed->folds[kept++] = fold;
+	}
+	if (kept != ed->fold_count) {
+		ed->fold_count = kept;
+		rvn_widget_invalidate_layout(&ed->base);
+	}
+}
+
+/*
+ * Where a position goes when what lies between `from` and `to` became what
+ * lies between `from` and `end`. A position strictly inside the range sets
+ * *inside: it goes to `end`, except in whole lines replaced by as many
+ * lines (indenting, commenting out), where it keeps its line and follows
+ * the change of its length (old_lengths, new lengths read from the text).
+ */
+static rvn_ed_pos_t rvn_ed_map_pos(const rvn_text_editor_t* ed, rvn_ed_pos_t pos, rvn_ed_pos_t from, rvn_ed_pos_t to, rvn_ed_pos_t end,
+	const int* old_lengths, int* inside) {
+
+	int from_order = rvn_ed_pos_cmp(pos, from);
+	if (from_order < 0 || (from_order == 0 && rvn_ed_pos_cmp(from, to) != 0)) return pos;
+	if (rvn_ed_pos_cmp(pos, to) >= 0) {
+		if (pos.line == to.line) return rvn_ed_pos(end.line, end.column + pos.column - to.column);
+		return rvn_ed_pos(pos.line + end.line - to.line, pos.column);
+	}
+	*inside = R_TRUE;
+	if (old_lengths) {
+		int now = ed->lines[pos.line].length;
+		if (pos.column == 0) return pos;
+		return rvn_ed_pos(pos.line, rvn_clampi(pos.column + now - old_lengths[pos.line - from.line], 0, now));
+	}
+	return end;
+}
+
+/*
+ * After a change made at one cursor of a command run at each (rvn_ed_run):
+ * the others follow it. They are in the order of the text, which the
+ * changes keep: only those that the change can reach are looked at.
+ */
+static void rvn_ed_map_one(rvn_text_editor_t* ed, int i, rvn_ed_pos_t from, rvn_ed_pos_t to, rvn_ed_pos_t end, const int* old_lengths) {
+	rvn_ed_cursor_t* cursor = &ed->each[i];
+	int inside = R_FALSE;
+	cursor->caret = rvn_ed_map_pos(ed, cursor->caret, from, to, end, old_lengths, &inside);
+	cursor->anchor = rvn_ed_map_pos(ed, cursor->anchor, from, to, end, old_lengths, &inside);
+	/* a cursor still to come that this change swallowed has nothing left to act on */
+	if (inside && !old_lengths && i < ed->each_index) ed->each_gone[i] = R_TRUE;
+}
+
+static void rvn_ed_map_cursors(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to, rvn_ed_pos_t end, const int* old_lengths) {
+	int i, same_lines = end.line == to.line && !old_lengths;
+	/* those before: only those that end after the start of the change */
+	for (i = ed->each_index - 1; i >= 0; i--) {
+		if (ed->each_gone[i]) continue;
+		if (rvn_ed_pos_cmp(rvn_ed_cursor_max(&ed->each[i]), from) < 0) break;
+		rvn_ed_map_one(ed, i, from, to, end, old_lengths);
+	}
+	/* those after: all of them when lines were added or removed, else those of its last line */
+	for (i = ed->each_index + 1; i < ed->each_count; i++) {
+		if (ed->each_gone[i]) continue;
+		if (same_lines && rvn_ed_cursor_min(&ed->each[i]).line > to.line) break;
+		rvn_ed_map_one(ed, i, from, to, end, old_lengths);
+	}
 }
 
 /*
@@ -393,6 +695,7 @@ static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t fro
 	rvn_ed_pos_t end;
 	rvn_ed_line_t* line;
 	char* tail;
+	int* old_lengths = NULL;
 	int tail_length, pieces = 1, i, begin, index;
 
 	from = rvn_ed_clamp(ed, from);
@@ -409,7 +712,18 @@ static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t fro
 		int typed = length > 0 && rvn_ed_pos_cmp(from, to) == 0 && !memchr(text, '\n', (size_t)length) &&
 			rvn_utf8_count(text, length) == 1;
 		rvn_ed_history_clear(ed->redo, &ed->redo_count);
-		if (typed && last && last->typing && last->removed_length == 0 && last->inserted_length < RVN_ED_TYPING_GROUP &&
+		if (ed->group) {
+			/* one change of a step made at several cursors */
+			rvn_ed_edit_t* sub;
+			RVN_ARRAY_RESERVE(ed->group->subs, ed->group->sub_cap, ed->group->sub_count + 1);
+			sub = &ed->group->subs[ed->group->sub_count++];
+			memset(sub, 0, sizeof(*sub));
+			sub->start = from;
+			sub->removed = rvn_ed_range(ed, from, to, &sub->removed_length);
+			sub->inserted = rvn_strndup(text ? text : "", (size_t)length);
+			sub->inserted_length = length;
+			sub->typing = typed;
+		} else if (typed && last && last->typing && !last->subs && last->removed_length == 0 && last->inserted_length < RVN_ED_TYPING_GROUP &&
 			rvn_ed_pos_cmp(last->caret_after, from) == 0) {
 			/* one more character of a run that is being typed: same step */
 			last->inserted = (char*)rvn_realloc(last->inserted, (size_t)(last->inserted_length + length) + 1);
@@ -440,6 +754,13 @@ static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t fro
 
 	for (i = 0; i < length; i++) {
 		if (text[i] == '\n') pieces++;
+	}
+	if (ed->fold_count) rvn_ed_folds_edit(ed, from, to, pieces - 1);
+	/* whole lines replaced by as many: the other cursors in them keep their place in their line */
+	if (ed->each && from.column == 0 && to.column == ed->lines[to.line].length && pieces - 1 == to.line - from.line &&
+		ed->each_count > 1) {
+		old_lengths = (int*)rvn_alloc(sizeof(int) * (size_t)(to.line - from.line + 1));
+		for (i = from.line; i <= to.line; i++) old_lengths[i - from.line] = ed->lines[i].length;
 	}
 	/* the markers below follow their lines; those of the lines that change are out of date */
 	{
@@ -493,6 +814,8 @@ static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t fro
 	line->text[line->length] = '\0';
 	rvn_free(tail);
 
+	if (ed->each) rvn_ed_map_cursors(ed, from, to, end, old_lengths);
+	rvn_free(old_lengths);
 	rvn_ed_changed_state(ed, from.line);
 	return end;
 }
@@ -539,6 +862,55 @@ static void rvn_ed_notify(rvn_widget_t* widget) {
 
 static void rvn_ed_break_typing(rvn_text_editor_t* ed) {
 	if (ed->undo_count) ed->undo[ed->undo_count - 1].typing = R_FALSE;
+	if (ed->group) ed->group->typing = R_FALSE;
+}
+
+/*
+ * Ends a step made at several cursors: into the history, or into the step
+ * before it when both are characters typed one after the other.
+ */
+static void rvn_ed_group_push(rvn_text_editor_t* ed, rvn_ed_edit_t* group) {
+	rvn_ed_edit_t* last = ed->undo_count ? &ed->undo[ed->undo_count - 1] : NULL;
+	uint32_t i;
+	if (group->sub_count == 0) {
+		rvn_ed_edit_free(group);
+		return;
+	}
+	for (i = 0; i < group->sub_count && group->typing; i++) group->typing = group->subs[i].typing;
+	group->inserted_length = 1;
+	/* (only when the cursors are where that step left them) */
+	if (group->typing && last && last->subs && last->typing && last->inserted_length < RVN_ED_TYPING_GROUP &&
+		last->after_count == group->before_count) {
+		int same = R_TRUE;
+		for (i = 0; i < group->before_count && same; i++) {
+			same = rvn_ed_pos_cmp(last->after[i].caret, group->before[i].caret) == 0 &&
+				rvn_ed_pos_cmp(last->after[i].anchor, group->before[i].anchor) == 0;
+		}
+		if (same) {
+			RVN_ARRAY_RESERVE(last->subs, last->sub_cap, last->sub_count + group->sub_count);
+			memcpy(last->subs + last->sub_count, group->subs, sizeof(rvn_ed_edit_t) * group->sub_count);
+			last->sub_count += group->sub_count;
+			last->inserted_length++;
+			rvn_free(last->after);
+			last->after_count = rvn_ed_cursors_copy(ed, &last->after);
+			rvn_free(group->subs);
+			rvn_free(group->before);
+			return;
+		}
+	}
+	group->after_count = rvn_ed_cursors_copy(ed, &group->after);
+	if (ed->undo_count == RVN_ED_MAX_UNDO) {
+		rvn_ed_edit_free(&ed->undo[0]);
+		memmove(ed->undo, ed->undo + 1, sizeof(rvn_ed_edit_t) * (ed->undo_count - 1));
+		ed->undo_count--;
+	}
+	RVN_ARRAY_RESERVE(ed->undo, ed->undo_cap, ed->undo_count + 1);
+	ed->undo[ed->undo_count++] = *group;
+}
+
+/* The cursors a step of the history had (the main one first). */
+static void rvn_ed_cursors_restore(rvn_text_editor_t* ed, const rvn_ed_cursor_t* list, uint32_t count) {
+	rvn_ed_cursors_set(ed, list, (int)count, 0);
 }
 
 static void rvn_ed_move_edit(rvn_ed_edit_t** to, uint32_t* to_count, uint32_t* to_cap, rvn_ed_edit_t* from, uint32_t* from_count) {
@@ -551,10 +923,22 @@ static int rvn_ed_undo(rvn_text_editor_t* ed) {
 	if (ed->undo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->undo[ed->undo_count - 1];
 	edit->typing = R_FALSE;
-	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
-		edit->removed, edit->removed_length, R_FALSE);
-	ed->caret = rvn_ed_clamp(ed, edit->caret_before);
-	ed->anchor = rvn_ed_clamp(ed, edit->anchor_before);
+	if (edit->subs) {
+		uint32_t i = edit->sub_count;
+		/* the changes undone from the last one: each finds the text as it left it */
+		while (i-- > 0) {
+			const rvn_ed_edit_t* sub = &edit->subs[i];
+			rvn_ed_replace_exact(ed, sub->start, rvn_ed_pos_after(sub->start, sub->inserted, sub->inserted_length),
+				sub->removed, sub->removed_length, R_FALSE);
+		}
+		rvn_ed_cursors_restore(ed, edit->before, edit->before_count);
+	} else {
+		rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
+			edit->removed, edit->removed_length, R_FALSE);
+		ed->caret = rvn_ed_clamp(ed, edit->caret_before);
+		ed->anchor = rvn_ed_clamp(ed, edit->anchor_before);
+		rvn_ed_single(ed);
+	}
 	rvn_ed_move_edit(&ed->redo, &ed->redo_count, &ed->redo_cap, ed->undo, &ed->undo_count);
 	return R_TRUE;
 }
@@ -563,9 +947,20 @@ static int rvn_ed_redo(rvn_text_editor_t* ed) {
 	rvn_ed_edit_t* edit;
 	if (ed->redo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->redo[ed->redo_count - 1];
-	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
-		edit->inserted, edit->inserted_length, R_FALSE);
-	ed->caret = ed->anchor = rvn_ed_clamp(ed, edit->caret_after);
+	if (edit->subs) {
+		uint32_t i;
+		for (i = 0; i < edit->sub_count; i++) {
+			const rvn_ed_edit_t* sub = &edit->subs[i];
+			rvn_ed_replace_exact(ed, sub->start, rvn_ed_pos_after(sub->start, sub->removed, sub->removed_length),
+				sub->inserted, sub->inserted_length, R_FALSE);
+		}
+		rvn_ed_cursors_restore(ed, edit->after, edit->after_count);
+	} else {
+		rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
+			edit->inserted, edit->inserted_length, R_FALSE);
+		ed->caret = ed->anchor = rvn_ed_clamp(ed, edit->caret_after);
+		rvn_ed_single(ed);
+	}
 	rvn_ed_move_edit(&ed->undo, &ed->undo_count, &ed->undo_cap, ed->redo, &ed->redo_count);
 	return R_TRUE;
 }
@@ -623,10 +1018,13 @@ static void rvn_ed_metrics(const rvn_text_editor_t* ed, rvn_ed_metrics_t* m) {
 	m->bar = rvn_widget_metric(widget, R_METRIC_SCROLLBAR_SIZE);
 
 	m->gutter = 0.0f;
+	m->fold_width = 0.0f;
 	if (ed->line_numbers) {
 		digit = rvn_text_width(m->font, m->size, "0", 1);
 		for (count = ed->line_count; count >= 10; count /= 10) digits++;
-		m->gutter = ceilf(digit * (float)rvn_maxi(digits, 2) + 18.0f);
+		/* the markers of folding, between the numbers and the text */
+		if (!ed->no_folding) m->fold_width = ceilf(m->size * 0.8f + 6.0f);
+		m->gutter = ceilf(digit * (float)rvn_maxi(digits, 2) + 18.0f) + m->fold_width;
 	}
 	m->area.x = m->gutter + RVN_ED_PAD_X;
 	m->area.y = RVN_ED_PAD_Y;
@@ -719,9 +1117,32 @@ static int rvn_ed_row_of(const rvn_text_editor_t* ed, int line, int column) {
 	return row;
 }
 
-/* Brings the row tables and the size of the content up to date. */
+/* Is a line hidden in a folded region? */
+static int rvn_ed_hidden(const rvn_text_editor_t* ed, int line) {
+	uint32_t i;
+	for (i = 0; i < ed->fold_count && ed->folds[i].line < line; i++) {
+		if (line <= ed->folds[i].end) return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+/* The fold whose first line is `line`, or -1. */
+static int rvn_ed_fold_at(const rvn_text_editor_t* ed, int line) {
+	uint32_t i;
+	for (i = 0; i < ed->fold_count && ed->folds[i].line <= line; i++) {
+		if (ed->folds[i].line == line) return (int)i;
+	}
+	return -1;
+}
+
+/*
+ * Brings the row tables and the size of the content up to date. With word
+ * wrap or folded lines, each line has its first row in row_starts; a hidden
+ * line has no row (its first row is the one of the next line shown).
+ */
 static void rvn_ed_update_rows(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m) {
-	uint32_t i, rows = 0;
+	uint32_t i, rows = 0, fold = 0;
+	int hidden_until = -1;
 	float widest = 0.0f;
 
 	if (ed->wrap && ed->wrap_width != m->area.w) {
@@ -731,37 +1152,42 @@ static void rvn_ed_update_rows(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m)
 	}
 	if (!ed->rows_dirty) return;
 	ed->rows_dirty = R_FALSE;
+	ed->row_table = ed->wrap || ed->fold_count > 0;
+	if (ed->row_table) RVN_ARRAY_RESERVE(ed->row_starts, ed->row_starts_cap, ed->line_count + 1);
 
-	if (ed->wrap) {
-		RVN_ARRAY_RESERVE(ed->row_starts, ed->row_starts_cap, ed->line_count + 1);
-		for (i = 0; i < ed->line_count; i++) {
-			if (ed->lines[i].row_count == 0) rvn_ed_wrap_line(m, &ed->lines[i], rvn_maxf(ed->wrap_width, m->space * 4.0f));
-			ed->row_starts[i] = rows;
-			rows += (uint32_t)ed->lines[i].row_count;
+	for (i = 0; i < ed->line_count; i++) {
+		rvn_ed_line_t* line = &ed->lines[i];
+		int hidden;
+		while (fold < ed->fold_count && ed->folds[fold].line < (int)i) {
+			if (ed->folds[fold].end > hidden_until) hidden_until = ed->folds[fold].end;
+			fold++;
 		}
-		ed->row_starts[ed->line_count] = rows;
-		ed->total_rows = rows;
-		ed->max_width = 0.0f;
-	} else {
-		for (i = 0; i < ed->line_count; i++) {
-			rvn_ed_line_t* line = &ed->lines[i];
+		hidden = (int)i <= hidden_until;
+		if (ed->wrap) {
+			if (line->row_count == 0 && !hidden) rvn_ed_wrap_line(m, line, rvn_maxf(ed->wrap_width, m->space * 4.0f));
+		} else {
 			if (line->width < 0.0f) line->width = rvn_ed_advance(m, line->text, 0, line->length, 0.0f);
 			if (line->width > widest) widest = line->width;
 		}
-		ed->total_rows = ed->line_count;
-		ed->max_width = widest;
+		if (ed->row_table) {
+			ed->row_starts[i] = rows;
+			if (!hidden) rows += ed->wrap ? (uint32_t)rvn_maxi(line->row_count, 1) : 1u;
+		}
 	}
+	if (ed->row_table) ed->row_starts[ed->line_count] = rows;
+	ed->total_rows = ed->row_table ? rows : ed->line_count;
+	ed->max_width = ed->wrap ? 0.0f : widest;
 }
 
 static uint32_t rvn_ed_first_row(const rvn_text_editor_t* ed, int line) {
-	return ed->wrap ? ed->row_starts[line] : (uint32_t)line;
+	return ed->row_table ? ed->row_starts[line] : (uint32_t)line;
 }
 
-/* Line and row in the line of a row counted from the top of the text. */
+/* Line and row in the line of a row counted from the top of the text (never a hidden line). */
 static void rvn_ed_locate_row(const rvn_text_editor_t* ed, uint32_t global_row, int* line, int* row) {
 	uint32_t low = 0, high = ed->line_count - 1;
 	if (global_row >= ed->total_rows) global_row = ed->total_rows - 1;
-	if (!ed->wrap) {
+	if (!ed->row_table) {
 		*line = (int)global_row;
 		*row = 0;
 		return;
@@ -834,9 +1260,12 @@ static void rvn_ed_reveal(rvn_text_editor_t* ed, int in_layout) {
 	ed->reveal_pending = R_FALSE;
 }
 
-/* The caret moved: keep it visible and solid for a moment. */
+static void rvn_ed_reveal_cursors(rvn_text_editor_t* ed);
+
+/* The caret moved: keep it visible (unfolded, scrolled to) and solid for a moment. */
 static void rvn_ed_caret_moved(rvn_text_editor_t* ed, int keep_goal) {
 	if (!keep_goal) ed->goal_x = -1.0f;
+	rvn_ed_reveal_cursors(ed);
 	ed->blink_start = rvn_clock_seconds();
 	rvn_ed_reveal(ed, R_FALSE);
 	rvn_widget_invalidate_paint(&ed->base);
@@ -913,15 +1342,15 @@ static int rvn_ed_is_code(rvn_text_editor_t* ed, int line, int column) {
 	return R_TRUE;
 }
 
-/* The bracket that closes (or opens) the one at `at`. Looks no further than a few thousand lines. */
-static int rvn_ed_match_bracket(rvn_text_editor_t* ed, rvn_ed_pos_t at, rvn_ed_pos_t* match) {
+/* The bracket that closes (or opens) the one at `at`. Looks no further than `budget` lines. */
+static int rvn_ed_match_bracket_in(rvn_text_editor_t* ed, rvn_ed_pos_t at, rvn_ed_pos_t* match, int budget) {
 	static const char open[] = "([{", close[] = ")]}";
 	const rvn_language_t* language = rvn_ed_language(ed);
 	const rvn_ed_line_t* l = &ed->lines[at.line];
 	rvn_span_t spans[RVN_ED_MAX_SPANS];
 	const char* found;
 	char bracket, other;
-	int forward, depth = 1, line = at.line, column, budget = 3000, span_count = 0, i;
+	int forward, depth = 1, line = at.line, column, span_count = 0, i;
 
 	if (at.column < 0 || at.column >= l->length) return R_FALSE;
 	bracket = l->text[at.column];
@@ -965,6 +1394,11 @@ static int rvn_ed_match_bracket(rvn_text_editor_t* ed, rvn_ed_pos_t at, rvn_ed_p
 	return R_FALSE;
 }
 
+/* The same, a few thousand lines away at most: the pair shown at the caret. */
+static int rvn_ed_match_bracket(rvn_text_editor_t* ed, rvn_ed_pos_t at, rvn_ed_pos_t* match) {
+	return rvn_ed_match_bracket_in(ed, at, match, 3000);
+}
+
 /* The pair of brackets to show for the place of the caret: the one after it, else the one before it. */
 static void rvn_ed_update_match(rvn_text_editor_t* ed) {
 	rvn_ed_pos_t at = ed->caret;
@@ -977,6 +1411,251 @@ static void rvn_ed_update_match(rvn_text_editor_t* ed) {
 		ed->match_found = rvn_ed_match_bracket(ed, at, &ed->match_b);
 	}
 	ed->match_a = at;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Folding: the regions
+ *
+ *  A line starts a region when it opens a bracket of code that closes on a
+ *  later line: the region ends on the line before the closing one, which
+ *  stays visible. Else, when the lines after it are more indented: the
+ *  region ends on the last of them that is not blank. Brackets count with a
+ *  language that has code (not markup, not formatted text).
+ * ------------------------------------------------------------------------- */
+
+static int rvn_ed_folds_brackets(rvn_text_editor_t* ed) {
+	const RLanguageDesc* desc = rvn_ed_language_desc(ed);
+	return desc && !(desc->flags & (R_LANGUAGE_MARKUP | R_LANGUAGE_FORMATTED_TEXT));
+}
+
+/* Width of the indentation of a line, in columns; -1 for a blank line. */
+static int rvn_ed_indent_width(const rvn_text_editor_t* ed, int line) {
+	const rvn_ed_line_t* l = &ed->lines[line];
+	int i, width = 0, tab = rvn_maxi(ed->tab_size, 1);
+	for (i = 0; i < l->length; i++) {
+		if (l->text[i] == ' ') width++;
+		else if (l->text[i] == '\t') width += tab - width % tab;
+		else return width;
+	}
+	return -1;
+}
+
+/* The brackets of code that a line opens and does not close itself: their columns, in order. Returns how many (at most `cap`). */
+static int rvn_ed_open_brackets(rvn_text_editor_t* ed, int line, int* columns, int cap) {
+	static const char brackets[] = "([{)]}";
+	const rvn_language_t* language = rvn_ed_language(ed);
+	const rvn_ed_line_t* l = &ed->lines[line];
+	rvn_span_t spans[RVN_ED_MAX_SPANS];
+	int kinds[64], starts[64], alive[64];
+	int span_count = 0, count = 0, out = 0, i, s;
+	if (language) {
+		rvn_ed_lex_until(ed, (uint32_t)line);
+		rvn_syntax_line(language, l->text, l->length, l->lex_in, spans, RVN_ED_MAX_SPANS, &span_count);
+	}
+	for (i = 0; i < l->length; i++) {
+		const char* found = strchr(brackets, l->text[i]);
+		int kind, code = R_TRUE;
+		if (!found || !l->text[i]) continue;
+		for (s = 0; s < span_count && code; s++) {
+			if (i >= spans[s].start && i < spans[s].end) code = spans[s].token != RVN_TOKEN_COMMENT && spans[s].token != RVN_TOKEN_STRING;
+		}
+		if (!code) continue;
+		kind = (int)(found - brackets);
+		if (kind < 3) {
+			if (count < 64) {
+				kinds[count] = kind;
+				starts[count] = i;
+				alive[count] = R_TRUE;
+				count++;
+			}
+		} else {
+			int k;
+			for (k = count - 1; k >= 0; k--) {
+				if (alive[k] && kinds[k] == kind - 3) {
+					alive[k] = R_FALSE;
+					break;
+				}
+			}
+		}
+	}
+	for (i = 0; i < count && out < cap; i++) {
+		if (alive[i]) columns[out++] = starts[i];
+	}
+	return out;
+}
+
+/* The last line of the region that a line starts, or -1. */
+static int rvn_ed_region_end(rvn_text_editor_t* ed, int line) {
+	int end = -1, base, i;
+	if (rvn_ed_folds_brackets(ed)) {
+		int columns[8], count = rvn_ed_open_brackets(ed, line, columns, 8);
+		for (i = 0; i < count; i++) {
+			rvn_ed_pos_t match;
+			if (rvn_ed_match_bracket_in(ed, rvn_ed_pos(line, columns[i]), &match, 100000) && match.line > line) {
+				end = match.line - 1;
+				break;
+			}
+		}
+		if (end > line) return end;
+	}
+	base = rvn_ed_indent_width(ed, line);
+	if (base < 0) return -1;
+	end = -1;
+	for (i = line + 1; i < (int)ed->line_count; i++) {
+		int width = rvn_ed_indent_width(ed, i);
+		if (width < 0) continue;
+		if (width <= base) break;
+		end = i;
+	}
+	return end;
+}
+
+/* The same, kept until the text or the options change (the markers of the margin ask for it at each frame). */
+static int rvn_ed_region_end_cached(rvn_text_editor_t* ed, int line) {
+	rvn_ed_line_t* l = &ed->lines[line];
+	if (ed->fold_stamp == 0) ed->fold_stamp = 1;
+	if (l->fold_stamp != ed->fold_stamp) {
+		l->fold_end = rvn_ed_region_end(ed, line);
+		l->fold_stamp = ed->fold_stamp;
+	}
+	return l->fold_end;
+}
+
+static void rvn_ed_folds_changed(rvn_text_editor_t* ed) {
+	ed->rows_dirty = R_TRUE;
+	rvn_widget_invalidate_layout(&ed->base);
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+/* A position out of the folded regions: in a hidden line, the end of the first line of the outermost fold that hides it. */
+static rvn_ed_pos_t rvn_ed_out_of_folds(const rvn_text_editor_t* ed, rvn_ed_pos_t pos) {
+	uint32_t i;
+	for (i = 0; i < ed->fold_count && ed->folds[i].line < pos.line; i++) {
+		if (pos.line <= ed->folds[i].end) return rvn_ed_pos(ed->folds[i].line, ed->lines[ed->folds[i].line].length);
+	}
+	return pos;
+}
+
+/* After folding: the cursors in hidden lines come out of them. */
+static void rvn_ed_cursors_out_of_folds(rvn_text_editor_t* ed) {
+	rvn_ed_cursor_t* list;
+	int count, main_index, i, moved = R_FALSE;
+	if (ed->fold_count == 0) return;
+	count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+	for (i = 0; i < count; i++) {
+		rvn_ed_pos_t caret = rvn_ed_out_of_folds(ed, list[i].caret), anchor = rvn_ed_out_of_folds(ed, list[i].anchor);
+		if (rvn_ed_pos_cmp(caret, list[i].caret) != 0 || rvn_ed_pos_cmp(anchor, list[i].anchor) != 0) {
+			list[i].caret = caret;
+			list[i].anchor = anchor;
+			moved = R_TRUE;
+		}
+	}
+	if (moved) rvn_ed_cursors_set(ed, list, count, main_index);
+	rvn_free(list);
+}
+
+/* Folds lines line+1 .. end (a fold already at `line` takes the new end). */
+static void rvn_ed_fold_add(rvn_text_editor_t* ed, int line, int end) {
+	uint32_t at = 0;
+	while (at < ed->fold_count && ed->folds[at].line < line) at++;
+	if (at < ed->fold_count && ed->folds[at].line == line) {
+		ed->folds[at].end = end;
+	} else {
+		RVN_ARRAY_RESERVE(ed->folds, ed->fold_cap, ed->fold_count + 1);
+		memmove(ed->folds + at + 1, ed->folds + at, sizeof(rvn_ed_fold_t) * (ed->fold_count - at));
+		ed->folds[at].line = line;
+		ed->folds[at].end = end;
+		ed->fold_count++;
+	}
+	rvn_ed_folds_changed(ed);
+	rvn_ed_cursors_out_of_folds(ed);
+}
+
+static void rvn_ed_fold_remove(rvn_text_editor_t* ed, int index) {
+	memmove(ed->folds + index, ed->folds + index + 1, sizeof(rvn_ed_fold_t) * (ed->fold_count - (uint32_t)index - 1));
+	ed->fold_count--;
+	rvn_ed_folds_changed(ed);
+}
+
+/* Unfolds what hides a line. Returns R_TRUE when something was unfolded. */
+static int rvn_ed_reveal_line(rvn_text_editor_t* ed, int line) {
+	uint32_t i = 0;
+	int any = R_FALSE;
+	while (i < ed->fold_count && ed->folds[i].line < line) {
+		if (line <= ed->folds[i].end) {
+			rvn_ed_fold_remove(ed, (int)i);
+			any = R_TRUE;
+		} else {
+			i++;
+		}
+	}
+	return any;
+}
+
+/* No cursor stays in a hidden line: what hides one is unfolded (a match found by the search, a cursor placed there). */
+static void rvn_ed_reveal_cursors(rvn_text_editor_t* ed) {
+	uint32_t i;
+	if (ed->fold_count == 0) return;
+	rvn_ed_reveal_line(ed, ed->caret.line);
+	rvn_ed_reveal_line(ed, ed->anchor.line);
+	for (i = 0; i < ed->extra_count && ed->fold_count; i++) {
+		rvn_ed_reveal_line(ed, ed->extra[i].caret.line);
+		rvn_ed_reveal_line(ed, ed->extra[i].anchor.line);
+	}
+}
+
+/*
+ * Folds the region that a line starts, or, when it has none or it is
+ * folded already, the nearest one around it. Returns R_FALSE when there is
+ * none.
+ */
+static int rvn_ed_fold_line(rvn_text_editor_t* ed, int line) {
+	int start, limit;
+	if (ed->no_folding) return R_FALSE;
+	line = rvn_clampi(line, 0, (int)ed->line_count - 1);
+	limit = rvn_maxi(line - 20000, 0);
+	for (start = line; start >= limit; start--) {
+		int end, index = rvn_ed_fold_at(ed, start);
+		if (start == line && index >= 0) continue;
+		end = rvn_ed_region_end(ed, start);
+		if (end <= start || end < line) continue;
+		if (index < 0) rvn_ed_fold_add(ed, start, end);
+		return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+/* Unfolds the region a line starts, or what hides it. Returns R_FALSE when nothing was folded there. */
+static int rvn_ed_unfold_line(rvn_text_editor_t* ed, int line) {
+	int index = rvn_ed_fold_at(ed, line);
+	if (index >= 0) {
+		rvn_ed_fold_remove(ed, index);
+		return R_TRUE;
+	}
+	return rvn_ed_reveal_line(ed, line);
+}
+
+/* Folds every region, those inside others too. */
+static void rvn_ed_fold_all(rvn_text_editor_t* ed) {
+	uint32_t line;
+	if (ed->no_folding) return;
+	ed->fold_count = 0;
+	for (line = 0; line < ed->line_count; line++) {
+		int end = rvn_ed_region_end(ed, (int)line);
+		if (end <= (int)line) continue;
+		RVN_ARRAY_RESERVE(ed->folds, ed->fold_cap, ed->fold_count + 1);
+		ed->folds[ed->fold_count].line = (int)line;
+		ed->folds[ed->fold_count].end = end;
+		ed->fold_count++;
+	}
+	rvn_ed_folds_changed(ed);
+	rvn_ed_cursors_out_of_folds(ed);
+}
+
+static void rvn_ed_unfold_all(rvn_text_editor_t* ed) {
+	if (ed->fold_count == 0) return;
+	ed->fold_count = 0;
+	rvn_ed_folds_changed(ed);
 }
 
 /* Draws text[begin..end) of a line at (x, y), tabs expanded, each span in its color. */
@@ -1025,6 +1704,34 @@ static rvn_color_t rvn_ed_marker_color(RMarkerKind kind, const rvn_widget_t* wid
 	}
 }
 
+/* The part of a selection that lies on one row of a line (text[begin..end)), drawn at (x, y). */
+static void rvn_ed_paint_selection(RPainter* painter, const rvn_ed_metrics_t* m, const rvn_ed_line_t* l, int line, int begin, int end,
+	rvn_ed_pos_t sel_min, rvn_ed_pos_t sel_max, float x, float y, rvn_color_t color) {
+
+	int from, to;
+	if (line < sel_min.line || line > sel_max.line) return;
+	from = line == sel_min.line ? rvn_maxi(sel_min.column, begin) : begin;
+	to = line == sel_max.line ? rvn_mini(sel_max.column, end) : end;
+	if (from <= to && !(line == sel_max.line && sel_max.column < begin) && !(line == sel_min.line && sel_min.column > end)) {
+		float x0 = rvn_ed_advance(m, l->text, begin, from, 0.0f);
+		float x1 = rvn_ed_advance(m, l->text, from, to, x0);
+		/* a selected line break shows as a little more than the text */
+		if (line < sel_max.line && end == l->length) x1 += m->space;
+		if (x1 > x0) rvn_paint_box(painter, rvn_rect(x + x0, y, x1 - x0, m->line_height), 3.0f, color, 0.0f, 0);
+	}
+}
+
+/* The "..." shown after the first line of a folded region, in the coordinates of the text. */
+static rvn_rect_t rvn_ed_fold_box(const rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, int line) {
+	const rvn_ed_line_t* l = &ed->lines[line];
+	int row = ed->wrap ? rvn_maxi(l->row_count, 1) - 1 : 0, begin, end;
+	float x;
+	rvn_ed_row_range(ed, line, row, &begin, &end);
+	x = rvn_ed_advance(m, l->text, begin, end, 0.0f) + m->space;
+	return rvn_rect(x, (float)(rvn_ed_first_row(ed, line) + (uint32_t)row) * m->line_height + 2.0f,
+		rvn_maxf(m->size * 1.8f, 18.0f), m->line_height - 4.0f);
+}
+
 /* Search and replace, below. */
 static int rvn_ed_find_has_keys(const rvn_text_editor_t* ed);
 static void rvn_ed_paint_matches(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m, int line, int begin, int end,
@@ -1047,7 +1754,7 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	float radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	float focus = rvn_clampf(rvn_paint_spring(painter, &widget->press, (widget->flags & RVN_WF_FOCUSED) ? 1.0f : 0.0f, R_MOTION_SNAPPY), 0.0f, 1.0f);
 	float scroll_x, scroll_y, y;
-	uint32_t row, first_row, last_row, marker;
+	uint32_t row, first_row, last_row, marker, extra;
 	rvn_span_t spans[RVN_ED_MAX_SPANS];
 	int span_count = 0, span_line = -1;
 	const rvn_language_t* language = rvn_ed_language(ed);
@@ -1097,8 +1804,17 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 			if (line_row != 0) continue;
 			snprintf(number, sizeof(number), "%d", line + 1);
 			rvn_paint_text_in(painter, m.font_id, m.size,
-				rvn_rect(0.0f, m.area.y + (float)row * m.line_height - scroll_y, m.gutter - 9.0f, m.line_height), 1.0f, number, -1,
+				rvn_rect(0.0f, m.area.y + (float)row * m.line_height - scroll_y, m.gutter - 9.0f - m.fold_width, m.line_height), 1.0f, number, -1,
 				line == ed->caret.line ? text : dim);
+			/* folding: a folded region always shows its marker, the others while the pointer is over the margin */
+			if (m.fold_width > 0.0f) {
+				int folded = rvn_ed_fold_at(ed, line) >= 0;
+				if (folded || (ed->gutter_hover && rvn_ed_region_end_cached(ed, line) > line)) {
+					rvn_paint_icon(painter, folded ? RVN_ICON_CHEVRON_RIGHT : RVN_ICON_CHEVRON_DOWN,
+						m.gutter - 4.0f - m.fold_width * 0.5f, m.area.y + (float)row * m.line_height - scroll_y + m.line_height * 0.5f,
+						rvn_minf(m.fold_width * 0.55f, 9.0f), folded ? text : dim);
+				}
+			}
 			/* a dot in the margin of the lines that have a marker */
 			for (marker = 0; marker < ed->marker_count; marker++) {
 				if (ed->markers[marker].line != line) continue;
@@ -1138,19 +1854,13 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_paint_rect(painter, rvn_rect(m.gutter + 1.0f, y, rect.w - m.gutter - 2.0f, m.line_height),
 				rvn_color_fade(rvn_widget_color(widget, R_COLOR_ROW_HOVERED), 0.6f));
 		}
-		/* the part of the selection that lies on this row */
-		if (has_selection && line >= sel_min.line && line <= sel_max.line) {
-			int from = line == sel_min.line ? rvn_maxi(sel_min.column, begin) : begin;
-			int to = line == sel_max.line ? rvn_mini(sel_max.column, end) : end;
-			if (from <= to && !(line == sel_max.line && sel_max.column < begin) && !(line == sel_min.line && sel_min.column > end)) {
-				float x0 = rvn_ed_advance(&m, l->text, begin, from, 0.0f);
-				float x1 = rvn_ed_advance(&m, l->text, from, to, x0);
-				/* a selected line break shows as a little more than the text */
-				if (line < sel_max.line && end == l->length) x1 += m.space;
-				if (x1 > x0) {
-					rvn_paint_box(painter, rvn_rect(m.area.x + x0 - scroll_x, y, x1 - x0, m.line_height), 3.0f, selection, 0.0f, 0);
-				}
-			}
+		/* the part of the selections that lies on this row */
+		if (has_selection) rvn_ed_paint_selection(painter, &m, l, line, begin, end, sel_min, sel_max, m.area.x - scroll_x, y, selection);
+		for (extra = 0; extra < ed->extra_count; extra++) {
+			const rvn_ed_cursor_t* cursor = &ed->extra[extra];
+			if (rvn_ed_pos_cmp(cursor->caret, cursor->anchor) == 0) continue;
+			rvn_ed_paint_selection(painter, &m, l, line, begin, end, rvn_ed_cursor_min(cursor), rvn_ed_cursor_max(cursor),
+				m.area.x - scroll_x, y, selection);
 		}
 		/* the matches of the search on this row */
 		rvn_ed_paint_matches(ed, painter, &m, line, begin, end, m.area.x - scroll_x, y);
@@ -1186,6 +1896,19 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		} else if (end > begin) {
 			rvn_ed_paint_text(painter, &m, l->text, begin, end, m.area.x - scroll_x, y,
 				spans, language ? span_count : 0, text);
+		}
+		/* the first line of a folded region: "..." after it */
+		if (ed->fold_count && (!ed->wrap || line_row + 1 >= l->row_count) && rvn_ed_fold_at(ed, line) >= 0) {
+			rvn_rect_t box = rvn_ed_fold_box(ed, &m, line);
+			float dot = rvn_maxf(2.0f, m.size * 0.13f), cx = m.area.x + box.x - scroll_x + box.w * 0.5f, cy = y + m.line_height * 0.5f;
+			int d;
+			box.x += m.area.x - scroll_x;
+			box.y = y + 2.0f;
+			rvn_paint_box(painter, box, 4.0f, rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT), 0.16f), 1.0f,
+				rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT), 0.45f));
+			for (d = -1; d <= 1; d++) {
+				rvn_paint_box(painter, rvn_rect(cx + (float)d * dot * 2.2f - dot * 0.5f, cy - dot * 0.5f, dot, dot), dot * 0.5f, dim, 0.0f, 0);
+			}
 		}
 		/* markers: a wavy line under what they are about */
 		for (marker = 0; marker < ed->marker_count; marker++) {
@@ -1224,6 +1947,17 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		if (moving || g_rvn.test_deterministic || fmod(rvn_clock_seconds() - ed->blink_start, 1.0) < 0.55) {
 			rvn_paint_box(painter, caret,
 				1.0f, rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED), 0.0f, 0);
+		}
+		/* the other cursors: their carets, without gliding */
+		if (ed->extra_count && (moving || g_rvn.test_deterministic || fmod(rvn_clock_seconds() - ed->blink_start, 1.0) < 0.55)) {
+			for (extra = 0; extra < ed->extra_count; extra++) {
+				rvn_vec2_t at;
+				if (ed->fold_count && rvn_ed_hidden(ed, ed->extra[extra].caret.line)) continue;
+				at = rvn_ed_pos_point(ed, &m, ed->extra[extra].caret);
+				if (at.y + m.line_height < scroll_y || at.y > scroll_y + m.area.h) continue;
+				rvn_paint_box(painter, rvn_rect(m.area.x + at.x - scroll_x - 1.0f, m.area.y + at.y - scroll_y + 1.0f, 2.0f, m.line_height - 2.0f),
+					1.0f, rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED), 0.8f), 0.0f, 0);
+			}
 		}
 	} else {
 		ed->caret_x.started = R_FALSE;
@@ -1297,12 +2031,43 @@ static rvn_ed_pos_t rvn_ed_move_rows(rvn_text_editor_t* ed, const rvn_ed_metrics
 	int global = (int)(rvn_ed_first_row(ed, pos.line) + (uint32_t)rvn_ed_row_of(ed, pos.line, pos.column)) + rows;
 	if (ed->goal_x < 0.0f) ed->goal_x = point.x;
 	if (global < 0) return rvn_ed_pos(0, 0);
-	if (global >= (int)ed->total_rows) return rvn_ed_end(ed);
+	if (global >= (int)ed->total_rows) {
+		/* (the last lines may be folded: the end of the last one shown) */
+		int line, row;
+		if (!ed->fold_count || !rvn_ed_hidden(ed, (int)ed->line_count - 1)) return rvn_ed_end(ed);
+		rvn_ed_locate_row(ed, ed->total_rows - 1, &line, &row);
+		return rvn_ed_pos(line, ed->lines[line].length);
+	}
 	return rvn_ed_point_pos(ed, m, ed->goal_x, ((float)global + 0.5f) * m->line_height);
 }
 
+/* Copies the selection; with several cursors, their selections one per line, in the order of the text. */
 static void rvn_ed_copy(const rvn_text_editor_t* ed) {
 	char* text;
+	if (ed->extra_count) {
+		rvn_ed_cursor_t* list;
+		int count, main_index, i, any = R_FALSE;
+		size_t length = 0;
+		count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+		for (i = 0; i < count; i++) any |= rvn_ed_pos_cmp(list[i].caret, list[i].anchor) != 0;
+		if (any) {
+			char* joined = NULL;
+			for (i = 0; i < count; i++) {
+				int piece_length;
+				char* piece = rvn_ed_range(ed, rvn_ed_cursor_min(&list[i]), rvn_ed_cursor_max(&list[i]), &piece_length);
+				joined = (char*)rvn_realloc(joined, length + (size_t)piece_length + 2);
+				memcpy(joined + length, piece, (size_t)piece_length);
+				length += (size_t)piece_length;
+				if (i + 1 < count) joined[length++] = '\n';
+				joined[length] = '\0';
+				rvn_free(piece);
+			}
+			Rclipboard_set_text(joined);
+			rvn_free(joined);
+		}
+		rvn_free(list);
+		return;
+	}
 	if (!rvn_ed_has_selection(ed)) return;
 	text = rvn_ed_range(ed, rvn_ed_sel_min(ed), rvn_ed_sel_max(ed), NULL);
 	Rclipboard_set_text(text);
@@ -1318,6 +2083,78 @@ static int rvn_ed_delete_selection(rvn_text_editor_t* ed) {
 	if (!rvn_ed_has_selection(ed)) return R_FALSE;
 	rvn_ed_insert(ed, "", 0);
 	return R_TRUE;
+}
+
+/* A command that edits, run at one cursor (the main one is (caret, anchor) while it runs); `index` is its place among the cursors. */
+typedef void (*rvn_ed_each_fn)(rvn_text_editor_t* ed, int index, void* context);
+
+/*
+ * Runs a command at every cursor. With one cursor it simply runs. With
+ * several, it runs at each one from the last in the text to the first, so
+ * that its changes never move the places still to come; each change moves
+ * the cursors it passes, and swallows those still to come that it covers.
+ * All the changes make one step of the history, which gives the cursors
+ * back on undo. `by_lines`: the command acts on the whole lines of the
+ * selection (indenting, commenting out), once for lines several cursors
+ * share.
+ */
+static void rvn_ed_run(rvn_text_editor_t* ed, rvn_ed_each_fn fn, void* context, int by_lines) {
+	rvn_ed_cursor_t* list;
+	uint8_t* gone;
+	rvn_ed_edit_t group;
+	int count, main_index, i, kept = 0, new_main = 0, done = 1 << 30;
+
+	if (ed->extra_count == 0) {
+		fn(ed, 0, context);
+		return;
+	}
+	count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+	gone = (uint8_t*)rvn_calloc((size_t)count);
+	memset(&group, 0, sizeof(group));
+	group.typing = R_TRUE;
+	group.before_count = rvn_ed_cursors_copy(ed, &group.before);
+	ed->group = &group;
+	ed->each = list;
+	ed->each_gone = gone;
+	ed->each_count = count;
+	for (i = count - 1; i >= 0; i--) {
+		if (gone[i]) continue;
+		if (by_lines) {
+			rvn_ed_pos_t from = rvn_ed_cursor_min(&list[i]), to = rvn_ed_cursor_max(&list[i]);
+			int last = to.line > from.line && to.column == 0 ? to.line - 1 : to.line;
+			/* (its lines were done with the cursor after it; or some of them: the others only) */
+			if (from.line >= done) continue;
+			if (last >= done) {
+				if (rvn_ed_pos_cmp(list[i].caret, list[i].anchor) >= 0) list[i].caret = rvn_ed_pos(done, 0);
+				else list[i].anchor = rvn_ed_pos(done, 0);
+			}
+			done = from.line;
+		}
+		ed->each_index = i;
+		ed->caret = list[i].caret;
+		ed->anchor = list[i].anchor;
+		ed->goal_x = list[i].goal_x;
+		fn(ed, i, context);
+		list[i].caret = ed->caret;
+		list[i].anchor = ed->anchor;
+		list[i].goal_x = ed->goal_x;
+	}
+	ed->each = NULL;
+	ed->each_gone = NULL;
+	ed->each_count = 0;
+	ed->group = NULL;
+
+	/* the main cursor stays main; when it was swallowed, the one after it that swallowed it is (the last one never is) */
+	while (gone[main_index]) main_index++;
+	for (i = 0; i < count; i++) {
+		if (gone[i]) continue;
+		if (i == main_index) new_main = kept;
+		list[kept++] = list[i];
+	}
+	rvn_ed_cursors_set(ed, list, kept, new_main);
+	rvn_ed_group_push(ed, &group);
+	rvn_free(gone);
+	rvn_free(list);
 }
 
 /* Tab and Shift+Tab over a selection of several lines: one level in or out for each of them. */
@@ -1926,7 +2763,8 @@ static void rvn_ed_complete_update(rvn_widget_t* widget, int mode) {
 	int start = ed->caret.column, prefix_length, k, i;
 	uint32_t write, read;
 
-	if (!widget->window || ed->read_only || rvn_ed_has_selection(ed) || (mode == 0 && (ed->no_completion || !language))) {
+	/* (proposals are for one cursor) */
+	if (!widget->window || ed->read_only || rvn_ed_has_selection(ed) || ed->extra_count || (mode == 0 && (ed->no_completion || !language))) {
 		rvn_ed_complete_close(ed);
 		return;
 	}
@@ -2089,18 +2927,10 @@ static int rvn_ed_word_byte(char c) {
 	return rvn_ed_class(c) == RVN_ED_WORD;
 }
 
-static void rvn_ed_search_set(rvn_text_editor_t* ed, const char* query, Ruint flags) {
-	rvn_ed_search_t* search = &ed->search;
-	int length = query ? (int)strlen(query) : 0;
-	char* copy;
-
-	flags &= (Ruint)(R_SEARCH_MATCH_CASE | R_SEARCH_WHOLE_WORD);
-	search->hidden = R_FALSE;
-	rvn_widget_invalidate_paint(&ed->base);
-	if (length == search->length && flags == search->flags && (length == 0 || memcmp(query, search->query, (size_t)length) == 0)) return;
-
+/* What a search needs to know of its query: a copy of it, its characters in lower case, the edges of its words. */
+static void rvn_ed_search_prepare(rvn_ed_search_t* search, const char* query, int length, Ruint flags) {
 	/* (the query may be the editor's own: Rtext_editor_get_search) */
-	copy = rvn_strndup(query ? query : "", (size_t)length);
+	char* copy = rvn_strndup(query ? query : "", (size_t)length);
 	rvn_free(search->query);
 	search->query = copy;
 	search->length = length;
@@ -2116,6 +2946,17 @@ static void rvn_ed_search_set(rvn_text_editor_t* ed, const char* query, Ruint fl
 	}
 	search->word_start = length > 0 && rvn_ed_word_byte(copy[0]);
 	search->word_end = length > 0 && rvn_ed_word_byte(copy[length - 1]);
+}
+
+static void rvn_ed_search_set(rvn_text_editor_t* ed, const char* query, Ruint flags) {
+	rvn_ed_search_t* search = &ed->search;
+	int length = query ? (int)strlen(query) : 0;
+
+	flags &= (Ruint)(R_SEARCH_MATCH_CASE | R_SEARCH_WHOLE_WORD);
+	search->hidden = R_FALSE;
+	rvn_widget_invalidate_paint(&ed->base);
+	if (length == search->length && flags == search->flags && (length == 0 || memcmp(query, search->query, (size_t)length) == 0)) return;
+	rvn_ed_search_prepare(search, query, length, flags);
 	if (++search->stamp == 0) search->stamp = 1;
 }
 
@@ -2252,8 +3093,11 @@ static int rvn_ed_find_match(rvn_text_editor_t* ed, int index, int* line_out, in
 /* Selects a match and scrolls to it: a third of the way down when it was out of sight. */
 static void rvn_ed_select_match(rvn_text_editor_t* ed, int line, int start, int end) {
 	rvn_widget_t* widget = &ed->base;
+	rvn_ed_single(ed);
 	ed->anchor = rvn_ed_pos(line, start);
 	ed->caret = rvn_ed_pos(line, end);
+	/* a match in a folded region is shown */
+	if (ed->fold_count) rvn_ed_reveal_line(ed, line);
 	rvn_ed_break_typing(ed);
 	rvn_ed_complete_close(ed);
 	if (widget->rect.w > 0.0f && widget->rect.h > 0.0f && !(widget->flags & RVN_WF_LAYOUT_DIRTY)) {
@@ -2314,6 +3158,7 @@ static int rvn_ed_find(rvn_text_editor_t* ed, int forward) {
 static int rvn_ed_replace_match(rvn_text_editor_t* ed, const char* replacement) {
 	int replaced = R_FALSE;
 	if (ed->search.length == 0) return R_FALSE;
+	rvn_ed_single(ed);
 	if (rvn_ed_selected_match(ed) >= 0) {
 		/* (the replacement may be a line of the editor, which the edit changes) */
 		char* copy = rvn_strdup(replacement ? replacement : "");
@@ -2339,6 +3184,7 @@ static int rvn_ed_replace_all(rvn_text_editor_t* ed, const char* replacement) {
 	char* out = NULL;
 
 	if (rvn_ed_match_count(ed) == 0) return 0;
+	rvn_ed_single(ed);
 	for (line = 0; line < (int)ed->line_count; line++) {
 		if (rvn_ed_line_matches(ed, line) == 0) continue;
 		if (first < 0) first = line;
@@ -2694,6 +3540,7 @@ static void rvn_ed_find_focus(rvn_text_editor_t* ed, int which) {
 static void rvn_ed_find_query_changed(rvn_text_editor_t* ed) {
 	rvn_ed_search_set(ed, ed->find_query.text, ed->search.flags);
 	ed->find_origin = rvn_ed_clamp(ed, ed->find_origin);
+	rvn_ed_single(ed);
 	ed->caret = ed->anchor = ed->find_origin;
 	if (!rvn_ed_find(ed, R_TRUE)) rvn_ed_caret_moved(ed, R_FALSE);
 }
@@ -2858,6 +3705,8 @@ static int rvn_ed_find_mouse(rvn_text_editor_t* ed, const REvent* event) {
 	return R_TRUE;
 }
 
+static int rvn_ed_select_matches(rvn_text_editor_t* ed, const rvn_ed_search_t* search);
+
 /*
  * The keys of the search: Ctrl+F, Ctrl+H, F3, Cmd+G, Escape, and every key
  * while a field of the bar has them. Returns 1 when the key was used, -1
@@ -2896,6 +3745,14 @@ static int rvn_ed_find_key(rvn_text_editor_t* ed, const REvent* event) {
 	switch (event->key) {
 		case R_KEY_ENTER:
 		case R_KEY_KP_ENTER:
+			if (ed->find_focus == 1 && alt && !command) {
+				/* Alt+Enter: a cursor on every match, and the keys back to the text to edit them all */
+				if (rvn_ed_match_count(ed) > 0) {
+					rvn_ed_select_matches(ed, &ed->search);
+					rvn_ed_find_focus(ed, 0);
+				}
+				return 1;
+			}
 			if (ed->find_focus == 2) rvn_ed_find_replace(ed, command);
 			else rvn_ed_find_step(ed, !shift);
 			return 1;
@@ -3056,15 +3913,424 @@ static int rvn_ed_zoom_key(rvn_text_editor_t* ed, const REvent* event) {
 	return R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Several cursors
+ * ------------------------------------------------------------------------- */
+
+/* A position out of the hidden lines, for the arrows: after the folded region going forward, at the end of its first line going back. */
+static rvn_ed_pos_t rvn_ed_skip_folds(const rvn_text_editor_t* ed, rvn_ed_pos_t pos, int forward) {
+	int line = pos.line;
+	if (ed->fold_count == 0 || !rvn_ed_hidden(ed, line)) return pos;
+	if (forward) {
+		while (line < (int)ed->line_count && rvn_ed_hidden(ed, line)) line++;
+		if (line < (int)ed->line_count) return rvn_ed_pos(line, 0);
+	}
+	return rvn_ed_out_of_folds(ed, pos);
+}
+
+/* Where a key moves the caret, for the keys that move it (with Shift, they select). Returns R_FALSE for the other keys. */
+static int rvn_ed_motion(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, const REvent* event, rvn_ed_pos_t* target, int* keep_goal) {
+	int shift = (event->modifiers & R_MOD_SHIFT) != 0;
+	int command = (event->modifiers & (R_MOD_CTRL | R_MOD_SUPER)) != 0;
+	*keep_goal = R_FALSE;
+	switch (event->key) {
+		case R_KEY_LEFT:
+			if (!shift && !command && rvn_ed_has_selection(ed)) *target = rvn_ed_sel_min(ed);
+			else *target = rvn_ed_skip_folds(ed, command ? rvn_ed_word_left(ed, ed->caret) : rvn_ed_char_left(ed, ed->caret), R_FALSE);
+			return R_TRUE;
+		case R_KEY_RIGHT:
+			if (!shift && !command && rvn_ed_has_selection(ed)) *target = rvn_ed_sel_max(ed);
+			else *target = rvn_ed_skip_folds(ed, command ? rvn_ed_word_right(ed, ed->caret) : rvn_ed_char_right(ed, ed->caret), R_TRUE);
+			return R_TRUE;
+		case R_KEY_UP:
+		case R_KEY_DOWN:
+			*target = rvn_ed_move_rows(ed, m, ed->caret, event->key == R_KEY_UP ? -1 : 1);
+			*keep_goal = R_TRUE;
+			return R_TRUE;
+		case R_KEY_PAGE_UP:
+		case R_KEY_PAGE_DOWN: {
+			int page = rvn_maxi((int)(m->area.h / m->line_height) - 1, 1);
+			*target = rvn_ed_move_rows(ed, m, ed->caret, event->key == R_KEY_PAGE_UP ? -page : page);
+			*keep_goal = R_TRUE;
+			return R_TRUE;
+		}
+		case R_KEY_HOME:
+			if (command) {
+				*target = rvn_ed_pos(0, 0);
+			} else {
+				/* the start of the row, or the first character that is not a space when already there */
+				const rvn_ed_line_t* line = &ed->lines[ed->caret.line];
+				int begin, end, indent;
+				rvn_ed_row_range(ed, ed->caret.line, rvn_ed_row_of(ed, ed->caret.line, ed->caret.column), &begin, &end);
+				indent = begin;
+				while (indent < end && (line->text[indent] == ' ' || line->text[indent] == '\t')) indent++;
+				*target = rvn_ed_pos(ed->caret.line, ed->caret.column == indent || indent == end ? begin : indent);
+			}
+			return R_TRUE;
+		case R_KEY_END:
+			if (command) {
+				*target = rvn_ed_skip_folds(ed, rvn_ed_end(ed), R_FALSE);
+			} else {
+				int begin, end, row = rvn_ed_row_of(ed, ed->caret.line, ed->caret.column);
+				rvn_ed_row_range(ed, ed->caret.line, row, &begin, &end);
+				/* (the last position of a wrapped row is before its cut) */
+				if (ed->wrap && row + 1 < ed->lines[ed->caret.line].row_count && end > begin) {
+					end = rvn_utf8_prev(ed->lines[ed->caret.line].text, end);
+				}
+				*target = rvn_ed_pos(ed->caret.line, end);
+			}
+			return R_TRUE;
+		default:
+			return R_FALSE;
+	}
+}
+
+/* A key that moves the caret moves every cursor. */
+static void rvn_ed_move(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, const REvent* event) {
+	int shift = (event->modifiers & R_MOD_SHIFT) != 0;
+	rvn_ed_cursor_t* list;
+	rvn_ed_pos_t target;
+	int keep_goal = R_FALSE, count, main_index, i;
+
+	if (ed->extra_count == 0) {
+		if (rvn_ed_motion(ed, m, event, &target, &keep_goal)) rvn_ed_go(ed, target, shift, keep_goal);
+		return;
+	}
+	count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+	for (i = 0; i < count; i++) {
+		ed->caret = list[i].caret;
+		ed->anchor = list[i].anchor;
+		ed->goal_x = list[i].goal_x;
+		if (!rvn_ed_motion(ed, m, event, &target, &keep_goal)) break;
+		list[i].caret = rvn_ed_clamp(ed, target);
+		if (!shift) list[i].anchor = list[i].caret;
+		list[i].goal_x = keep_goal ? ed->goal_x : -1.0f;
+	}
+	rvn_ed_cursors_set(ed, list, count, main_index);
+	rvn_free(list);
+	rvn_ed_break_typing(ed);
+	rvn_ed_complete_close(ed);
+	rvn_ed_caret_moved(ed, keep_goal);
+}
+
+/* Ctrl+Alt+Up / Down (Cmd+Option on macOS): one more cursor on the row above the first caret, or below the last one. */
+static void rvn_ed_add_cursor_row(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, int down) {
+	rvn_ed_cursor_t* list;
+	rvn_ed_cursor_t from;
+	int count, main_index, i, row;
+	float goal;
+
+	count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+	from = list[0];
+	for (i = 1; i < count; i++) {
+		if (rvn_ed_pos_cmp(list[i].caret, from.caret) * (down ? 1 : -1) > 0) from = list[i];
+	}
+	goal = from.goal_x >= 0.0f ? from.goal_x : rvn_ed_pos_point(ed, m, from.caret).x;
+	row = (int)(rvn_ed_first_row(ed, from.caret.line) + (uint32_t)rvn_ed_row_of(ed, from.caret.line, from.caret.column)) + (down ? 1 : -1);
+	if (row >= 0 && row < (int)ed->total_rows) {
+		rvn_ed_pos_t pos = rvn_ed_point_pos(ed, m, goal, ((float)row + 0.5f) * m->line_height);
+		list = (rvn_ed_cursor_t*)rvn_realloc(list, sizeof(rvn_ed_cursor_t) * (size_t)(count + 1));
+		list[count] = rvn_ed_cursor(pos, pos, goal);
+		/* the new one is the main cursor: the view follows it */
+		rvn_ed_cursors_set(ed, list, count + 1, count);
+		ed->goal_x = goal;
+	}
+	rvn_free(list);
+	rvn_ed_break_typing(ed);
+	rvn_ed_complete_close(ed);
+	rvn_ed_caret_moved(ed, R_TRUE);
+}
+
+/* The word at a position, as a double click selects it: R_FALSE when there is no word there. */
+static int rvn_ed_word_at(const rvn_text_editor_t* ed, rvn_ed_pos_t pos, int* begin, int* end) {
+	const rvn_ed_line_t* line = &ed->lines[pos.line];
+	*begin = *end = pos.column;
+	while (*begin > 0 && rvn_ed_word_byte(line->text[*begin - 1])) (*begin)--;
+	while (*end < line->length && rvn_ed_word_byte(line->text[*end])) (*end)++;
+	return *end > *begin;
+}
+
+/* Is there a cursor that selects exactly this part of a line? */
+static int rvn_ed_is_selected(const rvn_text_editor_t* ed, int line, int start, int end) {
+	uint32_t i;
+	rvn_ed_pos_t from = rvn_ed_pos(line, start), to = rvn_ed_pos(line, end);
+	if (rvn_ed_pos_cmp(rvn_ed_sel_min(ed), from) == 0 && rvn_ed_pos_cmp(rvn_ed_sel_max(ed), to) == 0) return R_TRUE;
+	for (i = 0; i < ed->extra_count; i++) {
+		if (rvn_ed_pos_cmp(rvn_ed_cursor_min(&ed->extra[i]), from) == 0 && rvn_ed_pos_cmp(rvn_ed_cursor_max(&ed->extra[i]), to) == 0) {
+			return R_TRUE;
+		}
+	}
+	return R_FALSE;
+}
+
+/*
+ * Ctrl+D with nothing selected: every cursor selects its word, and the
+ * occurrences added next are whole words. R_FALSE when the main cursor is
+ * on no word.
+ */
+static int rvn_ed_select_words(rvn_text_editor_t* ed) {
+	rvn_ed_cursor_t* list;
+	int count, main_index, i, begin, end, found = R_FALSE;
+	count = rvn_ed_cursors_sorted(ed, &list, &main_index);
+	for (i = 0; i < count; i++) {
+		if (rvn_ed_pos_cmp(list[i].caret, list[i].anchor) != 0 || !rvn_ed_word_at(ed, list[i].caret, &begin, &end)) continue;
+		list[i].anchor = rvn_ed_pos(list[i].caret.line, begin);
+		list[i].caret = rvn_ed_pos(list[i].caret.line, end);
+		if (i == main_index) {
+			char* word = rvn_ed_range(ed, list[i].anchor, list[i].caret, NULL);
+			rvn_free(ed->next_word);
+			ed->next_word = word;
+			found = R_TRUE;
+		}
+	}
+	rvn_ed_cursors_set(ed, list, count, main_index);
+	rvn_free(list);
+	return found;
+}
+
+/*
+ * What Ctrl+D and Ctrl+Shift+L look for: the text of the main selection,
+ * with its case, as a whole word when Ctrl+D took it at a caret. R_FALSE
+ * when nothing is selected on one line.
+ */
+static int rvn_ed_occurrence_search(rvn_text_editor_t* ed, rvn_ed_search_t* search) {
+	rvn_ed_pos_t from = rvn_ed_sel_min(ed), to = rvn_ed_sel_max(ed);
+	char* text;
+	int length, whole;
+	memset(search, 0, sizeof(*search));
+	if (!rvn_ed_has_selection(ed) || from.line != to.line) return R_FALSE;
+	text = rvn_ed_range(ed, from, to, &length);
+	whole = ed->next_word && strcmp(ed->next_word, text) == 0;
+	rvn_ed_search_prepare(search, text, length, R_SEARCH_MATCH_CASE | (whole ? R_SEARCH_WHOLE_WORD : 0u));
+	rvn_free(text);
+	return R_TRUE;
+}
+
+static void rvn_ed_search_free(rvn_ed_search_t* search) {
+	rvn_free(search->query);
+	rvn_free(search->folded);
+	memset(search, 0, sizeof(*search));
+}
+
+/*
+ * Ctrl+D (Cmd+D): selects the word at the caret, or adds a cursor on the
+ * next occurrence of the selection that no cursor selects yet, going on
+ * from the start of the text. Returns R_FALSE when there is none.
+ */
+static int rvn_ed_add_next_occurrence(rvn_text_editor_t* ed) {
+	rvn_ed_search_t search;
+	rvn_ed_pos_t from;
+	int lines = (int)ed->line_count, step, added = R_FALSE;
+
+	if (!rvn_ed_has_selection(ed)) return rvn_ed_select_words(ed);
+	if (!rvn_ed_occurrence_search(ed, &search)) return R_FALSE;
+	from = rvn_ed_sel_max(ed);
+	/* every line once from the main selection, the line of which comes again last (for what is before it) */
+	for (step = 0; step <= lines && !added; step++) {
+		int line = (from.line + step) % lines, at = step == 0 ? from.column : 0, start, end;
+		const rvn_ed_line_t* l = &ed->lines[line];
+		while (rvn_ed_search_line(&search, l->text, l->length, at, &start, &end)) {
+			if (step == lines && end > from.column) break;
+			at = end;
+			if (!rvn_ed_is_selected(ed, line, start, end)) {
+				rvn_ed_cursor_t* list;
+				uint32_t count = rvn_ed_cursors_copy(ed, &list);
+				list = (rvn_ed_cursor_t*)rvn_realloc(list, sizeof(rvn_ed_cursor_t) * (size_t)(count + 1));
+				list[count] = rvn_ed_cursor(rvn_ed_pos(line, start), rvn_ed_pos(line, end), -1.0f);
+				rvn_ed_cursors_set(ed, list, (int)count + 1, (int)count);
+				rvn_free(list);
+				added = R_TRUE;
+				break;
+			}
+		}
+	}
+	rvn_ed_search_free(&search);
+	return added;
+}
+
+/* A cursor on every match of a search; the main one on the match at (or after) the main selection. Returns their number. */
+static int rvn_ed_select_matches(rvn_text_editor_t* ed, const rvn_ed_search_t* search) {
+	rvn_ed_pos_t main_at = rvn_ed_sel_min(ed);
+	rvn_ed_cursor_t* list = NULL;
+	uint32_t count = 0, cap = 0, line;
+	int main_index = -1;
+	for (line = 0; line < ed->line_count; line++) {
+		const rvn_ed_line_t* l = &ed->lines[line];
+		int at = 0, start, end;
+		while (rvn_ed_search_line(search, l->text, l->length, at, &start, &end)) {
+			RVN_ARRAY_RESERVE(list, cap, count + 1);
+			list[count] = rvn_ed_cursor(rvn_ed_pos((int)line, start), rvn_ed_pos((int)line, end), -1.0f);
+			if (main_index < 0 && rvn_ed_pos_cmp(list[count].anchor, main_at) >= 0) main_index = (int)count;
+			count++;
+			at = end;
+		}
+	}
+	if (count > 0) {
+		rvn_ed_cursors_set(ed, list, (int)count, main_index < 0 ? (int)count - 1 : main_index);
+		rvn_ed_break_typing(ed);
+		rvn_ed_complete_close(ed);
+		rvn_ed_caret_moved(ed, R_FALSE);
+	}
+	rvn_free(list);
+	return (int)count;
+}
+
+/* Ctrl+Shift+L (Cmd+Shift+L): a cursor on every occurrence of the selection, or of the word at the caret. */
+static int rvn_ed_select_all_occurrences(rvn_text_editor_t* ed) {
+	rvn_ed_search_t search;
+	int count;
+	if (!rvn_ed_has_selection(ed) && !rvn_ed_select_words(ed)) return 0;
+	if (!rvn_ed_occurrence_search(ed, &search)) return 0;
+	count = rvn_ed_select_matches(ed, &search);
+	rvn_ed_search_free(&search);
+	return count;
+}
+
+/* The commands that edit, as run at each cursor (rvn_ed_run). */
+
+typedef struct rvn_ed_erase_t {
+	int backspace;
+	int word;
+} rvn_ed_erase_t;
+
+static void rvn_ed_each_erase(rvn_text_editor_t* ed, int index, void* context) {
+	const rvn_ed_erase_t* erase = (const rvn_ed_erase_t*)context;
+	RVN_UNUSED(index);
+	if (!rvn_ed_has_selection(ed)) {
+		if (erase->backspace) ed->anchor = erase->word ? rvn_ed_word_left(ed, ed->caret) : rvn_ed_char_left(ed, ed->caret);
+		else ed->anchor = erase->word ? rvn_ed_word_right(ed, ed->caret) : rvn_ed_char_right(ed, ed->caret);
+		if (erase->backspace && !erase->word && rvn_ed_between_pair(ed)) {
+			/* a pair with nothing in it goes away as it came: together */
+			ed->caret = rvn_ed_char_right(ed, ed->caret);
+		}
+	}
+	rvn_ed_break_typing(ed);
+	rvn_ed_delete_selection(ed);
+}
+
+static void rvn_ed_each_new_line(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	RVN_UNUSED(context);
+	rvn_ed_new_line(ed);
+}
+
+static void rvn_ed_each_indent(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	rvn_ed_indent_lines(ed, context != NULL);
+}
+
+static void rvn_ed_each_comment(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	RVN_UNUSED(context);
+	rvn_ed_toggle_comment(ed);
+}
+
+static void rvn_ed_each_tab(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	RVN_UNUSED(context);
+	if (ed->tab_spaces) {
+		/* up to the next tab stop */
+		char spaces[16];
+		const char* line_text = ed->lines[rvn_ed_sel_min(ed).line].text;
+		int count = rvn_clampi(ed->tab_size, 1, 16);
+		int columns = 0, at = 0, stop = rvn_ed_sel_min(ed).column;
+		/* the column on screen: a tab before the caret counts for what it shows */
+		while (at < stop) {
+			if (line_text[at] == '\t') columns += count - columns % count;
+			else columns++;
+			at = rvn_utf8_next(line_text, stop, at);
+		}
+		count -= columns % count;
+		memset(spaces, ' ', (size_t)count);
+		rvn_ed_break_typing(ed);
+		rvn_ed_insert(ed, spaces, count);
+	} else {
+		rvn_ed_break_typing(ed);
+		rvn_ed_insert(ed, "\t", 1);
+	}
+}
+
+static void rvn_ed_each_cut(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	RVN_UNUSED(context);
+	rvn_ed_break_typing(ed);
+	rvn_ed_delete_selection(ed);
+}
+
+static void rvn_ed_each_type(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	rvn_ed_type(ed, *(const uint32_t*)context);
+}
+
+/* What is pasted: the whole text at each cursor, or, with as many lines as cursors, a line at each. */
+typedef struct rvn_ed_paste_t {
+	const char* text;
+	int length;
+	int* starts;
+	int* lengths;
+} rvn_ed_paste_t;
+
+static void rvn_ed_each_paste(rvn_text_editor_t* ed, int index, void* context) {
+	const rvn_ed_paste_t* paste = (const rvn_ed_paste_t*)context;
+	rvn_ed_break_typing(ed);
+	if (paste->starts) rvn_ed_insert(ed, paste->text + paste->starts[index], paste->lengths[index]);
+	else rvn_ed_insert(ed, paste->text, paste->length);
+	rvn_ed_break_typing(ed);
+}
+
+/* Pastes a text (it may be one of the lines of the editor: it is copied first). */
+static void rvn_ed_paste(rvn_text_editor_t* ed, const char* text) {
+	rvn_ed_paste_t paste;
+	char* copy = rvn_strdup(text);
+	int cursors = (int)ed->extra_count + 1, lines = 1, i;
+	paste.text = copy;
+	paste.length = (int)strlen(copy);
+	paste.starts = NULL;
+	paste.lengths = NULL;
+	for (i = 0; i < paste.length; i++) lines += copy[i] == '\n';
+	if (cursors > 1 && lines == cursors) {
+		int begin = 0, line = 0;
+		paste.starts = (int*)rvn_alloc(sizeof(int) * (size_t)lines);
+		paste.lengths = (int*)rvn_alloc(sizeof(int) * (size_t)lines);
+		for (i = 0; i <= paste.length; i++) {
+			if (i == paste.length || copy[i] == '\n') {
+				paste.starts[line] = begin;
+				paste.lengths[line] = i - begin;
+				line++;
+				begin = i + 1;
+			}
+		}
+	}
+	rvn_ed_run(ed, rvn_ed_each_paste, &paste, R_FALSE);
+	rvn_free(paste.starts);
+	rvn_free(paste.lengths);
+	rvn_free(copy);
+}
+
+static void rvn_ed_each_insert(rvn_text_editor_t* ed, int index, void* context) {
+	RVN_UNUSED(index);
+	rvn_ed_insert(ed, (const char*)context, -1);
+}
+
+/* Does a cursor select more than one line? (Tab indents the lines then.) */
+static int rvn_ed_any_multiline(const rvn_text_editor_t* ed) {
+	uint32_t i;
+	if (rvn_ed_sel_min(ed).line != rvn_ed_sel_max(ed).line) return R_TRUE;
+	for (i = 0; i < ed->extra_count; i++) {
+		if (ed->extra[i].caret.line != ed->extra[i].anchor.line) return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
 	int shift = (event->modifiers & R_MOD_SHIFT) != 0;
 	int command = (event->modifiers & (R_MOD_CTRL | R_MOD_SUPER)) != 0;
 	int alt = (event->modifiers & R_MOD_ALT) != 0;
 	int changed = R_FALSE;
+	uint32_t version = ed->version;
 	Rid id = widget->id;
 	rvn_ed_metrics_t m;
-	rvn_ed_pos_t target;
 	int find = rvn_ed_find_key(ed, event);
 
 	if (find) return find > 0;
@@ -3078,23 +4344,21 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			if (!command) goto printable;
 			rvn_ed_complete_update(widget, 1);
 			return R_TRUE;
-		case R_KEY_SLASH:
+		case R_KEY_SLASH: {
+			const RLanguageDesc* desc = rvn_ed_language_desc(ed);
 			if (!command) goto printable;
-			if (ed->read_only || !rvn_ed_toggle_comment(ed)) return R_TRUE;
-			changed = R_TRUE;
+			if (ed->read_only || !desc || !desc->line_comment) return R_TRUE;
+			rvn_ed_run(ed, rvn_ed_each_comment, NULL, R_TRUE);
+			changed = ed->version != version;
 			break;
-		case R_KEY_LEFT:
-			if (!shift && !command && rvn_ed_has_selection(ed)) target = rvn_ed_sel_min(ed);
-			else target = command ? rvn_ed_word_left(ed, ed->caret) : rvn_ed_char_left(ed, ed->caret);
-			rvn_ed_go(ed, target, shift, R_FALSE);
-			return R_TRUE;
-		case R_KEY_RIGHT:
-			if (!shift && !command && rvn_ed_has_selection(ed)) target = rvn_ed_sel_max(ed);
-			else target = command ? rvn_ed_word_right(ed, ed->caret) : rvn_ed_char_right(ed, ed->caret);
-			rvn_ed_go(ed, target, shift, R_FALSE);
-			return R_TRUE;
+		}
 		case R_KEY_UP:
 		case R_KEY_DOWN:
+			/* Ctrl+Alt+Up / Down (Cmd+Option): one more cursor above or below */
+			if (alt && command) {
+				rvn_ed_add_cursor_row(ed, &m, event->key == R_KEY_DOWN);
+				return R_TRUE;
+			}
 			/* Alt+Up / Alt+Down are left to the window shortcuts (previous / next...) */
 			if (alt) return R_FALSE;
 			if (command) {
@@ -3103,93 +4367,44 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 				rvn_widget_invalidate_paint(widget);
 				return R_TRUE;
 			}
-			rvn_ed_go(ed, rvn_ed_move_rows(ed, &m, ed->caret, event->key == R_KEY_UP ? -1 : 1), shift, R_TRUE);
+			rvn_ed_move(ed, &m, event);
 			return R_TRUE;
+		case R_KEY_LEFT:
+		case R_KEY_RIGHT:
 		case R_KEY_PAGE_UP:
-		case R_KEY_PAGE_DOWN: {
-			int page = rvn_maxi((int)(m.area.h / m.line_height) - 1, 1);
-			rvn_ed_go(ed, rvn_ed_move_rows(ed, &m, ed->caret, event->key == R_KEY_PAGE_UP ? -page : page), shift, R_TRUE);
-			return R_TRUE;
-		}
+		case R_KEY_PAGE_DOWN:
 		case R_KEY_HOME:
-			if (command) {
-				target = rvn_ed_pos(0, 0);
-			} else {
-				/* the start of the row, or the first character that is not a space when already there */
-				const rvn_ed_line_t* line = &ed->lines[ed->caret.line];
-				int begin, end, indent;
-				rvn_ed_row_range(ed, ed->caret.line, rvn_ed_row_of(ed, ed->caret.line, ed->caret.column), &begin, &end);
-				indent = begin;
-				while (indent < end && (line->text[indent] == ' ' || line->text[indent] == '\t')) indent++;
-				target = rvn_ed_pos(ed->caret.line, ed->caret.column == indent || indent == end ? begin : indent);
-			}
-			rvn_ed_go(ed, target, shift, R_FALSE);
-			return R_TRUE;
 		case R_KEY_END:
-			if (command) {
-				target = rvn_ed_end(ed);
-			} else {
-				int begin, end, row = rvn_ed_row_of(ed, ed->caret.line, ed->caret.column);
-				rvn_ed_row_range(ed, ed->caret.line, row, &begin, &end);
-				/* (the last position of a wrapped row is before its cut) */
-				if (ed->wrap && row + 1 < ed->lines[ed->caret.line].row_count && end > begin) {
-					end = rvn_utf8_prev(ed->lines[ed->caret.line].text, end);
-				}
-				target = rvn_ed_pos(ed->caret.line, end);
-			}
-			rvn_ed_go(ed, target, shift, R_FALSE);
+			rvn_ed_move(ed, &m, event);
 			return R_TRUE;
 		case R_KEY_BACKSPACE:
-		case R_KEY_DELETE:
+		case R_KEY_DELETE: {
+			rvn_ed_erase_t erase;
 			if (ed->read_only) return R_TRUE;
-			if (!rvn_ed_has_selection(ed)) {
-				if (event->key == R_KEY_BACKSPACE) ed->anchor = command ? rvn_ed_word_left(ed, ed->caret) : rvn_ed_char_left(ed, ed->caret);
-				else ed->anchor = command ? rvn_ed_word_right(ed, ed->caret) : rvn_ed_char_right(ed, ed->caret);
-				if (event->key == R_KEY_BACKSPACE && !command && rvn_ed_between_pair(ed)) {
-					/* a pair with nothing in it goes away as it came: together */
-					ed->caret = rvn_ed_char_right(ed, ed->caret);
-				}
-			}
-			rvn_ed_break_typing(ed);
-			changed = rvn_ed_delete_selection(ed);
+			erase.backspace = event->key == R_KEY_BACKSPACE;
+			erase.word = command;
+			rvn_ed_run(ed, rvn_ed_each_erase, &erase, R_FALSE);
+			changed = ed->version != version;
 			break;
+		}
 		case R_KEY_ENTER:
 		case R_KEY_KP_ENTER:
 			/* Ctrl/Alt+Enter is left to the window shortcuts (send, run...) */
 			if (command || alt) return R_FALSE;
 			if (ed->read_only) return R_TRUE;
-			rvn_ed_new_line(ed);
+			rvn_ed_run(ed, rvn_ed_each_new_line, NULL, R_FALSE);
 			changed = R_TRUE;
 			break;
 		case R_KEY_TAB:
 			if (command || alt) return R_FALSE;
 			if (ed->read_only) return R_FALSE;
-			if (shift || rvn_ed_sel_min(ed).line != rvn_ed_sel_max(ed).line) {
-				rvn_ed_indent_lines(ed, shift);
-			} else if (ed->tab_spaces) {
-				/* up to the next tab stop */
-				char spaces[16];
-				const char* line_text = ed->lines[rvn_ed_sel_min(ed).line].text;
-				int count = rvn_clampi(ed->tab_size, 1, 16);
-				int columns = 0, at = 0, stop = rvn_ed_sel_min(ed).column;
-				/* the column on screen: a tab before the caret counts for what it shows */
-				while (at < stop) {
-					if (line_text[at] == '\t') columns += count - columns % count;
-					else columns++;
-					at = rvn_utf8_next(line_text, stop, at);
-				}
-				count -= columns % count;
-				memset(spaces, ' ', (size_t)count);
-				rvn_ed_break_typing(ed);
-				rvn_ed_insert(ed, spaces, count);
-			} else {
-				rvn_ed_break_typing(ed);
-				rvn_ed_insert(ed, "\t", 1);
-			}
+			if (shift || rvn_ed_any_multiline(ed)) rvn_ed_run(ed, rvn_ed_each_indent, shift ? (void*)ed : NULL, R_TRUE);
+			else rvn_ed_run(ed, rvn_ed_each_tab, NULL, R_FALSE);
 			changed = R_TRUE;
 			break;
 		case R_KEY_A:
 			if (!command) goto printable;
+			rvn_ed_single(ed);
 			ed->anchor = rvn_ed_pos(0, 0);
 			ed->caret = rvn_ed_end(ed);
 			rvn_ed_break_typing(ed);
@@ -3203,8 +4418,8 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			if (!command) goto printable;
 			rvn_ed_copy(ed);
 			if (ed->read_only) return R_TRUE;
-			rvn_ed_break_typing(ed);
-			changed = rvn_ed_delete_selection(ed);
+			rvn_ed_run(ed, rvn_ed_each_cut, NULL, R_FALSE);
+			changed = ed->version != version;
 			break;
 		case R_KEY_V: {
 			const char* clip;
@@ -3212,9 +4427,7 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			if (ed->read_only) return R_TRUE;
 			clip = Rclipboard_get_text();
 			if (!clip || !clip[0]) return R_TRUE;
-			rvn_ed_break_typing(ed);
-			rvn_ed_insert(ed, clip, -1);
-			rvn_ed_break_typing(ed);
+			rvn_ed_paste(ed, clip);
 			changed = R_TRUE;
 			break;
 		}
@@ -3228,6 +4441,38 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			changed = rvn_ed_redo(ed);
 			if (!changed) return R_TRUE;
 			break;
+		case R_KEY_D:
+			/* Ctrl+D (Cmd+D): the next occurrence of the selection */
+			if (!command || shift || alt) goto printable;
+			if (rvn_ed_add_next_occurrence(ed)) {
+				rvn_ed_break_typing(ed);
+				rvn_ed_complete_close(ed);
+				rvn_ed_caret_moved(ed, R_FALSE);
+			}
+			return R_TRUE;
+		case R_KEY_L:
+			/* Ctrl+Shift+L (Cmd+Shift+L): all of them */
+			if (!command || !shift || alt) goto printable;
+			rvn_ed_select_all_occurrences(ed);
+			return R_TRUE;
+		case R_KEY_LEFT_BRACKET:
+		case R_KEY_RIGHT_BRACKET:
+			/* Ctrl+Shift+[ and ] (Cmd+Option+[ and ] on macOS): fold and unfold at the caret */
+			if (ed->no_folding || !(((event->modifiers & R_MOD_CTRL) && shift && !alt) || ((event->modifiers & R_MOD_SUPER) && alt && !shift))) {
+				goto printable;
+			}
+			if (event->key == R_KEY_LEFT_BRACKET) rvn_ed_fold_line(ed, ed->caret.line);
+			else rvn_ed_unfold_line(ed, ed->caret.line);
+			rvn_ed_complete_close(ed);
+			rvn_ed_caret_moved(ed, R_FALSE);
+			return R_TRUE;
+		case R_KEY_ESCAPE:
+			/* back to one cursor */
+			if (ed->extra_count == 0 || command || alt || shift) return R_FALSE;
+			rvn_ed_single(ed);
+			rvn_ed_complete_close(ed);
+			rvn_ed_caret_moved(ed, R_FALSE);
+			return R_TRUE;
 		default:
 		printable:
 			/* keys that type a character are consumed so that they never trigger
@@ -3245,6 +4490,80 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 		rvn_ed_complete_close(ed);
 	}
 	return R_TRUE;
+}
+
+/* Alt+click: a cursor at a position, the main one; or, on a caret of several, that one goes away. */
+static void rvn_ed_toggle_cursor(rvn_text_editor_t* ed, rvn_ed_pos_t pos) {
+	rvn_ed_cursor_t* list;
+	uint32_t count = rvn_ed_cursors_copy(ed, &list), i;
+	for (i = 0; i < count && count > 1; i++) {
+		if (rvn_ed_pos_cmp(list[i].caret, pos) == 0 && rvn_ed_pos_cmp(list[i].anchor, pos) == 0) {
+			memmove(list + i, list + i + 1, sizeof(rvn_ed_cursor_t) * (count - i - 1));
+			/* (when it was the main one, the last one added is) */
+			rvn_ed_cursors_set(ed, list, (int)count - 1, i == 0 ? (int)count - 2 : 0);
+			rvn_free(list);
+			return;
+		}
+	}
+	list = (rvn_ed_cursor_t*)rvn_realloc(list, sizeof(rvn_ed_cursor_t) * (count + 1));
+	list[count] = rvn_ed_cursor(pos, pos, -1.0f);
+	rvn_ed_cursors_set(ed, list, (int)count + 1, (int)count);
+	rvn_free(list);
+}
+
+/*
+ * Alt+Shift+drag: a cursor on each row from the one where the drag began to
+ * the one under the pointer, selecting from the column where it began to
+ * the column of the pointer. Rows too short to reach the column get none.
+ */
+static void rvn_ed_box_select(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, float x, float y) {
+	int first = rvn_clampi((int)floorf(ed->box_y / m->line_height), 0, (int)ed->total_rows - 1);
+	int last = rvn_clampi((int)floorf(y / m->line_height), 0, (int)ed->total_rows - 1);
+	int step = last >= first ? 1 : -1, row = first, count = 0, main_index = 0;
+	float left = rvn_minf(ed->box_x, x);
+	rvn_ed_cursor_t* list = (rvn_ed_cursor_t*)rvn_alloc(sizeof(rvn_ed_cursor_t) * (size_t)(abs(last - first) + 1));
+	for (;;) {
+		int line, line_row, begin, end;
+		float middle = ((float)row + 0.5f) * m->line_height;
+		rvn_ed_locate_row(ed, (uint32_t)row, &line, &line_row);
+		rvn_ed_row_range(ed, line, line_row, &begin, &end);
+		if (row == first || rvn_ed_advance(m, ed->lines[line].text, begin, end, 0.0f) >= left) {
+			list[count] = rvn_ed_cursor(rvn_ed_point_pos(ed, m, ed->box_x, middle), rvn_ed_point_pos(ed, m, x, middle), x);
+			main_index = count++;
+		}
+		if (row == last) break;
+		row += step;
+	}
+	rvn_ed_cursors_set(ed, list, count, main_index);
+	rvn_free(list);
+}
+
+/*
+ * A click on a marker of the margin folds or unfolds its region, a click
+ * on the "..." of a folded region unfolds it. (x: in the widget; tx, ty: in
+ * the text.) Returns R_FALSE when the click was not on one of them.
+ */
+static int rvn_ed_fold_click(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, float x, float tx, float ty) {
+	int line, row;
+	if (ed->no_folding || ty < 0.0f || ty >= (float)ed->total_rows * m->line_height) return R_FALSE;
+	rvn_ed_locate_row(ed, (uint32_t)(ty / m->line_height), &line, &row);
+	if (m->fold_width > 0.0f && x >= m->gutter - m->fold_width - 4.0f && x < m->gutter) {
+		if (row != 0) return R_FALSE;
+		if (rvn_ed_unfold_line(ed, line)) return R_TRUE;
+		if (rvn_ed_region_end(ed, line) > line) {
+			rvn_ed_fold_line(ed, line);
+			return R_TRUE;
+		}
+		return R_FALSE;
+	}
+	if (ed->fold_count && rvn_ed_fold_at(ed, line) >= 0 && x >= m->area.x) {
+		rvn_rect_t box = rvn_ed_fold_box(ed, m, line);
+		if (rvn_rect_contains(box, tx, ty)) {
+			rvn_ed_unfold_line(ed, line);
+			return R_TRUE;
+		}
+	}
+	return R_FALSE;
 }
 
 static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
@@ -3272,12 +4591,18 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 			/* (a field of the find bar takes what is typed, even in a read-only text) */
 			if (rvn_ed_find_text(ed, event->codepoint)) return R_TRUE;
 			if (ed->read_only) return R_FALSE;
-			rvn_ed_type(ed, event->codepoint);
+			{
+				/* (at every cursor; what an input method commits too) */
+				uint32_t codepoint = event->codepoint;
+				rvn_ed_run(ed, rvn_ed_each_type, &codepoint, R_FALSE);
+			}
 			rvn_ed_caret_moved(ed, R_FALSE);
 			if (ed->version != version) rvn_ed_notify(widget);
 			if (!rvn_widget_get(id)) return R_TRUE;
-			/* each character of a word narrows the proposals down; anything else ends the word */
-			if (event->codepoint >= 128 || rvn_ed_is_word_char((char)event->codepoint)) {
+			/* each character of a word narrows the proposals down; anything else ends the word (proposals are for one cursor) */
+			if (ed->extra_count) {
+				rvn_ed_complete_close(ed);
+			} else if (event->codepoint >= 128 || rvn_ed_is_word_char((char)event->codepoint)) {
 				rvn_ed_complete_update(widget, rvn_ed_completing(ed) ? 2 : 0);
 			} else {
 				rvn_ed_complete_close(ed);
@@ -3302,10 +4627,17 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 			rvn_widget_invalidate_paint(widget);
 			/* at the end of its range, the wheel goes to what contains the editor */
 			return changed;
+		case R_EVENT_MOUSE_LEAVE:
+			if (ed->gutter_hover) {
+				ed->gutter_hover = R_FALSE;
+				rvn_widget_invalidate_paint(widget);
+			}
+			return R_FALSE;
 		case R_EVENT_MOUSE_DOWN:
 		case R_EVENT_MOUSE_MOVE:
 		case R_EVENT_MOUSE_UP: {
 			rvn_ed_pos_t pos;
+			float tx, ty;
 			int used;
 			/* the find bar lies over the text and its scrollbar */
 			if (!ed->selecting && rvn_ed_find_mouse(ed, event)) return R_TRUE;
@@ -3323,8 +4655,25 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 			if (event->type == R_EVENT_MOUSE_UP) {
 				if (event->button != R_MOUSE_LEFT || !ed->selecting) return R_FALSE;
 				ed->selecting = R_FALSE;
+				ed->box_selecting = R_FALSE;
 				rvn_widget_release_mouse(widget);
+				/* (a cursor dragged over others takes them in) */
+				if (ed->extra_count) {
+					rvn_ed_cursor_t* list;
+					uint32_t count = rvn_ed_cursors_copy(ed, &list);
+					rvn_ed_cursors_set(ed, list, (int)count, 0);
+					rvn_free(list);
+					rvn_widget_invalidate_paint(widget);
+				}
 				return R_TRUE;
+			}
+			if (event->type == R_EVENT_MOUSE_MOVE && !ed->selecting && m.fold_width > 0.0f) {
+				/* over the margin, the regions that can be folded show their markers */
+				int hover = event->local_x >= 0.0f && event->local_x < m.gutter && event->local_y >= 0.0f && event->local_y < widget->rect.h;
+				if (hover != ed->gutter_hover) {
+					ed->gutter_hover = hover;
+					rvn_widget_invalidate_paint(widget);
+				}
 			}
 			if (event->type == R_EVENT_MOUSE_MOVE && !ed->selecting) {
 				if (ed->marker_count > 0 || ed->marker_tip || ed->hover_callback) {
@@ -3334,8 +4683,9 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 					const char* message;
 					int over_text = R_FALSE;
 					if (rvn_rect_contains(m.area, event->local_x, event->local_y)) {
-						float tx = event->local_x - m.area.x + ed->hbar.offset, ty = event->local_y - m.area.y + ed->vbar.offset;
 						rvn_vec2_t point;
+						tx = event->local_x - m.area.x + ed->hbar.offset;
+						ty = event->local_y - m.area.y + ed->vbar.offset;
 						pos = rvn_ed_point_pos(ed, &m, tx, ty);
 						point = rvn_ed_pos_point(ed, &m, pos);
 						/* (the nearest position is not under the pointer when it is past the end of the line, or below the text) */
@@ -3363,14 +4713,48 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			if (event->type == R_EVENT_MOUSE_DOWN && event->button != R_MOUSE_LEFT) return R_FALSE;
 
-			pos = rvn_ed_point_pos(ed, &m, event->local_x - m.area.x + ed->hbar.offset, event->local_y - m.area.y + ed->vbar.offset);
+			tx = event->local_x - m.area.x + ed->hbar.offset;
+			ty = event->local_y - m.area.y + ed->vbar.offset;
+			pos = rvn_ed_point_pos(ed, &m, tx, ty);
 			if (event->type == R_EVENT_MOUSE_DOWN) {
+				int modifiers = (int)event->modifiers;
 				/* a click on the text gives it back the keys */
 				rvn_ed_find_focus(ed, 0);
+				/* the markers of folding in the margin, the "..." of a folded region */
+				if (rvn_ed_fold_click(ed, &m, event->local_x, tx, ty)) {
+					rvn_ed_complete_close(ed);
+					return R_TRUE;
+				}
+				if ((modifiers & R_MOD_ALT) && (modifiers & R_MOD_SHIFT)) {
+					/* Alt+Shift+drag: a column of selections */
+					rvn_ed_single(ed);
+					ed->caret = ed->anchor = pos;
+					ed->box_selecting = R_TRUE;
+					ed->box_x = tx;
+					ed->box_y = ty;
+					ed->selecting = R_TRUE;
+					rvn_widget_capture_mouse(widget);
+					rvn_ed_complete_close(ed);
+					rvn_ed_break_typing(ed);
+					rvn_ed_caret_moved(ed, R_FALSE);
+					return R_TRUE;
+				}
+				if ((modifiers & R_MOD_ALT) && event->clicks == 1) {
+					/* Alt+click: one more cursor, or one less on a caret */
+					rvn_ed_toggle_cursor(ed, pos);
+					ed->selecting = R_TRUE;
+					rvn_widget_capture_mouse(widget);
+					rvn_ed_complete_close(ed);
+					rvn_ed_break_typing(ed);
+					rvn_ed_caret_moved(ed, R_FALSE);
+					return R_TRUE;
+				}
+				rvn_ed_single(ed);
 				if (event->clicks >= 3) {
-					/* the whole line, with its line break */
+					/* the whole line, with its line break (a folded line with what it hides) */
 					ed->anchor = rvn_ed_pos(pos.line, 0);
-					ed->caret = pos.line + 1 < (int)ed->line_count ? rvn_ed_pos(pos.line + 1, 0) : rvn_ed_pos(pos.line, ed->lines[pos.line].length);
+					ed->caret = pos.line + 1 < (int)ed->line_count ? rvn_ed_skip_folds(ed, rvn_ed_pos(pos.line + 1, 0), R_TRUE)
+						: rvn_ed_pos(pos.line, ed->lines[pos.line].length);
 				} else if (event->clicks == 2) {
 					const rvn_ed_line_t* line = &ed->lines[pos.line];
 					int begin = pos.column, end = pos.column;
@@ -3392,6 +4776,8 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 				}
 				rvn_ed_complete_close(ed);
 				rvn_ed_break_typing(ed);
+			} else if (ed->box_selecting) {
+				rvn_ed_box_select(ed, &m, tx, ty);
 			} else {
 				ed->caret = pos;
 			}
@@ -3410,7 +4796,11 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 static void rvn_ed_set_text(rvn_text_editor_t* ed, const char* text) {
 	rvn_ed_history_clear(ed->undo, &ed->undo_count);
 	rvn_ed_history_clear(ed->redo, &ed->redo_count);
+	ed->fold_count = 0;
 	rvn_ed_replace(ed, rvn_ed_pos(0, 0), rvn_ed_end(ed), text ? text : "", -1, R_FALSE);
+	rvn_ed_single(ed);
+	rvn_free(ed->next_word);
+	ed->next_word = NULL;
 	ed->caret = ed->anchor = rvn_ed_pos(0, 0);
 	ed->vbar.offset = 0.0f;
 	ed->hbar.offset = 0.0f;
@@ -3440,6 +4830,9 @@ static void rvn_text_editor_destroy(rvn_widget_t* widget) {
 	rvn_ed_history_clear(ed->redo, &ed->redo_count);
 	rvn_free(ed->undo);
 	rvn_free(ed->redo);
+	rvn_free(ed->extra);
+	rvn_free(ed->next_word);
+	rvn_free(ed->folds);
 	rvn_free(ed->placeholder);
 	rvn_free(ed->text_cache);
 	rvn_free(ed->selection_cache);
@@ -3524,14 +4917,19 @@ static int rvn_text_editor_set_attribute(rvn_widget_t* widget, const char* name,
 	} else if (RVN_ATTR("Search")) {
 		rvn_ed_search_set(ed, value, ed->search.flags);
 		return R_TRUE;
+	} else if (RVN_ATTR("Folding")) {
+		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
+		Rtext_editor_set_folding(widget->id, flag);
+		return R_TRUE;
 	} else {
 		return R_FALSE;
 	}
-	/* anything above may change the size of the rows */
+	/* anything above may change the size of the rows (and the regions of folding: the language, the size of a tab) */
 	{
 		uint32_t i;
 		for (i = 0; i < ed->line_count; i++) rvn_ed_line_dirty(&ed->lines[i]);
 		ed->rows_dirty = R_TRUE;
+		if (++ed->fold_stamp == 0) ed->fold_stamp = 1;
 	}
 	rvn_widget_invalidate_layout(widget);
 	return R_TRUE;
@@ -3587,6 +4985,8 @@ const rvn_widget_class_t rvn_class_text_editor = {
 /* An option that changes how the lines are laid out. */
 static void rvn_ed_relayout(rvn_text_editor_t* ed) {
 	uint32_t i;
+	/* (the regions of folding depend on the language and the size of a tab) */
+	if (++ed->fold_stamp == 0) ed->fold_stamp = 1;
 	for (i = 0; i < ed->line_count; i++) rvn_ed_line_dirty(&ed->lines[i]);
 	ed->rows_dirty = R_TRUE;
 	rvn_widget_invalidate_layout(&ed->base);
@@ -3644,7 +5044,7 @@ void Rtext_editor_insert_text(Rid id, const char* text) {
 	/* as in Rtext_editor_set_text, the text may live in a line that the edit changes */
 	copy = rvn_strdup(text);
 	rvn_ed_break_typing(ed);
-	rvn_ed_insert(ed, copy, -1);
+	rvn_ed_run(ed, rvn_ed_each_insert, copy, R_FALSE);
 	rvn_free(copy);
 	rvn_ed_break_typing(ed);
 	rvn_ed_caret_moved(ed, R_FALSE);
@@ -3653,6 +5053,7 @@ void Rtext_editor_insert_text(Rid id, const char* text) {
 
 void Rtext_editor_set_cursor(Rid id, int line, int column) {
 	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_single(ed);
 	ed->caret = ed->anchor = rvn_ed_clamp(ed, rvn_ed_pos(line, column));
 	rvn_ed_break_typing(ed);
 	rvn_ed_caret_moved(ed, R_FALSE);
@@ -3670,6 +5071,7 @@ void Rtext_editor_get_cursor(Rid id, int* line, int* column) {
 
 void Rtext_editor_select(Rid id, int from_line, int from_column, int to_line, int to_column) {
 	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_single(ed);
 	ed->anchor = rvn_ed_clamp(ed, rvn_ed_pos(from_line, from_column));
 	ed->caret = rvn_ed_clamp(ed, rvn_ed_pos(to_line, to_column));
 	rvn_ed_break_typing(ed);
@@ -3678,6 +5080,7 @@ void Rtext_editor_select(Rid id, int from_line, int from_column, int to_line, in
 
 void Rtext_editor_select_all(Rid id) {
 	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_single(ed);
 	ed->anchor = rvn_ed_pos(0, 0);
 	ed->caret = rvn_ed_end(ed);
 	rvn_ed_break_typing(ed);
@@ -3707,6 +5110,8 @@ void Rtext_editor_scroll_to_line(Rid id, int line) {
 	rvn_ed_metrics_t m;
 	rvn_vec2_t point;
 	RVN_EDITOR_VOID(ed, id);
+	/* (a line in a folded region is shown) */
+	if (ed->fold_count) rvn_ed_reveal_line(ed, rvn_clampi(line, 0, (int)ed->line_count - 1));
 	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
 	rvn_ed_metrics(ed, &m);
 	rvn_ed_update_rows(ed, &m);
@@ -4087,4 +5492,138 @@ void Rtext_editor_set_find_bar(Rid id, int enabled) {
 	RVN_EDITOR_VOID(ed, id);
 	if (!enabled) rvn_ed_find_close(ed);
 	ed->no_find_bar = !enabled;
+}
+
+/* ---- several cursors ---- */
+
+/* Adds a cursor (the main one stays main); overlapping ones become one. */
+static void rvn_ed_api_add(rvn_text_editor_t* ed, rvn_ed_pos_t anchor, rvn_ed_pos_t caret) {
+	rvn_ed_cursor_t* list;
+	uint32_t count = rvn_ed_cursors_copy(ed, &list);
+	list = (rvn_ed_cursor_t*)rvn_realloc(list, sizeof(rvn_ed_cursor_t) * (count + 1));
+	list[count] = rvn_ed_cursor(rvn_ed_clamp(ed, anchor), rvn_ed_clamp(ed, caret), -1.0f);
+	rvn_ed_cursors_set(ed, list, (int)count + 1, 0);
+	rvn_free(list);
+	rvn_ed_break_typing(ed);
+	rvn_ed_complete_close(ed);
+	if (ed->fold_count) rvn_ed_reveal_cursors(ed);
+	rvn_widget_invalidate_paint(&ed->base);
+}
+
+void Rtext_editor_add_cursor(Rid id, int line, int column) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_api_add(ed, rvn_ed_pos(line, column), rvn_ed_pos(line, column));
+}
+
+void Rtext_editor_add_selection(Rid id, int from_line, int from_column, int to_line, int to_column) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_api_add(ed, rvn_ed_pos(from_line, from_column), rvn_ed_pos(to_line, to_column));
+}
+
+int Rtext_editor_get_cursor_count(Rid id) {
+	RVN_EDITOR(ed, id, 0);
+	return (int)ed->extra_count + 1;
+}
+
+int Rtext_editor_get_cursor_at(Rid id, int index, int* line, int* column, int* anchor_line, int* anchor_column) {
+	rvn_ed_cursor_t cursor;
+	int main_index;
+	if (line) *line = 0;
+	if (column) *column = 0;
+	if (anchor_line) *anchor_line = 0;
+	if (anchor_column) *anchor_column = 0;
+	{
+		RVN_EDITOR(ed, id, R_FALSE);
+		if (index < 0 || index > (int)ed->extra_count) return R_FALSE;
+		main_index = rvn_ed_main_index(ed);
+		cursor = index == main_index ? rvn_ed_main_cursor(ed) : ed->extra[index < main_index ? index : index - 1];
+	}
+	if (line) *line = cursor.caret.line;
+	if (column) *column = cursor.caret.column;
+	if (anchor_line) *anchor_line = cursor.anchor.line;
+	if (anchor_column) *anchor_column = cursor.anchor.column;
+	return R_TRUE;
+}
+
+int Rtext_editor_get_main_cursor(Rid id) {
+	RVN_EDITOR(ed, id, 0);
+	return rvn_ed_main_index(ed);
+}
+
+void Rtext_editor_clear_cursors(Rid id) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_single(ed);
+}
+
+int Rtext_editor_add_next_occurrence(Rid id) {
+	int added;
+	RVN_EDITOR(ed, id, R_FALSE);
+	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
+	added = rvn_ed_add_next_occurrence(ed);
+	if (added) {
+		rvn_ed_break_typing(ed);
+		rvn_ed_complete_close(ed);
+		rvn_ed_caret_moved(ed, R_FALSE);
+	}
+	return added;
+}
+
+int Rtext_editor_select_all_occurrences(Rid id) {
+	RVN_EDITOR(ed, id, 0);
+	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
+	return rvn_ed_select_all_occurrences(ed);
+}
+
+/* ---- folding ---- */
+
+int Rtext_editor_fold(Rid id, int line) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return rvn_ed_fold_line(ed, line);
+}
+
+int Rtext_editor_unfold(Rid id, int line) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	if (line < 0 || line >= (int)ed->line_count) return R_FALSE;
+	return rvn_ed_unfold_line(ed, line);
+}
+
+void Rtext_editor_fold_all(Rid id) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_fold_all(ed);
+}
+
+void Rtext_editor_unfold_all(Rid id) {
+	RVN_EDITOR_VOID(ed, id);
+	rvn_ed_unfold_all(ed);
+}
+
+int Rtext_editor_is_folded(Rid id, int line) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return rvn_ed_fold_at(ed, line) >= 0;
+}
+
+int Rtext_editor_is_line_hidden(Rid id, int line) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	if (line < 0 || line >= (int)ed->line_count) return R_FALSE;
+	return rvn_ed_hidden(ed, line);
+}
+
+int Rtext_editor_get_fold_end(Rid id, int line) {
+	RVN_EDITOR(ed, id, -1);
+	if (line < 0 || line >= (int)ed->line_count) return -1;
+	return rvn_ed_region_end(ed, line);
+}
+
+void Rtext_editor_set_folding(Rid id, int enabled) {
+	RVN_EDITOR_VOID(ed, id);
+	if (!enabled) rvn_ed_unfold_all(ed);
+	if (ed->no_folding == !enabled) return;
+	ed->no_folding = !enabled;
+	ed->gutter_hover = R_FALSE;
+	rvn_ed_relayout(ed);
+}
+
+int Rtext_editor_get_folding(Rid id) {
+	RVN_EDITOR(ed, id, R_FALSE);
+	return !ed->no_folding;
 }

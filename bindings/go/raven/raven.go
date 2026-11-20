@@ -5706,8 +5706,8 @@ func TextEditorGetLine(editor ID, line int) string {
 	return C.GoString(C.Rtext_editor_get_line(C.Rid(editor), C.int(line)))
 }
 
-// TextEditorInsertText: Types a text at the cursor, replacing the selection, as the user would: it can be
-// undone and the changed callback is called.
+// TextEditorInsertText: Types a text at the cursor, replacing the selection, as the user would (at every
+// cursor when there are several): it can be undone and the changed callback is called.
 func TextEditorInsertText(editor ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
@@ -5760,6 +5760,114 @@ func TextEditorGetSelectedText(editor ID) string {
 // TextEditorScrollToLine: Scrolls so that a line is visible.
 func TextEditorScrollToLine(editor ID, line int) {
 	C.Rtext_editor_scroll_to_line(C.Rid(editor), C.int(line))
+}
+
+// TextEditorAddCursor: Adds a cursor (a caret) to the editor; the main cursor stays the main one. A cursor
+// over another one, or at the place of another caret, becomes one with it. Rtext_editor_set_cursor,
+// Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+func TextEditorAddCursor(editor ID, line int, column int) {
+	C.Rtext_editor_add_cursor(C.Rid(editor), C.int(line), C.int(column))
+}
+
+// TextEditorAddSelection: Adds a cursor that selects from one position to another (its caret on the second).
+func TextEditorAddSelection(editor ID, from_line int, from_column int, to_line int, to_column int) {
+	C.Rtext_editor_add_selection(C.Rid(editor), C.int(from_line), C.int(from_column), C.int(to_line), C.int(to_column))
+}
+
+// TextEditorGetCursorCount: Returns: The number of cursors, the main one included (1 at least).
+func TextEditorGetCursorCount(editor ID) int {
+	return int(C.Rtext_editor_get_cursor_count(C.Rid(editor)))
+}
+
+// TextEditorGetCursorAt: A cursor by its index, in the order of the text (0 for the first): its caret and the
+// anchor of its selection (the same position when nothing is selected). Returns R_FALSE when `index` is out
+// of range.
+func TextEditorGetCursorAt(editor ID, index int) (result int, line int, column int, anchor_line int, anchor_column int) {
+	var line_ C.int
+	var column_ C.int
+	var anchor_line_ C.int
+	var anchor_column_ C.int
+	result = int(C.Rtext_editor_get_cursor_at(C.Rid(editor), C.int(index), &line_, &column_, &anchor_line_, &anchor_column_))
+	line = int(line_)
+	column = int(column_)
+	anchor_line = int(anchor_line_)
+	anchor_column = int(anchor_column_)
+	return
+}
+
+// TextEditorGetMainCursor: Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+func TextEditorGetMainCursor(editor ID) int {
+	return int(C.Rtext_editor_get_main_cursor(C.Rid(editor)))
+}
+
+// TextEditorClearCursors: Back to the main cursor alone, as Escape does.
+func TextEditorClearCursors(editor ID) {
+	C.Rtext_editor_clear_cursors(C.Rid(editor))
+}
+
+// TextEditorAddNextOccurrence: What Ctrl+D does: with nothing selected, selects the word at each caret; else
+// adds a cursor on the next occurrence of the main selection (with its case, a whole word when it was
+// selected so) that no cursor selects, going on from the start of the text. Returns R_FALSE when there is
+// none.
+func TextEditorAddNextOccurrence(editor ID) int {
+	return int(C.Rtext_editor_add_next_occurrence(C.Rid(editor)))
+}
+
+// TextEditorSelectAllOccurrences: What Ctrl+Shift+L does: a cursor on every occurrence of the main selection
+// (or of the word at the caret). Returns their number.
+func TextEditorSelectAllOccurrences(editor ID) int {
+	return int(C.Rtext_editor_select_all_occurrences(C.Rid(editor)))
+}
+
+// TextEditorFold: Folds the region that starts at a line: the lines after it, up to the one before the
+// bracket that closes it (or to the last one more indented), are hidden. When the line starts none, or it is
+// folded already, the nearest region around the line is folded. Cursors in it go to the end of its first
+// line. Returns R_FALSE when there is none. Line numbers stay those of the text. Folds follow the lines when
+// text is added or removed elsewhere; editing a hidden line (or the line break of the first line) unfolds its
+// region, and so does a match of the search or a cursor that goes into it.
+func TextEditorFold(editor ID, line int) int {
+	return int(C.Rtext_editor_fold(C.Rid(editor), C.int(line)))
+}
+
+// TextEditorUnfold: Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing
+// was folded there.
+func TextEditorUnfold(editor ID, line int) int {
+	return int(C.Rtext_editor_unfold(C.Rid(editor), C.int(line)))
+}
+
+// TextEditorFoldAll: Folds every region, those inside others too.
+func TextEditorFoldAll(editor ID) {
+	C.Rtext_editor_fold_all(C.Rid(editor))
+}
+
+func TextEditorUnfoldAll(editor ID) {
+	C.Rtext_editor_unfold_all(C.Rid(editor))
+}
+
+// TextEditorIsFolded: Returns: R_TRUE when a folded region starts at this line.
+func TextEditorIsFolded(editor ID, line int) int {
+	return int(C.Rtext_editor_is_folded(C.Rid(editor), C.int(line)))
+}
+
+// TextEditorIsLineHidden: Returns: R_TRUE when the line is hidden in a folded region.
+func TextEditorIsLineHidden(editor ID, line int) int {
+	return int(C.Rtext_editor_is_line_hidden(C.Rid(editor), C.int(line)))
+}
+
+// TextEditorGetFoldEnd: Returns: The last line of the region that starts at a line (folded or not), -1 when
+// it starts none.
+func TextEditorGetFoldEnd(editor ID, line int) int {
+	return int(C.Rtext_editor_get_fold_end(C.Rid(editor), C.int(line)))
+}
+
+// TextEditorSetFolding: R_FALSE unfolds everything and stops folding: no markers, and Ctrl+Shift+[ / ] go to
+// the shortcuts of the window. On by default. XML: Folding="false".
+func TextEditorSetFolding(editor ID, enabled int) {
+	C.Rtext_editor_set_folding(C.Rid(editor), C.int(enabled))
+}
+
+func TextEditorGetFolding(editor ID) int {
+	return int(C.Rtext_editor_get_folding(C.Rid(editor)))
 }
 
 func TextEditorUndo(editor ID) {

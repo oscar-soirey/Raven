@@ -1946,6 +1946,11 @@
 					"description": "Text searched for: its matches are highlighted."
 				},
 				{
+					"name": "Folding",
+					"kind": "bool",
+					"description": "Regions of the text can be folded: markers beside the line numbers, Ctrl+Shift+[ and ] (on by default)."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."

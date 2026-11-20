@@ -927,6 +927,23 @@ static struct {
 	int (*Rtext_editor_get_selection)(Rid, int*, int*, int*, int*);
 	const char* (*Rtext_editor_get_selected_text)(Rid);
 	void (*Rtext_editor_scroll_to_line)(Rid, int);
+	void (*Rtext_editor_add_cursor)(Rid, int, int);
+	void (*Rtext_editor_add_selection)(Rid, int, int, int, int);
+	int (*Rtext_editor_get_cursor_count)(Rid);
+	int (*Rtext_editor_get_cursor_at)(Rid, int, int*, int*, int*, int*);
+	int (*Rtext_editor_get_main_cursor)(Rid);
+	void (*Rtext_editor_clear_cursors)(Rid);
+	int (*Rtext_editor_add_next_occurrence)(Rid);
+	int (*Rtext_editor_select_all_occurrences)(Rid);
+	int (*Rtext_editor_fold)(Rid, int);
+	int (*Rtext_editor_unfold)(Rid, int);
+	void (*Rtext_editor_fold_all)(Rid);
+	void (*Rtext_editor_unfold_all)(Rid);
+	int (*Rtext_editor_is_folded)(Rid, int);
+	int (*Rtext_editor_is_line_hidden)(Rid, int);
+	int (*Rtext_editor_get_fold_end)(Rid, int);
+	void (*Rtext_editor_set_folding)(Rid, int);
+	int (*Rtext_editor_get_folding)(Rid);
 	void (*Rtext_editor_undo)(Rid);
 	void (*Rtext_editor_redo)(Rid);
 	int (*Rtext_editor_can_undo)(Rid);
@@ -2397,6 +2414,23 @@ static const struct {
 	{"Rtext_editor_get_selection", offsetof(__typeof__(rn), Rtext_editor_get_selection)},
 	{"Rtext_editor_get_selected_text", offsetof(__typeof__(rn), Rtext_editor_get_selected_text)},
 	{"Rtext_editor_scroll_to_line", offsetof(__typeof__(rn), Rtext_editor_scroll_to_line)},
+	{"Rtext_editor_add_cursor", offsetof(__typeof__(rn), Rtext_editor_add_cursor)},
+	{"Rtext_editor_add_selection", offsetof(__typeof__(rn), Rtext_editor_add_selection)},
+	{"Rtext_editor_get_cursor_count", offsetof(__typeof__(rn), Rtext_editor_get_cursor_count)},
+	{"Rtext_editor_get_cursor_at", offsetof(__typeof__(rn), Rtext_editor_get_cursor_at)},
+	{"Rtext_editor_get_main_cursor", offsetof(__typeof__(rn), Rtext_editor_get_main_cursor)},
+	{"Rtext_editor_clear_cursors", offsetof(__typeof__(rn), Rtext_editor_clear_cursors)},
+	{"Rtext_editor_add_next_occurrence", offsetof(__typeof__(rn), Rtext_editor_add_next_occurrence)},
+	{"Rtext_editor_select_all_occurrences", offsetof(__typeof__(rn), Rtext_editor_select_all_occurrences)},
+	{"Rtext_editor_fold", offsetof(__typeof__(rn), Rtext_editor_fold)},
+	{"Rtext_editor_unfold", offsetof(__typeof__(rn), Rtext_editor_unfold)},
+	{"Rtext_editor_fold_all", offsetof(__typeof__(rn), Rtext_editor_fold_all)},
+	{"Rtext_editor_unfold_all", offsetof(__typeof__(rn), Rtext_editor_unfold_all)},
+	{"Rtext_editor_is_folded", offsetof(__typeof__(rn), Rtext_editor_is_folded)},
+	{"Rtext_editor_is_line_hidden", offsetof(__typeof__(rn), Rtext_editor_is_line_hidden)},
+	{"Rtext_editor_get_fold_end", offsetof(__typeof__(rn), Rtext_editor_get_fold_end)},
+	{"Rtext_editor_set_folding", offsetof(__typeof__(rn), Rtext_editor_set_folding)},
+	{"Rtext_editor_get_folding", offsetof(__typeof__(rn), Rtext_editor_get_folding)},
 	{"Rtext_editor_undo", offsetof(__typeof__(rn), Rtext_editor_undo)},
 	{"Rtext_editor_redo", offsetof(__typeof__(rn), Rtext_editor_redo)},
 	{"Rtext_editor_can_undo", offsetof(__typeof__(rn), Rtext_editor_can_undo)},
@@ -19911,6 +19945,265 @@ static napi_value rn_w_Rtext_editor_scroll_to_line(napi_env env, napi_callback_i
 	return result_;
 }
 
+static napi_value rn_w_Rtext_editor_add_cursor(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rtext_editor_add_cursor((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_add_selection(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_int(env, argv[4], &a4)) return NULL;
+	rn.Rtext_editor_add_selection((Rid)a0, (int)a1, (int)a2, (int)a3, (int)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_cursor_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_cursor_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_cursor_at(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2 = 0;
+	int a3 = 0;
+	int a4 = 0;
+	int a5 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_get_cursor_at((Rid)a0, (int)a1, &a2, &a3, &a4, &a5);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a2, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a3, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a4, &o2_);
+		napi_value o3_;
+		napi_create_int32(env, (int32_t)a5, &o3_);
+		{
+			const napi_value values_[5] = {result_, o0_, o1_, o2_, o3_};
+			result_ = rn_tuple(env, 5, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_main_cursor(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_main_cursor((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_clear_cursors(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtext_editor_clear_cursors((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_add_next_occurrence(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_add_next_occurrence((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_select_all_occurrences(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_select_all_occurrences((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_fold(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_fold((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_unfold(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_unfold((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_fold_all(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtext_editor_fold_all((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_unfold_all(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtext_editor_unfold_all((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_is_folded(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_is_folded((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_is_line_hidden(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_is_line_hidden((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_fold_end(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_get_fold_end((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_set_folding(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtext_editor_set_folding((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_folding(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_folding((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rtext_editor_undo(napi_env env, napi_callback_info info) {
 	size_t argc = 1;
 	napi_value argv[1];
@@ -30408,6 +30701,23 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtext_editor_get_selection", NULL, rn_w_Rtext_editor_get_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_get_selected_text", NULL, rn_w_Rtext_editor_get_selected_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_scroll_to_line", NULL, rn_w_Rtext_editor_scroll_to_line, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_add_cursor", NULL, rn_w_Rtext_editor_add_cursor, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_add_selection", NULL, rn_w_Rtext_editor_add_selection, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_cursor_count", NULL, rn_w_Rtext_editor_get_cursor_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_cursor_at", NULL, rn_w_Rtext_editor_get_cursor_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_main_cursor", NULL, rn_w_Rtext_editor_get_main_cursor, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_clear_cursors", NULL, rn_w_Rtext_editor_clear_cursors, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_add_next_occurrence", NULL, rn_w_Rtext_editor_add_next_occurrence, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_select_all_occurrences", NULL, rn_w_Rtext_editor_select_all_occurrences, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_fold", NULL, rn_w_Rtext_editor_fold, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_unfold", NULL, rn_w_Rtext_editor_unfold, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_fold_all", NULL, rn_w_Rtext_editor_fold_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_unfold_all", NULL, rn_w_Rtext_editor_unfold_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_is_folded", NULL, rn_w_Rtext_editor_is_folded, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_is_line_hidden", NULL, rn_w_Rtext_editor_is_line_hidden, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_fold_end", NULL, rn_w_Rtext_editor_get_fold_end, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_set_folding", NULL, rn_w_Rtext_editor_set_folding, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_folding", NULL, rn_w_Rtext_editor_get_folding, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_undo", NULL, rn_w_Rtext_editor_undo, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_redo", NULL, rn_w_Rtext_editor_redo, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_can_undo", NULL, rn_w_Rtext_editor_can_undo, NULL, NULL, NULL, napi_enumerable, NULL},
