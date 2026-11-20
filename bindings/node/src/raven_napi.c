@@ -614,13 +614,20 @@ static struct {
 	void (*Rtable_set_cell_color_callback)(Rid, RTableCellColorCallback, void*);
 	void (*Rtable_set_cell_text_color)(Rid, int, int, float, float, float, float);
 	void (*Rtable_set_multi_select)(Rid, int);
+	void (*Rtable_set_selection_mode)(Rid, RTableSelectionMode);
+	RTableSelectionMode (*Rtable_get_selection_mode)(Rid);
 	void (*Rtable_set_row_selected)(Rid, int, int);
 	int (*Rtable_is_row_selected)(Rid, int);
+	void (*Rtable_select_range)(Rid, int, int, int);
+	void (*Rtable_select_all)(Rid);
 	void (*Rtable_clear_selection)(Rid);
 	int (*Rtable_get_selection_count)(Rid);
 	int (*Rtable_get_selection)(Rid, int);
+	int (*Rtable_get_selection_range_count)(Rid);
+	int (*Rtable_get_selection_range)(Rid, int, int*, int*);
 	void (*Rtable_set_selected)(Rid, int);
 	int (*Rtable_get_selected)(Rid);
+	int (*Rtable_get_current_row)(Rid);
 	void (*Rtable_scroll_to_row)(Rid, int);
 	void (*Rtable_sort)(Rid, int, int);
 	int (*Rtable_get_sort_column)(Rid);
@@ -639,6 +646,10 @@ static struct {
 	int (*Rtable_end_edit)(Rid, int);
 	void (*Rtable_set_frozen_columns)(Rid, int);
 	int (*Rtable_get_frozen_columns)(Rid);
+	void (*Rtable_set_column_kind)(Rid, int, RTableColumnKind);
+	RTableColumnKind (*Rtable_get_column_kind)(Rid, int);
+	int (*Rtable_is_cell_checked)(Rid, int, int);
+	void (*Rtable_set_cell_checked)(Rid, int, int, int);
 	void (*Rdate_picker_set_date)(Rid, int, int, int);
 	void (*Rdate_picker_get_date)(Rid, int*, int*, int*);
 	void (*Rdate_picker_set_range)(Rid, int, int, int, int, int, int);
@@ -2025,13 +2036,20 @@ static const struct {
 	{"Rtable_set_cell_color_callback", offsetof(__typeof__(rn), Rtable_set_cell_color_callback)},
 	{"Rtable_set_cell_text_color", offsetof(__typeof__(rn), Rtable_set_cell_text_color)},
 	{"Rtable_set_multi_select", offsetof(__typeof__(rn), Rtable_set_multi_select)},
+	{"Rtable_set_selection_mode", offsetof(__typeof__(rn), Rtable_set_selection_mode)},
+	{"Rtable_get_selection_mode", offsetof(__typeof__(rn), Rtable_get_selection_mode)},
 	{"Rtable_set_row_selected", offsetof(__typeof__(rn), Rtable_set_row_selected)},
 	{"Rtable_is_row_selected", offsetof(__typeof__(rn), Rtable_is_row_selected)},
+	{"Rtable_select_range", offsetof(__typeof__(rn), Rtable_select_range)},
+	{"Rtable_select_all", offsetof(__typeof__(rn), Rtable_select_all)},
 	{"Rtable_clear_selection", offsetof(__typeof__(rn), Rtable_clear_selection)},
 	{"Rtable_get_selection_count", offsetof(__typeof__(rn), Rtable_get_selection_count)},
 	{"Rtable_get_selection", offsetof(__typeof__(rn), Rtable_get_selection)},
+	{"Rtable_get_selection_range_count", offsetof(__typeof__(rn), Rtable_get_selection_range_count)},
+	{"Rtable_get_selection_range", offsetof(__typeof__(rn), Rtable_get_selection_range)},
 	{"Rtable_set_selected", offsetof(__typeof__(rn), Rtable_set_selected)},
 	{"Rtable_get_selected", offsetof(__typeof__(rn), Rtable_get_selected)},
+	{"Rtable_get_current_row", offsetof(__typeof__(rn), Rtable_get_current_row)},
 	{"Rtable_scroll_to_row", offsetof(__typeof__(rn), Rtable_scroll_to_row)},
 	{"Rtable_sort", offsetof(__typeof__(rn), Rtable_sort)},
 	{"Rtable_get_sort_column", offsetof(__typeof__(rn), Rtable_get_sort_column)},
@@ -2050,6 +2068,10 @@ static const struct {
 	{"Rtable_end_edit", offsetof(__typeof__(rn), Rtable_end_edit)},
 	{"Rtable_set_frozen_columns", offsetof(__typeof__(rn), Rtable_set_frozen_columns)},
 	{"Rtable_get_frozen_columns", offsetof(__typeof__(rn), Rtable_get_frozen_columns)},
+	{"Rtable_set_column_kind", offsetof(__typeof__(rn), Rtable_set_column_kind)},
+	{"Rtable_get_column_kind", offsetof(__typeof__(rn), Rtable_get_column_kind)},
+	{"Rtable_is_cell_checked", offsetof(__typeof__(rn), Rtable_is_cell_checked)},
+	{"Rtable_set_cell_checked", offsetof(__typeof__(rn), Rtable_set_cell_checked)},
 	{"Rdate_picker_set_date", offsetof(__typeof__(rn), Rdate_picker_set_date)},
 	{"Rdate_picker_get_date", offsetof(__typeof__(rn), Rdate_picker_get_date)},
 	{"Rdate_picker_set_range", offsetof(__typeof__(rn), Rdate_picker_set_range)},
@@ -14548,6 +14570,35 @@ static napi_value rn_w_Rtable_set_multi_select(napi_env env, napi_callback_info 
 	return result_;
 }
 
+static napi_value rn_w_Rtable_set_selection_mode(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtable_set_selection_mode((Rid)a0, (RTableSelectionMode)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_selection_mode(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rtable_get_selection_mode((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
 static napi_value rn_w_Rtable_set_row_selected(napi_env env, napi_callback_info info) {
 	size_t argc = 3;
 	napi_value argv[3];
@@ -14576,6 +14627,36 @@ static napi_value rn_w_Rtable_is_row_selected(napi_env env, napi_callback_info i
 	if (!rn_get_int(env, argv[1], &a1)) return NULL;
 	int value_ = rn.Rtable_is_row_selected((Rid)a0, (int)a1);
 	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_select_range(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rtable_select_range((Rid)a0, (int)a1, (int)a2, (int)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_select_all(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtable_select_all((Rid)a0);
 	return result_;
 }
 
@@ -14619,6 +14700,46 @@ static napi_value rn_w_Rtable_get_selection(napi_env env, napi_callback_info inf
 	return result_;
 }
 
+static napi_value rn_w_Rtable_get_selection_range_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtable_get_selection_range_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_selection_range(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2 = 0;
+	int a3 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtable_get_selection_range((Rid)a0, (int)a1, &a2, &a3);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a2, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a3, &o1_);
+		{
+			const napi_value values_[3] = {result_, o0_, o1_};
+			result_ = rn_tuple(env, 3, values_);
+		}
+	}
+	return result_;
+}
+
 static napi_value rn_w_Rtable_set_selected(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -14642,6 +14763,19 @@ static napi_value rn_w_Rtable_get_selected(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	int value_ = rn.Rtable_get_selected((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_current_row(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtable_get_current_row((Rid)a0);
 	napi_create_int32(env, (int32_t)value_, &result_);
 	return result_;
 }
@@ -14944,6 +15078,74 @@ static napi_value rn_w_Rtable_get_frozen_columns(napi_env env, napi_callback_inf
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	int value_ = rn.Rtable_get_frozen_columns((Rid)a0);
 	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_set_column_kind(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rtable_set_column_kind((Rid)a0, (int)a1, (RTableColumnKind)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_column_kind(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	{
+		int value_ = (int)rn.Rtable_get_column_kind((Rid)a0, (int)a1);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rtable_is_cell_checked(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtable_is_cell_checked((Rid)a0, (int)a1, (int)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_set_cell_checked(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rtable_set_cell_checked((Rid)a0, (int)a1, (int)a2, (int)a3);
 	return result_;
 }
 
@@ -29036,13 +29238,20 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtable_set_cell_color_callback", NULL, rn_w_Rtable_set_cell_color_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_cell_text_color", NULL, rn_w_Rtable_set_cell_text_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_multi_select", NULL, rn_w_Rtable_set_multi_select, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_selection_mode", NULL, rn_w_Rtable_set_selection_mode, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_selection_mode", NULL, rn_w_Rtable_get_selection_mode, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_row_selected", NULL, rn_w_Rtable_set_row_selected, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_is_row_selected", NULL, rn_w_Rtable_is_row_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_select_range", NULL, rn_w_Rtable_select_range, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_select_all", NULL, rn_w_Rtable_select_all, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_clear_selection", NULL, rn_w_Rtable_clear_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_selection_count", NULL, rn_w_Rtable_get_selection_count, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_selection", NULL, rn_w_Rtable_get_selection, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_selection_range_count", NULL, rn_w_Rtable_get_selection_range_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_selection_range", NULL, rn_w_Rtable_get_selection_range, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_selected", NULL, rn_w_Rtable_set_selected, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_selected", NULL, rn_w_Rtable_get_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_current_row", NULL, rn_w_Rtable_get_current_row, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_scroll_to_row", NULL, rn_w_Rtable_scroll_to_row, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_sort", NULL, rn_w_Rtable_sort, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_sort_column", NULL, rn_w_Rtable_get_sort_column, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29061,6 +29270,10 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtable_end_edit", NULL, rn_w_Rtable_end_edit, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_frozen_columns", NULL, rn_w_Rtable_set_frozen_columns, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_frozen_columns", NULL, rn_w_Rtable_get_frozen_columns, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_column_kind", NULL, rn_w_Rtable_set_column_kind, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_column_kind", NULL, rn_w_Rtable_get_column_kind, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_is_cell_checked", NULL, rn_w_Rtable_is_cell_checked, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_cell_checked", NULL, rn_w_Rtable_set_cell_checked, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_set_date", NULL, rn_w_Rdate_picker_set_date, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_get_date", NULL, rn_w_Rdate_picker_get_date, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_set_range", NULL, rn_w_Rdate_picker_set_range, NULL, NULL, NULL, napi_enumerable, NULL},

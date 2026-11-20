@@ -118,6 +118,8 @@ struct rvn_touch_state_t {
 	RTouchSettings settings;
 	/** The pointer last used was a finger. */
 	int touch_active;
+	/** The left button of the mouse is going down for a finger (rvn_touch_finger_pressing). */
+	int finger_pressing;
 	/** Time added to the clock by Rwindow_advance_touch (tests). */
 	double advance;
 };
@@ -366,7 +368,9 @@ static void rvn_touch_begin_mouse(rvn_window_t* window, rvn_touch_state_t* state
 	state->state = RVN_TS_MOUSE;
 	rvn_touch_stop_long_press(state);
 	rvn_window_emulate_move(window, finger->start_x, finger->start_y);
+	state->finger_pressing = R_TRUE;
 	rvn_window_emulate_button(window, R_MOUSE_LEFT, R_TRUE);
+	if (window->touch == state) state->finger_pressing = R_FALSE;
 	if (finger->x != finger->start_x || finger->y != finger->start_y) rvn_window_emulate_move(window, finger->x, finger->y);
 }
 
@@ -507,7 +511,9 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 			/* a tap: a click; but a tap that stopped flicked content only stops it */
 			if (cancelled || state->stopped_coast || finger->owned || !settings->mouse_emulation || !finger->target) break;
 			rvn_window_emulate_move(window, finger->x, finger->y);
+			state->finger_pressing = R_TRUE;
 			rvn_window_emulate_button(window, R_MOUSE_LEFT, R_TRUE);
+			if (window->touch == state) state->finger_pressing = R_FALSE;
 			rvn_window_emulate_button(window, R_MOUSE_LEFT, R_FALSE);
 			/* no hover stays behind a finger */
 			rvn_window_emulate_leave(window);
@@ -1424,6 +1430,10 @@ int Rwindow_get_touch_count(Rid id) {
 int Rwindow_is_pen_in_range(Rid id) {
 	rvn_window_t* window = rvn_window_check(id, __func__);
 	return window && window->touch && window->touch->pen_in_range;
+}
+
+int rvn_touch_finger_pressing(const rvn_window_t* window) {
+	return window && window->touch && window->touch->finger_pressing;
 }
 
 int Rwindow_is_touch_active(Rid id) {

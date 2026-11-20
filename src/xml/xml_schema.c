@@ -283,9 +283,10 @@ static const rvn_schema_attribute_t g_list_view[] = {
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
 static const rvn_schema_attribute_t g_table[] = {
-	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable)."),
+	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable, Kind=\"Text|Check|Progress\")."),
 	N("FrozenColumns", "The first columns that stay in place when the table scrolls sideways."),
 	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
+	C("SelectionMode", "Single|Multiple|None", "One row at a time (default), any number of rows (Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A), or none."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
 	B("SortDescending", "Sorted from the largest to the smallest."),

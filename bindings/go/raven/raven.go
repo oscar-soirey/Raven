@@ -950,6 +950,24 @@ const (
 	R_CHART_SPARKLINE RChartKind = 0x0594
 )
 
+// RTableSelectionMode: How the rows of a Table are selected (Rtable_set_selection_mode).
+type RTableSelectionMode int32
+
+const (
+	R_TABLE_SELECTION_SINGLE   RTableSelectionMode = 0x0BC0
+	R_TABLE_SELECTION_MULTIPLE RTableSelectionMode = 0x0BC1
+	R_TABLE_SELECTION_NONE     RTableSelectionMode = 0x0BC2
+)
+
+// RTableColumnKind: What the cells of a column show (Rtable_set_column_kind).
+type RTableColumnKind int32
+
+const (
+	R_TABLE_COLUMN_TEXT     RTableColumnKind = 0x0BD0
+	R_TABLE_COLUMN_CHECK    RTableColumnKind = 0x0BD1
+	R_TABLE_COLUMN_PROGRESS RTableColumnKind = 0x0BD2
+)
+
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
 type RSyntax int32
 
@@ -4087,9 +4105,20 @@ func TableSetCellTextColor(table ID, row int, column int, r float32, g float32, 
 	C.Rtable_set_cell_text_color(C.Rid(table), C.int(row), C.int(column), C.float(r), C.float(g), C.float(b), C.float(a))
 }
 
-// TableSetMultiSelect: Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+// TableSetMultiSelect: Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as
+// Rtable_set_selection_mode(MULTIPLE or SINGLE).
 func TableSetMultiSelect(table ID, enabled int) {
 	C.Rtable_set_multi_select(C.Rid(table), C.int(enabled))
+}
+
+// TableSetSelectionMode: Single (default), multiple or no selection (SelectionMode="Multiple" in XML). Going
+// to single keeps the selected row, going to none clears the selection.
+func TableSetSelectionMode(table ID, mode RTableSelectionMode) {
+	C.Rtable_set_selection_mode(C.Rid(table), C.RTableSelectionMode(mode))
+}
+
+func TableGetSelectionMode(table ID) RTableSelectionMode {
+	return RTableSelectionMode(C.Rtable_get_selection_mode(C.Rid(table)))
 }
 
 func TableSetRowSelected(table ID, row int, selected int) {
@@ -4098,6 +4127,17 @@ func TableSetRowSelected(table ID, row int, selected int) {
 
 func TableIsRowSelected(table ID, row int) int {
 	return int(C.Rtable_is_row_selected(C.Rid(table), C.int(row)))
+}
+
+// TableSelectRange: Selects (`selected` R_TRUE) or deselects the rows first..last, both included, keeping the
+// others: multiple selection only (in single selection, selecting a range selects `last`).
+func TableSelectRange(table ID, first int, last int, selected int) {
+	C.Rtable_select_range(C.Rid(table), C.int(first), C.int(last), C.int(selected))
+}
+
+// TableSelectAll: Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+func TableSelectAll(table ID) {
+	C.Rtable_select_all(C.Rid(table))
 }
 
 func TableClearSelection(table ID) {
@@ -4113,13 +4153,38 @@ func TableGetSelection(table ID, index int) int {
 	return int(C.Rtable_get_selection(C.Rid(table), C.int(index)))
 }
 
+// TableGetSelectionRangeCount: The selection as runs of consecutive rows, top to bottom: the fast way to go
+// through a large selection (select all of a million rows is one range).
+func TableGetSelectionRangeCount(table ID) int {
+	return int(C.Rtable_get_selection_range_count(C.Rid(table)))
+}
+
+// TableGetSelectionRange: The rows first..last (both included) of a range of the selection. Returns: R_FALSE
+// outside the ranges.
+func TableGetSelectionRange(table ID, index int) (result int, first int, last int) {
+	var first_ C.int
+	var last_ C.int
+	result = int(C.Rtable_get_selection_range(C.Rid(table), C.int(index), &first_, &last_))
+	first = int(first_)
+	last = int(last_)
+	return
+}
+
 // TableSetSelected: Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 func TableSetSelected(table ID, row int) {
 	C.Rtable_set_selected(C.Rid(table), C.int(row))
 }
 
+// TableGetSelected: The selected row (-1: none). In multiple selection, the one selected last, or else the
+// first one; the selection changed callback receives it.
 func TableGetSelected(table ID) int {
 	return int(C.Rtable_get_selected(C.Rid(table)))
+}
+
+// TableGetCurrentRow: The row the keyboard is on: the selected row in single selection; in multiple selection
+// the row last clicked or reached with the arrows, which Space toggles (it may be unselected). -1: none.
+func TableGetCurrentRow(table ID) int {
+	return int(C.Rtable_get_current_row(C.Rid(table)))
 }
 
 func TableScrollToRow(table ID, row int) {
@@ -4185,6 +4250,29 @@ func TableSetFrozenColumns(table ID, count int) {
 
 func TableGetFrozenColumns(table ID) int {
 	return int(C.Rtable_get_frozen_columns(C.Rid(table)))
+}
+
+// TableSetColumnKind: Text (default), check box or progress bar: how the cells of the column are drawn from
+// their texts. A check column is made editable (the user toggles it; Rtable_set_column_editable(R_FALSE)
+// after this shows it only) and centered. For anything else, a cell color callback and the texts are what the
+// table offers: it draws no other widget in its cells.
+func TableSetColumnKind(table ID, column int, kind RTableColumnKind) {
+	C.Rtable_set_column_kind(C.Rid(table), C.int(column), C.RTableColumnKind(kind))
+}
+
+func TableGetColumnKind(table ID, column int) RTableColumnKind {
+	return RTableColumnKind(C.Rtable_get_column_kind(C.Rid(table), C.int(column)))
+}
+
+// TableIsCellChecked: A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be
+// asked.
+func TableIsCellChecked(table ID, row int, column int) int {
+	return int(C.Rtable_is_cell_checked(C.Rid(table), C.int(row), C.int(column)))
+}
+
+// TableSetCellChecked: Stored rows: writes "1" or "0" in the cell (no callback is called).
+func TableSetCellChecked(table ID, row int, column int, checked int) {
+	C.Rtable_set_cell_checked(C.Rid(table), C.int(row), C.int(column), C.int(checked))
 }
 
 // DatePickerSetDate: Sets the date (today when the picker is created). An invalid date is refused.

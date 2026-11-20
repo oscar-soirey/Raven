@@ -586,7 +586,7 @@ rvn_a11y_id_t rvn_a11y_focus(Rid id) {
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
 	if (window->focus->cls->type == R_WIDGET_TABLE) {
-		int selected = Rtable_get_selected(window->focus->id);
+		int selected = rvn_table_cursor_row(window->focus);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
 	/* a combo box (or its text field) with its list open: the highlighted row of the list */
@@ -741,13 +741,14 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				node->height = rect.h;
 				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
 				node->role = R_ROLE_LIST_ITEM;
-				node->states |= RVN_A11Y_TABLE_ROW | RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				node->states |= RVN_A11Y_TABLE_ROW | RVN_A11Y_INVOKABLE;
+				if (rvn_table_selectable(widget)) node->states |= RVN_A11Y_SELECTABLE;
 				for (c = 0; c < Rtable_get_column_count(widget->id); c++) {
 					if (c) rvn_text_add(&g_a11y.name, ", ");
-					rvn_text_add(&g_a11y.name, Rtable_get_cell(widget->id, item, c));
+					rvn_text_add(&g_a11y.name, rvn_table_accessible_cell(widget, item, c));
 				}
 				if (Rtable_is_row_selected(widget->id, item)) node->states |= RVN_A11Y_SELECTED;
-				if ((widget->flags & RVN_WF_FOCUSED) && Rtable_get_selected(widget->id) == item) node->states |= RVN_A11Y_FOCUSED;
+				if ((widget->flags & RVN_WF_FOCUSED) && rvn_table_cursor_row(widget) == item) node->states |= RVN_A11Y_FOCUSED;
 				break;
 			}
 			case R_WIDGET_LIST_VIEW: {
@@ -879,7 +880,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			/* the selected row, cell after cell */
 			for (c = 0; selected >= 0 && c < columns; c++) {
 				if (c) rvn_text_add(&g_a11y.value, ", ");
-				rvn_text_add(&g_a11y.value, Rtable_get_cell(widget->id, selected, c));
+				rvn_text_add(&g_a11y.value, rvn_table_accessible_cell(widget, selected, c));
 			}
 			break;
 		}

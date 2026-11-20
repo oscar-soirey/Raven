@@ -96,10 +96,12 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Widgets
 
-- [~] Table: several selected rows, cells that are edited in place
-  (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`) and
-  frozen first columns (`Rtable_set_frozen_columns`) are done; cells
-  holding a widget (a checkbox, a progress bar) are not.
+- [x] Table: several selected rows (`SelectionMode="Multiple"`, kept as
+  ranges: a million virtual rows cost nothing), cells that are edited in place
+  (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`), frozen
+  first columns (`Rtable_set_frozen_columns`), and cells drawn as a check box
+  or a progress bar (`Rtable_set_column_kind`). Other widgets in cells are
+  not planned: the table draws its cells itself.
 - [x] ComboBox: editable (any text) and searchable (typing filters the list,
   without regard to case or accents).
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
