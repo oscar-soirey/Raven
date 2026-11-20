@@ -197,6 +197,14 @@ EMSCRIPTEN_KEEPALIVE void test_secondary_state(int state) {
     else if(state==3) Rwindow_begin_move(secondary);
     else Rwindow_restore(secondary);
 }
+static void timer_fired(Rid timer, void* user) {
+    (void)timer; (void)user;
+    Rlabel_set_text(heading, "Timer fired");
+}
+EMSCRIPTEN_KEEPALIVE void test_timer(double seconds) {
+    Rlabel_set_text(heading, "Timer waiting");
+    Rtimer_create(seconds, R_FALSE, timer_fired, NULL);
+}
 EMSCRIPTEN_KEEPALIVE void test_quit(void) { Rquit(0); }
 
 int main(void) {

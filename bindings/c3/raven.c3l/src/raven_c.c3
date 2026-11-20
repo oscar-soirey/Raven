@@ -1721,6 +1721,8 @@ alias RVulkanQueueLockCallback = fn void(void* user_data);
  Pending callbacks are cancelled without delivery when Raven shuts down.
 *>
 alias RWebCallback = fn void(CInt success, char* result, void* user_data);
+<* Called when the loop of Rweb_start_ex ends, in place of Rshutdown. *>
+alias RWebShutdownCallback = fn void();
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -7575,8 +7577,19 @@ extern fn Rid r_web_shader_create(char* source, Ruint flags) @cname("Rweb_shader
  Starts a browser animation-frame loop and returns immediately.
  The loop calls Rdraw_frame; when Raven quits it cancels itself and shuts down.
  Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead.
+ The loop asks the browser for frames only while something is to be done
+ (input, layout, redraws, animations, tasks, due timers): an idle page uses
+ no CPU. Browser events, Raven API calls (also from JavaScript), timers and
+ the completion of fetches and browser services wake it.
 *>
 extern fn void r_web_start() @cname("Rweb_start") @feat(EMSCRIPTEN);
+
+<*
+ Rweb_start, with `shutdown` called in place of Rshutdown when the loop
+ ends (the application frees its own state, then calls Rshutdown).
+ NULL: Rshutdown.
+*>
+extern fn void r_web_start_ex(RWebShutdownCallback shutdown) @cname("Rweb_start_ex") @feat(EMSCRIPTEN);
 
 <*
  Opens a browser file picker. A successful result is a path in /uploads.

@@ -2972,6 +2972,10 @@ void Rwindow_request_redraw(Rid id) {
 	{
 		rvn_window_t* window = rvn_window_get(id);
 		if (window) rvn_atomic_store(&window->redraw_requested, 1);
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+		/* (the loop of the browser sleeps until something asks for a frame) */
+		rvn_web_loop_poke();
+#endif
 	}
 }
 

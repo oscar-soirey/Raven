@@ -304,6 +304,8 @@ EM_JS(void, rvn_dom_shutdown, (void), {
 
 EMSCRIPTEN_KEEPALIVE void rvn_web_target(rvn_pwindow_t* handle) {
     rvn_pwindow_t* window;
+    /* (every DOM event comes through here first: the loop may be asleep) */
+    rvn_web_loop_poke();
     g_window = NULL;
     for (window = g_windows; window; window = window->next)
         if (window == handle) { g_window = window; break; }
@@ -345,12 +347,14 @@ EMSCRIPTEN_KEEPALIVE void rvn_web_resize(int width, int height, float scale) {
 void rvn_webgl_context_lost(void);
 #endif
 EMSCRIPTEN_KEEPALIVE void rvn_web_context_lost(void) {
+    rvn_web_loop_poke();
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
     rvn_webgl_context_lost();
 #endif
 }
 
 EMSCRIPTEN_KEEPALIVE void rvn_web_context_restored(void) {
+    rvn_web_loop_poke();
     Rbackend_device_lost();
 }
 
@@ -701,7 +705,7 @@ static void rvn_web_pump(double timeout) {
         }, window, x, y, height);
     }
 }
-static void rvn_web_wake(void) {}
+static void rvn_web_wake(void) { rvn_web_loop_poke(); }
 static void rvn_web_clipboard_set(const char* text) {
     rvn_str_set(&g_clipboard, text);
     EM_ASM({

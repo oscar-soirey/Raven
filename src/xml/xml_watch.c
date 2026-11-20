@@ -90,6 +90,12 @@ static void rvn_live_configure(void) {
 	g_live.timer = R_INVALID_ID;
 	env = getenv("RAVEN_LIVE_RELOAD");
 	if (env && (env[0] == '0' || env[0] == 'n' || env[0] == 'N' || env[0] == 'f' || env[0] == 'F')) g_live.disabled = R_TRUE;
+#if defined(__EMSCRIPTEN__)
+	/* the browser tells nothing of its files: their stamps would be polled, five
+	 * times a second, and an idle page would never sleep. Off unless asked for
+	 * (RAVEN_LIVE_RELOAD=1 or Rxml_set_live_reload). */
+	if (!env || !(env[0] == '1' || env[0] == 'y' || env[0] == 'Y' || env[0] == 't' || env[0] == 'T')) g_live.disabled = R_TRUE;
+#endif
 }
 
 static void rvn_watch_retry_schedule(void) {

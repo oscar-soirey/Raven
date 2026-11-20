@@ -194,6 +194,11 @@ static void example_run(Rid window, void (*frame)(void),
     example_loop.capture = frames ? getenv("RAVEN_EXAMPLE_CAPTURE") : NULL;
     example_loop.film = frames ? getenv("RAVEN_EXAMPLE_FILM") : NULL;
     if (example_loop.film) Rset_animation_time_step(1.0 / 60.0);
+    /* Raven's own loop: frames only while something changes, nothing while the page is idle */
+    if (!example_loop.automated && !frame) {
+        Rweb_start_ex(shutdown);
+        return;
+    }
     emscripten_set_main_loop(example_browser_frame, 0, 0);
 #else
     if (!example_automated(window)) {

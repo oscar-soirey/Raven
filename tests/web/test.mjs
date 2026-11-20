@@ -52,6 +52,30 @@ try {
                   'http://127.0.0.1:8765/raven_web_test.html');
   await wait(() => page.locator('[role=textbox]').count().then(n=>n===1));
   assert.equal(await call('test_width'),1600,'device pixel ratio');
+  // An idle page asks the browser for no frames; input and timers wake it.
+  // (Module.ravenLoop.frames counts them; reading it calls nothing in Raven.)
+  const frames = () => page.evaluate(() => Module.ravenLoop.frames);
+  const settle = async () => {
+    let last = await frames();
+    for (let i=0;i<40;i++) {
+      await page.waitForTimeout(250);
+      const now = await frames();
+      if (now === last) return now;
+      last = now;
+    }
+    throw new Error('The page never stopped drawing');
+  };
+  let idle = await settle();
+  await page.waitForTimeout(2000);
+  assert.equal(await frames(), idle, 'no frame while idle');
+  await page.mouse.move(300,300);
+  await wait(async () => (await frames()) > idle);
+  idle = await settle();
+  await page.evaluate(() => Module.ccall('test_timer',null,['number'],[0.6]));
+  const asked = await frames();
+  await page.getByLabel('Timer fired',{exact:true}).waitFor({state:'attached'});
+  assert.ok((await frames()) - asked < 10, 'a timer wakes the loop when it is due, not every frame');
+  await settle();
   const input = page.locator('[role=textbox]');
   assert.equal(await input.getAttribute('aria-label'),'Test input');
   // Use visible canvas coordinates; the ARIA mirror is not the visual widget.

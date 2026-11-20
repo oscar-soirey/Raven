@@ -69,6 +69,20 @@ Include `Raven.h` and `raven/raven_emscripten.h`. Create widgets normally,
 then call `Rweb_start()`. It returns immediately and schedules
 `Rdraw_frame()` through the browser animation-frame loop. Calling `Rquit()`
 or closing the last Raven window stops the loop and calls `Rshutdown()`.
+`Rweb_start_ex(shutdown)` calls your `shutdown` function instead, which frees
+the application's own state and then calls `Rshutdown()` itself.
+
+The loop asks the browser for an animation frame only while there is
+something to do, as `Rwait_frame(-1)` sleeps on the desktop: input, layout,
+a redraw (`Rwindow_request_redraw`, `Rwindow_set_continuous_redraw`), an
+animation, a posted task. Until the next `Rtimer` is due it waits with a
+browser timeout, and otherwise not at all: an idle page uses no CPU. It wakes
+on DOM input, resizing, visibility and focus changes, the on-screen keyboard,
+the completion of image fetches, file imports, IndexedDB and clipboard
+requests, `Rtask_post` and `Rwake_up`, and any Raven API call, including
+calls an application makes from its own JavaScript or browser callbacks.
+`Module.ravenLoop.frames` counts the frames it ran (the browser tests check
+that it stands still on an idle page).
 
 ```c
 #include <Raven.h>
@@ -86,7 +100,8 @@ int main(void) {
 
 Do not put a native blocking event loop or `Rshutdown()` after
 `Rweb_start()`. Applications that already own a browser loop may call
-`Rdraw_frame()` themselves and handle shutdown themselves.
+`Rdraw_frame()` themselves and handle shutdown themselves; such a loop
+(`emscripten_set_main_loop`) keeps running on every animation frame.
 `Rpoll_events()` and `Rwait_events()` do not block in this platform.
 An unfinished asynchronous texture cannot be waited on synchronously:
 `Rtexture_wait()` reports an error; poll `Rtexture_is_ready()` instead.
@@ -156,7 +171,10 @@ cannot be enumerated like desktop font directories.
 `Rtexture_create_from_file_async()` accepts HTTP(S) URLs. Browser fetches
 are asynchronous and obey CORS, mixed-content and other browser policies.
 Downloads are limited to 32 MiB and a 20-second timeout. Local paths refer
-to the virtual filesystem. Native directory watching is unavailable.
+to the virtual filesystem. Native directory watching is unavailable, so XML
+live reload is off by default in the browser (it would poll the files and keep
+an idle page awake); `RAVEN_LIVE_RELOAD=1` or `Rxml_set_live_reload(R_TRUE)`
+turns it on.
 
 Browser-specific services use `RWebCallback`; result strings are borrowed
 during the callback. Requests are cancelled without callback delivery when
@@ -204,6 +222,8 @@ browser executable. `RAVEN_WEB_BYPASS_PROXY=1` bypasses desktop proxy
 settings for the loopback test server. `RAVEN_WEB_SCREENSHOT` changes the screenshot destination.
 Tests also open every gallery example, verify bundled assets load and visible
 UI renders, then exercise pointer movement, wheel input and resizing.
+Tests check that an idle page runs no frame for two seconds and that input
+and a due timer wake it.
 Tests exercise actual browser input, composition, paste, ARIA state, all
 built-in effects, custom effects, GPU capture, HTTP images, multiple windows,
 file import/export, IndexedDB across reloads, high DPI, resizing, context
