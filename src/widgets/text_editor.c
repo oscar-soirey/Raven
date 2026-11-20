@@ -40,6 +40,8 @@ typedef struct rvn_ed_line_t {
 	int* breaks;
 	/** What the lexer is in at the start of the line (syntax colors). */
 	uint8_t lex_in;
+	/** Its misspelled words (spell checking), checked again when its text changes. */
+	rvn_spell_line_t spell;
 } rvn_ed_line_t;
 
 /** A part of a line underlined with a message (Rtext_editor_add_marker). */
@@ -155,6 +157,8 @@ typedef struct rvn_text_editor_t {
 
 	RTextEditorChangedCallback callback;
 	void* user_data;
+	/** Spell checking, off by default (widgets/spelling.c). */
+	rvn_spelling_t spelling;
 } rvn_text_editor_t;
 
 /** What is needed to measure and place text, computed once per function. */
@@ -264,6 +268,7 @@ static void rvn_ed_line_set(rvn_ed_line_t* line, const char* text, int length) {
 static void rvn_ed_line_free(rvn_ed_line_t* line) {
 	rvn_free(line->text);
 	rvn_free(line->breaks);
+	rvn_spell_line_free(&line->spell);
 }
 
 /* Opens `count` empty lines at `index`. */
@@ -979,6 +984,76 @@ static rvn_color_t rvn_ed_marker_color(RMarkerKind kind, const rvn_widget_t* wid
 	}
 }
 
+/*
+ * Spell checking: the lines shown whose text changed since they were
+ * checked, at most RVN_ED_SPELL_BUDGET seconds of them per frame; the
+ * others in the next frames. A long text is never checked as a whole.
+ */
+#define RVN_ED_SPELL_BUDGET 0.004
+
+static void rvn_ed_spell_rows(rvn_text_editor_t* ed, RPainter* painter, uint32_t first_row, uint32_t last_row) {
+	double start = rvn_clock_seconds();
+	uint32_t row;
+	int line, line_row, last_line = -1;
+	for (row = first_row; row < last_row; row++) {
+		rvn_ed_line_t* l;
+		rvn_ed_locate_row(ed, row, &line, &line_row);
+		if (line == last_line) continue;
+		last_line = line;
+		l = &ed->lines[line];
+		if (rvn_spell_line_current(&l->spell, l->text, l->length)) continue;
+		if (rvn_clock_seconds() - start > RVN_ED_SPELL_BUDGET) {
+			rvn_paint_keep_animating(painter);
+			return;
+		}
+		rvn_spell_line_update(&l->spell, &ed->spelling, l->text, l->length);
+	}
+}
+
+/* The misspelled words of a row, but not the one being typed at the caret. */
+static void rvn_ed_spell_paint_row(rvn_text_editor_t* ed, RPainter* painter, const rvn_ed_metrics_t* m, int line,
+	int begin, int end, float x, float y, int focused) {
+	const rvn_ed_line_t* l = &ed->lines[line];
+	rvn_color_t wave = rvn_widget_color(&ed->base, R_COLOR_SPELLING);
+	int i;
+	if (l->spell.count == 0 || !rvn_spell_line_current(&l->spell, l->text, l->length)) return;
+	for (i = 0; i < l->spell.count; i++) {
+		int from = rvn_maxi(l->spell.ranges[i * 2], begin), to = rvn_mini(l->spell.ranges[i * 2 + 1], end);
+		float x0;
+		if (to <= from) continue;
+		if (focused && line == ed->caret.line && ed->caret.column >= l->spell.ranges[i * 2] && ed->caret.column <= l->spell.ranges[i * 2 + 1]) continue;
+		x0 = rvn_ed_advance(m, l->text, begin, from, 0.0f);
+		rvn_paint_spelling(painter, x + x0, x + rvn_ed_advance(m, l->text, from, to, x0), y + m->line_height - 1.0f, wave);
+	}
+}
+
+/* A right click on a misspelled word: the menu of its corrections. */
+static int rvn_ed_spell_menu(rvn_text_editor_t* ed, const rvn_ed_metrics_t* m, float x, float y) {
+	rvn_ed_pos_t pos;
+	rvn_ed_line_t* l;
+	int from, to;
+	if (!rvn_spelling_active(&ed->spelling) || !rvn_rect_contains(m->area, x, y)) return R_FALSE;
+	pos = rvn_ed_point_pos(ed, m, x - m->area.x + ed->hbar.offset, y - m->area.y + ed->vbar.offset);
+	l = &ed->lines[pos.line];
+	rvn_spell_line_update(&l->spell, &ed->spelling, l->text, l->length);
+	if (!rvn_spell_line_hit(&l->spell, pos.column, &from, &to)) return R_FALSE;
+	ed->spelling.read_only = ed->read_only;
+	return rvn_spelling_open_menu(&ed->spelling, &ed->base, l->text, pos.line, from, to);
+}
+
+static void rvn_ed_spell_replace(rvn_widget_t* widget, int line, int from, int to, const char* word, const char* text) {
+	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
+	const rvn_ed_line_t* l;
+	/* (only if the word is still where the menu was opened) */
+	if (ed->read_only || line < 0 || (uint32_t)line >= ed->line_count) return;
+	l = &ed->lines[line];
+	if (to > l->length || (int)strlen(word) != to - from || memcmp(l->text + from, word, (size_t)(to - from)) != 0) return;
+	ed->caret = ed->anchor = rvn_ed_replace(ed, rvn_ed_pos(line, from), rvn_ed_pos(line, to), text, -1, R_TRUE);
+	rvn_ed_break_typing(ed);
+	rvn_ed_caret_moved(ed, R_FALSE);
+	rvn_ed_notify(widget);
+}
+
 static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
 	rvn_ed_metrics_t m;
@@ -1068,6 +1143,7 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_ed_locate_row(ed, last_row - 1, &line, &line_row);
 		rvn_ed_lex_until(ed, (uint32_t)line);
 	}
+	if (rvn_spelling_active(&ed->spelling)) rvn_ed_spell_rows(ed, painter, first_row, last_row);
 	/* the bracket next to the caret and the one that goes with it */
 	if (focused && !has_selection && language) rvn_ed_update_match(ed);
 	else ed->match_found = R_FALSE;
@@ -1131,6 +1207,7 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		} else if (end > begin) {
 			rvn_ed_paint_text(painter, &m, l->text, begin, end, m.area.x - scroll_x, y,
 				spans, language ? span_count : 0, text);
+			if (rvn_spelling_active(&ed->spelling)) rvn_ed_spell_paint_row(ed, painter, &m, line, begin, end, m.area.x - scroll_x, y, focused);
 		}
 		/* markers: a wavy line under what they are about */
 		for (marker = 0; marker < ed->marker_count; marker++) {
@@ -2361,6 +2438,7 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 				}
 			}
 			if (event->type == R_EVENT_MOUSE_UP) {
+				if (event->button == R_MOUSE_RIGHT && !ed->selecting) return rvn_ed_spell_menu(ed, &m, event->local_x, event->local_y);
 				if (event->button != R_MOUSE_LEFT || !ed->selecting) return R_FALSE;
 				ed->selecting = R_FALSE;
 				rvn_widget_release_mouse(widget);
@@ -2465,6 +2543,7 @@ static void rvn_text_editor_init(rvn_widget_t* widget) {
 	ed->rows_dirty = R_TRUE;
 	rvn_ed_lines_insert(ed, 0, 1);
 	widget->cursor = R_CURSOR_IBEAM;
+	ed->spelling.replace = rvn_ed_spell_replace;
 }
 
 static void rvn_text_editor_destroy(rvn_widget_t* widget) {
@@ -2485,6 +2564,7 @@ static void rvn_text_editor_destroy(rvn_widget_t* widget) {
 	for (i = 0; i < ed->marker_count; i++) rvn_free(ed->markers[i].message);
 	rvn_free(ed->markers);
 	if (ed->complete) rvn_widget_destroy(ed->complete);
+	rvn_spelling_free(&ed->spelling);
 }
 
 /* Gives the editor a language by name; NULL, "" or "None" removes it. Returns R_FALSE when the name is unknown. */
@@ -2549,6 +2629,14 @@ static int rvn_text_editor_set_attribute(rvn_widget_t* widget, const char* name,
 	} else if (RVN_ATTR("Zoomable")) {
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
 		ed->no_zoom = !flag;
+	} else if (RVN_ATTR("SpellCheck")) {
+		if (!rvn_parse_bool(value, &ed->spelling.enabled)) return R_FALSE;
+		rvn_widget_invalidate_paint(widget);
+		return R_TRUE;
+	} else if (RVN_ATTR("SpellLanguage")) {
+		rvn_spelling_set_language(&ed->spelling, value);
+		rvn_widget_invalidate_paint(widget);
+		return R_TRUE;
 	} else {
 		return R_FALSE;
 	}
@@ -3006,6 +3094,22 @@ void Rtext_editor_set_placeholder(Rid id, const char* text) {
 	RVN_EDITOR_VOID(ed, id);
 	rvn_str_set(&ed->placeholder, text);
 	rvn_widget_invalidate_paint(widget);
+}
+
+void Rtext_editor_set_spell_check(Rid id, int enabled) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_EDITOR);
+	((rvn_text_editor_t*)widget)->spelling.enabled = enabled != 0;
+	rvn_widget_invalidate_paint(widget);
+}
+
+int Rtext_editor_get_spell_check(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TEXT_EDITOR, R_FALSE);
+	return ((rvn_text_editor_t*)widget)->spelling.enabled != 0;
+}
+
+void Rtext_editor_set_spell_language(Rid id, const char* language) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_EDITOR);
+	if (rvn_spelling_set_language(&((rvn_text_editor_t*)widget)->spelling, language)) rvn_widget_invalidate_paint(widget);
 }
 
 void Rtext_editor_set_changed_callback(Rid id, RTextEditorChangedCallback callback, void* user_data) {

@@ -192,7 +192,7 @@ static const struct { const char* name; RColorRole role; } g_color_names[] = {
 	{ "TabActive", R_COLOR_TAB_ACTIVE }, { "Popup", R_COLOR_POPUP }, { "PopupBorder", R_COLOR_POPUP_BORDER },
 	{ "Shadow", R_COLOR_SHADOW }, { "Tooltip", R_COLOR_TOOLTIP }, { "TooltipText", R_COLOR_TOOLTIP_TEXT }, { "Switch", R_COLOR_SWITCH },
 	{ "Success", R_COLOR_SUCCESS }, { "Warning", R_COLOR_WARNING }, { "Danger", R_COLOR_DANGER }, { "Link", R_COLOR_LINK },
-	{ "Code", R_COLOR_CODE }
+	{ "Code", R_COLOR_CODE }, { "Spelling", R_COLOR_SPELLING }
 };
 
 static const struct { const char* name; RMetric metric; } g_metric_names[] = {

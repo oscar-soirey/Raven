@@ -269,6 +269,17 @@ extern "C" {
 	RAVEN_API int Rtext_editor_get_markdown(Rid editor);
 
 	/**
+	 * @brief Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	 * a right click on one offers corrections (see SPELL CHECKING in
+	 * raven_controls.h). Only the lines shown are checked, again when they
+	 * change. Off by default: it is meant for prose, not for code.
+	 */
+	RAVEN_API void Rtext_editor_set_spell_check(Rid editor, int enabled);
+	RAVEN_API int Rtext_editor_get_spell_check(Rid editor);
+	/** @brief Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+	RAVEN_API void Rtext_editor_set_spell_language(Rid editor, const char* language);
+
+	/**
 	 * @brief What the language of the editor makes of the character at a
 	 * position: the colors come from it. R_TOKEN_TEXT without a language.
 	 */

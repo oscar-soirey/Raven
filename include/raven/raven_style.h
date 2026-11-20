@@ -216,6 +216,8 @@ typedef enum RColorRole{
 	R_COLOR_LINK,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE,
+	/** Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). */
+	R_COLOR_SPELLING,
 	R_COLOR_LAST_
 }RColorRole;
 

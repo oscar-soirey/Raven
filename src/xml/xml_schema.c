@@ -124,7 +124,7 @@ static const rvn_schema_attribute_t g_colors[] = {
 	K("Color.Track", ""), K("Color.Handle", ""), K("Color.HandleHovered", ""), K("Color.Separator", ""), K("Color.Header", ""),
 	K("Color.HeaderHovered", ""), K("Color.TabActive", ""), K("Color.Popup", ""), K("Color.PopupBorder", ""), K("Color.Shadow", ""),
 	K("Color.Tooltip", ""), K("Color.TooltipText", ""), K("Color.Switch", ""), K("Color.Success", ""), K("Color.Warning", ""),
-	K("Color.Danger", ""), K("Color.Link", ""), K("Color.Code", ""),
+	K("Color.Danger", ""), K("Color.Link", ""), K("Color.Code", ""), K("Color.Spelling", ""),
 };
 
 static const rvn_schema_attribute_t g_metrics[] = {
@@ -257,6 +257,8 @@ static const rvn_schema_attribute_t g_text_input[] = {
 	N("MaxLength", "Most characters accepted; 0 for no limit."),
 	C("InputType", "Text|Email|Number|Decimal|Phone|Url|Search", "What it holds: picks the on-screen keyboard on mobile."),
 	C("ReturnKey", "Default|Done|Go|Next|Search|Send", "The return key of the on-screen keyboard."),
+	B("SpellCheck", "Underlines the misspelled words, with corrections on a right click (off by default)."),
+	T("SpellLanguage", "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."),
 	A("OnChanged", "Action fired at each change."),
 	A("OnCommitted", "Action fired by Enter."),
 };
@@ -446,6 +448,8 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 	B("Zoomable", "Ctrl + wheel, Ctrl + '+' / '-' / 0 zoom the text (on by default)."),
 	F("Font", "Font file, or \"monospace\"."),
 	B("Markdown", "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."),
+	B("SpellCheck", "Underlines the misspelled words, with corrections on a right click (off by default)."),
+	T("SpellLanguage", "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."),
 	A("OnChanged", "Action fired at each change."),
 };
 static const rvn_schema_attribute_t g_header_bar[] = {

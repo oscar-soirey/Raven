@@ -464,6 +464,54 @@ int   rvn_scrollbar_event(rvn_scrollbar_t* bar, rvn_widget_t* widget, const REve
 	rvn_rect_t track, int vertical, int* changed);
 
 /* ---------------------------------------------------------------------------
+ *  Spell checking of TextInput and TextEditor (widgets/spelling.c)
+ * ------------------------------------------------------------------------- */
+
+/** The misspelled words of a line of text, for the text and the results they were found for. */
+typedef struct rvn_spell_line_t {
+	uint32_t hash;
+	uint32_t generation;
+	int checked;
+	int count;
+	/** count pairs of byte offsets [start, end). */
+	int* ranges;
+} rvn_spell_line_t;
+
+/** The spell checking of a widget. */
+typedef struct rvn_spelling_t {
+	int enabled;
+	/** Language asked for (NULL: the default of Rspell_set_language, else the locale). */
+	char* language;
+	/** No corrections offered (the text cannot be changed). */
+	int read_only;
+	/** The menu of corrections (created on first use) and the word it is about. */
+	rvn_widget_t* menu;
+	rvn_widget_t* owner;
+	char* word;
+	int line, from, to;
+	/** Replaces the word at (line, from, to) by `text`, if `word` is still there. */
+	void (*replace)(rvn_widget_t* widget, int line, int from, int to, const char* word, const char* text);
+} rvn_spelling_t;
+
+/** R_TRUE when the widget checks its spelling and the system has a checker. */
+int  rvn_spelling_active(const rvn_spelling_t* spelling);
+/** Changes the language; R_FALSE when it is the same. */
+int  rvn_spelling_set_language(rvn_spelling_t* spelling, const char* language);
+void rvn_spelling_free(rvn_spelling_t* spelling);
+/** Checks a line again when its text or the results changed. R_TRUE when it did (it costs a call to the checker). */
+int  rvn_spell_line_update(rvn_spell_line_t* line, const rvn_spelling_t* spelling, const char* text, int length);
+/** R_TRUE when the results of the line are those of this text. */
+int  rvn_spell_line_current(const rvn_spell_line_t* line, const char* text, int length);
+/** The misspelled word that touches `offset`. */
+int  rvn_spell_line_hit(const rvn_spell_line_t* line, int offset, int* from, int* to);
+void rvn_spell_line_free(rvn_spell_line_t* line);
+/** The wavy line under a misspelled word, from x0 to x1, its bottom at `bottom`. */
+void rvn_paint_spelling(RPainter* painter, float x0, float x1, float bottom, rvn_color_t color);
+/** Opens the menu of corrections of text[from..to) of a line at the pointer. */
+int  rvn_spelling_open_menu(rvn_spelling_t* spelling, rvn_widget_t* owner, const char* text, int line, int from, int to);
+void rvn_spell_shutdown(void);
+
+/* ---------------------------------------------------------------------------
  *  Single-line text editing (widgets/textedit.c), used by TextInput and SpinBox
  * ------------------------------------------------------------------------- */
 
@@ -485,6 +533,8 @@ typedef struct rvn_textedit_t {
 	int mouse_selecting;
 	Rid blink_timer;
 	double blink_start;
+	/** The misspelled words to underline (TextInput with spell checking), or NULL. */
+	const rvn_spell_line_t* spelling;
 } rvn_textedit_t;
 
 void rvn_textedit_init(rvn_textedit_t* edit);
@@ -505,6 +555,8 @@ int  rvn_textedit_input(rvn_textedit_t* edit, uint32_t codepoint);
 void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size,
 	float x, int clicks, int extend);
 void rvn_textedit_mouse_drag(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size, float x);
+/** The byte offset of the text at a horizontal position relative to the left of the text area. */
+int  rvn_textedit_offset_at(const rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size, float x);
 /** Draws selection, text and caret inside `area` (widget coordinates). */
 void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rvn_rect_t caret);
 /** The composition of an input method when the widget has the focus (Rwindow_inject_composition), else NULL. */
