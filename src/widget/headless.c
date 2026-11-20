@@ -900,6 +900,7 @@ static void rvn_run_center(const rvn_run_target_t* target, float* x, float* y) {
 static rvn_step_result_t rvn_step_pointer(const rvn_step_t* step) {
 	const char* command = step->argv[0];
 	rvn_run_target_t target;
+	memset(&target, 0, sizeof(target));
 	rvn_step_result_t ready = rvn_run_input_target(step, step->argv[1], &target);
 	Ruint modifiers = 0;
 	if (ready != RVN_STEP_NEXT) return ready;
@@ -943,6 +944,7 @@ static rvn_step_result_t rvn_step_keyboard(const rvn_step_t* step) {
 	}
 	if (step->argc > 2) {
 		rvn_run_target_t target;
+		memset(&target, 0, sizeof(target));
 		rvn_step_result_t ready = rvn_run_input_target(step, step->argv[1], &target);
 		if (ready != RVN_STEP_NEXT) return ready;
 		if (target.is_point) return rvn_run_fail(step, "the keys go to a widget or to the focus, not to a position");
@@ -960,6 +962,7 @@ static rvn_step_result_t rvn_step_keyboard(const rvn_step_t* step) {
 static rvn_step_result_t rvn_step_motion(const rvn_step_t* step) {
 	const char* command = step->argv[0];
 	rvn_run_target_t target;
+	memset(&target, 0, sizeof(target));
 	rvn_step_result_t ready = rvn_run_input_target(step, step->argv[1], &target);
 	double a = 0.0, b = 0.0, c = 0.0;
 	float x, y;
@@ -1053,6 +1056,7 @@ static rvn_step_result_t rvn_step_expect(const rvn_step_t* step) {
 	const char* state = step->argv[2];
 	const char* value = step->argc > 3 ? step->argv[3] : NULL;
 	rvn_run_target_t target;
+	memset(&target, 0, sizeof(target));
 	int found = spec[0] != '@' && rvn_run_target(spec, &target);
 	int ok;
 	const char* actual = "";
