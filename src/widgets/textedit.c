@@ -333,6 +333,12 @@ void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, R
 	edit->blink_start = rvn_clock_seconds();
 }
 
+int rvn_textedit_offset_at(const rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font_id, float size, float x) {
+	rvn_font_t* font = rvn_font_resolve(font_id);
+	if (!font) return 0;
+	return rvn_te_x_to_offset(edit, font, rvn_widget_font_size(widget, size), x + edit->scroll);
+}
+
 void rvn_textedit_mouse_drag(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font_id, float size, float x) {
 	rvn_font_t* font = rvn_font_resolve(font_id);
 	if (!font || !edit->mouse_selecting) return;
@@ -425,6 +431,18 @@ void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPaint
 		rvn_free(bullets);
 	} else {
 		rvn_paint_text(painter, font_id, size, area.x - edit->scroll, text_y, shown, shown_length, color);
+	}
+	if (edit->spelling && !edit->password && !composition) {
+		/* misspelled words, but not the one being typed at the caret */
+		const rvn_spell_line_t* spelling = edit->spelling;
+		rvn_color_t wave = rvn_widget_color(widget, R_COLOR_SPELLING);
+		int i;
+		for (i = 0; i < spelling->count; i++) {
+			int from = spelling->ranges[i * 2], to = spelling->ranges[i * 2 + 1];
+			if (to > edit->length || (focused && edit->caret >= from && edit->caret <= to)) continue;
+			rvn_paint_spelling(painter, area.x - edit->scroll + rvn_te_offset_to_x(edit, font, size, from),
+				area.x - edit->scroll + rvn_te_offset_to_x(edit, font, size, to), text_y + metrics.line_height, wave);
+		}
 	}
 	if (composition) {
 		float x = area.x - edit->scroll;

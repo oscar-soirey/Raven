@@ -479,6 +479,20 @@ static struct {
 	RReturnKey (*Rtext_input_get_return_key)(Rid);
 	void (*Rtext_input_set_changed_callback)(Rid, RTextChangedCallback, void*);
 	void (*Rtext_input_set_committed_callback)(Rid, RTextChangedCallback, void*);
+	void (*Rtext_input_set_spell_check)(Rid, int);
+	int (*Rtext_input_get_spell_check)(Rid);
+	void (*Rtext_input_set_spell_language)(Rid, const char*);
+	int (*Rspell_is_supported)(void);
+	int (*Rspell_get_language_count)(void);
+	const char* (*Rspell_get_language_at)(int);
+	int (*Rspell_set_language)(const char*);
+	const char* (*Rspell_get_language)(void);
+	int (*Rspell_check)(const char*, const char*);
+	int (*Rspell_get_misspelling)(int, int*, int*);
+	int (*Rspell_suggest)(const char*, const char*);
+	const char* (*Rspell_get_suggestion)(int);
+	void (*Rspell_learn)(const char*, const char*);
+	void (*Rspell_ignore)(const char*);
 	void (*Rspin_box_set_range)(Rid, double, double);
 	void (*Rspin_box_set_value)(Rid, double);
 	double (*Rspin_box_get_value)(Rid);
@@ -969,6 +983,9 @@ static struct {
 	const char* (*Rtext_editor_get_language)(Rid);
 	void (*Rtext_editor_set_markdown)(Rid, int);
 	int (*Rtext_editor_get_markdown)(Rid);
+	void (*Rtext_editor_set_spell_check)(Rid, int);
+	int (*Rtext_editor_get_spell_check)(Rid);
+	void (*Rtext_editor_set_spell_language)(Rid, const char*);
 	RToken (*Rtext_editor_get_token)(Rid, int, int);
 	void (*Rtext_editor_set_completion)(Rid, int);
 	void (*Rtext_editor_show_completions)(Rid);
@@ -1966,6 +1983,20 @@ static const struct {
 	{"Rtext_input_get_return_key", offsetof(__typeof__(rn), Rtext_input_get_return_key)},
 	{"Rtext_input_set_changed_callback", offsetof(__typeof__(rn), Rtext_input_set_changed_callback)},
 	{"Rtext_input_set_committed_callback", offsetof(__typeof__(rn), Rtext_input_set_committed_callback)},
+	{"Rtext_input_set_spell_check", offsetof(__typeof__(rn), Rtext_input_set_spell_check)},
+	{"Rtext_input_get_spell_check", offsetof(__typeof__(rn), Rtext_input_get_spell_check)},
+	{"Rtext_input_set_spell_language", offsetof(__typeof__(rn), Rtext_input_set_spell_language)},
+	{"Rspell_is_supported", offsetof(__typeof__(rn), Rspell_is_supported)},
+	{"Rspell_get_language_count", offsetof(__typeof__(rn), Rspell_get_language_count)},
+	{"Rspell_get_language_at", offsetof(__typeof__(rn), Rspell_get_language_at)},
+	{"Rspell_set_language", offsetof(__typeof__(rn), Rspell_set_language)},
+	{"Rspell_get_language", offsetof(__typeof__(rn), Rspell_get_language)},
+	{"Rspell_check", offsetof(__typeof__(rn), Rspell_check)},
+	{"Rspell_get_misspelling", offsetof(__typeof__(rn), Rspell_get_misspelling)},
+	{"Rspell_suggest", offsetof(__typeof__(rn), Rspell_suggest)},
+	{"Rspell_get_suggestion", offsetof(__typeof__(rn), Rspell_get_suggestion)},
+	{"Rspell_learn", offsetof(__typeof__(rn), Rspell_learn)},
+	{"Rspell_ignore", offsetof(__typeof__(rn), Rspell_ignore)},
 	{"Rspin_box_set_range", offsetof(__typeof__(rn), Rspin_box_set_range)},
 	{"Rspin_box_set_value", offsetof(__typeof__(rn), Rspin_box_set_value)},
 	{"Rspin_box_get_value", offsetof(__typeof__(rn), Rspin_box_get_value)},
@@ -2456,6 +2487,9 @@ static const struct {
 	{"Rtext_editor_get_language", offsetof(__typeof__(rn), Rtext_editor_get_language)},
 	{"Rtext_editor_set_markdown", offsetof(__typeof__(rn), Rtext_editor_set_markdown)},
 	{"Rtext_editor_get_markdown", offsetof(__typeof__(rn), Rtext_editor_get_markdown)},
+	{"Rtext_editor_set_spell_check", offsetof(__typeof__(rn), Rtext_editor_set_spell_check)},
+	{"Rtext_editor_get_spell_check", offsetof(__typeof__(rn), Rtext_editor_get_spell_check)},
+	{"Rtext_editor_set_spell_language", offsetof(__typeof__(rn), Rtext_editor_set_spell_language)},
 	{"Rtext_editor_get_token", offsetof(__typeof__(rn), Rtext_editor_get_token)},
 	{"Rtext_editor_set_completion", offsetof(__typeof__(rn), Rtext_editor_set_completion)},
 	{"Rtext_editor_show_completions", offsetof(__typeof__(rn), Rtext_editor_show_completions)},
@@ -12456,6 +12490,215 @@ static napi_value rn_w_Rtext_input_set_committed_callback(napi_env env, napi_cal
 	return result_;
 }
 
+static napi_value rn_w_Rtext_input_set_spell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtext_input_set_spell_check((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_input_get_spell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_input_get_spell_check((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_input_set_spell_language(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rtext_input_set_spell_language((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_is_supported(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rspell_is_supported();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_get_language_count(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rspell_get_language_count();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_get_language_at(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rspell_get_language_at((int)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rspell_set_language(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	int value_ = rn.Rspell_set_language(a0.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_get_language(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	result_ = rn_make_text(env, rn.Rspell_get_language());
+	return result_;
+}
+
+static napi_value rn_w_Rspell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	rn_str a1;
+	a0.heap = NULL;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rspell_check(a0.p, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_get_misspelling(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	int a1 = 0;
+	int a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rspell_get_misspelling((int)a0, &a1, &a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		{
+			const napi_value values_[3] = {result_, o0_, o1_};
+			result_ = rn_tuple(env, 3, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rspell_suggest(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	rn_str a1;
+	a0.heap = NULL;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rspell_suggest(a0.p, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_get_suggestion(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rspell_get_suggestion((int)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rspell_learn(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	rn_str a1;
+	a0.heap = NULL;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rspell_learn(a0.p, a1.p);
+done:
+	free(a0.heap);
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rspell_ignore(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	rn.Rspell_ignore(a0.p);
+done:
+	free(a0.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rspin_box_set_range(napi_env env, napi_callback_info info) {
 	size_t argc = 3;
 	napi_value argv[3];
@@ -20557,6 +20800,50 @@ static napi_value rn_w_Rtext_editor_get_markdown(napi_env env, napi_callback_inf
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	int value_ = rn.Rtext_editor_get_markdown((Rid)a0);
 	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_set_spell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtext_editor_set_spell_check((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_spell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_spell_check((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_set_spell_language(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rtext_editor_set_spell_language((Rid)a0, a1.p);
+done:
+	free(a1.heap);
 	return result_;
 }
 
@@ -30253,6 +30540,20 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtext_input_get_return_key", NULL, rn_w_Rtext_input_get_return_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_input_set_changed_callback", NULL, rn_w_Rtext_input_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_input_set_committed_callback", NULL, rn_w_Rtext_input_set_committed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_input_set_spell_check", NULL, rn_w_Rtext_input_set_spell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_input_get_spell_check", NULL, rn_w_Rtext_input_get_spell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_input_set_spell_language", NULL, rn_w_Rtext_input_set_spell_language, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_is_supported", NULL, rn_w_Rspell_is_supported, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_get_language_count", NULL, rn_w_Rspell_get_language_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_get_language_at", NULL, rn_w_Rspell_get_language_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_set_language", NULL, rn_w_Rspell_set_language, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_get_language", NULL, rn_w_Rspell_get_language, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_check", NULL, rn_w_Rspell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_get_misspelling", NULL, rn_w_Rspell_get_misspelling, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_suggest", NULL, rn_w_Rspell_suggest, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_get_suggestion", NULL, rn_w_Rspell_get_suggestion, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_learn", NULL, rn_w_Rspell_learn, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspell_ignore", NULL, rn_w_Rspell_ignore, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_set_range", NULL, rn_w_Rspin_box_set_range, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_set_value", NULL, rn_w_Rspin_box_set_value, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_get_value", NULL, rn_w_Rspin_box_get_value, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -30743,6 +31044,9 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtext_editor_get_language", NULL, rn_w_Rtext_editor_get_language, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_set_markdown", NULL, rn_w_Rtext_editor_set_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_get_markdown", NULL, rn_w_Rtext_editor_get_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_set_spell_check", NULL, rn_w_Rtext_editor_set_spell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_spell_check", NULL, rn_w_Rtext_editor_get_spell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_set_spell_language", NULL, rn_w_Rtext_editor_set_spell_language, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_get_token", NULL, rn_w_Rtext_editor_get_token, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_set_completion", NULL, rn_w_Rtext_editor_set_completion, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_show_completions", NULL, rn_w_Rtext_editor_show_completions, NULL, NULL, NULL, napi_enumerable, NULL},

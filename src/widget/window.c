@@ -2061,6 +2061,8 @@ static void rvn_window_mouse_button_send(rvn_window_t* window, RMouseButton butt
 		else rvn_widget_dispatch(target, &event);
 	} else {
 		int was_captured = window->capture != NULL;
+		/* a widget that opened a menu of its own on the release (the corrections of a misspelled word) keeps it */
+		uint32_t popups = window->popup_count;
 		target = window->capture ? window->capture : hit;
 		if (target && rvn_widget_is_enabled(target)) {
 			event = rvn_window_event(window, R_EVENT_MOUSE_UP);
@@ -2075,7 +2077,7 @@ static void rvn_window_mouse_button_send(rvn_window_t* window, RMouseButton butt
 			window->capture = NULL;
 			if (was_captured) rvn_window_refresh_hover(window);
 		}
-		if (button == R_MOUSE_RIGHT && hit && !(hit->flags & RVN_WF_DEAD) && !window->dead) {
+		if (button == R_MOUSE_RIGHT && hit && !(hit->flags & RVN_WF_DEAD) && !window->dead && window->popup_count <= popups) {
 			rvn_window_open_context_menu(window, hit);
 		}
 	}

@@ -290,6 +290,7 @@ void Rshutdown(void) {
 	rvn_dialogs_shutdown();
 	rvn_islands_shutdown();
 	rvn_pdf_shutdown();
+	rvn_spell_shutdown();
 	rvn_languages_shutdown();
 	rvn_fonts_shutdown();
 	rvn_shaders_shutdown();

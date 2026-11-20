@@ -467,6 +467,70 @@ extern "C" {
 	RAVEN_API void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 	/** @brief Called when Enter is pressed. This also fires the action of the widget. */
 	RAVEN_API void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
+	/**
+	 * @brief Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	 * a right click on one offers corrections (see SPELL CHECKING). Off by
+	 * default. A password is never checked.
+	 */
+	RAVEN_API void Rtext_input_set_spell_check(Rid text_input, int enabled);
+	RAVEN_API int Rtext_input_get_spell_check(Rid text_input);
+	/** @brief Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+	RAVEN_API void Rtext_input_set_spell_language(Rid text_input, const char* language);
+
+
+	/* ============================================================================
+	 *  SPELL CHECKING
+	 *
+	 * The checker of the system finds the misspelled words: NSSpellChecker on
+	 * macOS, the spell checker of Windows (8 and later), Enchant 2 or else
+	 * Hunspell on Linux and the BSDs (loaded at run time, with the
+	 * dictionaries installed). Raven has none on iOS, Android and the web:
+	 * Rspell_is_supported is then R_FALSE, nothing is ever underlined and the
+	 * other functions find nothing.
+	 *
+	 * A TextInput or a TextEditor with spell checking on (SpellCheck="true")
+	 * underlines the misspelled words, but not the one being typed at the
+	 * caret. A right click on one opens a menu: up to five corrections,
+	 * "Ignore Spelling" and "Add to Dictionary" (localization keys
+	 * Raven.SpellIgnore, Raven.SpellLearn, Raven.SpellNoGuesses).
+	 *
+	 * Languages are codes such as "en", "en_US" or "fr-FR"; a code the checker
+	 * does not have exactly falls back to one of the same language ("fr" for
+	 * "fr_CA"). The language used when none is given is the one of
+	 * Rspell_set_language, else that of the locale of the application
+	 * (Rlocale_get_language), else that of the system.
+	 * Byte offsets are offsets in the UTF-8 text.
+	 * ============================================================================ */
+
+	/** @brief R_TRUE when the system has a spell checker that Raven can use. */
+	RAVEN_API int Rspell_is_supported(void);
+	/** @brief The languages the checker has dictionaries for. */
+	RAVEN_API int Rspell_get_language_count(void);
+	RAVEN_API const char* Rspell_get_language_at(int index);
+	/**
+	 * @brief The language used when a widget or a call gives none. NULL
+	 * follows the locale again.
+	 * @return R_FALSE when the checker has no dictionary for it (the default
+	 * of the system is then used).
+	 */
+	RAVEN_API int Rspell_set_language(const char* language);
+	/** @brief The code of the language used by default, as the checker names it; "" when there is no checker. */
+	RAVEN_API const char* Rspell_get_language(void);
+	/**
+	 * @brief Checks a text. `language` NULL: the default.
+	 * @return The number of misspelled words, read with Rspell_get_misspelling.
+	 */
+	RAVEN_API int Rspell_check(const char* text, const char* language);
+	/** @brief A misspelled word found by the last Rspell_check: bytes [start, end) of its text. */
+	RAVEN_API int Rspell_get_misspelling(int index, int* start, int* end);
+	/** @return The number of corrections for a word (best first), read with Rspell_get_suggestion. */
+	RAVEN_API int Rspell_suggest(const char* word, const char* language);
+	/** @brief A correction found by the last Rspell_suggest; valid until the next call. */
+	RAVEN_API const char* Rspell_get_suggestion(int index);
+	/** @brief Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). */
+	RAVEN_API void Rspell_learn(const char* word, const char* language);
+	/** @brief The word is no longer a misspelling, in every language, until the application quits. */
+	RAVEN_API void Rspell_ignore(const char* word);
 
 
 	/* ============================================================================
