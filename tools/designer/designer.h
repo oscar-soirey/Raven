@@ -43,6 +43,8 @@ int  ds_file_exists(const char* path);
 int  ds_make_dirs(const char* path);
 /** Seconds since 1970 of the last change of a file, 0 when missing. */
 double ds_file_time(const char* path);
+/* The size of a file in bytes, -1 when it cannot be read. */
+long long ds_file_size(const char* path);
 /** The folder of the program itself, with no slash at the end. */
 const char* ds_exe_dir(void);
 /** "a/b" + "c" -> "a/b/c" (malloc). */

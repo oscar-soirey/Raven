@@ -250,6 +250,15 @@ double ds_file_time(const char* path) {
 	return (double)t.QuadPart / 10000000.0 - 11644473600.0;
 }
 
+long long ds_file_size(const char* path) {
+	WIN32_FILE_ATTRIBUTE_DATA data;
+	wchar_t* wide = widen(path);
+	BOOL ok = GetFileAttributesExW(wide, GetFileExInfoStandard, &data);
+	free(wide);
+	if (!ok) return -1;
+	return (long long)(((unsigned long long)data.nFileSizeHigh << 32) | data.nFileSizeLow);
+}
+
 const char* ds_exe_dir(void) {
 	static char dir[1024];
 	if (!dir[0]) {
@@ -392,6 +401,12 @@ double ds_file_time(const char* path) {
 #else
 	return (double)s.st_mtim.tv_sec + (double)s.st_mtim.tv_nsec * 1e-9;
 #endif
+}
+
+long long ds_file_size(const char* path) {
+	struct stat s;
+	if (stat(path, &s) != 0) return -1;
+	return (long long)s.st_size;
 }
 
 const char* ds_exe_dir(void) {
