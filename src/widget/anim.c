@@ -54,6 +54,15 @@ void rvn_paint_keep_animating(RPainter* painter) {
 	if (painter->window) rvn_atomic_store(&painter->window->animating, 1);
 }
 
+void rvn_paint_wake_after(RPainter* painter, double seconds) {
+	double ms = ceil(seconds * 1000.0);
+	if (!painter->window) return;
+	if (!(ms >= 0.0)) ms = 0.0;
+	if (ms > 1e9) ms = 1e9;
+	/* (the soonest is the largest value: 0 means none) */
+	rvn_atomic_max(&painter->window->wake_request, 0x7FFFFFFF - (int)ms);
+}
+
 /** Advances the spring by `dt` seconds. */
 static void rvn_spring_step(RSpring* spring, float target, RMotion motion, float dt) {
 	rvn_motion_params_t params = rvn_motion_params(motion);

@@ -393,6 +393,53 @@ extern "C" {
 	RAVEN_API void Rimage_set_region(Rid image, float min_u, float min_v, float max_u, float max_v);
 	RAVEN_API void Rimage_set_corner_radius(Rid image, float radius);
 
+	/*
+	 * Animated images. An Image whose texture is an animated GIF or APNG
+	 * (Rtexture_create_from_file, Source="..." in XML...) plays it: each Image
+	 * has its own playback, driven by the clock of the animations
+	 * (Rset_animation_speed, Rset_animation_time_step, Rtest_set_deterministic).
+	 * Frames are only produced while the Image is painted: hidden, scrolled
+	 * away or in a window that is not shown, it asks for no frame and goes on
+	 * from where it was when it is shown again. When the animations are off
+	 * (Rset_animations_enabled, reduced motion) it stays on its frame.
+	 * Frames of 10 ms or less last 100 ms, as in browsers. Other widgets that
+	 * draw such a texture show its first frame.
+	 */
+
+	/** @brief R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). */
+	RAVEN_API int Rimage_is_animated(Rid image);
+	/** @return The frames of its animation; 1 for a still image, 0 without a texture. */
+	RAVEN_API int Rimage_get_frame_count(Rid image);
+	/** @return The seconds one play of its animation lasts (0 for a still image). */
+	RAVEN_API double Rimage_get_duration(Rid image);
+	/** @return The seconds a frame of its animation is shown (0 for a frame that does not exist). */
+	RAVEN_API double Rimage_get_frame_delay(Rid image, int frame);
+	/**
+	 * @brief Plays the animation from the frame it is on (from the first
+	 * again when it had finished). An Image plays as soon as it is given an
+	 * animated texture, unless XML says Animate="false".
+	 */
+	RAVEN_API void Rimage_play(Rid image);
+	/** @brief Stops the animation on the frame it is on. */
+	RAVEN_API void Rimage_pause(Rid image);
+	/** @brief Stops the animation and shows its first frame. */
+	RAVEN_API void Rimage_stop(Rid image);
+	RAVEN_API int Rimage_is_playing(Rid image);
+	/** @brief Shows a frame (from 0), playing on from it if it plays. */
+	RAVEN_API void Rimage_set_frame(Rid image, int frame);
+	RAVEN_API int Rimage_get_frame(Rid image);
+	/**
+	 * @brief How many times the animation plays before it stops on its last
+	 * frame: 0 forever, -1 what the file says (the default). XML: Loop
+	 * (a number; also Forever, Once).
+	 */
+	RAVEN_API void Rimage_set_loop_count(Rid image, int count);
+	/** @return The plays of the animation (0: forever), the file's unless it was set. */
+	RAVEN_API int Rimage_get_loop_count(Rid image);
+	/** @brief Called when the animation stops after its last play (at the next frame), before the action of the image. */
+	typedef void (*RImageFinishedCallback)(Rid image, void* user_data);
+	RAVEN_API void Rimage_set_finished_callback(Rid image, RImageFinishedCallback callback, void* user_data);
+
 
 	/* ============================================================================
 	 *  TEXT INPUT (single line)

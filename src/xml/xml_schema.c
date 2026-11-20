@@ -249,6 +249,8 @@ static const rvn_schema_attribute_t g_image[] = {
 	N("CornerRadius", "Rounds the corners."),
 	V("Region", "Part of the image shown: \"minu,minv,maxu,maxv\" from 0 to 1."),
 	B("TintText", "Tinted with the color of the text around it: white icons that follow the theme."),
+	B("Animate", "An animated GIF or APNG plays (default); false: it stays on its first frame."),
+	N("Loop", "Times an animation plays, 0 for forever. Default: what the file says."),
 };
 static const rvn_schema_attribute_t g_text_input[] = {
 	T("Text", "The text."),

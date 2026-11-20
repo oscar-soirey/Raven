@@ -1409,6 +1409,8 @@ pub type RLabelLinkCallback = Option<unsafe extern "C" fn(label: Rid, url: *cons
 pub type RButtonClickedCallback = Option<unsafe extern "C" fn(button: Rid, user_data: *mut c_void)>;
 pub type RCheckboxChangedCallback = Option<unsafe extern "C" fn(checkbox: Rid, checked: c_int, user_data: *mut c_void)>;
 pub type RSliderChangedCallback = Option<unsafe extern "C" fn(slider: Rid, value: f32, user_data: *mut c_void)>;
+/// Called when the animation stops after its last play (at the next frame), before the action of the image.
+pub type RImageFinishedCallback = Option<unsafe extern "C" fn(image: Rid, user_data: *mut c_void)>;
 pub type RTextChangedCallback = Option<unsafe extern "C" fn(text_input: Rid, text: *const c_char, user_data: *mut c_void)>;
 pub type RSpinBoxChangedCallback = Option<unsafe extern "C" fn(spin_box: Rid, value: f64, user_data: *mut c_void)>;
 pub type RComboBoxChangedCallback = Option<unsafe extern "C" fn(combo_box: Rid, index: c_int, user_data: *mut c_void)>;
@@ -3015,7 +3017,8 @@ extern "C" {
     /// size Font size; 0 uses R_METRIC_FONT_SIZE.
     pub fn Rfont_measure_text(font: Rid, size: f32, text: *const c_char, width: *mut f32, height: *mut f32);
     /// Creates a texture from the content of an image file (PNG, JPEG,
-    /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+    /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+    /// animated GIF or APNG keeps its frames: an Image showing it plays them.
     /// Returns: R_INVALID_ID on failure.
     pub fn Rtexture_create(data: *const c_char, data_size: usize) -> Rid;
     /// Same as Rtexture_create, decoded on a worker thread. The handle
@@ -3067,6 +3070,18 @@ extern "C" {
     /// Returns: The pixels, to release with Rpixels_free; NULL when the data
     /// is not an image Raven can read.
     pub fn Rimage_decode(data: *const c_void, data_size: usize, width: *mut c_int, height: *mut c_int) -> *mut u8;
+    /// Reads what an image file in memory holds without keeping its
+    /// pixels: its size, its frames (1 for a still image, more for an animated
+    /// GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+    /// Each pointer may be NULL.
+    /// Returns: R_FALSE when the data is not an image Raven can read.
+    pub fn Rimage_decode_info(data: *const c_void, data_size: usize, width: *mut c_int, height: *mut c_int, frame_count: *mut c_int, loop_count: *mut c_int) -> c_int;
+    /// Decodes one frame of an animated GIF or APNG into tightly packed
+    /// RGBA8 pixels, composed as it is shown (the frames before it drawn and
+    /// disposed of). Frame 0 of a still image is the image. Thread-safe.
+    /// delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+    /// Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+    pub fn Rimage_decode_frame(data: *const c_void, data_size: usize, frame: c_int, width: *mut c_int, height: *mut c_int, delay: *mut f64) -> *mut u8;
     /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
     pub fn Rpixels_free(pixels: *mut u8);
     /// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
@@ -3489,6 +3504,33 @@ extern "C" {
     /// Part of the texture to show, in UV coordinates. Default: 0, 0, 1, 1.
     pub fn Rimage_set_region(image: Rid, min_u: f32, min_v: f32, max_u: f32, max_v: f32);
     pub fn Rimage_set_corner_radius(image: Rid, radius: f32);
+    /// R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+    pub fn Rimage_is_animated(image: Rid) -> c_int;
+    /// Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+    pub fn Rimage_get_frame_count(image: Rid) -> c_int;
+    /// Returns: The seconds one play of its animation lasts (0 for a still image).
+    pub fn Rimage_get_duration(image: Rid) -> f64;
+    /// Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+    pub fn Rimage_get_frame_delay(image: Rid, frame: c_int) -> f64;
+    /// Plays the animation from the frame it is on (from the first
+    /// again when it had finished). An Image plays as soon as it is given an
+    /// animated texture, unless XML says Animate="false".
+    pub fn Rimage_play(image: Rid);
+    /// Stops the animation on the frame it is on.
+    pub fn Rimage_pause(image: Rid);
+    /// Stops the animation and shows its first frame.
+    pub fn Rimage_stop(image: Rid);
+    pub fn Rimage_is_playing(image: Rid) -> c_int;
+    /// Shows a frame (from 0), playing on from it if it plays.
+    pub fn Rimage_set_frame(image: Rid, frame: c_int);
+    pub fn Rimage_get_frame(image: Rid) -> c_int;
+    /// How many times the animation plays before it stops on its last
+    /// frame: 0 forever, -1 what the file says (the default). XML: Loop
+    /// (a number; also Forever, Once).
+    pub fn Rimage_set_loop_count(image: Rid, count: c_int);
+    /// Returns: The plays of the animation (0: forever), the file's unless it was set.
+    pub fn Rimage_get_loop_count(image: Rid) -> c_int;
+    pub fn Rimage_set_finished_callback(image: Rid, callback: RImageFinishedCallback, user_data: *mut c_void);
     pub fn Rtext_input_set_text(text_input: Rid, text: *const c_char);
     pub fn Rtext_input_get_text(text_input: Rid) -> *const c_char;
     /// Dimmed text shown while the input is empty.

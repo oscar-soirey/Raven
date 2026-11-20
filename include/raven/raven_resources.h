@@ -98,7 +98,8 @@ extern "C" {
 
 	/**
 	 * @brief Creates a texture from the content of an image file (PNG, JPEG,
-	 * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+	 * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+	 * animated GIF or APNG keeps its frames: an Image showing it plays them.
 	 * @return R_INVALID_ID on failure.
 	 */
 	RAVEN_API Rid Rtexture_create(const char* data, size_t data_size);
@@ -178,6 +179,22 @@ extern "C" {
 	 * is not an image Raven can read.
 	 */
 	RAVEN_API uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* height);
+	/**
+	 * @brief Reads what an image file in memory holds without keeping its
+	 * pixels: its size, its frames (1 for a still image, more for an animated
+	 * GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+	 * Each pointer may be NULL.
+	 * @return R_FALSE when the data is not an image Raven can read.
+	 */
+	RAVEN_API int Rimage_decode_info(const void* data, size_t data_size, int* width, int* height, int* frame_count, int* loop_count);
+	/**
+	 * @brief Decodes one frame of an animated GIF or APNG into tightly packed
+	 * RGBA8 pixels, composed as it is shown (the frames before it drawn and
+	 * disposed of). Frame 0 of a still image is the image. Thread-safe.
+	 * @param delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+	 * @return The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+	 */
+	RAVEN_API uint8_t* Rimage_decode_frame(const void* data, size_t data_size, int frame, int* width, int* height, double* delay);
 	/** @brief Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. */
 	RAVEN_API void Rpixels_free(uint8_t* pixels);
 	/**

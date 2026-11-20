@@ -1103,6 +1103,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 
 	rvn_atomic_store(&window->realtime_viewports, 0);
 	rvn_atomic_store(&window->animating, 0);
+	rvn_atomic_store(&window->wake_request, 0);
 	rvn_window_paint_background(window, &painter);
 	if (window->root) {
 		rvn_widget_paint(window->root, &painter);
@@ -1148,6 +1149,11 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	}
 	rvn_window_paint_tooltip(window, &painter);
 	rvn_inspector_paint(window, &painter);
+	/* the frame some widget asked for later (a GIF), counted from the time of this one */
+	{
+		int wake = rvn_atomic_load(&window->wake_request);
+		window->wake_time = wake > 0 ? start + (double)(0x7FFFFFFF - wake) / 1000.0 : 0.0;
+	}
 	/* color filters for the color blind (core/accessibility.c) */
 	rvn_a11y_filter_instances(frame->list.instances, frame->list.instance_count);
 	/* what the screen reader must be told after this frame */
@@ -1212,10 +1218,15 @@ static double rvn_window_frame_wait(rvn_window_t* window) {
 	return g_rvn.platform->window_frame_wait(window->platform);
 }
 
+/* A frame was asked for at a time that has come (rvn_paint_wake_after). */
+static int rvn_window_wake_due(const rvn_window_t* window) {
+	return window->wake_time > 0.0 && rvn_clock_seconds() >= window->wake_time;
+}
+
 static int rvn_window_wants_paint(rvn_window_t* window) {
 	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
 	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
-		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
+		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0 || rvn_window_wake_due(window);
 }
 
 double rvn_window_frame_in(rvn_window_t* window) {
@@ -1223,6 +1234,11 @@ double rvn_window_frame_in(rvn_window_t* window) {
 	if (window->needs_layout) return 0.0;
 	/* what moves is only worth stepping when it can be shown */
 	if (window->layout_spring_count > 0 || rvn_window_wants_paint(window)) return rvn_window_frame_wait(window);
+	/* a frame asked for later: the loop sleeps until then (only while it can be shown) */
+	if (window->wake_time > 0.0 && rvn_window_can_paint(window) && window->visible) {
+		double wait = window->wake_time - rvn_clock_seconds();
+		return wait > 0.0 ? wait : 0.0;
+	}
 	return -1.0;
 }
 
@@ -1231,7 +1247,8 @@ int rvn_window_is_settled(rvn_window_t* window) {
 	if (window->needs_layout || window->layout_spring_count > 0 || rvn_touch_animating(window)) return R_FALSE;
 	/* (what cannot be painted, hidden or in the background, waits for nothing) */
 	if (!rvn_window_can_paint(window) || !window->visible) return R_TRUE;
-	return !window->needs_paint && rvn_atomic_load(&window->animating) == 0 && rvn_atomic_load(&window->redraw_requested) == 0;
+	return !window->needs_paint && rvn_atomic_load(&window->animating) == 0 && rvn_atomic_load(&window->redraw_requested) == 0 &&
+		window->wake_time <= 0.0;
 }
 
 int rvn_window_wants_frame(rvn_window_t* window) {
@@ -1300,7 +1317,8 @@ void rvn_window_update(rvn_window_t* window) {
 	rvn_window_step_layout_springs(window);
 	if (window->touch && rvn_touch_step(window)) window->needs_paint = R_TRUE;
 	if (window->dead) return;
-	if (window->continuous || rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->animating) != 0) {
+	if (window->continuous || rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->animating) != 0 ||
+		rvn_window_wake_due(window)) {
 		window->needs_paint = R_TRUE;
 	}
 	/* the menu bar of the system follows the MenuBar of the window */

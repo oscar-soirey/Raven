@@ -1,0 +1,48 @@
+<!-- Animated GIF and APNG files in Image widgets. main.c drives the buttons, the slider and the reduced motion switch. -->
+<Window Title="Raven animated images" Width="860" Height="440">
+	<VBox Spacing="16" Slot.Padding="24">
+		<HBox Spacing="12">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Animated images" TextSize="26"/>
+				<Label Text="GIF and APNG play in an Image, on the clock of the animations, only while they are shown" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="reduce" Text="Reduce motion" Style="Switch" OnChanged="anim.reduce" Slot.VAlign="Center"/>
+		</HBox>
+
+		<UniformGrid Columns="3" Spacing="16" Slot.Fill="1">
+			<!-- 1. a spinner: a GIF with a transparent color, each frame cleared after it (disposal 2), forever -->
+			<Border CornerRadius="14" Padding="18">
+				<VBox Spacing="8">
+					<Image Name="spinner" Source="spinner.gif" Width="96" Height="96" Slot.HAlign="Center" Slot.Fill="1"/>
+					<Label Text="spinner.gif" TextSize="16" Slot.HAlign="Center"/>
+					<Label Text="GIF, transparent color, loops forever" Opacity="0.6" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<!-- 2. a ball: an APNG with an alpha channel (the soft shadow); the slider below shows its frames -->
+			<Border CornerRadius="14" Padding="18">
+				<VBox Spacing="8">
+					<Image Name="ball" Source="ball.png" Width="120" Height="100" Slot.HAlign="Center" Slot.Fill="1"/>
+					<Label Name="ball.info" Text="ball.png" TextSize="16" Slot.HAlign="Center"/>
+					<Label Text="APNG, alpha, loops forever" Opacity="0.6" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<!-- 3. a countdown that plays once (the file says twice) and fires its action at the end -->
+			<Border CornerRadius="14" Padding="18">
+				<VBox Spacing="8">
+					<Image Name="countdown" Source="countdown.gif" Loop="1" Action="anim.finished" Width="96" Height="96" CornerRadius="48" Slot.HAlign="Center" Slot.Fill="1"/>
+					<Label Name="countdown.info" Text="countdown.gif" TextSize="16" Slot.HAlign="Center"/>
+					<Label Text="GIF, plays once, then its action" Opacity="0.6" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+		</UniformGrid>
+
+		<HBox Spacing="10">
+			<Button Name="play" Text="Play" Style="Primary" OnClicked="anim.play"/>
+			<Button Text="Pause" OnClicked="anim.pause"/>
+			<Button Text="Stop" OnClicked="anim.stop"/>
+			<Button Text="Replay countdown" OnClicked="anim.replay"/>
+			<Label Text="Frame of the ball" Opacity="0.6" Slot.VAlign="Center"/>
+			<Slider Name="seek" Min="0" Max="23" Step="1" Slot.Fill="1" Slot.VAlign="Center"/>
+		</HBox>
+	</VBox>
+</Window>

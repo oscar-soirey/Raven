@@ -2515,6 +2515,14 @@ def _adapt_RSliderChangedCallback(function):
         function(slider, value, user_data)
     return call
 
+RImageFinishedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RImageFinishedCallback(function):
+    def call(image, user_data):
+        function(image, user_data)
+    return call
+
 RTextChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_void_p)
 
 
@@ -5592,7 +5600,8 @@ _lib.Rtexture_create.restype = ctypes.c_uint32
 
 def Rtexture_create(data):
     """Creates a texture from the content of an image file (PNG, JPEG,
-    BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+    BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+    animated GIF or APNG keeps its frames: an Image showing it plays them.
     Returns: R_INVALID_ID on failure."""
     data = _s(data)
     return _lib.Rtexture_create(data, len(data) if data is not None else 0)
@@ -5713,6 +5722,43 @@ def Rimage_decode(data):
     height_ = ctypes.c_int()
     result = _lib.Rimage_decode(data, len(data) if data is not None else 0, ctypes.byref(width_), ctypes.byref(height_))
     return (result, width_.value, height_.value)
+
+
+_lib.Rimage_decode_info.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rimage_decode_info.restype = ctypes.c_int
+
+
+def Rimage_decode_info(data):
+    """Reads what an image file in memory holds without keeping its
+    pixels: its size, its frames (1 for a still image, more for an animated
+    GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+    Each pointer may be NULL.
+    Returns: R_FALSE when the data is not an image Raven can read."""
+    data = bytes(data) if data is not None else None
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    frame_count_ = ctypes.c_int()
+    loop_count_ = ctypes.c_int()
+    result = _lib.Rimage_decode_info(data, len(data) if data is not None else 0, ctypes.byref(width_), ctypes.byref(height_), ctypes.byref(frame_count_), ctypes.byref(loop_count_))
+    return (result, width_.value, height_.value, frame_count_.value, loop_count_.value)
+
+
+_lib.Rimage_decode_frame.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_double)]
+_lib.Rimage_decode_frame.restype = ctypes.c_void_p
+
+
+def Rimage_decode_frame(data, frame):
+    """Decodes one frame of an animated GIF or APNG into tightly packed
+    RGBA8 pixels, composed as it is shown (the frames before it drawn and
+    disposed of). Frame 0 of a still image is the image. Thread-safe.
+    delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+    Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist."""
+    data = bytes(data) if data is not None else None
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    delay_ = ctypes.c_double()
+    result = _lib.Rimage_decode_frame(data, len(data) if data is not None else 0, frame, ctypes.byref(width_), ctypes.byref(height_), ctypes.byref(delay_))
+    return (result, width_.value, height_.value, delay_.value)
 
 
 _lib.Rpixels_free.argtypes = [ctypes.c_void_p]
@@ -7497,6 +7543,124 @@ _lib.Rimage_set_corner_radius.restype = None
 
 def Rimage_set_corner_radius(image, radius):
     _lib.Rimage_set_corner_radius(image, radius)
+
+
+_lib.Rimage_is_animated.argtypes = [ctypes.c_uint32]
+_lib.Rimage_is_animated.restype = ctypes.c_int
+
+
+def Rimage_is_animated(image):
+    """R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more)."""
+    return _lib.Rimage_is_animated(image)
+
+
+_lib.Rimage_get_frame_count.argtypes = [ctypes.c_uint32]
+_lib.Rimage_get_frame_count.restype = ctypes.c_int
+
+
+def Rimage_get_frame_count(image):
+    """Returns: The frames of its animation; 1 for a still image, 0 without a texture."""
+    return _lib.Rimage_get_frame_count(image)
+
+
+_lib.Rimage_get_duration.argtypes = [ctypes.c_uint32]
+_lib.Rimage_get_duration.restype = ctypes.c_double
+
+
+def Rimage_get_duration(image):
+    """Returns: The seconds one play of its animation lasts (0 for a still image)."""
+    return _lib.Rimage_get_duration(image)
+
+
+_lib.Rimage_get_frame_delay.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rimage_get_frame_delay.restype = ctypes.c_double
+
+
+def Rimage_get_frame_delay(image, frame):
+    """Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist)."""
+    return _lib.Rimage_get_frame_delay(image, frame)
+
+
+_lib.Rimage_play.argtypes = [ctypes.c_uint32]
+_lib.Rimage_play.restype = None
+
+
+def Rimage_play(image):
+    """Plays the animation from the frame it is on (from the first
+    again when it had finished). An Image plays as soon as it is given an
+    animated texture, unless XML says Animate="false"."""
+    _lib.Rimage_play(image)
+
+
+_lib.Rimage_pause.argtypes = [ctypes.c_uint32]
+_lib.Rimage_pause.restype = None
+
+
+def Rimage_pause(image):
+    """Stops the animation on the frame it is on."""
+    _lib.Rimage_pause(image)
+
+
+_lib.Rimage_stop.argtypes = [ctypes.c_uint32]
+_lib.Rimage_stop.restype = None
+
+
+def Rimage_stop(image):
+    """Stops the animation and shows its first frame."""
+    _lib.Rimage_stop(image)
+
+
+_lib.Rimage_is_playing.argtypes = [ctypes.c_uint32]
+_lib.Rimage_is_playing.restype = ctypes.c_int
+
+
+def Rimage_is_playing(image):
+    return _lib.Rimage_is_playing(image)
+
+
+_lib.Rimage_set_frame.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rimage_set_frame.restype = None
+
+
+def Rimage_set_frame(image, frame):
+    """Shows a frame (from 0), playing on from it if it plays."""
+    _lib.Rimage_set_frame(image, frame)
+
+
+_lib.Rimage_get_frame.argtypes = [ctypes.c_uint32]
+_lib.Rimage_get_frame.restype = ctypes.c_int
+
+
+def Rimage_get_frame(image):
+    return _lib.Rimage_get_frame(image)
+
+
+_lib.Rimage_set_loop_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rimage_set_loop_count.restype = None
+
+
+def Rimage_set_loop_count(image, count):
+    """How many times the animation plays before it stops on its last
+    frame: 0 forever, -1 what the file says (the default). XML: Loop
+    (a number; also Forever, Once)."""
+    _lib.Rimage_set_loop_count(image, count)
+
+
+_lib.Rimage_get_loop_count.argtypes = [ctypes.c_uint32]
+_lib.Rimage_get_loop_count.restype = ctypes.c_int
+
+
+def Rimage_get_loop_count(image):
+    """Returns: The plays of the animation (0: forever), the file's unless it was set."""
+    return _lib.Rimage_get_loop_count(image)
+
+
+_lib.Rimage_set_finished_callback.argtypes = [ctypes.c_uint32, RImageFinishedCallback, ctypes.c_void_p]
+_lib.Rimage_set_finished_callback.restype = None
+
+
+def Rimage_set_finished_callback(image, callback, user_data=None):
+    _lib.Rimage_set_finished_callback(image, _callback(RImageFinishedCallback, _adapt_RImageFinishedCallback, callback), user_data)
 
 
 _lib.Rtext_input_set_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]

@@ -408,6 +408,8 @@ const _symbols = {
 	Rtexture_create_from_pixels: { args: ["ptr", "i32", "i32"], returns: "u32" },
 	Rtexture_update: { args: ["u32", "ptr", "i32", "i32"], returns: "void" },
 	Rimage_decode: { args: ["ptr", "usize", "ptr", "ptr"], returns: "ptr" },
+	Rimage_decode_info: { args: ["ptr", "usize", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rimage_decode_frame: { args: ["ptr", "usize", "i32", "ptr", "ptr", "ptr"], returns: "ptr" },
 	Rpixels_free: { args: ["ptr"], returns: "void" },
 	Rimage_encode_png: { args: ["ptr", "i32", "i32", "ptr"], returns: "ptr" },
 	Rimage_save_png: { args: ["ptr", "ptr", "i32", "i32"], returns: "i32" },
@@ -599,6 +601,19 @@ const _symbols = {
 	Rimage_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rimage_set_region: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rimage_set_corner_radius: { args: ["u32", "f32"], returns: "void" },
+	Rimage_is_animated: { args: ["u32"], returns: "i32" },
+	Rimage_get_frame_count: { args: ["u32"], returns: "i32" },
+	Rimage_get_duration: { args: ["u32"], returns: "f64" },
+	Rimage_get_frame_delay: { args: ["u32", "i32"], returns: "f64" },
+	Rimage_play: { args: ["u32"], returns: "void" },
+	Rimage_pause: { args: ["u32"], returns: "void" },
+	Rimage_stop: { args: ["u32"], returns: "void" },
+	Rimage_is_playing: { args: ["u32"], returns: "i32" },
+	Rimage_set_frame: { args: ["u32", "i32"], returns: "void" },
+	Rimage_get_frame: { args: ["u32"], returns: "i32" },
+	Rimage_set_loop_count: { args: ["u32", "i32"], returns: "void" },
+	Rimage_get_loop_count: { args: ["u32"], returns: "i32" },
+	Rimage_set_finished_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_input_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_input_get_text: { args: ["u32"], returns: "cstring" },
 	Rtext_input_set_placeholder: { args: ["u32", "ptr"], returns: "void" },
@@ -6857,6 +6872,22 @@ function _adapt_RSliderChangedCallback(function_: RSliderChangedCallback | Point
 	}, { args: ["u32", "f32", "ptr"], returns: "void", threadsafe }));
 }
 
+/** Called when the animation stops after its last play (at the next frame), before the action of the image. */
+export type RImageFinishedCallback = (image: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RImageFinishedCallback(function_: RImageFinishedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((image: number, user_data: Pointer | null): void => {
+		try {
+			function_(image, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
 export type RTextChangedCallback = (text_input: Rid, text: string | null, user_data: Pointer | null) => void;
 
 function _adapt_RTextChangedCallback(function_: RTextChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -9821,7 +9852,8 @@ export function Rfont_measure_text(font: Rid, size: number, text: string | null)
 
 /**
  * Creates a texture from the content of an image file (PNG, JPEG,
- * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+ * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+ * animated GIF or APNG keeps its frames: an Image showing it plays them.
  * Returns: R_INVALID_ID on failure.
  */
 export function Rtexture_create(data: string | null): Rid {
@@ -9917,6 +9949,37 @@ export function Rimage_decode(data: NodeJS.TypedArray | null): [result: Pointer 
 	const height_ = new Int32Array(1);
 	const result_ = _lib.Rimage_decode(_b(data), data?.byteLength ?? 0, width_, height_) as Pointer | null;
 	return [result_, width_[0]!, height_[0]!];
+}
+
+/**
+ * Reads what an image file in memory holds without keeping its
+ * pixels: its size, its frames (1 for a still image, more for an animated
+ * GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+ * Each pointer may be NULL.
+ * Returns: R_FALSE when the data is not an image Raven can read.
+ */
+export function Rimage_decode_info(data: NodeJS.TypedArray | null): [result: number, width: number, height: number, frame_count: number, loop_count: number] {
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const frame_count_ = new Int32Array(1);
+	const loop_count_ = new Int32Array(1);
+	const result_ = _lib.Rimage_decode_info(_b(data), data?.byteLength ?? 0, width_, height_, frame_count_, loop_count_);
+	return [result_, width_[0]!, height_[0]!, frame_count_[0]!, loop_count_[0]!];
+}
+
+/**
+ * Decodes one frame of an animated GIF or APNG into tightly packed
+ * RGBA8 pixels, composed as it is shown (the frames before it drawn and
+ * disposed of). Frame 0 of a still image is the image. Thread-safe.
+ * delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+ * Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+ */
+export function Rimage_decode_frame(data: NodeJS.TypedArray | null, frame: number): [result: Pointer | null, width: number, height: number, delay: number] {
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const delay_ = new Float64Array(1);
+	const result_ = _lib.Rimage_decode_frame(_b(data), data?.byteLength ?? 0, frame, width_, height_, delay_) as Pointer | null;
+	return [result_, width_[0]!, height_[0]!, delay_[0]!];
 }
 
 /** Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. */
@@ -11013,6 +11076,76 @@ export function Rimage_set_region(image: Rid, min_u: number, min_v: number, max_
 
 export function Rimage_set_corner_radius(image: Rid, radius: number): void {
 	_lib.Rimage_set_corner_radius(image, radius);
+}
+
+/** R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). */
+export function Rimage_is_animated(image: Rid): number {
+	return _lib.Rimage_is_animated(image);
+}
+
+/** Returns: The frames of its animation; 1 for a still image, 0 without a texture. */
+export function Rimage_get_frame_count(image: Rid): number {
+	return _lib.Rimage_get_frame_count(image);
+}
+
+/** Returns: The seconds one play of its animation lasts (0 for a still image). */
+export function Rimage_get_duration(image: Rid): number {
+	return _lib.Rimage_get_duration(image);
+}
+
+/** Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist). */
+export function Rimage_get_frame_delay(image: Rid, frame: number): number {
+	return _lib.Rimage_get_frame_delay(image, frame);
+}
+
+/**
+ * Plays the animation from the frame it is on (from the first
+ * again when it had finished). An Image plays as soon as it is given an
+ * animated texture, unless XML says Animate="false".
+ */
+export function Rimage_play(image: Rid): void {
+	_lib.Rimage_play(image);
+}
+
+/** Stops the animation on the frame it is on. */
+export function Rimage_pause(image: Rid): void {
+	_lib.Rimage_pause(image);
+}
+
+/** Stops the animation and shows its first frame. */
+export function Rimage_stop(image: Rid): void {
+	_lib.Rimage_stop(image);
+}
+
+export function Rimage_is_playing(image: Rid): number {
+	return _lib.Rimage_is_playing(image);
+}
+
+/** Shows a frame (from 0), playing on from it if it plays. */
+export function Rimage_set_frame(image: Rid, frame: number): void {
+	_lib.Rimage_set_frame(image, frame);
+}
+
+export function Rimage_get_frame(image: Rid): number {
+	return _lib.Rimage_get_frame(image);
+}
+
+/**
+ * How many times the animation plays before it stops on its last
+ * frame: 0 forever, -1 what the file says (the default). XML: Loop
+ * (a number; also Forever, Once).
+ */
+export function Rimage_set_loop_count(image: Rid, count: number): void {
+	_lib.Rimage_set_loop_count(image, count);
+}
+
+/** Returns: The plays of the animation (0: forever), the file's unless it was set. */
+export function Rimage_get_loop_count(image: Rid): number {
+	return _lib.Rimage_get_loop_count(image);
+}
+
+export function Rimage_set_finished_callback(image: Rid, callback: RImageFinishedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rimage_set_finished_callback(image, _adapt_RImageFinishedCallback(callback), user_data);
 }
 
 export function Rtext_input_set_text(text_input: Rid, text: string | null): void {

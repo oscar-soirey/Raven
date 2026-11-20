@@ -348,6 +348,8 @@ void rvn_widget_destroy(rvn_widget_t* widget);
 int rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
 /** Removes the widget from its parent without destroying it. */
 void rvn_widget_detach(rvn_widget_t* widget);
+/** A widget whose paint must run on the UI thread from now on (+1) or no longer (-1): RVN_CF_UI_PAINT for one widget. */
+void rvn_widget_add_ui_paint(rvn_widget_t* widget, int delta);
 int  rvn_widget_child_index(const rvn_widget_t* parent, const rvn_widget_t* child);
 /** Sets the window of a whole subtree (used for roots and popups). */
 void rvn_widget_set_window(rvn_widget_t* widget, rvn_window_t* window);
@@ -817,6 +819,13 @@ struct rvn_window_t {
 	rvn_atomic_t animating;
 	/** When the window was last painted, for the pace of the animations. */
 	double paint_time;
+	/**
+	 * A frame asked for later (rvn_paint_wake_after) while painting: INT_MAX
+	 * minus its delay in ms, 0 for none; then when that frame is due (clock
+	 * seconds, 0: none).
+	 */
+	rvn_atomic_t wake_request;
+	double wake_time;
 	/** Image drawn behind the content (Rwindow_set_background), or R_INVALID_ID. */
 	Rid background;
 

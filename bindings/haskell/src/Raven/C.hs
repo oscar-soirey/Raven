@@ -2426,6 +2426,13 @@ type RSliderChangedCallback = FunPtr (Rid -> CFloat -> Ptr () -> IO ())
 -- no longer calls it.
 foreign import ccall "wrapper" mkRSliderChangedCallback :: (Rid -> CFloat -> Ptr () -> IO ()) -> IO RSliderChangedCallback
 
+-- | Called when the animation stops after its last play (at the next frame), before the action of the image.
+type RImageFinishedCallback = FunPtr (Rid -> Ptr () -> IO ())
+
+-- | Makes a 'RImageFinishedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRImageFinishedCallback :: (Rid -> Ptr () -> IO ()) -> IO RImageFinishedCallback
+
 type RTextChangedCallback = FunPtr (Rid -> CString -> Ptr () -> IO ())
 
 -- | Makes a 'RTextChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
@@ -5397,7 +5404,8 @@ foreign import ccall safe "Rfont_get_variant" rfont_get_variant :: Rid -> RFontS
 foreign import ccall safe "Rfont_measure_text" rfont_measure_text :: Rid -> CFloat -> CString -> Ptr CFloat -> Ptr CFloat -> IO ()
 
 -- | Creates a texture from the content of an image file (PNG, JPEG,
--- BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+-- BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+-- animated GIF or APNG keeps its frames: an Image showing it plays them.
 -- Returns: R_INVALID_ID on failure.
 foreign import ccall safe "Rtexture_create" rtexture_create :: CString -> CSize -> IO Rid
 
@@ -5458,6 +5466,20 @@ foreign import ccall safe "Rtexture_update" rtexture_update :: Rid -> Ptr Word8 
 -- Returns: The pixels, to release with Rpixels_free; NULL when the data
 -- is not an image Raven can read.
 foreign import ccall safe "Rimage_decode" rimage_decode :: Ptr () -> CSize -> Ptr CInt -> Ptr CInt -> IO (Ptr Word8)
+
+-- | Reads what an image file in memory holds without keeping its
+-- pixels: its size, its frames (1 for a still image, more for an animated
+-- GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+-- Each pointer may be NULL.
+-- Returns: R_FALSE when the data is not an image Raven can read.
+foreign import ccall safe "Rimage_decode_info" rimage_decode_info :: Ptr () -> CSize -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Decodes one frame of an animated GIF or APNG into tightly packed
+-- RGBA8 pixels, composed as it is shown (the frames before it drawn and
+-- disposed of). Frame 0 of a still image is the image. Thread-safe.
+-- delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+-- Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+foreign import ccall safe "Rimage_decode_frame" rimage_decode_frame :: Ptr () -> CSize -> CInt -> Ptr CInt -> Ptr CInt -> Ptr CDouble -> IO (Ptr Word8)
 
 -- | Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 foreign import ccall safe "Rpixels_free" rpixels_free :: Ptr Word8 -> IO ()
@@ -6071,6 +6093,46 @@ foreign import ccall safe "Rimage_set_stretch" rimage_set_stretch :: Rid -> RStr
 foreign import ccall safe "Rimage_set_region" rimage_set_region :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 foreign import ccall safe "Rimage_set_corner_radius" rimage_set_corner_radius :: Rid -> CFloat -> IO ()
+
+-- | R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+foreign import ccall safe "Rimage_is_animated" rimage_is_animated :: Rid -> IO CInt
+
+-- | Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+foreign import ccall safe "Rimage_get_frame_count" rimage_get_frame_count :: Rid -> IO CInt
+
+-- | Returns: The seconds one play of its animation lasts (0 for a still image).
+foreign import ccall safe "Rimage_get_duration" rimage_get_duration :: Rid -> IO CDouble
+
+-- | Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+foreign import ccall safe "Rimage_get_frame_delay" rimage_get_frame_delay :: Rid -> CInt -> IO CDouble
+
+-- | Plays the animation from the frame it is on (from the first
+-- again when it had finished). An Image plays as soon as it is given an
+-- animated texture, unless XML says Animate="false".
+foreign import ccall safe "Rimage_play" rimage_play :: Rid -> IO ()
+
+-- | Stops the animation on the frame it is on.
+foreign import ccall safe "Rimage_pause" rimage_pause :: Rid -> IO ()
+
+-- | Stops the animation and shows its first frame.
+foreign import ccall safe "Rimage_stop" rimage_stop :: Rid -> IO ()
+
+foreign import ccall safe "Rimage_is_playing" rimage_is_playing :: Rid -> IO CInt
+
+-- | Shows a frame (from 0), playing on from it if it plays.
+foreign import ccall safe "Rimage_set_frame" rimage_set_frame :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rimage_get_frame" rimage_get_frame :: Rid -> IO CInt
+
+-- | How many times the animation plays before it stops on its last
+-- frame: 0 forever, -1 what the file says (the default). XML: Loop
+-- (a number; also Forever, Once).
+foreign import ccall safe "Rimage_set_loop_count" rimage_set_loop_count :: Rid -> CInt -> IO ()
+
+-- | Returns: The plays of the animation (0: forever), the file's unless it was set.
+foreign import ccall safe "Rimage_get_loop_count" rimage_get_loop_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rimage_set_finished_callback" rimage_set_finished_callback :: Rid -> RImageFinishedCallback -> Ptr () -> IO ()
 
 foreign import ccall safe "Rtext_input_set_text" rtext_input_set_text :: Rid -> CString -> IO ()
 
