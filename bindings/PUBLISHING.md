@@ -5,7 +5,8 @@
 | PyPI | `raven-gui` | `pip install raven-gui` | `raven`, with the library included |
 | NuGet | `Raven.Gui` | `dotnet add package Raven.Gui` | `Raven.cs` (netstandard2.0) and the library of each platform |
 | crates.io | `raven-gui` | `raven-gui = "0.1"` | used as `raven`; the library comes from a release (`RAVEN_LIB_DIR`) |
-| LuaRocks | `raven-gui` | `luarocks install raven-gui` | `raven`; the library comes from a release |
+| LuaRocks | `raven-gui` | `luarocks install raven-gui` | `raven` for LuaJIT (its FFI); the library comes from a release |
+| LuaRocks | `raven-gui-lua` | `luarocks install raven-gui-lua` | `raven` for Lua 5.1 to 5.5 (a C module LuaRocks compiles); the library comes from a release |
 | Maven Central | `io.github.oscar-soirey:raven-gui` | `implementation("io.github.oscar-soirey:raven-gui:0.2.3")` | `raven.R`, with the library of each platform included |
 
 The names end in `-gui` because `raven` is already taken on PyPI (the old
@@ -32,7 +33,7 @@ pypi\       raven_gui-0.2.3-py3-none-win_amd64.whl
 nuget\      Raven.Gui.0.2.3.nupkg
 crates\     raven-gui-0.2.3.crate
 maven\      raven-gui-0.2.3.jar, -sources.jar, -javadoc.jar
-luarocks\   raven-gui-0.2.3-1.rockspec
+luarocks\   raven-gui-0.2.3-1.rockspec, raven-gui-lua-0.2.3-1.rockspec
 ```
 
 It publishes nothing. A part whose tool is not installed (Python, the .NET
@@ -78,6 +79,7 @@ mvn -B -f bindings\java\pom.xml -s bindings\java\settings.xml -P release deploy
 
 rem LuaRocks: the rock is made from the git tag v0.2.3, so push the tag first
 luarocks upload luarocks\raven-gui-0.2.3-1.rockspec --api-key=<key>
+luarocks upload luarocks\raven-gui-lua-0.2.3-1.rockspec --api-key=<key>
 ```
 
 A version can be published only once on each registry: to fix a published

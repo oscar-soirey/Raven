@@ -19,8 +19,13 @@
 #   binding_swift         needs swift (5.9 or later) and the shared library; not on Windows
 #   binding_haskell       needs ghc and cabal, and the shared library; not on Windows
 #   binding_zig           needs zig: compiles and checks every declaration of zig/raven.zig (no binary is made: nothing is linked or run)
+#   binding_lua_embedded  needs the headers and the library of Lua (5.1 to 5.5): a program that embeds Lua
+#                         and links Raven (lua/host.c, with lua/raven_lua.c compiled in) runs lua/example.lua
+#   binding_lua           the same, and the interpreter of that version of Lua and the shared library: the
+#                         module raven.so is built and loaded by require("raven"); not on Windows
 #
-# C# and LuaJIT have no test here.
+# C# and LuaJIT have no test here. Lua is found by find_package(Lua): set
+# LUA_INCLUDE_DIR and LUA_LIBRARY to choose another version than the newest.
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
@@ -33,6 +38,20 @@ if(RAVEN_ZIG)
 	add_test(NAME binding_zig
 		COMMAND ${RAVEN_ZIG} test ${CMAKE_CURRENT_SOURCE_DIR}/zig/check.zig --test-no-exec -fno-emit-bin
 			--cache-dir ${CMAKE_CURRENT_BINARY_DIR}/zig-cache
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+# Lua: raven_lua.c compiled into a program that embeds Lua (RAVEN_LUA_LINK: it calls
+# the Raven it is linked with), as a game engine or a tool with Lua inside would
+find_package(Lua QUIET)
+if(LUA_FOUND)
+	add_executable(raven_binding_lua_host lua/host.c lua/raven_lua.c lua/raven_lua.h)
+	target_include_directories(raven_binding_lua_host PRIVATE lua ${LUA_INCLUDE_DIR})
+	target_compile_definitions(raven_binding_lua_host PRIVATE RAVEN_LUA_LINK)
+	target_link_libraries(raven_binding_lua_host PRIVATE raven::raven ${LUA_LIBRARIES})
+	set_target_properties(raven_binding_lua_host PROPERTIES C_STANDARD 11 FOLDER "bindings")
+	add_test(NAME binding_lua_embedded
+		COMMAND raven_binding_lua_host ${CMAKE_CURRENT_SOURCE_DIR}/lua/example.lua --test
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
@@ -155,6 +174,38 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 				--builddir=${CMAKE_CURRENT_BINARY_DIR}/haskell --extra-lib-dirs=$<TARGET_FILE_DIR:raven>
 				"--ghc-options=-optl-Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/haskell)
+	endif()
+
+	# Lua: the module raven.so, as LuaRocks builds it (it opens the shared library:
+	# RAVEN_LIBRARY), loaded by the interpreter of the version of the headers
+	if(LUA_FOUND)
+		find_package(Threads REQUIRED)
+		add_library(raven_lua MODULE lua/raven_lua.c lua/raven_lua.h)
+		set_target_properties(raven_lua PROPERTIES PREFIX "" OUTPUT_NAME raven SUFFIX ".so"
+			LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lua
+			C_STANDARD 11 C_VISIBILITY_PRESET hidden FOLDER "bindings")
+		target_include_directories(raven_lua PRIVATE lua ${LUA_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
+		target_link_libraries(raven_lua PRIVATE ${CMAKE_DL_LIBS} Threads::Threads)
+		if(APPLE)
+			# the functions of Lua are in the program that loads the module
+			target_link_options(raven_lua PRIVATE -undefined dynamic_lookup)
+		endif()
+		set(RAVEN_LUA_VERSION "${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}")
+		find_program(RAVEN_LUA NAMES lua${RAVEN_LUA_VERSION} lua-${RAVEN_LUA_VERSION} lua${LUA_VERSION_MAJOR}${LUA_VERSION_MINOR} lua)
+		if(RAVEN_LUA)
+			# (lua -v writes to stderr before Lua 5.2)
+			execute_process(COMMAND ${RAVEN_LUA} -v OUTPUT_VARIABLE RAVEN_LUA_V ERROR_VARIABLE RAVEN_LUA_V_ERR)
+			if("${RAVEN_LUA_V}${RAVEN_LUA_V_ERR}" MATCHES "Lua ${LUA_VERSION_MAJOR}\\.${LUA_VERSION_MINOR}")
+				add_test(NAME binding_lua
+					COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV}
+						"LUA_CPATH=${CMAKE_CURRENT_BINARY_DIR}/lua/?.so"
+						"LUA_CPATH_${LUA_VERSION_MAJOR}_${LUA_VERSION_MINOR}=${CMAKE_CURRENT_BINARY_DIR}/lua/?.so"
+						${RAVEN_LUA} ${CMAKE_CURRENT_SOURCE_DIR}/lua/example.lua --test
+					WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+			else()
+				message(STATUS "Raven: binding_lua is left out (${RAVEN_LUA} is not Lua ${RAVEN_LUA_VERSION}, the version of the headers)")
+			endif()
+		endif()
 	endif()
 
 	add_subdirectory(node)
