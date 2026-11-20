@@ -27,6 +27,9 @@
 					<Separator/>
 					<MenuItem Text="Propose words" OnClicked="edit.complete"/>
 					<MenuItem Text="Select all" OnClicked="edit.select_all"/>
+					<Separator/>
+					<MenuItem Text="Find..." Shortcut="Ctrl+F" OnClicked="edit.find"/>
+					<MenuItem Text="Replace..." Shortcut="Ctrl+H" OnClicked="edit.replace"/>
 				</Menu>
 				<Menu Text="View">
 					<MenuItem Name="view.numbers" Text="Line numbers" Checkable="true" Checked="true" OnClicked="view.numbers"/>

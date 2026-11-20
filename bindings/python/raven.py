@@ -823,6 +823,8 @@ class RColorRole(enum.IntEnum):
     R_COLOR_DANGER = 0x0121
     R_COLOR_LINK = 0x0122
     R_COLOR_CODE = 0x0123
+    R_COLOR_SEARCH_MATCH = 0x0124
+    R_COLOR_SEARCH_CURRENT = 0x0125
 
 R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW
 R_COLOR_PANEL = RColorRole.R_COLOR_PANEL
@@ -860,6 +862,8 @@ R_COLOR_WARNING = RColorRole.R_COLOR_WARNING
 R_COLOR_DANGER = RColorRole.R_COLOR_DANGER
 R_COLOR_LINK = RColorRole.R_COLOR_LINK
 R_COLOR_CODE = RColorRole.R_COLOR_CODE
+R_COLOR_SEARCH_MATCH = RColorRole.R_COLOR_SEARCH_MATCH
+R_COLOR_SEARCH_CURRENT = RColorRole.R_COLOR_SEARCH_CURRENT
 
 class RMetric(enum.IntEnum):
     """Sizes, in logical units."""
@@ -1430,6 +1434,14 @@ R_TOKEN_HEADING = RToken.R_TOKEN_HEADING
 R_TOKEN_STRONG = RToken.R_TOKEN_STRONG
 R_TOKEN_EMPHASIS = RToken.R_TOKEN_EMPHASIS
 R_TOKEN_LINK = RToken.R_TOKEN_LINK
+
+class RSearchFlags(enum.IntFlag):
+    """Options of a search (Rtext_editor_set_search), a bitmask."""
+    R_SEARCH_MATCH_CASE = 1
+    R_SEARCH_WHOLE_WORD = 2
+
+R_SEARCH_MATCH_CASE = RSearchFlags.R_SEARCH_MATCH_CASE
+R_SEARCH_WHOLE_WORD = RSearchFlags.R_SEARCH_WHOLE_WORD
 
 class RMarkerKind(enum.IntEnum):
     """What a marker says about the text it underlines."""
@@ -11787,6 +11799,167 @@ _lib.Rtext_editor_set_hover_callback.restype = None
 
 def Rtext_editor_set_hover_callback(editor, callback, user_data=None):
     _lib.Rtext_editor_set_hover_callback(editor, _callback(RTextEditorHoverCallback, _adapt_RTextEditorHoverCallback, callback), user_data)
+
+
+_lib.Rtext_editor_set_search.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_uint32]
+_lib.Rtext_editor_set_search.restype = None
+
+
+def Rtext_editor_set_search(editor, query, flags):
+    """Sets what is searched for, with RSearchFlags, and shows every
+    match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+    R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+    break finds nothing. NULL or "" clears the search. The selection does
+    not move; Rtext_editor_find_next goes to a match."""
+    _lib.Rtext_editor_set_search(editor, _s(query), flags)
+
+
+_lib.Rtext_editor_get_search.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_search.restype = ctypes.c_char_p
+
+
+def Rtext_editor_get_search(editor):
+    """Returns: The text searched for, "" when there is none."""
+    return _r(_lib.Rtext_editor_get_search(editor))
+
+
+_lib.Rtext_editor_get_search_flags.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_search_flags.restype = ctypes.c_uint32
+
+
+def Rtext_editor_get_search_flags(editor):
+    """Returns: The RSearchFlags of the search."""
+    return _lib.Rtext_editor_get_search_flags(editor)
+
+
+_lib.Rtext_editor_find_next.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_find_next.restype = ctypes.c_int
+
+
+def Rtext_editor_find_next(editor):
+    """Selects the next match after the selection (or the cursor),
+    going on from the start of the text after its end, and scrolls to it.
+    Returns R_FALSE when the text has no match."""
+    return _lib.Rtext_editor_find_next(editor)
+
+
+_lib.Rtext_editor_find_previous.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_find_previous.restype = ctypes.c_int
+
+
+def Rtext_editor_find_previous(editor):
+    """The same, toward the start: the match before the selection, from the end of the text after its start."""
+    return _lib.Rtext_editor_find_previous(editor)
+
+
+_lib.Rtext_editor_get_match_count.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_match_count.restype = ctypes.c_int
+
+
+def Rtext_editor_get_match_count(editor):
+    """Returns: The number of matches in the whole text. Counted once per change of the text or of the search."""
+    return _lib.Rtext_editor_get_match_count(editor)
+
+
+_lib.Rtext_editor_get_match_index.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_match_index.restype = ctypes.c_int
+
+
+def Rtext_editor_get_match_index(editor):
+    """Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match."""
+    return _lib.Rtext_editor_get_match_index(editor)
+
+
+_lib.Rtext_editor_get_match.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtext_editor_get_match.restype = ctypes.c_int
+
+
+def Rtext_editor_get_match(editor, index):
+    """Where a match is: its line and the columns of its first byte and
+    of the byte after it. Returns R_FALSE when `index` is out of range."""
+    line_ = ctypes.c_int()
+    from_column_ = ctypes.c_int()
+    to_column_ = ctypes.c_int()
+    result = _lib.Rtext_editor_get_match(editor, index, ctypes.byref(line_), ctypes.byref(from_column_), ctypes.byref(to_column_))
+    return (result, line_.value, from_column_.value, to_column_.value)
+
+
+_lib.Rtext_editor_select_match.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_select_match.restype = ctypes.c_int
+
+
+def Rtext_editor_select_match(editor, index):
+    """Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range."""
+    return _lib.Rtext_editor_select_match(editor, index)
+
+
+_lib.Rtext_editor_replace.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_editor_replace.restype = ctypes.c_int
+
+
+def Rtext_editor_replace(editor, replacement):
+    """Replaces the selected match by `replacement`, as one step of
+    the history, then selects the next match. When the selection is not a
+    match, only selects the next one (the user sees what will be replaced).
+    Returns R_TRUE when something was replaced. As with
+    Rtext_editor_insert_text, the changed callback is called."""
+    return _lib.Rtext_editor_replace(editor, _s(replacement))
+
+
+_lib.Rtext_editor_replace_all.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_editor_replace_all.restype = ctypes.c_int
+
+
+def Rtext_editor_replace_all(editor, replacement):
+    """Replaces every match by `replacement`, as a single step of the
+    history (one undo puts them all back). Returns the number of matches
+    replaced."""
+    return _lib.Rtext_editor_replace_all(editor, _s(replacement))
+
+
+_lib.Rtext_editor_show_find.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_show_find.restype = None
+
+
+def Rtext_editor_show_find(editor, replace):
+    """Opens the find bar of the editor (Ctrl+F), with the row to
+    replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+    Text selected on one line becomes the text searched for.
+    Its texts are English unless the locale has the keys Raven.Find,
+    Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+    ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+    Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+    Raven.FindToggleReplace."""
+    _lib.Rtext_editor_show_find(editor, replace)
+
+
+_lib.Rtext_editor_hide_find.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_hide_find.restype = None
+
+
+def Rtext_editor_hide_find(editor):
+    """Closes the find bar; the matches are no longer shown, F3 still goes to the next one."""
+    _lib.Rtext_editor_hide_find(editor)
+
+
+_lib.Rtext_editor_is_find_shown.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_is_find_shown.restype = ctypes.c_int
+
+
+def Rtext_editor_is_find_shown(editor):
+    return _lib.Rtext_editor_is_find_shown(editor)
+
+
+_lib.Rtext_editor_set_find_bar.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_find_bar.restype = None
+
+
+def Rtext_editor_set_find_bar(editor, enabled):
+    """R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+    Cmd+G), which then go to the shortcuts of the window: for an
+    application with its own search, built on Rtext_editor_set_search. On
+    by default. XML: FindBar="false"."""
+    _lib.Rtext_editor_set_find_bar(editor, enabled)
 
 
 _lib.Rtheme_set_token_color.argtypes = [ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]

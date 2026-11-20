@@ -579,6 +579,10 @@ Color_Role :: enum i32 {
 	Link = 0x0122,
 	// Background of code in formatted text.
 	Code = 0x0123,
+	// The matches of a search in a text editor (usually see-through).
+	Search_Match = 0x0124,
+	// The selected match of a search in a text editor.
+	Search_Current = 0x0125,
 }
 
 // Sizes, in logical units.
@@ -1078,6 +1082,17 @@ Token :: enum i32 {
 	Emphasis = 0x03AD,
 	Link = 0x03AE,
 }
+
+// Options of a search (Rtext_editor_set_search), a bitmask.
+Search_Flag :: enum u32 {
+	// Upper and lower case differ. Without it the case is ignored, for the
+	// letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	// Cyrillic and Armenian.
+	Match_Case = 0,
+	// A match is a whole word: "for" does not find the start of "format".
+	Whole_Word = 1,
+}
+Search_Flags :: bit_set[Search_Flag; u32]
 
 // What a marker says about the text it underlines.
 Marker_Kind :: enum i32 {

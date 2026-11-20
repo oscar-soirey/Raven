@@ -618,6 +618,10 @@ const RColorRole R_COLOR_DANGER = 0x0121;
 const RColorRole R_COLOR_LINK = 0x0122;
 <* Background of code in formatted text. *>
 const RColorRole R_COLOR_CODE = 0x0123;
+<* The matches of a search in a text editor (usually see-through). *>
+const RColorRole R_COLOR_SEARCH_MATCH = 0x0124;
+<* The selected match of a search in a text editor. *>
+const RColorRole R_COLOR_SEARCH_CURRENT = 0x0125;
 
 <* Sizes, in logical units. *>
 alias RMetric = CInt;
@@ -1096,6 +1100,17 @@ const RToken R_TOKEN_HEADING = 0x03AB;
 const RToken R_TOKEN_STRONG = 0x03AC;
 const RToken R_TOKEN_EMPHASIS = 0x03AD;
 const RToken R_TOKEN_LINK = 0x03AE;
+
+<* Options of a search (Rtext_editor_set_search), a bitmask. *>
+alias RSearchFlags = CInt;
+<*
+ Upper and lower case differ. Without it the case is ignored, for the
+ letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+ Cyrillic and Armenian.
+*>
+const RSearchFlags R_SEARCH_MATCH_CASE = 1;
+<* A match is a whole word: "for" does not find the start of "format". *>
+const RSearchFlags R_SEARCH_WHOLE_WORD = 2;
 
 <* What a marker says about the text it underlines. *>
 alias RMarkerKind = CInt;
@@ -5928,6 +5943,87 @@ extern fn void r_text_editor_clear_markers(Rid editor) @cname("Rtext_editor_clea
 extern fn CInt r_text_editor_get_marker_count(Rid editor) @cname("Rtext_editor_get_marker_count");
 
 extern fn void r_text_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data) @cname("Rtext_editor_set_hover_callback");
+
+<*
+ Sets what is searched for, with RSearchFlags, and shows every
+ match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+ R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+ break finds nothing. NULL or "" clears the search. The selection does
+ not move; Rtext_editor_find_next goes to a match.
+*>
+extern fn void r_text_editor_set_search(Rid editor, char* query, Ruint flags) @cname("Rtext_editor_set_search");
+
+<* Returns The text searched for, "" when there is none. *>
+extern fn char* r_text_editor_get_search(Rid editor) @cname("Rtext_editor_get_search");
+
+<* Returns The RSearchFlags of the search. *>
+extern fn Ruint r_text_editor_get_search_flags(Rid editor) @cname("Rtext_editor_get_search_flags");
+
+<*
+ Selects the next match after the selection (or the cursor),
+ going on from the start of the text after its end, and scrolls to it.
+ Returns R_FALSE when the text has no match.
+*>
+extern fn CInt r_text_editor_find_next(Rid editor) @cname("Rtext_editor_find_next");
+
+<* The same, toward the start: the match before the selection, from the end of the text after its start. *>
+extern fn CInt r_text_editor_find_previous(Rid editor) @cname("Rtext_editor_find_previous");
+
+<* Returns The number of matches in the whole text. Counted once per change of the text or of the search. *>
+extern fn CInt r_text_editor_get_match_count(Rid editor) @cname("Rtext_editor_get_match_count");
+
+<* Returns The index of the selected match (0 for the first in the text), -1 when the selection is not a match. *>
+extern fn CInt r_text_editor_get_match_index(Rid editor) @cname("Rtext_editor_get_match_index");
+
+<*
+ Where a match is: its line and the columns of its first byte and
+ of the byte after it. Returns R_FALSE when `index` is out of range.
+*>
+extern fn CInt r_text_editor_get_match(Rid editor, CInt index, CInt* line, CInt* from_column, CInt* to_column) @cname("Rtext_editor_get_match");
+
+<* Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. *>
+extern fn CInt r_text_editor_select_match(Rid editor, CInt index) @cname("Rtext_editor_select_match");
+
+<*
+ Replaces the selected match by `replacement`, as one step of
+ the history, then selects the next match. When the selection is not a
+ match, only selects the next one (the user sees what will be replaced).
+ Returns R_TRUE when something was replaced. As with
+ Rtext_editor_insert_text, the changed callback is called.
+*>
+extern fn CInt r_text_editor_replace(Rid editor, char* replacement) @cname("Rtext_editor_replace");
+
+<*
+ Replaces every match by `replacement`, as a single step of the
+ history (one undo puts them all back). Returns the number of matches
+ replaced.
+*>
+extern fn CInt r_text_editor_replace_all(Rid editor, char* replacement) @cname("Rtext_editor_replace_all");
+
+<*
+ Opens the find bar of the editor (Ctrl+F), with the row to
+ replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+ Text selected on one line becomes the text searched for.
+ Its texts are English unless the locale has the keys Raven.Find,
+ Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+ ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+ Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+ Raven.FindToggleReplace.
+*>
+extern fn void r_text_editor_show_find(Rid editor, CInt replace) @cname("Rtext_editor_show_find");
+
+<* Closes the find bar; the matches are no longer shown, F3 still goes to the next one. *>
+extern fn void r_text_editor_hide_find(Rid editor) @cname("Rtext_editor_hide_find");
+
+extern fn CInt r_text_editor_is_find_shown(Rid editor) @cname("Rtext_editor_is_find_shown");
+
+<*
+ R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+ Cmd+G), which then go to the shortcuts of the window: for an
+ application with its own search, built on Rtext_editor_set_search. On
+ by default. XML: FindBar="false".
+*>
+extern fn void r_text_editor_set_find_bar(Rid editor, CInt enabled) @cname("Rtext_editor_set_find_bar");
 
 <*
  Color of a kind of token in the theme in use, instead of the

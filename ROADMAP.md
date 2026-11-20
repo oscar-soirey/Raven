@@ -90,8 +90,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   `NSTextInputClient` on macOS, `text-input-v3` on Wayland; the core already
   tracks the composition rectangle (`Rwindow_get_text_input_rect`).
 - [ ] Placement of the composition window of the IME.
-- [ ] Text editor: multiple cursors, search and replace, code folding, a
-  language server client.
+- [x] Text editor: search and replace (find bar, match case, whole word,
+  replace all as one undo step).
+- [ ] Text editor: multiple cursors, code folding, a language server client,
+  regular expressions in the search.
 - [ ] Full OpenType shaping (Indic scripts, kerning).
 
 ### Widgets

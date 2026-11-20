@@ -394,6 +394,8 @@ typedef enum RColorRole {
 	R_COLOR_DANGER = 289,
 	R_COLOR_LINK = 290,
 	R_COLOR_CODE = 291,
+	R_COLOR_SEARCH_MATCH = 292,
+	R_COLOR_SEARCH_CURRENT = 293,
 } RColorRole;
 typedef enum RMetric {
 	R_METRIC_FONT_SIZE = 320,
@@ -685,6 +687,10 @@ typedef enum RToken {
 	R_TOKEN_EMPHASIS = 941,
 	R_TOKEN_LINK = 942,
 } RToken;
+typedef enum RSearchFlags {
+	R_SEARCH_MATCH_CASE = 1,
+	R_SEARCH_WHOLE_WORD = 2,
+} RSearchFlags;
 typedef enum RMarkerKind {
 	R_MARKER_ERROR = 848,
 	R_MARKER_WARNING = 849,
@@ -2225,6 +2231,21 @@ void Rtext_editor_add_marker(Rid editor, int line, int from_column, int to_colum
 void Rtext_editor_clear_markers(Rid editor);
 int Rtext_editor_get_marker_count(Rid editor);
 void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
+void Rtext_editor_set_search(Rid editor, const char* query, Ruint flags);
+const char* Rtext_editor_get_search(Rid editor);
+Ruint Rtext_editor_get_search_flags(Rid editor);
+int Rtext_editor_find_next(Rid editor);
+int Rtext_editor_find_previous(Rid editor);
+int Rtext_editor_get_match_count(Rid editor);
+int Rtext_editor_get_match_index(Rid editor);
+int Rtext_editor_get_match(Rid editor, int index, int* line, int* from_column, int* to_column);
+int Rtext_editor_select_match(Rid editor, int index);
+int Rtext_editor_replace(Rid editor, const char* replacement);
+int Rtext_editor_replace_all(Rid editor, const char* replacement);
+void Rtext_editor_show_find(Rid editor, int replace);
+void Rtext_editor_hide_find(Rid editor);
+int Rtext_editor_is_find_shown(Rid editor);
+void Rtext_editor_set_find_bar(Rid editor, int enabled);
 void Rtheme_set_token_color(RToken token, float r, float g, float b, float a);
 void Rtheme_get_token_color(RToken token, float* r, float* g, float* b, float* a);
 void Rtheme_clear_token_colors(void);

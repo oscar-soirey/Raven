@@ -131,7 +131,8 @@ Color roles: `Window Panel Border Text TextDisabled TextPlaceholder Accent
 AccentHovered AccentPressed AccentText Control ControlHovered ControlPressed
 ControlBorder Input Focus Selection RowHovered Track Handle HandleHovered
 Separator Header HeaderHovered TabActive Popup PopupBorder Shadow Tooltip
-TooltipText Switch`. `Color.Text` is inherited by the children.
+TooltipText Switch Success Warning Danger Link Code SearchMatch SearchCurrent`.
+`Color.Text` is inherited by the children.
 
 Metrics: `FontSize CornerRadius BorderWidth ControlHeight PaddingX PaddingY
 Spacing ScrollbarSize RowHeight Indent SplitterSize CheckSize SliderHandleSize
@@ -315,7 +316,7 @@ panel uses the attributes that make sense for it.
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
 | `SystemWebView` | `Url` (the address shown), `Source` (an .html file, found next to the document), `Html` (a page given as text) and `BaseUrl` (where its relative addresses are looked for), `OnChanged` (the view shows another address). The page is shown by the web engine of the system (WKWebView on macOS and iOS) in a view kept over the widget; where there is none, a message takes its place |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
-| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
+| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place), `FindBar` (`false`: no find bar, and Ctrl+F, Ctrl+H, F3 go to the shortcuts of the window), `Search` (the text searched for: its matches are highlighted) |
 | `FileBrowser` | `Directory`, `Mode` (`Open`, `Save`, `Folder`), `Filter` (`*.png;*.jpg`), `FileName`, `DefaultExtension`, `ShowHidden`, `Multiple`, `Controls` (`false` hides the name, the filter and the buttons), `Places` (`false` hides the list of places) |
 
 A `MenuItem` shortcut works without any `<Shortcut>` element: the window

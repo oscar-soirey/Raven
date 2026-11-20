@@ -660,6 +660,10 @@ enum : RColorRole
     R_COLOR_LINK = 0x0122,
     /// Background of code in formatted text.
     R_COLOR_CODE = 0x0123,
+    /// The matches of a search in a text editor (usually see-through).
+    R_COLOR_SEARCH_MATCH = 0x0124,
+    /// The selected match of a search in a text editor.
+    R_COLOR_SEARCH_CURRENT = 0x0125,
 }
 
 /// Sizes, in logical units.
@@ -1222,6 +1226,18 @@ enum : RToken
     R_TOKEN_STRONG = 0x03AC,
     R_TOKEN_EMPHASIS = 0x03AD,
     R_TOKEN_LINK = 0x03AE,
+}
+
+/// Options of a search (Rtext_editor_set_search), a bitmask.
+alias RSearchFlags = int;
+enum : RSearchFlags
+{
+    /// Upper and lower case differ. Without it the case is ignored, for the
+    /// letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+    /// Cyrillic and Armenian.
+    R_SEARCH_MATCH_CASE = 1,
+    /// A match is a whole word: "for" does not find the start of "format".
+    R_SEARCH_WHOLE_WORD = 2,
 }
 
 /// What a marker says about the text it underlines.
@@ -4497,6 +4513,58 @@ void Rtext_editor_add_marker(Rid editor, int line, int from_column, int to_colum
 void Rtext_editor_clear_markers(Rid editor);
 int Rtext_editor_get_marker_count(Rid editor);
 void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
+/// Sets what is searched for, with RSearchFlags, and shows every
+/// match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+/// R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+/// break finds nothing. NULL or "" clears the search. The selection does
+/// not move; Rtext_editor_find_next goes to a match.
+void Rtext_editor_set_search(Rid editor, const(char)* query, uint flags);
+/// Returns: The text searched for, "" when there is none.
+const(char)* Rtext_editor_get_search(Rid editor);
+/// Returns: The RSearchFlags of the search.
+uint Rtext_editor_get_search_flags(Rid editor);
+/// Selects the next match after the selection (or the cursor),
+/// going on from the start of the text after its end, and scrolls to it.
+/// Returns R_FALSE when the text has no match.
+int Rtext_editor_find_next(Rid editor);
+/// The same, toward the start: the match before the selection, from the end of the text after its start.
+int Rtext_editor_find_previous(Rid editor);
+/// Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+int Rtext_editor_get_match_count(Rid editor);
+/// Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+int Rtext_editor_get_match_index(Rid editor);
+/// Where a match is: its line and the columns of its first byte and
+/// of the byte after it. Returns R_FALSE when `index` is out of range.
+int Rtext_editor_get_match(Rid editor, int index, int* line, int* from_column, int* to_column);
+/// Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+int Rtext_editor_select_match(Rid editor, int index);
+/// Replaces the selected match by `replacement`, as one step of
+/// the history, then selects the next match. When the selection is not a
+/// match, only selects the next one (the user sees what will be replaced).
+/// Returns R_TRUE when something was replaced. As with
+/// Rtext_editor_insert_text, the changed callback is called.
+int Rtext_editor_replace(Rid editor, const(char)* replacement);
+/// Replaces every match by `replacement`, as a single step of the
+/// history (one undo puts them all back). Returns the number of matches
+/// replaced.
+int Rtext_editor_replace_all(Rid editor, const(char)* replacement);
+/// Opens the find bar of the editor (Ctrl+F), with the row to
+/// replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+/// Text selected on one line becomes the text searched for.
+/// Its texts are English unless the locale has the keys Raven.Find,
+/// Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+/// ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+/// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+/// Raven.FindToggleReplace.
+void Rtext_editor_show_find(Rid editor, int replace);
+/// Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+void Rtext_editor_hide_find(Rid editor);
+int Rtext_editor_is_find_shown(Rid editor);
+/// R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+/// Cmd+G), which then go to the shortcuts of the window: for an
+/// application with its own search, built on Rtext_editor_set_search. On
+/// by default. XML: FindBar="false".
+void Rtext_editor_set_find_bar(Rid editor, int enabled);
 /// Color of a kind of token in the theme in use, instead of the
 /// one Raven picks for dark and for light themes. Theme files set them
 /// with <Syntax Keyword="#FF7AB2" String="..."/>.

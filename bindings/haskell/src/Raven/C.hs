@@ -954,6 +954,12 @@ pattern R_COLOR_LINK = RColorRole 290
 -- | Background of code in formatted text.
 pattern R_COLOR_CODE :: RColorRole
 pattern R_COLOR_CODE = RColorRole 291
+-- | The matches of a search in a text editor (usually see-through).
+pattern R_COLOR_SEARCH_MATCH :: RColorRole
+pattern R_COLOR_SEARCH_MATCH = RColorRole 292
+-- | The selected match of a search in a text editor.
+pattern R_COLOR_SEARCH_CURRENT :: RColorRole
+pattern R_COLOR_SEARCH_CURRENT = RColorRole 293
 
 -- | Sizes, in logical units.
 newtype RMetric = RMetric CInt
@@ -1704,6 +1710,19 @@ pattern R_TOKEN_EMPHASIS :: RToken
 pattern R_TOKEN_EMPHASIS = RToken 941
 pattern R_TOKEN_LINK :: RToken
 pattern R_TOKEN_LINK = RToken 942
+
+-- | Options of a search (Rtext_editor_set_search), a bitmask.
+newtype RSearchFlags = RSearchFlags CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Upper and lower case differ. Without it the case is ignored, for the
+-- letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+-- Cyrillic and Armenian.
+pattern R_SEARCH_MATCH_CASE :: RSearchFlags
+pattern R_SEARCH_MATCH_CASE = RSearchFlags 1
+-- | A match is a whole word: "for" does not find the start of "format".
+pattern R_SEARCH_WHOLE_WORD :: RSearchFlags
+pattern R_SEARCH_WHOLE_WORD = RSearchFlags 2
 
 -- | What a marker says about the text it underlines.
 newtype RMarkerKind = RMarkerKind CInt
@@ -7273,6 +7292,73 @@ foreign import ccall safe "Rtext_editor_clear_markers" rtext_editor_clear_marker
 foreign import ccall safe "Rtext_editor_get_marker_count" rtext_editor_get_marker_count :: Rid -> IO CInt
 
 foreign import ccall safe "Rtext_editor_set_hover_callback" rtext_editor_set_hover_callback :: Rid -> RTextEditorHoverCallback -> Ptr () -> IO ()
+
+-- | Sets what is searched for, with RSearchFlags, and shows every
+-- match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+-- R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+-- break finds nothing. NULL or "" clears the search. The selection does
+-- not move; Rtext_editor_find_next goes to a match.
+foreign import ccall safe "Rtext_editor_set_search" rtext_editor_set_search :: Rid -> CString -> Word32 -> IO ()
+
+-- | Returns: The text searched for, "" when there is none.
+foreign import ccall safe "Rtext_editor_get_search" rtext_editor_get_search :: Rid -> IO CString
+
+-- | Returns: The RSearchFlags of the search.
+foreign import ccall safe "Rtext_editor_get_search_flags" rtext_editor_get_search_flags :: Rid -> IO Word32
+
+-- | Selects the next match after the selection (or the cursor),
+-- going on from the start of the text after its end, and scrolls to it.
+-- Returns R_FALSE when the text has no match.
+foreign import ccall safe "Rtext_editor_find_next" rtext_editor_find_next :: Rid -> IO CInt
+
+-- | The same, toward the start: the match before the selection, from the end of the text after its start.
+foreign import ccall safe "Rtext_editor_find_previous" rtext_editor_find_previous :: Rid -> IO CInt
+
+-- | Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+foreign import ccall safe "Rtext_editor_get_match_count" rtext_editor_get_match_count :: Rid -> IO CInt
+
+-- | Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+foreign import ccall safe "Rtext_editor_get_match_index" rtext_editor_get_match_index :: Rid -> IO CInt
+
+-- | Where a match is: its line and the columns of its first byte and
+-- of the byte after it. Returns R_FALSE when `index` is out of range.
+foreign import ccall safe "Rtext_editor_get_match" rtext_editor_get_match :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+foreign import ccall safe "Rtext_editor_select_match" rtext_editor_select_match :: Rid -> CInt -> IO CInt
+
+-- | Replaces the selected match by `replacement`, as one step of
+-- the history, then selects the next match. When the selection is not a
+-- match, only selects the next one (the user sees what will be replaced).
+-- Returns R_TRUE when something was replaced. As with
+-- Rtext_editor_insert_text, the changed callback is called.
+foreign import ccall safe "Rtext_editor_replace" rtext_editor_replace :: Rid -> CString -> IO CInt
+
+-- | Replaces every match by `replacement`, as a single step of the
+-- history (one undo puts them all back). Returns the number of matches
+-- replaced.
+foreign import ccall safe "Rtext_editor_replace_all" rtext_editor_replace_all :: Rid -> CString -> IO CInt
+
+-- | Opens the find bar of the editor (Ctrl+F), with the row to
+-- replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+-- Text selected on one line becomes the text searched for.
+-- Its texts are English unless the locale has the keys Raven.Find,
+-- Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+-- ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+-- Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+-- Raven.FindToggleReplace.
+foreign import ccall safe "Rtext_editor_show_find" rtext_editor_show_find :: Rid -> CInt -> IO ()
+
+-- | Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+foreign import ccall safe "Rtext_editor_hide_find" rtext_editor_hide_find :: Rid -> IO ()
+
+foreign import ccall safe "Rtext_editor_is_find_shown" rtext_editor_is_find_shown :: Rid -> IO CInt
+
+-- | R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+-- Cmd+G), which then go to the shortcuts of the window: for an
+-- application with its own search, built on Rtext_editor_set_search. On
+-- by default. XML: FindBar="false".
+foreign import ccall safe "Rtext_editor_set_find_bar" rtext_editor_set_find_bar :: Rid -> CInt -> IO ()
 
 -- | Color of a kind of token in the theme in use, instead of the
 -- one Raven picks for dark and for light themes. Theme files set them

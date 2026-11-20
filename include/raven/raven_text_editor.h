@@ -30,6 +30,13 @@
  * Ctrl+Y or Ctrl+Shift+Z; Tab and Shift+Tab indent the selected lines;
  * Ctrl+Space proposes words; Ctrl+/ comments the selected lines out.
  * A double click selects a word, a triple click a line.
+ *
+ * Ctrl+F (Cmd+F on macOS) opens a find bar over the text, Ctrl+H
+ * (Cmd+Option+F) the same bar with a row to replace; the selected text is
+ * what it looks for. Enter and Shift+Enter, F3 and Shift+F3, Cmd+G and
+ * Cmd+Shift+G go to the next and the previous match; Escape closes it. The
+ * search itself (Rtext_editor_set_search, Rtext_editor_find_next...) works
+ * without the bar, for an application that has its own.
  */
 
 #ifndef RAVEN_TEXT_EDITOR_H
@@ -134,6 +141,18 @@ typedef enum RToken{
 	R_TOKEN_EMPHASIS,
 	R_TOKEN_LINK
 }RToken;
+
+/** Options of a search (Rtext_editor_set_search), a bitmask. */
+typedef enum RSearchFlags{
+	/**
+	 * Upper and lower case differ. Without it the case is ignored, for the
+	 * letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	 * Cyrillic and Armenian.
+	 */
+	R_SEARCH_MATCH_CASE = (1 << 0),
+	/** A match is a whole word: "for" does not find the start of "format". */
+	R_SEARCH_WHOLE_WORD = (1 << 1)
+}RSearchFlags;
 
 /** What a marker says about the text it underlines. */
 typedef enum RMarkerKind{
@@ -336,6 +355,76 @@ extern "C" {
 	 */
 	typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
 	RAVEN_API void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
+
+	/* ---- search and replace ---- */
+
+	/**
+	 * @brief Sets what is searched for, with RSearchFlags, and shows every
+	 * match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+	 * R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+	 * break finds nothing. NULL or "" clears the search. The selection does
+	 * not move; Rtext_editor_find_next goes to a match.
+	 */
+	RAVEN_API void Rtext_editor_set_search(Rid editor, const char* query, Ruint flags);
+	/** @return The text searched for, "" when there is none. */
+	RAVEN_API const char* Rtext_editor_get_search(Rid editor);
+	/** @return The RSearchFlags of the search. */
+	RAVEN_API Ruint Rtext_editor_get_search_flags(Rid editor);
+	/**
+	 * @brief Selects the next match after the selection (or the cursor),
+	 * going on from the start of the text after its end, and scrolls to it.
+	 * Returns R_FALSE when the text has no match.
+	 */
+	RAVEN_API int Rtext_editor_find_next(Rid editor);
+	/** @brief The same, toward the start: the match before the selection, from the end of the text after its start. */
+	RAVEN_API int Rtext_editor_find_previous(Rid editor);
+	/** @return The number of matches in the whole text. Counted once per change of the text or of the search. */
+	RAVEN_API int Rtext_editor_get_match_count(Rid editor);
+	/** @return The index of the selected match (0 for the first in the text), -1 when the selection is not a match. */
+	RAVEN_API int Rtext_editor_get_match_index(Rid editor);
+	/**
+	 * @brief Where a match is: its line and the columns of its first byte and
+	 * of the byte after it. Returns R_FALSE when `index` is out of range.
+	 */
+	RAVEN_API int Rtext_editor_get_match(Rid editor, int index, int* line, int* from_column, int* to_column);
+	/** @brief Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. */
+	RAVEN_API int Rtext_editor_select_match(Rid editor, int index);
+	/**
+	 * @brief Replaces the selected match by `replacement`, as one step of
+	 * the history, then selects the next match. When the selection is not a
+	 * match, only selects the next one (the user sees what will be replaced).
+	 * Returns R_TRUE when something was replaced. As with
+	 * Rtext_editor_insert_text, the changed callback is called.
+	 */
+	RAVEN_API int Rtext_editor_replace(Rid editor, const char* replacement);
+	/**
+	 * @brief Replaces every match by `replacement`, as a single step of the
+	 * history (one undo puts them all back). Returns the number of matches
+	 * replaced.
+	 */
+	RAVEN_API int Rtext_editor_replace_all(Rid editor, const char* replacement);
+
+	/**
+	 * @brief Opens the find bar of the editor (Ctrl+F), with the row to
+	 * replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+	 * Text selected on one line becomes the text searched for.
+	 * Its texts are English unless the locale has the keys Raven.Find,
+	 * Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+	 * ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+	 * Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+	 * Raven.FindToggleReplace.
+	 */
+	RAVEN_API void Rtext_editor_show_find(Rid editor, int replace);
+	/** @brief Closes the find bar; the matches are no longer shown, F3 still goes to the next one. */
+	RAVEN_API void Rtext_editor_hide_find(Rid editor);
+	RAVEN_API int Rtext_editor_is_find_shown(Rid editor);
+	/**
+	 * @brief R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+	 * Cmd+G), which then go to the shortcuts of the window: for an
+	 * application with its own search, built on Rtext_editor_set_search. On
+	 * by default. XML: FindBar="false".
+	 */
+	RAVEN_API void Rtext_editor_set_find_bar(Rid editor, int enabled);
 
 	/* ---- colors ---- */
 

@@ -1091,6 +1091,21 @@ const _symbols = {
 	Rtext_editor_clear_markers: { args: ["u32"], returns: "void" },
 	Rtext_editor_get_marker_count: { args: ["u32"], returns: "i32" },
 	Rtext_editor_set_hover_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_set_search: { args: ["u32", "ptr", "u32"], returns: "void" },
+	Rtext_editor_get_search: { args: ["u32"], returns: "cstring" },
+	Rtext_editor_get_search_flags: { args: ["u32"], returns: "u32" },
+	Rtext_editor_find_next: { args: ["u32"], returns: "i32" },
+	Rtext_editor_find_previous: { args: ["u32"], returns: "i32" },
+	Rtext_editor_get_match_count: { args: ["u32"], returns: "i32" },
+	Rtext_editor_get_match_index: { args: ["u32"], returns: "i32" },
+	Rtext_editor_get_match: { args: ["u32", "i32", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rtext_editor_select_match: { args: ["u32", "i32"], returns: "i32" },
+	Rtext_editor_replace: { args: ["u32", "ptr"], returns: "i32" },
+	Rtext_editor_replace_all: { args: ["u32", "ptr"], returns: "i32" },
+	Rtext_editor_show_find: { args: ["u32", "i32"], returns: "void" },
+	Rtext_editor_hide_find: { args: ["u32"], returns: "void" },
+	Rtext_editor_is_find_shown: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_find_bar: { args: ["u32", "i32"], returns: "void" },
 	Rtheme_set_token_color: { args: ["i32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rtheme_get_token_color: { args: ["i32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtheme_clear_token_colors: { args: [], returns: "void" },
@@ -2519,6 +2534,10 @@ export enum RColorRole {
 	R_COLOR_LINK = 0x0122,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE = 0x0123,
+	/** The matches of a search in a text editor (usually see-through). */
+	R_COLOR_SEARCH_MATCH = 0x0124,
+	/** The selected match of a search in a text editor. */
+	R_COLOR_SEARCH_CURRENT = 0x0125,
 }
 
 export const R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW;
@@ -2557,6 +2576,8 @@ export const R_COLOR_WARNING = RColorRole.R_COLOR_WARNING;
 export const R_COLOR_DANGER = RColorRole.R_COLOR_DANGER;
 export const R_COLOR_LINK = RColorRole.R_COLOR_LINK;
 export const R_COLOR_CODE = RColorRole.R_COLOR_CODE;
+export const R_COLOR_SEARCH_MATCH = RColorRole.R_COLOR_SEARCH_MATCH;
+export const R_COLOR_SEARCH_CURRENT = RColorRole.R_COLOR_SEARCH_CURRENT;
 
 /** Sizes, in logical units. */
 export enum RMetric {
@@ -3325,6 +3346,21 @@ export const R_TOKEN_HEADING = RToken.R_TOKEN_HEADING;
 export const R_TOKEN_STRONG = RToken.R_TOKEN_STRONG;
 export const R_TOKEN_EMPHASIS = RToken.R_TOKEN_EMPHASIS;
 export const R_TOKEN_LINK = RToken.R_TOKEN_LINK;
+
+/** Options of a search (Rtext_editor_set_search), a bitmask. */
+export enum RSearchFlags {
+	/**
+	 * Upper and lower case differ. Without it the case is ignored, for the
+	 * letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	 * Cyrillic and Armenian.
+	 */
+	R_SEARCH_MATCH_CASE = 1,
+	/** A match is a whole word: "for" does not find the start of "format". */
+	R_SEARCH_WHOLE_WORD = 2,
+}
+
+export const R_SEARCH_MATCH_CASE = RSearchFlags.R_SEARCH_MATCH_CASE;
+export const R_SEARCH_WHOLE_WORD = RSearchFlags.R_SEARCH_WHOLE_WORD;
 
 /** What a marker says about the text it underlines. */
 export enum RMarkerKind {
@@ -13252,6 +13288,121 @@ export function Rtext_editor_get_marker_count(editor: Rid): number {
 
 export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtext_editor_set_hover_callback(editor, _adapt_RTextEditorHoverCallback(callback), user_data);
+}
+
+/**
+ * Sets what is searched for, with RSearchFlags, and shows every
+ * match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+ * R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+ * break finds nothing. NULL or "" clears the search. The selection does
+ * not move; Rtext_editor_find_next goes to a match.
+ */
+export function Rtext_editor_set_search(editor: Rid, query: string | null, flags: number): void {
+	_lib.Rtext_editor_set_search(editor, _s(query), flags);
+}
+
+/** Returns: The text searched for, "" when there is none. */
+export function Rtext_editor_get_search(editor: Rid): string | null {
+	return _lib.Rtext_editor_get_search(editor);
+}
+
+/** Returns: The RSearchFlags of the search. */
+export function Rtext_editor_get_search_flags(editor: Rid): number {
+	return _lib.Rtext_editor_get_search_flags(editor);
+}
+
+/**
+ * Selects the next match after the selection (or the cursor),
+ * going on from the start of the text after its end, and scrolls to it.
+ * Returns R_FALSE when the text has no match.
+ */
+export function Rtext_editor_find_next(editor: Rid): number {
+	return _lib.Rtext_editor_find_next(editor);
+}
+
+/** The same, toward the start: the match before the selection, from the end of the text after its start. */
+export function Rtext_editor_find_previous(editor: Rid): number {
+	return _lib.Rtext_editor_find_previous(editor);
+}
+
+/** Returns: The number of matches in the whole text. Counted once per change of the text or of the search. */
+export function Rtext_editor_get_match_count(editor: Rid): number {
+	return _lib.Rtext_editor_get_match_count(editor);
+}
+
+/** Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match. */
+export function Rtext_editor_get_match_index(editor: Rid): number {
+	return _lib.Rtext_editor_get_match_index(editor);
+}
+
+/**
+ * Where a match is: its line and the columns of its first byte and
+ * of the byte after it. Returns R_FALSE when `index` is out of range.
+ */
+export function Rtext_editor_get_match(editor: Rid, index: number): [result: number, line: number, from_column: number, to_column: number] {
+	const line_ = new Int32Array(1);
+	const from_column_ = new Int32Array(1);
+	const to_column_ = new Int32Array(1);
+	const result_ = _lib.Rtext_editor_get_match(editor, index, line_, from_column_, to_column_);
+	return [result_, line_[0]!, from_column_[0]!, to_column_[0]!];
+}
+
+/** Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. */
+export function Rtext_editor_select_match(editor: Rid, index: number): number {
+	return _lib.Rtext_editor_select_match(editor, index);
+}
+
+/**
+ * Replaces the selected match by `replacement`, as one step of
+ * the history, then selects the next match. When the selection is not a
+ * match, only selects the next one (the user sees what will be replaced).
+ * Returns R_TRUE when something was replaced. As with
+ * Rtext_editor_insert_text, the changed callback is called.
+ */
+export function Rtext_editor_replace(editor: Rid, replacement: string | null): number {
+	return _lib.Rtext_editor_replace(editor, _s(replacement));
+}
+
+/**
+ * Replaces every match by `replacement`, as a single step of the
+ * history (one undo puts them all back). Returns the number of matches
+ * replaced.
+ */
+export function Rtext_editor_replace_all(editor: Rid, replacement: string | null): number {
+	return _lib.Rtext_editor_replace_all(editor, _s(replacement));
+}
+
+/**
+ * Opens the find bar of the editor (Ctrl+F), with the row to
+ * replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+ * Text selected on one line becomes the text searched for.
+ * Its texts are English unless the locale has the keys Raven.Find,
+ * Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+ * ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+ * Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+ * Raven.FindToggleReplace.
+ */
+export function Rtext_editor_show_find(editor: Rid, replace: number): void {
+	_lib.Rtext_editor_show_find(editor, replace);
+}
+
+/** Closes the find bar; the matches are no longer shown, F3 still goes to the next one. */
+export function Rtext_editor_hide_find(editor: Rid): void {
+	_lib.Rtext_editor_hide_find(editor);
+}
+
+export function Rtext_editor_is_find_shown(editor: Rid): number {
+	return _lib.Rtext_editor_is_find_shown(editor);
+}
+
+/**
+ * R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+ * Cmd+G), which then go to the shortcuts of the window: for an
+ * application with its own search, built on Rtext_editor_set_search. On
+ * by default. XML: FindBar="false".
+ */
+export function Rtext_editor_set_find_bar(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_find_bar(editor, enabled);
 }
 
 /**

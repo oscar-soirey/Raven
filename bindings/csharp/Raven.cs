@@ -845,6 +845,14 @@ namespace Raven
         /// Background of code in formatted text.
         /// </summary>
         R_COLOR_CODE = 0x0123,
+        /// <summary>
+        /// The matches of a search in a text editor (usually see-through).
+        /// </summary>
+        R_COLOR_SEARCH_MATCH = 0x0124,
+        /// <summary>
+        /// The selected match of a search in a text editor.
+        /// </summary>
+        R_COLOR_SEARCH_CURRENT = 0x0125,
     }
 
     /// <summary>
@@ -1672,6 +1680,24 @@ namespace Raven
         R_TOKEN_STRONG = 0x03AC,
         R_TOKEN_EMPHASIS = 0x03AD,
         R_TOKEN_LINK = 0x03AE,
+    }
+
+    /// <summary>
+    /// Options of a search (Rtext_editor_set_search), a bitmask.
+    /// </summary>
+    [Flags]
+    public enum RSearchFlags : int
+    {
+        /// <summary>
+        /// Upper and lower case differ. Without it the case is ignored, for the
+        /// letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+        /// Cyrillic and Armenian.
+        /// </summary>
+        R_SEARCH_MATCH_CASE = 1,
+        /// <summary>
+        /// A match is a whole word: "for" does not find the start of "format".
+        /// </summary>
+        R_SEARCH_WHOLE_WORD = 2,
     }
 
     /// <summary>
@@ -9061,6 +9087,117 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_set_hover_callback(uint editor, RTextEditorHoverCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Sets what is searched for, with RSearchFlags, and shows every
+        /// match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+        /// R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+        /// break finds nothing. NULL or "" clears the search. The selection does
+        /// not move; Rtext_editor_find_next goes to a match.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_search(uint editor, [MarshalAs(Utf8.Str)] string query, uint flags);
+
+        /// <summary>
+        /// Returns: The text searched for, "" when there is none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtext_editor_get_search", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtext_editor_get_search_(uint editor);
+        public static string Rtext_editor_get_search(uint editor) { return Text(Rtext_editor_get_search_(editor)); }
+
+        /// <summary>
+        /// Returns: The RSearchFlags of the search.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtext_editor_get_search_flags(uint editor);
+
+        /// <summary>
+        /// Selects the next match after the selection (or the cursor),
+        /// going on from the start of the text after its end, and scrolls to it.
+        /// Returns R_FALSE when the text has no match.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_find_next(uint editor);
+
+        /// <summary>
+        /// The same, toward the start: the match before the selection, from the end of the text after its start.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_find_previous(uint editor);
+
+        /// <summary>
+        /// Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_match_count(uint editor);
+
+        /// <summary>
+        /// Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_match_index(uint editor);
+
+        /// <summary>
+        /// Where a match is: its line and the columns of its first byte and
+        /// of the byte after it. Returns R_FALSE when `index` is out of range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_match(uint editor, int index, out int line, out int from_column, out int to_column);
+
+        /// <summary>
+        /// Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_select_match(uint editor, int index);
+
+        /// <summary>
+        /// Replaces the selected match by `replacement`, as one step of
+        /// the history, then selects the next match. When the selection is not a
+        /// match, only selects the next one (the user sees what will be replaced).
+        /// Returns R_TRUE when something was replaced. As with
+        /// Rtext_editor_insert_text, the changed callback is called.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_replace(uint editor, [MarshalAs(Utf8.Str)] string replacement);
+
+        /// <summary>
+        /// Replaces every match by `replacement`, as a single step of the
+        /// history (one undo puts them all back). Returns the number of matches
+        /// replaced.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_replace_all(uint editor, [MarshalAs(Utf8.Str)] string replacement);
+
+        /// <summary>
+        /// Opens the find bar of the editor (Ctrl+F), with the row to
+        /// replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+        /// Text selected on one line becomes the text searched for.
+        /// Its texts are English unless the locale has the keys Raven.Find,
+        /// Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+        /// ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+        /// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+        /// Raven.FindToggleReplace.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_show_find(uint editor, int replace);
+
+        /// <summary>
+        /// Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_hide_find(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_is_find_shown(uint editor);
+
+        /// <summary>
+        /// R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+        /// Cmd+G), which then go to the shortcuts of the window: for an
+        /// application with its own search, built on Rtext_editor_set_search. On
+        /// by default. XML: FindBar="false".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_find_bar(uint editor, int enabled);
 
         /// <summary>
         /// Color of a kind of token in the theme in use, instead of the
