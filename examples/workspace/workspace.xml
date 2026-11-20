@@ -14,6 +14,11 @@
 
   Material="..." chooses what a widget is made of, whatever the theme:
   Solid, Glass (clear), FrostedGlass or TintedGlass.
+
+  The Tasks panel is a table whose cells are edited in place (Editable on a
+  Column: double click, F2, Enter or just type; Tab goes to the next one),
+  its first column frozen while the others scroll (FrozenColumns), and a
+  combo box that filters its people as they are typed (Searchable).
 -->
 <Window Title="Raven - workspace" Width="1180" Height="720" MinWidth="760" MinHeight="460" CustomHeader="true">
 	<Island Name="island" Slot.Padding="0,5,0,0" ExpandOnClick="false">
@@ -33,6 +38,31 @@
 
 		<DockArea Name="dock" Slot.Fill="1">
 			<TextEditor Name="welcome" Slot.Title="Welcome" LineNumbers="true" Language="C"/>
+
+			<VBox Name="tasks" Slot.Title="Tasks" Slot.Dock="Tab" Slot.DockTo="welcome" Spacing="8" Slot.Padding="12">
+				<HBox Spacing="8">
+					<Label Text="Assign the selected task to" Slot.VAlign="Center"/>
+					<ComboBox Name="assignee" Searchable="true" Width="200" OnChanged="tasks.assign"
+						Items="Zoë Martin|Mazé Costa|João Silva|Ana Müller|Björn Ångström|Chloé Dubois|Łukasz Nowak|Renée Fournier|Søren Holm|Zoltán Kovács"/>
+				</HBox>
+				<Table Name="tasks.table" FrozenColumns="1" GridLines="true" Striped="true" Slot.Fill="1">
+					<Column Header="Task" Width="170" Editable="true"/>
+					<Column Header="Owner" Width="130" Editable="true"/>
+					<Column Header="Status" Width="100"/>
+					<Column Header="Estimate (h)" Width="100" Align="Right" Editable="true"/>
+					<Column Header="Due" Width="100"/>
+					<Column Header="Notes" Width="260" Fill="1" Editable="true"/>
+					<Row>Dock layout|Zoë Martin|Done|6|2026-11-02|Saved with the window</Row>
+					<Row>Table editing|Mazé Costa|Review|12|2026-11-20|Tab goes to the next cell</Row>
+					<Row>Frozen columns|João Silva|Review|5|2026-11-20|The task stays at the left</Row>
+					<Row>Searchable combo|Ana Müller|In progress|8|2026-11-24|Accents do not matter</Row>
+					<Row>Glass popups|Björn Ångström|To do|3|2026-12-01|</Row>
+					<Row>Screen readers|Chloé Dubois|To do|4|2026-12-05|The editor is a text field</Row>
+					<Row>Release notes|Renée Fournier|To do|2|2026-12-10|</Row>
+				</Table>
+				<Label Opacity="0.6" Wrap="true"
+					Text="Double click a cell of Task, Owner, Estimate or Notes, or select a row and type. Enter keeps the text, Escape forgets it. An estimate must be a number."/>
+			</VBox>
 
 			<FileBrowser Name="files" Slot.Title="Files" Slot.Dock="Left" Slot.DockSize="0.24" Slot.Closable="false"
 				Controls="false" Places="false"/>

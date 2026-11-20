@@ -3481,6 +3481,52 @@ func ComboBoxGetSelected(combo_box ID) int {
 	return int(C.Rcombo_box_get_selected(C.Rid(combo_box)))
 }
 
+// ComboBoxSetEditable: R_TRUE: the combo box is a text field with its list: the user may type a text that is
+// not one of the items (Editable="true"). The text is Rcombo_box_get_text; choosing an item puts its text
+// there. A typed text equal to an item selects it, any other selects nothing (-1).
+func ComboBoxSetEditable(combo_box ID, editable int) {
+	C.Rcombo_box_set_editable(C.Rid(combo_box), C.int(editable))
+}
+
+func ComboBoxIsEditable(combo_box ID) int {
+	return int(C.Rcombo_box_is_editable(C.Rid(combo_box)))
+}
+
+// ComboBoxSetSearchable: R_TRUE: typing in the combo box filters its list (Searchable="true"): the items that
+// contain what was typed, without regard to case or accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or
+// a row saying that nothing matches. Up and Down move in the list, Enter chooses, Escape closes it. A
+// searchable combo box that is not editable comes back to the item chosen when nothing is.
+func ComboBoxSetSearchable(combo_box ID, searchable int) {
+	C.Rcombo_box_set_searchable(C.Rid(combo_box), C.int(searchable))
+}
+
+func ComboBoxIsSearchable(combo_box ID) int {
+	return int(C.Rcombo_box_is_searchable(C.Rid(combo_box)))
+}
+
+// ComboBoxGetText: The text shown: what was typed in an editable combo box, else the text of the selected
+// item ("" for none).
+func ComboBoxGetText(combo_box ID) string {
+	return C.GoString(C.Rcombo_box_get_text(C.Rid(combo_box)))
+}
+
+// ComboBoxSetText: Editable combo box: sets the text of the field (the item equal to it is selected);
+// otherwise selects the item with this text.
+func ComboBoxSetText(combo_box ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rcombo_box_set_text(C.Rid(combo_box), text_)
+}
+
+// ComboBoxSetOpen: Opens (R_TRUE) or closes the list.
+func ComboBoxSetOpen(combo_box ID, open int) {
+	C.Rcombo_box_set_open(C.Rid(combo_box), C.int(open))
+}
+
+func ComboBoxIsOpen(combo_box ID) int {
+	return int(C.Rcombo_box_is_open(C.Rid(combo_box)))
+}
+
 // SeparatorSetOrientation: R_HORIZONTAL draws a horizontal line (default).
 func SeparatorSetOrientation(separator ID, orientation ROrientation) {
 	C.Rseparator_set_orientation(C.Rid(separator), C.ROrientation(orientation))
@@ -4021,6 +4067,41 @@ func TableSetGridLines(table ID, visible int) {
 // TableSetStriped: Every other row a little darker.
 func TableSetStriped(table ID, striped int) {
 	C.Rtable_set_striped(C.Rid(table), C.int(striped))
+}
+
+// TableSetColumnEditable: R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+func TableSetColumnEditable(table ID, column int, editable int) {
+	C.Rtable_set_column_editable(C.Rid(table), C.int(column), C.int(editable))
+}
+
+func TableIsColumnEditable(table ID, column int) int {
+	return int(C.Rtable_is_column_editable(C.Rid(table), C.int(column)))
+}
+
+// TableEditCell: Opens the editor on a cell, its text selected, as F2 does (the row is selected and scrolled
+// into view). Any column can be edited this way, editable or not. Returns: R_TRUE when the editor is open.
+func TableEditCell(table ID, row int, column int) int {
+	return int(C.Rtable_edit_cell(C.Rid(table), C.int(row), C.int(column)))
+}
+
+func TableIsEditing(table ID) int {
+	return int(C.Rtable_is_editing(C.Rid(table)))
+}
+
+// TableEndEdit: Closes the editor: `commit` R_TRUE keeps the text (through the cell edited callback), R_FALSE
+// forgets it. Returns: R_FALSE when the text was refused (the editor then stays open), R_TRUE otherwise.
+func TableEndEdit(table ID, commit int) int {
+	return int(C.Rtable_end_edit(C.Rid(table), C.int(commit)))
+}
+
+// TableSetFrozenColumns: The first `count` columns stay in place when the table scrolls sideways; a thin
+// shadow marks where the others pass under them. 0 (the default): every column scrolls.
+func TableSetFrozenColumns(table ID, count int) {
+	C.Rtable_set_frozen_columns(C.Rid(table), C.int(count))
+}
+
+func TableGetFrozenColumns(table ID) int {
+	return int(C.Rtable_get_frozen_columns(C.Rid(table)))
 }
 
 // DatePickerSetDate: Sets the date (today when the picker is created). An invalid date is refused.
@@ -8108,35 +8189,37 @@ func TestIsChecked(widget ID) int {
 // Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
 // Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
 // Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
-// Rcombo_box_set_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
-// Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
-// Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
+// Rcombo_box_set_changed_callback, Rcombo_box_set_text_changed_callback, Rlist_view_set_virtual_items
+// Rlist_view_set_item_color_callback, Rlist_view_set_selection_changed_callback
+// Rlist_view_set_activated_callback, Rtree_item_set_user_handle, Rtree_item_get_user_handle
+// Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
 // Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
 // Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
 // Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
 // Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
-// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
-// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
-// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
-// Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback
-// Rcarousel_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
-// Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
-// Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
-// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
-// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rtable_set_cell_edited_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
+// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
+// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
+// Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
+// Rpdf_view_set_page_changed_callback, Rcarousel_set_page_changed_callback, Rpdf_view_print
+// Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
+// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback, Rpdf_document_draw_image
+// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
+// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_float_window, Rdock_area_set_changed_callback, Risland_set_changed_callback
+// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
+// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
+// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
+// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
+// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
+// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

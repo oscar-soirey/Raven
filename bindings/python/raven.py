@@ -2400,6 +2400,14 @@ def _adapt_RComboBoxChangedCallback(function):
         function(combo_box, index, user_data)
     return call
 
+RComboBoxTextCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RComboBoxTextCallback(function):
+    def call(combo_box, text, user_data):
+        function(combo_box, _r(text), user_data)
+    return call
+
 RListItemTextCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -2524,6 +2532,14 @@ RTableSortCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctype
 def _adapt_RTableSortCallback(function):
     def call(table, column, descending, user_data):
         function(table, column, descending, user_data)
+    return call
+
+RTableCellEditedCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RTableCellEditedCallback(function):
+    def call(table, row, column, text, user_data):
+        return function(table, row, column, _r(text), user_data) or 0
     return call
 
 RDateChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
@@ -7367,6 +7383,91 @@ def Rcombo_box_set_changed_callback(combo_box, callback, user_data=None):
     _lib.Rcombo_box_set_changed_callback(combo_box, _callback(RComboBoxChangedCallback, _adapt_RComboBoxChangedCallback, callback), user_data)
 
 
+_lib.Rcombo_box_set_editable.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcombo_box_set_editable.restype = None
+
+
+def Rcombo_box_set_editable(combo_box, editable):
+    """R_TRUE: the combo box is a text field with its list: the user
+    may type a text that is not one of the items (Editable="true"). The text
+    is Rcombo_box_get_text; choosing an item puts its text there. A typed
+    text equal to an item selects it, any other selects nothing (-1)."""
+    _lib.Rcombo_box_set_editable(combo_box, editable)
+
+
+_lib.Rcombo_box_is_editable.argtypes = [ctypes.c_uint32]
+_lib.Rcombo_box_is_editable.restype = ctypes.c_int
+
+
+def Rcombo_box_is_editable(combo_box):
+    return _lib.Rcombo_box_is_editable(combo_box)
+
+
+_lib.Rcombo_box_set_searchable.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcombo_box_set_searchable.restype = None
+
+
+def Rcombo_box_set_searchable(combo_box, searchable):
+    """R_TRUE: typing in the combo box filters its list (Searchable="true"):
+    the items that contain what was typed, without regard to case or
+    accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+    matches. Up and Down move in the list, Enter chooses, Escape closes it.
+    A searchable combo box that is not editable comes back to the item
+    chosen when nothing is."""
+    _lib.Rcombo_box_set_searchable(combo_box, searchable)
+
+
+_lib.Rcombo_box_is_searchable.argtypes = [ctypes.c_uint32]
+_lib.Rcombo_box_is_searchable.restype = ctypes.c_int
+
+
+def Rcombo_box_is_searchable(combo_box):
+    return _lib.Rcombo_box_is_searchable(combo_box)
+
+
+_lib.Rcombo_box_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rcombo_box_get_text.restype = ctypes.c_char_p
+
+
+def Rcombo_box_get_text(combo_box):
+    """The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none)."""
+    return _r(_lib.Rcombo_box_get_text(combo_box))
+
+
+_lib.Rcombo_box_set_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rcombo_box_set_text.restype = None
+
+
+def Rcombo_box_set_text(combo_box, text):
+    """Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text."""
+    _lib.Rcombo_box_set_text(combo_box, _s(text))
+
+
+_lib.Rcombo_box_set_text_changed_callback.argtypes = [ctypes.c_uint32, RComboBoxTextCallback, ctypes.c_void_p]
+_lib.Rcombo_box_set_text_changed_callback.restype = None
+
+
+def Rcombo_box_set_text_changed_callback(combo_box, callback, user_data=None):
+    _lib.Rcombo_box_set_text_changed_callback(combo_box, _callback(RComboBoxTextCallback, _adapt_RComboBoxTextCallback, callback), user_data)
+
+
+_lib.Rcombo_box_set_open.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcombo_box_set_open.restype = None
+
+
+def Rcombo_box_set_open(combo_box, open):
+    """Opens (R_TRUE) or closes the list."""
+    _lib.Rcombo_box_set_open(combo_box, open)
+
+
+_lib.Rcombo_box_is_open.argtypes = [ctypes.c_uint32]
+_lib.Rcombo_box_is_open.restype = ctypes.c_int
+
+
+def Rcombo_box_is_open(combo_box):
+    return _lib.Rcombo_box_is_open(combo_box)
+
+
 _lib.Rseparator_set_orientation.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rseparator_set_orientation.restype = None
 
@@ -8494,6 +8595,80 @@ _lib.Rtable_set_sort_callback.restype = None
 
 def Rtable_set_sort_callback(table, callback, user_data=None):
     _lib.Rtable_set_sort_callback(table, _callback(RTableSortCallback, _adapt_RTableSortCallback, callback), user_data)
+
+
+_lib.Rtable_set_column_editable.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_column_editable.restype = None
+
+
+def Rtable_set_column_editable(table, column, editable):
+    """R_TRUE: the cells of the column are edited in place by the user (default R_FALSE)."""
+    _lib.Rtable_set_column_editable(table, column, editable)
+
+
+_lib.Rtable_is_column_editable.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_is_column_editable.restype = ctypes.c_int
+
+
+def Rtable_is_column_editable(table, column):
+    return _lib.Rtable_is_column_editable(table, column)
+
+
+_lib.Rtable_set_cell_edited_callback.argtypes = [ctypes.c_uint32, RTableCellEditedCallback, ctypes.c_void_p]
+_lib.Rtable_set_cell_edited_callback.restype = None
+
+
+def Rtable_set_cell_edited_callback(table, callback, user_data=None):
+    _lib.Rtable_set_cell_edited_callback(table, _callback(RTableCellEditedCallback, _adapt_RTableCellEditedCallback, callback), user_data)
+
+
+_lib.Rtable_edit_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_edit_cell.restype = ctypes.c_int
+
+
+def Rtable_edit_cell(table, row, column):
+    """Opens the editor on a cell, its text selected, as F2 does (the
+    row is selected and scrolled into view). Any column can be edited this
+    way, editable or not. Returns: R_TRUE when the editor is open."""
+    return _lib.Rtable_edit_cell(table, row, column)
+
+
+_lib.Rtable_is_editing.argtypes = [ctypes.c_uint32]
+_lib.Rtable_is_editing.restype = ctypes.c_int
+
+
+def Rtable_is_editing(table):
+    return _lib.Rtable_is_editing(table)
+
+
+_lib.Rtable_end_edit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_end_edit.restype = ctypes.c_int
+
+
+def Rtable_end_edit(table, commit):
+    """Closes the editor: `commit` R_TRUE keeps the text (through the
+    cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+    was refused (the editor then stays open), R_TRUE otherwise."""
+    return _lib.Rtable_end_edit(table, commit)
+
+
+_lib.Rtable_set_frozen_columns.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_frozen_columns.restype = None
+
+
+def Rtable_set_frozen_columns(table, count):
+    """The first `count` columns stay in place when the table scrolls
+    sideways; a thin shadow marks where the others pass under them. 0 (the
+    default): every column scrolls."""
+    _lib.Rtable_set_frozen_columns(table, count)
+
+
+_lib.Rtable_get_frozen_columns.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_frozen_columns.restype = ctypes.c_int
+
+
+def Rtable_get_frozen_columns(table):
+    return _lib.Rtable_get_frozen_columns(table)
 
 
 _lib.Rdate_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]

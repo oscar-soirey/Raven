@@ -282,6 +282,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_TEXT_INPUT: return R_ROLE_TEXT_FIELD;
 		case R_WIDGET_SPIN_BOX: return R_ROLE_SPIN_BUTTON;
 		case R_WIDGET_COMBO_BOX: return R_ROLE_COMBO_BOX;
+		/* the list of a combo box, while it is open (what matches the search) */
+		case RVN_WIDGET_INTERNAL_COMBO_LIST: return R_ROLE_LIST;
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
@@ -383,6 +385,7 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
 		case R_WIDGET_CAROUSEL: return (int)widget->child_count;
+		case RVN_WIDGET_INTERNAL_COMBO_LIST: return rvn_combo_list_row_count(widget);
 		default: return 0;
 	}
 }
@@ -584,6 +587,14 @@ rvn_a11y_id_t rvn_a11y_focus(Rid id) {
 		int selected = Rtable_get_selected(window->focus->id);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
+	/* a combo box (or its text field) with its list open: the highlighted row of the list */
+	{
+		rvn_widget_t* combo = window->focus->cls->type == R_WIDGET_COMBO_BOX ? window->focus :
+			(window->focus->parent && window->focus->parent->cls->type == R_WIDGET_COMBO_BOX ? window->focus->parent : NULL);
+		rvn_widget_t* list = combo ? rvn_combo_box_open_list(combo) : NULL;
+		if (list && rvn_combo_list_hot(list) >= 0 && rvn_combo_list_hot(list) < rvn_combo_list_row_count(list))
+			return rvn_a11y_make_item(list->id, rvn_combo_list_hot(list));
+	}
 	return rvn_a11y_node_of(window->focus);
 }
 
@@ -779,6 +790,28 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				node->states |= RVN_A11Y_INVOKABLE;
 				break;
 			}
+			case RVN_WIDGET_INTERNAL_COMBO_LIST: {
+				/* a row of the list of a combo box; "No matches" is a row that cannot be chosen */
+				const char* text = NULL;
+				rvn_rect_t rect;
+				int kind = rvn_combo_list_row_info(widget, item, &text, &rect);
+				if (!kind) return R_FALSE;
+				node->role = R_ROLE_LIST_ITEM;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
+				if (text) rvn_text_add(&g_a11y.name, text);
+				if (kind == 2) {
+					node->states |= RVN_A11Y_DISABLED;
+					break;
+				}
+				node->states |= RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				if (rvn_combo_list_selected_row(widget) == item) node->states |= RVN_A11Y_SELECTED;
+				if (rvn_combo_list_hot(widget) == item) node->states |= RVN_A11Y_FOCUSED;
+				break;
+			}
 			case R_WIDGET_CAROUSEL: {
 				/* a dot: named by its page, else "Page 2 of 5" */
 				rvn_widget_t* page = (uint32_t)item < widget->child_count ? widget->children[item] : NULL;
@@ -942,9 +975,11 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 		}
 		case R_WIDGET_COMBO_BOX: {
-			int selected = Rcombo_box_get_selected(widget->id);
-			const char* text = selected >= 0 ? Rcombo_box_get_item_text(widget->id, selected) : NULL;
+			/* the text shown: the item chosen, or what was typed in an editable one */
+			const char* text = Rcombo_box_get_text(widget->id);
 			node->states |= RVN_A11Y_EXPANDABLE | RVN_A11Y_INVOKABLE;
+			if (Rcombo_box_is_editable(widget->id)) node->states |= RVN_A11Y_EDITABLE;
+			if (Rcombo_box_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
 			if (text) rvn_text_add(&g_a11y.value, text);
 			break;
 		}
@@ -1056,6 +1091,18 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				return R_TRUE;
 			case R_WIDGET_LIST_VIEW: Rlist_view_set_selected(widget->id, item); return R_TRUE;
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
+			case RVN_WIDGET_INTERNAL_COMBO_LIST:
+				if (action != RVN_A11Y_SELECT && action != RVN_A11Y_PRESS) return R_FALSE;
+				{
+					const char* text;
+					rvn_rect_t rect;
+					/* (not the row that says nothing matches) */
+					if (rvn_combo_list_row_info(widget, item, &text, &rect) != 1) return R_FALSE;
+				}
+				rvn_dispatch_begin();
+				rvn_combo_list_choose(widget, item);
+				rvn_dispatch_end();
+				return R_TRUE;
 			case R_WIDGET_MAP_VIEW:
 				if (item >= Rmap_view_get_marker_count(widget->id)) return R_FALSE;
 				rvn_dispatch_begin();
@@ -1114,6 +1161,16 @@ int rvn_a11y_set_value(rvn_a11y_id_t id, const char* text) {
 			return R_TRUE;
 		case R_WIDGET_TEXT_EDITOR:
 			Rtext_editor_set_text(widget->id, text);
+			return R_TRUE;
+		case R_WIDGET_COMBO_BOX:
+			/* an editable combo box takes any text; another one the text of one of its items */
+			if (!Rcombo_box_is_editable(widget->id)) {
+				int i;
+				for (i = 0; i < Rcombo_box_get_item_count(widget->id); i++)
+					if (strcmp(Rcombo_box_get_item_text(widget->id, i), text) == 0) break;
+				if (i == Rcombo_box_get_item_count(widget->id)) return R_FALSE;
+			}
+			Rcombo_box_set_text(widget->id, text);
 			return R_TRUE;
 		case R_WIDGET_SLIDER:
 		case R_WIDGET_SPIN_BOX:

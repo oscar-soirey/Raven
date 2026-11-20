@@ -4972,6 +4972,27 @@ public final class R {
     }
 
     /**
+     * Called each time the user changes the text of an editable or searchable combo box.
+     */
+    @FunctionalInterface
+    public interface RComboBoxTextCallback {
+        void invoke(int combo_box, String text, MemorySegment user_data);
+    }
+
+    private static void RComboBoxTextCallback$raw(RComboBoxTextCallback f, int combo_box, MemorySegment text, MemorySegment user_data) {
+        try {
+            f.invoke(combo_box, text(text), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RComboBoxTextCallback f) {
+        return stub(f, RComboBoxTextCallback.class, "RComboBoxTextCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
      * Virtual mode, for large or computed data: the list stores nothing and
      * asks for the text of the rows it draws. The returned string must stay
      * valid until the next call.
@@ -5305,6 +5326,35 @@ public final class R {
 
     private static MemorySegment upcall(RTableSortCallback f) {
         return stub(f, RTableSortCallback.class, "RTableSortCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user keeps the text typed in a cell (Enter, Tab,
+     * a click elsewhere). Return R_TRUE to accept it: a stored table then
+     * keeps the text in the cell, unless the callback set the cell itself
+     * (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+     * nothing: the application keeps the text in its data. Return R_FALSE to
+     * refuse it: after Enter or Tab the field stays open on the text, so the
+     * user can correct it; after a click elsewhere the edit is dropped.
+     * Without a callback, a stored table keeps every text.
+     */
+    @FunctionalInterface
+    public interface RTableCellEditedCallback {
+        int invoke(int table, int row, int column, String text, MemorySegment user_data);
+    }
+
+    private static int RTableCellEditedCallback$raw(RTableCellEditedCallback f, int table, int row, int column, MemorySegment text, MemorySegment user_data) {
+        try {
+            return f.invoke(table, row, column, text(text), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTableCellEditedCallback f) {
+        return stub(f, RTableCellEditedCallback.class, "RTableCellEditedCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     /**
@@ -13673,6 +13723,146 @@ public final class R {
         Rcombo_box_set_changed_callback(combo_box, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rcombo_box_set_editable$;
+
+    /**
+     * R_TRUE: the combo box is a text field with its list: the user
+     * may type a text that is not one of the items (Editable="true"). The text
+     * is Rcombo_box_get_text; choosing an item puts its text there. A typed
+     * text equal to an item selects it, any other selects nothing (-1).
+     */
+    public static void Rcombo_box_set_editable(int combo_box, int editable) {
+        MethodHandle $h = Rcombo_box_set_editable$;
+        if ($h == null) Rcombo_box_set_editable$ = $h = find("Rcombo_box_set_editable", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(combo_box, editable);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_is_editable$;
+
+    public static int Rcombo_box_is_editable(int combo_box) {
+        MethodHandle $h = Rcombo_box_is_editable$;
+        if ($h == null) Rcombo_box_is_editable$ = $h = find("Rcombo_box_is_editable", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(combo_box);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_set_searchable$;
+
+    /**
+     * R_TRUE: typing in the combo box filters its list (Searchable="true"):
+     * the items that contain what was typed, without regard to case or
+     * accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+     * matches. Up and Down move in the list, Enter chooses, Escape closes it.
+     * A searchable combo box that is not editable comes back to the item
+     * chosen when nothing is.
+     */
+    public static void Rcombo_box_set_searchable(int combo_box, int searchable) {
+        MethodHandle $h = Rcombo_box_set_searchable$;
+        if ($h == null) Rcombo_box_set_searchable$ = $h = find("Rcombo_box_set_searchable", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(combo_box, searchable);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_is_searchable$;
+
+    public static int Rcombo_box_is_searchable(int combo_box) {
+        MethodHandle $h = Rcombo_box_is_searchable$;
+        if ($h == null) Rcombo_box_is_searchable$ = $h = find("Rcombo_box_is_searchable", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(combo_box);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_get_text$;
+
+    /**
+     * The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+     */
+    public static String Rcombo_box_get_text(int combo_box) {
+        MethodHandle $h = Rcombo_box_get_text$;
+        if ($h == null) Rcombo_box_get_text$ = $h = find("Rcombo_box_get_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(combo_box);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_set_text$;
+
+    /**
+     * Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+     */
+    public static void Rcombo_box_set_text(int combo_box, String text) {
+        MethodHandle $h = Rcombo_box_set_text$;
+        if ($h == null) Rcombo_box_set_text$ = $h = find("Rcombo_box_set_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(combo_box, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_set_text_changed_callback$;
+
+    public static void Rcombo_box_set_text_changed_callback(int combo_box, RComboBoxTextCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rcombo_box_set_text_changed_callback$;
+        if ($h == null) Rcombo_box_set_text_changed_callback$ = $h = find("Rcombo_box_set_text_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(combo_box, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rcombo_box_set_text_changed_callback(int combo_box, RComboBoxTextCallback callback) {
+        Rcombo_box_set_text_changed_callback(combo_box, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rcombo_box_set_open$;
+
+    /**
+     * Opens (R_TRUE) or closes the list.
+     */
+    public static void Rcombo_box_set_open(int combo_box, int open_) {
+        MethodHandle $h = Rcombo_box_set_open$;
+        if ($h == null) Rcombo_box_set_open$ = $h = find("Rcombo_box_set_open", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(combo_box, open_);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcombo_box_is_open$;
+
+    public static int Rcombo_box_is_open(int combo_box) {
+        MethodHandle $h = Rcombo_box_is_open$;
+        if ($h == null) Rcombo_box_is_open$ = $h = find("Rcombo_box_is_open", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(combo_box);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rseparator_set_orientation$;
 
     /**
@@ -15601,6 +15791,129 @@ public final class R {
 
     public static void Rtable_set_sort_callback(int table, RTableSortCallback callback) {
         Rtable_set_sort_callback(table, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtable_set_column_editable$;
+
+    /**
+     * R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+     */
+    public static void Rtable_set_column_editable(int table, int column, int editable) {
+        MethodHandle $h = Rtable_set_column_editable$;
+        if ($h == null) Rtable_set_column_editable$ = $h = find("Rtable_set_column_editable", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, column, editable);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_is_column_editable$;
+
+    public static int Rtable_is_column_editable(int table, int column) {
+        MethodHandle $h = Rtable_is_column_editable$;
+        if ($h == null) Rtable_is_column_editable$ = $h = find("Rtable_is_column_editable", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, column);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_cell_edited_callback$;
+
+    public static void Rtable_set_cell_edited_callback(int table, RTableCellEditedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtable_set_cell_edited_callback$;
+        if ($h == null) Rtable_set_cell_edited_callback$ = $h = find("Rtable_set_cell_edited_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(table, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rtable_set_cell_edited_callback(int table, RTableCellEditedCallback callback) {
+        Rtable_set_cell_edited_callback(table, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtable_edit_cell$;
+
+    /**
+     * Opens the editor on a cell, its text selected, as F2 does (the
+     * row is selected and scrolled into view). Any column can be edited this
+     * way, editable or not. Returns: R_TRUE when the editor is open.
+     */
+    public static int Rtable_edit_cell(int table, int row, int column) {
+        MethodHandle $h = Rtable_edit_cell$;
+        if ($h == null) Rtable_edit_cell$ = $h = find("Rtable_edit_cell", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, row, column);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_is_editing$;
+
+    public static int Rtable_is_editing(int table) {
+        MethodHandle $h = Rtable_is_editing$;
+        if ($h == null) Rtable_is_editing$ = $h = find("Rtable_is_editing", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_end_edit$;
+
+    /**
+     * Closes the editor: `commit` R_TRUE keeps the text (through the
+     * cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+     * was refused (the editor then stays open), R_TRUE otherwise.
+     */
+    public static int Rtable_end_edit(int table, int commit) {
+        MethodHandle $h = Rtable_end_edit$;
+        if ($h == null) Rtable_end_edit$ = $h = find("Rtable_end_edit", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, commit);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_frozen_columns$;
+
+    /**
+     * The first `count` columns stay in place when the table scrolls
+     * sideways; a thin shadow marks where the others pass under them. 0 (the
+     * default): every column scrolls.
+     */
+    public static void Rtable_set_frozen_columns(int table, int count) {
+        MethodHandle $h = Rtable_set_frozen_columns$;
+        if ($h == null) Rtable_set_frozen_columns$ = $h = find("Rtable_set_frozen_columns", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_frozen_columns$;
+
+    public static int Rtable_get_frozen_columns(int table) {
+        MethodHandle $h = Rtable_get_frozen_columns$;
+        if ($h == null) Rtable_get_frozen_columns$ = $h = find("Rtable_get_frozen_columns", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rdate_picker_set_date$;

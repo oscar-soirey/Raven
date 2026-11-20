@@ -283,6 +283,25 @@ void rvn_islands_shutdown(void);
 int  rvn_map_view_marker_info(const rvn_widget_t* widget, int index, const char** label, rvn_rect_t* rect);
 /** What a click on the marker at `index` does (its callback). */
 void rvn_map_view_press_marker(rvn_widget_t* widget, int index);
+/* ---- widgets/text_input.c: a TextInput held by another widget (the editor of a cell, the field of a combo box) ---- */
+/** Selects from `start` to `end` (bytes; the caret at `end`). */
+void rvn_text_input_set_selection(rvn_widget_t* input, int start, int end);
+/** Room kept free at the right of the text (the arrow of a combo box). */
+void rvn_text_input_set_inset(rvn_widget_t* input, float right);
+/* ---- widgets/combo_box.c: the list of a combo box as a screen reader sees it ---- */
+/** The combo box a list belongs to. */
+rvn_widget_t* rvn_combo_list_owner(const rvn_widget_t* list);
+/** The list of a combo box when it is open, else NULL. */
+rvn_widget_t* rvn_combo_box_open_list(const rvn_widget_t* combo);
+/** Rows shown (those that match what was typed); a row saying that nothing matches is not counted. */
+int  rvn_combo_list_row_count(const rvn_widget_t* list);
+/** The text of a row and the rectangle it has in the list; R_FALSE past the last row. */
+int  rvn_combo_list_row_info(const rvn_widget_t* list, int row, const char** text, rvn_rect_t* rect);
+/** The highlighted row (-1: none); the row of the selected item. */
+int  rvn_combo_list_hot(const rvn_widget_t* list);
+int  rvn_combo_list_selected_row(const rvn_widget_t* list);
+/** Chooses a row, as a click does (the list closes). */
+void rvn_combo_list_choose(rvn_widget_t* list, int row);
 /** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */

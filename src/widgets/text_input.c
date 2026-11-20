@@ -16,6 +16,8 @@ typedef struct rvn_text_input_t {
 	void* committed_user;
 	RTextInputType input_type;
 	RReturnKey return_key;
+	/** Room kept free at the right of the text (rvn_text_input_set_inset). */
+	float inset;
 } rvn_text_input_t;
 
 static void rvn_text_input_init(rvn_widget_t* widget) {
@@ -36,7 +38,8 @@ static rvn_rect_t rvn_text_input_area(const rvn_widget_t* widget) {
 	float px = rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_widget_metric(widget, R_METRIC_PADDING_X) - 1.0f :
 		rvn_widget_family(widget) == RVN_FAMILY_MACOS ? 5.0f : rvn_widget_family(widget) == RVN_FAMILY_GNOME ? 9.0f :
 		rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
-	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f), widget->rect.h);
+	float inset = ((const rvn_text_input_t*)widget)->inset;
+	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f - inset), widget->rect.h);
 }
 
 static rvn_vec2_t rvn_text_input_measure(rvn_widget_t* widget) {
@@ -314,6 +317,16 @@ void Rtext_input_set_return_key(Rid id, RReturnKey key) {
 RReturnKey Rtext_input_get_return_key(Rid id) {
 	RVN_WIDGET(widget, id, R_WIDGET_TEXT_INPUT, R_RETURN_KEY_DEFAULT);
 	return ((rvn_text_input_t*)widget)->return_key;
+}
+
+void rvn_text_input_set_selection(rvn_widget_t* widget, int start, int end) {
+	rvn_textedit_set_selection(&((rvn_text_input_t*)widget)->edit, start, end);
+	rvn_widget_invalidate_paint(widget);
+}
+
+void rvn_text_input_set_inset(rvn_widget_t* widget, float right) {
+	((rvn_text_input_t*)widget)->inset = rvn_maxf(0.0f, right);
+	rvn_widget_invalidate_paint(widget);
 }
 
 /* ---------------------------------------------------------------------------

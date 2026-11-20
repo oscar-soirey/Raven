@@ -1485,6 +1485,8 @@ alias RSliderChangedCallback = fn void(Rid slider, float value, void* user_data)
 alias RTextChangedCallback = fn void(Rid text_input, char* text, void* user_data);
 alias RSpinBoxChangedCallback = fn void(Rid spin_box, double value, void* user_data);
 alias RComboBoxChangedCallback = fn void(Rid combo_box, CInt index, void* user_data);
+<* Called each time the user changes the text of an editable or searchable combo box. *>
+alias RComboBoxTextCallback = fn void(Rid combo_box, char* text, void* user_data);
 <*
  Virtual mode, for large or computed data: the list stores nothing and
  asks for the text of the rows it draws. The returned string must stay
@@ -1541,6 +1543,17 @@ alias RTableCellColorCallback = fn CInt(Rid table, CInt row, CInt column, float*
 alias RTableEventCallback = fn void(Rid table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias RTableSortCallback = fn void(Rid table, CInt column, CInt descending, void* user_data);
+<*
+ Called when the user keeps the text typed in a cell (Enter, Tab,
+ a click elsewhere). Return R_TRUE to accept it: a stored table then
+ keeps the text in the cell, unless the callback set the cell itself
+ (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+ nothing: the application keeps the text in its data. Return R_FALSE to
+ refuse it: after Enter or Tab the field stays open on the text, so the
+ user can correct it; after a click elsewhere the edit is dropped.
+ Without a callback, a stored table keeps every text.
+*>
+alias RTableCellEditedCallback = fn CInt(Rid table, CInt row, CInt column, char* text, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias RDateChangedCallback = fn void(Rid date_picker, CInt year, CInt month, CInt day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
@@ -4347,6 +4360,41 @@ extern fn CInt r_combo_box_get_selected(Rid combo_box) @cname("Rcombo_box_get_se
 
 extern fn void r_combo_box_set_changed_callback(Rid combo_box, RComboBoxChangedCallback callback, void* user_data) @cname("Rcombo_box_set_changed_callback");
 
+<*
+ R_TRUE: the combo box is a text field with its list: the user
+ may type a text that is not one of the items (Editable="true"). The text
+ is Rcombo_box_get_text; choosing an item puts its text there. A typed
+ text equal to an item selects it, any other selects nothing (-1).
+*>
+extern fn void r_combo_box_set_editable(Rid combo_box, CInt editable) @cname("Rcombo_box_set_editable");
+
+extern fn CInt r_combo_box_is_editable(Rid combo_box) @cname("Rcombo_box_is_editable");
+
+<*
+ R_TRUE: typing in the combo box filters its list (Searchable="true"):
+ the items that contain what was typed, without regard to case or
+ accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+ matches. Up and Down move in the list, Enter chooses, Escape closes it.
+ A searchable combo box that is not editable comes back to the item
+ chosen when nothing is.
+*>
+extern fn void r_combo_box_set_searchable(Rid combo_box, CInt searchable) @cname("Rcombo_box_set_searchable");
+
+extern fn CInt r_combo_box_is_searchable(Rid combo_box) @cname("Rcombo_box_is_searchable");
+
+<* The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none). *>
+extern fn char* r_combo_box_get_text(Rid combo_box) @cname("Rcombo_box_get_text");
+
+<* Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. *>
+extern fn void r_combo_box_set_text(Rid combo_box, char* text) @cname("Rcombo_box_set_text");
+
+extern fn void r_combo_box_set_text_changed_callback(Rid combo_box, RComboBoxTextCallback callback, void* user_data) @cname("Rcombo_box_set_text_changed_callback");
+
+<* Opens (R_TRUE) or closes the list. *>
+extern fn void r_combo_box_set_open(Rid combo_box, CInt open) @cname("Rcombo_box_set_open");
+
+extern fn CInt r_combo_box_is_open(Rid combo_box) @cname("Rcombo_box_is_open");
+
 <* R_HORIZONTAL draws a horizontal line (default). *>
 extern fn void r_separator_set_orientation(Rid separator, ROrientation orientation) @cname("Rseparator_set_orientation");
 
@@ -4705,6 +4753,38 @@ extern fn void r_table_set_selection_changed_callback(Rid table, RTableEventCall
 extern fn void r_table_set_activated_callback(Rid table, RTableEventCallback callback, void* user_data) @cname("Rtable_set_activated_callback");
 
 extern fn void r_table_set_sort_callback(Rid table, RTableSortCallback callback, void* user_data) @cname("Rtable_set_sort_callback");
+
+<* R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). *>
+extern fn void r_table_set_column_editable(Rid table, CInt column, CInt editable) @cname("Rtable_set_column_editable");
+
+extern fn CInt r_table_is_column_editable(Rid table, CInt column) @cname("Rtable_is_column_editable");
+
+extern fn void r_table_set_cell_edited_callback(Rid table, RTableCellEditedCallback callback, void* user_data) @cname("Rtable_set_cell_edited_callback");
+
+<*
+ Opens the editor on a cell, its text selected, as F2 does (the
+ row is selected and scrolled into view). Any column can be edited this
+ way, editable or not. @return R_TRUE when the editor is open.
+*>
+extern fn CInt r_table_edit_cell(Rid table, CInt row, CInt column) @cname("Rtable_edit_cell");
+
+extern fn CInt r_table_is_editing(Rid table) @cname("Rtable_is_editing");
+
+<*
+ Closes the editor: `commit` R_TRUE keeps the text (through the
+ cell edited callback), R_FALSE forgets it. @return R_FALSE when the text
+ was refused (the editor then stays open), R_TRUE otherwise.
+*>
+extern fn CInt r_table_end_edit(Rid table, CInt commit) @cname("Rtable_end_edit");
+
+<*
+ The first `count` columns stay in place when the table scrolls
+ sideways; a thin shadow marks where the others pass under them. 0 (the
+ default): every column scrolls.
+*>
+extern fn void r_table_set_frozen_columns(Rid table, CInt count) @cname("Rtable_set_frozen_columns");
+
+extern fn CInt r_table_get_frozen_columns(Rid table) @cname("Rtable_get_frozen_columns");
 
 <* Sets the date (today when the picker is created). An invalid date is refused. *>
 extern fn void r_date_picker_set_date(Rid date_picker, CInt year, CInt month, CInt day) @cname("Rdate_picker_set_date");

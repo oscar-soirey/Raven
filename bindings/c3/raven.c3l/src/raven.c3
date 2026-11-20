@@ -1758,6 +1758,8 @@ alias SliderChangedCallback = fn void(Id slider, float value, void* user_data);
 alias TextChangedCallback = fn void(Id text_input, ZString text, void* user_data);
 alias SpinBoxChangedCallback = fn void(Id spin_box, double value, void* user_data);
 alias ComboBoxChangedCallback = fn void(Id combo_box, CInt index, void* user_data);
+<* Called each time the user changes the text of an editable or searchable combo box. *>
+alias ComboBoxTextCallback = fn void(Id combo_box, ZString text, void* user_data);
 <*
  Virtual mode, for large or computed data: the list stores nothing and
  asks for the text of the rows it draws. The returned string must stay
@@ -1814,6 +1816,17 @@ alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* user_data);
+<*
+ Called when the user keeps the text typed in a cell (Enter, Tab,
+ a click elsewhere). Return R_TRUE to accept it: a stored table then
+ keeps the text in the cell, unless the callback set the cell itself
+ (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+ nothing: the application keeps the text in its data. Return R_FALSE to
+ refuse it: after Enter or Tab the field stays open on the text, so the
+ user can correct it; after a click elsewhere the edit is dropped.
+ Without a callback, a stored table keeps every text.
+*>
+alias TableCellEditedCallback = fn CInt(Id table, CInt row, CInt column, ZString text, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias DateChangedCallback = fn void(Id date_picker, CInt year, CInt month, CInt day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
@@ -3517,6 +3530,41 @@ fn void ComboBox.set_selected(self, CInt index) @inline => c::r_combo_box_set_se
 fn CInt ComboBox.get_selected(self) @inline => c::r_combo_box_get_selected((c::Rid)self);
 
 fn void ComboBox.set_changed_callback(self, ComboBoxChangedCallback callback, void* user_data) @inline => c::r_combo_box_set_changed_callback((c::Rid)self, (c::RComboBoxChangedCallback)callback, user_data);
+
+<*
+ R_TRUE: the combo box is a text field with its list: the user
+ may type a text that is not one of the items (Editable="true"). The text
+ is Rcombo_box_get_text; choosing an item puts its text there. A typed
+ text equal to an item selects it, any other selects nothing (-1).
+*>
+fn void ComboBox.set_editable(self, CInt editable) @inline => c::r_combo_box_set_editable((c::Rid)self, editable);
+
+fn bool ComboBox.is_editable(self) @inline => c::r_combo_box_is_editable((c::Rid)self) != 0;
+
+<*
+ R_TRUE: typing in the combo box filters its list (Searchable="true"):
+ the items that contain what was typed, without regard to case or
+ accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+ matches. Up and Down move in the list, Enter chooses, Escape closes it.
+ A searchable combo box that is not editable comes back to the item
+ chosen when nothing is.
+*>
+fn void ComboBox.set_searchable(self, CInt searchable) @inline => c::r_combo_box_set_searchable((c::Rid)self, searchable);
+
+fn bool ComboBox.is_searchable(self) @inline => c::r_combo_box_is_searchable((c::Rid)self) != 0;
+
+<* The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none). *>
+fn ZString ComboBox.get_text(self) @inline => (ZString)c::r_combo_box_get_text((c::Rid)self);
+
+<* Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. *>
+fn void ComboBox.set_text(self, ZString text) @inline => c::r_combo_box_set_text((c::Rid)self, (char*)text);
+
+fn void ComboBox.set_text_changed_callback(self, ComboBoxTextCallback callback, void* user_data) @inline => c::r_combo_box_set_text_changed_callback((c::Rid)self, (c::RComboBoxTextCallback)callback, user_data);
+
+<* Opens (R_TRUE) or closes the list. *>
+fn void ComboBox.set_open(self, CInt open) @inline => c::r_combo_box_set_open((c::Rid)self, open);
+
+fn bool ComboBox.is_open(self) @inline => c::r_combo_box_is_open((c::Rid)self) != 0;
 
 // ---- Separator
 
@@ -5271,6 +5319,38 @@ fn void Table.set_selection_changed_callback(self, TableEventCallback callback, 
 fn void Table.set_activated_callback(self, TableEventCallback callback, void* user_data) @inline => c::r_table_set_activated_callback((c::Rid)self, (c::RTableEventCallback)callback, user_data);
 
 fn void Table.set_sort_callback(self, TableSortCallback callback, void* user_data) @inline => c::r_table_set_sort_callback((c::Rid)self, (c::RTableSortCallback)callback, user_data);
+
+<* R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). *>
+fn void Table.set_column_editable(self, CInt column, CInt editable) @inline => c::r_table_set_column_editable((c::Rid)self, column, editable);
+
+fn bool Table.is_column_editable(self, CInt column) @inline => c::r_table_is_column_editable((c::Rid)self, column) != 0;
+
+fn void Table.set_cell_edited_callback(self, TableCellEditedCallback callback, void* user_data) @inline => c::r_table_set_cell_edited_callback((c::Rid)self, (c::RTableCellEditedCallback)callback, user_data);
+
+<*
+ Opens the editor on a cell, its text selected, as F2 does (the
+ row is selected and scrolled into view). Any column can be edited this
+ way, editable or not. @return R_TRUE when the editor is open.
+*>
+fn bool Table.edit_cell(self, CInt row, CInt column) @inline => c::r_table_edit_cell((c::Rid)self, row, column) != 0;
+
+fn bool Table.is_editing(self) @inline => c::r_table_is_editing((c::Rid)self) != 0;
+
+<*
+ Closes the editor: `commit` R_TRUE keeps the text (through the
+ cell edited callback), R_FALSE forgets it. @return R_FALSE when the text
+ was refused (the editor then stays open), R_TRUE otherwise.
+*>
+fn bool Table.end_edit(self, CInt commit) @inline => c::r_table_end_edit((c::Rid)self, commit) != 0;
+
+<*
+ The first `count` columns stay in place when the table scrolls
+ sideways; a thin shadow marks where the others pass under them. 0 (the
+ default): every column scrolls.
+*>
+fn void Table.set_frozen_columns(self, CInt count) @inline => c::r_table_set_frozen_columns((c::Rid)self, count);
+
+fn CInt Table.get_frozen_columns(self) @inline => c::r_table_get_frozen_columns((c::Rid)self);
 
 // ---- DatePicker
 

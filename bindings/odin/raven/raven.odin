@@ -1362,6 +1362,8 @@ RSliderChangedCallback :: #type proc "c" (slider: Rid, value: f32, user_data: ra
 RTextChangedCallback :: #type proc "c" (text_input: Rid, text: cstring, user_data: rawptr)
 RSpinBoxChangedCallback :: #type proc "c" (spin_box: Rid, value: f64, user_data: rawptr)
 RComboBoxChangedCallback :: #type proc "c" (combo_box: Rid, index: i32, user_data: rawptr)
+// Called each time the user changes the text of an editable or searchable combo box.
+RComboBoxTextCallback :: #type proc "c" (combo_box: Rid, text: cstring, user_data: rawptr)
 // Virtual mode, for large or computed data: the list stores nothing and
 // asks for the text of the rows it draws. The returned string must stay
 // valid until the next call.
@@ -1404,6 +1406,15 @@ RTableCellColorCallback :: #type proc "c" (table: Rid, row: i32, column: i32, r:
 RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
 // Called when the user clicks a header; `column` -1: not sorted.
 RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
+// Called when the user keeps the text typed in a cell (Enter, Tab,
+// a click elsewhere). Return R_TRUE to accept it: a stored table then
+// keeps the text in the cell, unless the callback set the cell itself
+// (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+// nothing: the application keeps the text in its data. Return R_FALSE to
+// refuse it: after Enter or Tab the field stays open on the text, so the
+// user can correct it; after a click elsewhere the edit is dropped.
+// Without a callback, a stored table keeps every text.
+RTableCellEditedCallback :: #type proc "c" (table: Rid, row: i32, column: i32, text: cstring, user_data: rawptr) -> i32
 // Called when the user chooses a date. This also fires the action of the widget.
 RDateChangedCallback :: #type proc "c" (date_picker: Rid, year: i32, month: i32, day: i32, user_data: rawptr)
 // Called when the user changes the time. This also fires the action of the widget.
@@ -3239,6 +3250,28 @@ foreign lib {
 	Rcombo_box_set_selected :: proc(combo_box: Rid, index: i32) ---
 	Rcombo_box_get_selected :: proc(combo_box: Rid) -> i32 ---
 	Rcombo_box_set_changed_callback :: proc(combo_box: Rid, callback: RComboBoxChangedCallback, user_data: rawptr) ---
+	// R_TRUE: the combo box is a text field with its list: the user
+	// may type a text that is not one of the items (Editable="true"). The text
+	// is Rcombo_box_get_text; choosing an item puts its text there. A typed
+	// text equal to an item selects it, any other selects nothing (-1).
+	Rcombo_box_set_editable :: proc(combo_box: Rid, editable: i32) ---
+	Rcombo_box_is_editable :: proc(combo_box: Rid) -> i32 ---
+	// R_TRUE: typing in the combo box filters its list (Searchable="true"):
+	// the items that contain what was typed, without regard to case or
+	// accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+	// matches. Up and Down move in the list, Enter chooses, Escape closes it.
+	// A searchable combo box that is not editable comes back to the item
+	// chosen when nothing is.
+	Rcombo_box_set_searchable :: proc(combo_box: Rid, searchable: i32) ---
+	Rcombo_box_is_searchable :: proc(combo_box: Rid) -> i32 ---
+	// The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+	Rcombo_box_get_text :: proc(combo_box: Rid) -> cstring ---
+	// Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+	Rcombo_box_set_text :: proc(combo_box: Rid, text: cstring) ---
+	Rcombo_box_set_text_changed_callback :: proc(combo_box: Rid, callback: RComboBoxTextCallback, user_data: rawptr) ---
+	// Opens (R_TRUE) or closes the list.
+	Rcombo_box_set_open :: proc(combo_box: Rid, open: i32) ---
+	Rcombo_box_is_open :: proc(combo_box: Rid) -> i32 ---
 	// R_HORIZONTAL draws a horizontal line (default).
 	Rseparator_set_orientation :: proc(separator: Rid, orientation: ROrientation) ---
 	// Returns: The index of the new item.
@@ -3451,6 +3484,24 @@ foreign lib {
 	// Called on double click or Enter. This also fires the action of the widget.
 	Rtable_set_activated_callback :: proc(table: Rid, callback: RTableEventCallback, user_data: rawptr) ---
 	Rtable_set_sort_callback :: proc(table: Rid, callback: RTableSortCallback, user_data: rawptr) ---
+	// R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+	Rtable_set_column_editable :: proc(table: Rid, column: i32, editable: i32) ---
+	Rtable_is_column_editable :: proc(table: Rid, column: i32) -> i32 ---
+	Rtable_set_cell_edited_callback :: proc(table: Rid, callback: RTableCellEditedCallback, user_data: rawptr) ---
+	// Opens the editor on a cell, its text selected, as F2 does (the
+	// row is selected and scrolled into view). Any column can be edited this
+	// way, editable or not. Returns: R_TRUE when the editor is open.
+	Rtable_edit_cell :: proc(table: Rid, row: i32, column: i32) -> i32 ---
+	Rtable_is_editing :: proc(table: Rid) -> i32 ---
+	// Closes the editor: `commit` R_TRUE keeps the text (through the
+	// cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+	// was refused (the editor then stays open), R_TRUE otherwise.
+	Rtable_end_edit :: proc(table: Rid, commit: i32) -> i32 ---
+	// The first `count` columns stay in place when the table scrolls
+	// sideways; a thin shadow marks where the others pass under them. 0 (the
+	// default): every column scrolls.
+	Rtable_set_frozen_columns :: proc(table: Rid, count: i32) ---
+	Rtable_get_frozen_columns :: proc(table: Rid) -> i32 ---
 	// Sets the date (today when the picker is created). An invalid date is refused.
 	Rdate_picker_set_date :: proc(date_picker: Rid, year: i32, month: i32, day: i32) ---
 	Rdate_picker_get_date :: proc(date_picker: Rid, year: ^i32, month: ^i32, day: ^i32) ---

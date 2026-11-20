@@ -298,6 +298,8 @@ type
   RTextChangedCallback* = proc (text_input: Rid, text: cstring, user_data: pointer) {.cdecl.}
   RSpinBoxChangedCallback* = proc (spin_box: Rid, value: cdouble, user_data: pointer) {.cdecl.}
   RComboBoxChangedCallback* = proc (combo_box: Rid, index: cint, user_data: pointer) {.cdecl.}
+  RComboBoxTextCallback* = proc (combo_box: Rid, text: cstring, user_data: pointer) {.cdecl.}
+    ## Called each time the user changes the text of an editable or searchable combo box.
   RListItemTextCallback* = proc (list_view: Rid, index: cint, user_data: pointer): cstring {.cdecl.}
     ## Virtual mode, for large or computed data: the list stores nothing and
     ## asks for the text of the rows it draws. The returned string must stay
@@ -340,6 +342,15 @@ type
   RTableEventCallback* = proc (table: Rid, row: cint, user_data: pointer) {.cdecl.}
   RTableSortCallback* = proc (table: Rid, column: cint, descending: cint, user_data: pointer) {.cdecl.}
     ## Called when the user clicks a header; `column` -1: not sorted.
+  RTableCellEditedCallback* = proc (table: Rid, row: cint, column: cint, text: cstring, user_data: pointer): cint {.cdecl.}
+    ## Called when the user keeps the text typed in a cell (Enter, Tab,
+    ## a click elsewhere). Return R_TRUE to accept it: a stored table then
+    ## keeps the text in the cell, unless the callback set the cell itself
+    ## (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+    ## nothing: the application keeps the text in its data. Return R_FALSE to
+    ## refuse it: after Enter or Tab the field stays open on the text, so the
+    ## user can correct it; after a click elsewhere the edit is dropped.
+    ## Without a callback, a stored table keeps every text.
   RDateChangedCallback* = proc (date_picker: Rid, year: cint, month: cint, day: cint, user_data: pointer) {.cdecl.}
     ## Called when the user chooses a date. This also fires the action of the widget.
   RTimeChangedCallback* = proc (time_picker: Rid, hour: cint, minute: cint, second: cint, user_data: pointer) {.cdecl.}
@@ -3253,6 +3264,28 @@ proc Rcombo_box_set_selected*(combo_box: Rid, index: cint) {.rapi.}
   ## Selects an item. -1 selects nothing.
 proc Rcombo_box_get_selected*(combo_box: Rid): cint {.rapi.}
 proc Rcombo_box_set_changed_callback*(combo_box: Rid, callback: RComboBoxChangedCallback, user_data: pointer) {.rapi.}
+proc Rcombo_box_set_editable*(combo_box: Rid, editable: cint) {.rapi.}
+  ## R_TRUE: the combo box is a text field with its list: the user
+  ## may type a text that is not one of the items (Editable="true"). The text
+  ## is Rcombo_box_get_text; choosing an item puts its text there. A typed
+  ## text equal to an item selects it, any other selects nothing (-1).
+proc Rcombo_box_is_editable*(combo_box: Rid): cint {.rapi.}
+proc Rcombo_box_set_searchable*(combo_box: Rid, searchable: cint) {.rapi.}
+  ## R_TRUE: typing in the combo box filters its list (Searchable="true"):
+  ## the items that contain what was typed, without regard to case or
+  ## accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+  ## matches. Up and Down move in the list, Enter chooses, Escape closes it.
+  ## A searchable combo box that is not editable comes back to the item
+  ## chosen when nothing is.
+proc Rcombo_box_is_searchable*(combo_box: Rid): cint {.rapi.}
+proc Rcombo_box_get_text*(combo_box: Rid): cstring {.rapi.}
+  ## The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+proc Rcombo_box_set_text*(combo_box: Rid, text: cstring) {.rapi.}
+  ## Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+proc Rcombo_box_set_text_changed_callback*(combo_box: Rid, callback: RComboBoxTextCallback, user_data: pointer) {.rapi.}
+proc Rcombo_box_set_open*(combo_box: Rid, open: cint) {.rapi.}
+  ## Opens (R_TRUE) or closes the list.
+proc Rcombo_box_is_open*(combo_box: Rid): cint {.rapi.}
 proc Rseparator_set_orientation*(separator: Rid, orientation: ROrientation) {.rapi.}
   ## R_HORIZONTAL draws a horizontal line (default).
 proc Rlist_view_add_item*(list_view: Rid, text: cstring): cint {.rapi.}
@@ -3465,6 +3498,24 @@ proc Rtable_set_selection_changed_callback*(table: Rid, callback: RTableEventCal
 proc Rtable_set_activated_callback*(table: Rid, callback: RTableEventCallback, user_data: pointer) {.rapi.}
   ## Called on double click or Enter. This also fires the action of the widget.
 proc Rtable_set_sort_callback*(table: Rid, callback: RTableSortCallback, user_data: pointer) {.rapi.}
+proc Rtable_set_column_editable*(table: Rid, column: cint, editable: cint) {.rapi.}
+  ## R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+proc Rtable_is_column_editable*(table: Rid, column: cint): cint {.rapi.}
+proc Rtable_set_cell_edited_callback*(table: Rid, callback: RTableCellEditedCallback, user_data: pointer) {.rapi.}
+proc Rtable_edit_cell*(table: Rid, row: cint, column: cint): cint {.rapi.}
+  ## Opens the editor on a cell, its text selected, as F2 does (the
+  ## row is selected and scrolled into view). Any column can be edited this
+  ## way, editable or not. Returns: R_TRUE when the editor is open.
+proc Rtable_is_editing*(table: Rid): cint {.rapi.}
+proc Rtable_end_edit*(table: Rid, commit: cint): cint {.rapi.}
+  ## Closes the editor: `commit` R_TRUE keeps the text (through the
+  ## cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+  ## was refused (the editor then stays open), R_TRUE otherwise.
+proc Rtable_set_frozen_columns*(table: Rid, count: cint) {.rapi.}
+  ## The first `count` columns stay in place when the table scrolls
+  ## sideways; a thin shadow marks where the others pass under them. 0 (the
+  ## default): every column scrolls.
+proc Rtable_get_frozen_columns*(table: Rid): cint {.rapi.}
 proc Rdate_picker_set_date*(date_picker: Rid, year: cint, month: cint, day: cint) {.rapi.}
   ## Sets the date (today when the picker is created). An invalid date is refused.
 proc Rdate_picker_get_date*(date_picker: Rid, year: ptr cint, month: ptr cint, day: ptr cint) {.rapi.}
