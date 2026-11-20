@@ -1,0 +1,25 @@
+<!-- Notifications of the system: tags, buttons, an icon. main.c shows them and lists what the user does with them.
+     The Toast at the bottom right shows those the system could not show (Rnotification_set_fallback_toast). -->
+<Window Title="Raven notifications" Width="900" Height="560">
+	<Overlay>
+		<VBox Spacing="16" Slot.Padding="24">
+			<VBox Spacing="2">
+				<Label Text="Notifications" TextSize="26"/>
+				<Label Name="where" Text="" Opacity="0.6"/>
+			</VBox>
+			<HBox Spacing="10">
+				<Button Text="Message with buttons" Style="Primary" OnClicked="notify.message"/>
+				<Button Text="Replace it" OnClicked="notify.replace"/>
+				<Button Text="Close it" OnClicked="notify.close"/>
+				<Button Text="Build finished" OnClicked="notify.build"/>
+				<Button Text="Critical" OnClicked="notify.critical"/>
+			</HBox>
+			<Checkbox Name="front" Text="A click on a notification brings this window back" Style="Switch" Checked="true" OnChanged="notify.front"/>
+			<Label Text="What the user did" Opacity="0.6"/>
+			<Border CornerRadius="10" Padding="12" Background="#80808018" Slot.Fill="1">
+				<Label Name="log" Text="Nothing yet: minimize the window, show a notification and click it or one of its buttons." Wrap="true"/>
+			</Border>
+		</VBox>
+		<Toast Name="toast" Queue="Stack" MaxVisible="3" Duration="8" Slot.HAlign="Right" Slot.VAlign="Bottom" Slot.Padding="20"/>
+	</Overlay>
+</Window>

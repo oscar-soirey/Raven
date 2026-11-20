@@ -1149,6 +1149,19 @@ void rvn_tray_update(void);
 int  rvn_tray_count(void);
 void rvn_tray_on_event(const struct rvn_pevent_t* event);
 void rvn_tray_shutdown(void);
+/** The notifications (platform/notify.c): what is remembered of them goes. */
+void rvn_notify_shutdown(void);
+
+/* ---- widgets/toast.c: the fallback of the notifications (Rnotification_set_fallback_toast) ---- */
+struct rvn_notification_t;
+/**
+ * Shows a notification as a message of the toast, with its title, icon and
+ * buttons; a message of the same tag still there is replaced. What the user
+ * does with it goes to rvn_notification_event. R_FALSE: not a toast.
+ */
+int  rvn_toast_show_notification(Rid toast, const struct rvn_notification_t* notification);
+/** Takes away the message of that tag, without reporting anything. */
+void rvn_toast_close_notification(Rid toast, const char* tag);
 
 /* ---- widget/inspector.c (Rwindow_set_inspector) ---- */
 /** Once a frame: the inspectors follow the windows they inspect. */

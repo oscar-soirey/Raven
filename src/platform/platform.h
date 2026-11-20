@@ -300,6 +300,23 @@ typedef struct rvn_pwindow_desc_t {
 	void* user;
 } rvn_pwindow_desc_t;
 
+/** A notification for rvn_platform_t::notify: the strings are UTF-8, never NULL (they may be empty). */
+typedef struct rvn_notification_t {
+	/** The name of the application. */
+	const char* app;
+	/** Names it (a tag of the application, or "raven.N"): a later one with the same tag replaces it. */
+	const char* tag;
+	const char* title;
+	const char* body;
+	/** 0 low, 1 normal, 2 critical. */
+	int urgency;
+	/** Absolute path of an image file that exists, or "". */
+	const char* icon;
+	const char* const* action_ids;
+	const char* const* action_labels;
+	int action_count;
+} rvn_notification_t;
+
 typedef struct rvn_platform_t {
 	const char* name;
 	RWindowSystem system;
@@ -499,10 +516,15 @@ typedef struct rvn_platform_t {
 
 	/**
 	 * Optional (NULL: the system has none). Shows a notification of the
-	 * system (Rnotification_show); `urgency` 0 low, 1 normal, 2 critical.
-	 * R_FALSE when it could not be shown.
+	 * system (Rnotification_show_desc); a notification shown with the tag of
+	 * one still shown replaces it. R_FALSE when it could not be shown. What
+	 * the user does with it comes back through rvn_notification_event.
 	 */
-	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
+	int   (*notify)(const rvn_notification_t* notification);
+	/** Optional: takes away the notification of that tag (nothing when there is none). */
+	void  (*notify_close)(const char* tag);
+	/** Optional: the RNotificationFeature bits the notifications have here (NULL: none of them). */
+	unsigned (*notify_features)(void);
 
 	/*
 	 * ---- mobile (optional, NULL on desktop) ----
@@ -572,16 +594,35 @@ typedef struct rvn_platform_t {
 const rvn_platform_t* rvn_platform_emscripten(void);
 #endif
 
-/** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
-void rvn_notification_clicked(void);
+/**
+ * The user did something with a notification of the system: the platform
+ * tells the core (notify.c), on the UI thread. `event` is a
+ * RNotificationEvent; `tag` NULL: the last one shown (a system that shows
+ * one at a time); `action` the id of the button for R_NOTIFICATION_ACTION_INVOKED.
+ */
+void rvn_notification_event(const char* tag, int event, const char* action);
 /** The fallback of Rnotification_show for a notification the platform took but could not show
- * (macOS: the user refused the permission it asked for); `urgency` as given to rvn_platform_t::notify,
- * `reason` (or NULL) what the system said, reported as a warning. */
-void rvn_notification_fallback(const char* title, const char* body, int urgency, const char* reason);
+ * (macOS: the user refused the permission it asked for); `reason` (or NULL) what the system said,
+ * reported as a warning. */
+void rvn_notification_fallback(const rvn_notification_t* notification, const char* reason);
+/**
+ * The array of actions of org.freedesktop.Notifications.Notify: "default"
+ * (a click on the notification) then the id and the label of each button.
+ * Writes at most `capacity` strings (pointers into `notification`) and
+ * returns how many.
+ */
+int  rvn_notification_dbus_actions(const rvn_notification_t* notification, const char** out, int capacity);
+/** "file://" and the absolute path, escaped as a URI ("/a b" -> "file:///a%20b"). Free with rvn_free. */
+char* rvn_notification_file_uri(const char* path);
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
-int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);
+int  rvn_dbus_notify(const rvn_notification_t* notification);
+void rvn_dbus_notify_close(const char* tag);
+unsigned rvn_dbus_notify_features(void);
+/** The session bus the notifications listen on (-1: none yet), and what came on it (ActionInvoked, NotificationClosed). */
+int  rvn_dbus_notify_fd(void);
+void rvn_dbus_notify_dispatch(void);
 void rvn_dbus_notify_shutdown(void);
 /*
  * The launchers of Linux desktops (notify.c): com.canonical.Unity.LauncherEntry,

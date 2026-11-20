@@ -1148,6 +1148,30 @@ R_NOTIFICATION_NORMAL :: 0x04F1
 // Stays until the user dismisses it, where the system allows it.
 R_NOTIFICATION_CRITICAL :: 0x04F2
 
+// What happened to a notification (Rnotification_set_callback).
+RNotificationEvent :: i32
+// The user clicked the notification itself (not one of its buttons).
+R_NOTIFICATION_ACTIVATED :: 0x0C20
+// The user clicked one of its buttons: `action` is the id of that button.
+R_NOTIFICATION_ACTION_INVOKED :: 0x0C21
+// It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+R_NOTIFICATION_DISMISSED :: 0x0C22
+
+// What the notifications of the system can do here (Rnotification_supports).
+RNotificationFeature :: i32
+// Buttons (RNotificationDesc::actions).
+R_NOTIFICATION_FEATURE_ACTIONS :: 1
+// A notification shown again with the same tag replaces the first one.
+R_NOTIFICATION_FEATURE_REPLACE :: 2
+// Rnotification_close takes a notification away.
+R_NOTIFICATION_FEATURE_CLOSE :: 4
+// An image beside the text (RNotificationDesc::icon).
+R_NOTIFICATION_FEATURE_ICON :: 8
+// A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+R_NOTIFICATION_FEATURE_ACTIVATED :: 0x0010
+// Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+R_NOTIFICATION_FEATURE_DISMISSED :: 0x0020
+
 RFileDialogFlags :: i32
 // Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
 R_FILE_DIALOG_MULTIPLE :: 1
@@ -1571,6 +1595,11 @@ RDialogClosedCallback :: #type proc "c" (content: Rid, result: i32, user_data: r
 RFileBrowserCallback :: #type proc "c" (browser: Rid, path: cstring, user_data: rawptr)
 RNotificationFallback :: #type proc "c" (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: rawptr)
 RNotificationClickedCallback :: #type proc "c" (user_data: rawptr)
+// Called on the UI thread when the user clicks a notification or
+// one of its buttons, or dismisses it. `tag` names the notification,
+// `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+// NULL: none.
+RNotificationCallback :: #type proc "c" (tag: cstring, event: RNotificationEvent, action: cstring, user_data: rawptr)
 // Called on the render thread each time the window is rendered.
 // State you bind (pipeline, descriptor sets, viewport, scissor) does not
 // need to be restored. NULL removes the callback.
@@ -2016,6 +2045,39 @@ RJumpTask :: struct {
 	arguments: cstring,
 	// The tooltip; NULL: none.
 	description: cstring,
+}
+
+// A button of a notification.
+RNotificationAction :: struct {
+	// Given back to the callback ("reply", "snooze"); not empty, and not "default".
+	id: cstring,
+	// Shown to the user ("Reply").
+	label: cstring,
+}
+
+// A notification for Rnotification_show_desc. `size` must be
+// sizeof(RNotificationDesc): the fields that later versions of Raven add
+// come after the others, and a smaller size tells Raven they were not
+// given. The other fields may be left to zero.
+RNotificationDesc :: struct {
+	// sizeof(RNotificationDesc).
+	size: u32,
+	// Names the notification: shown again with the same tag, it replaces the
+	// one still shown instead of adding another; Rnotification_close takes it
+	// away; the callback is given it. NULL or "": a tag of its own
+	// ("raven.1", "raven.2"...).
+	tag: cstring,
+	title: cstring,
+	body: cstring,
+	// 0: R_NOTIFICATION_NORMAL.
+	urgency: RNotificationUrgency,
+	// An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+	icon: cstring,
+	// Up to 3 buttons, or NULL.
+	actions: ^RNotificationAction,
+	action_count: i32,
+	// The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+	window: Rid,
 }
 
 // A kind of file in a file dialog.
@@ -5009,16 +5071,35 @@ foreign lib {
 	Rfile_browser_set_selection_changed_callback :: proc(browser: Rid, callback: RFileBrowserCallback, user_data: rawptr) ---
 	// Returns: R_TRUE when the system took the notification.
 	Rnotification_show :: proc(title: cstring, body: cstring, urgency: RNotificationUrgency) -> i32 ---
-	// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+	// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+	// the fallback): the null platform, no notification server on Linux, an executable outside of a
+	// bundle on macOS.
 	Rnotification_is_supported :: proc() -> i32 ---
 	// Called with the notifications the system could not show; NULL: none.
 	Rnotification_set_fallback :: proc(callback: RNotificationFallback, user_data: rawptr) ---
 	// Called when the user clicks a notification of Rnotification_show
-	// (on the UI thread; the application may then bring its window to the
-	// front: the system lets it). It is the last one shown that was clicked:
-	// the application remembers what it was about. NULL: none.
-	// Windows and macOS (elsewhere it is never called).
+	// (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+	// Rnotification_set_callback, which also tells which one. NULL: none.
 	Rnotification_set_clicked_callback :: proc(callback: RNotificationClickedCallback, user_data: rawptr) ---
+	// Shows a notification described by `desc` (see RNotificationDesc).
+	// Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+	Rnotification_show_desc :: proc(desc: ^RNotificationDesc) -> i32 ---
+	// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+	Rnotification_close :: proc(tag: cstring) ---
+	Rnotification_set_callback :: proc(callback: RNotificationCallback, user_data: rawptr) ---
+	// R_TRUE (the default): a click on a notification (not on one of
+	// its buttons) brings its window back before the callback is called:
+	// shown again if it was hidden or minimized, in front, with the keyboard.
+	// R_FALSE: the application does what it wants in the callback.
+	Rnotification_set_bring_to_front :: proc(enabled: i32) ---
+	// A Toast that shows the notifications the system could not show,
+	// with their title, icon and buttons; a click on one, or on a button, is
+	// reported to Rnotification_set_callback as for the system's. Put it in
+	// an Overlay (Queue="Stack" shows several at once). It takes the place
+	// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+	Rnotification_set_fallback_toast :: proc(toast: Rid) ---
+	// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+	Rnotification_supports :: proc(feature: RNotificationFeature) -> i32 ---
 	// Shows a texture. R_INVALID_ID shows nothing.
 	Rviewport_set_texture :: proc(viewport: Rid, texture: Rid) ---
 	// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

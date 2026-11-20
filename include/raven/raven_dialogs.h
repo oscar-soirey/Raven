@@ -43,6 +43,69 @@ typedef enum RNotificationUrgency{
 	R_NOTIFICATION_CRITICAL
 }RNotificationUrgency;
 
+/** What happened to a notification (Rnotification_set_callback). */
+typedef enum RNotificationEvent{
+	/** The user clicked the notification itself (not one of its buttons). */
+	R_NOTIFICATION_ACTIVATED = 0x0C20,
+	/** The user clicked one of its buttons: `action` is the id of that button. */
+	R_NOTIFICATION_ACTION_INVOKED,
+	/** It went away without being clicked: closed by the user, or its time ran out (where the system tells). */
+	R_NOTIFICATION_DISMISSED
+}RNotificationEvent;
+
+/** What the notifications of the system can do here (Rnotification_supports). */
+typedef enum RNotificationFeature{
+	/** Buttons (RNotificationDesc::actions). */
+	R_NOTIFICATION_FEATURE_ACTIONS   = (1 << 0),
+	/** A notification shown again with the same tag replaces the first one. */
+	R_NOTIFICATION_FEATURE_REPLACE   = (1 << 1),
+	/** Rnotification_close takes a notification away. */
+	R_NOTIFICATION_FEATURE_CLOSE     = (1 << 2),
+	/** An image beside the text (RNotificationDesc::icon). */
+	R_NOTIFICATION_FEATURE_ICON      = (1 << 3),
+	/** A click on the notification is reported (R_NOTIFICATION_ACTIVATED). */
+	R_NOTIFICATION_FEATURE_ACTIVATED = (1 << 4),
+	/** Its dismissal is reported (R_NOTIFICATION_DISMISSED). */
+	R_NOTIFICATION_FEATURE_DISMISSED = (1 << 5)
+}RNotificationFeature;
+
+/** A button of a notification. */
+typedef struct RNotificationAction {
+	/** Given back to the callback ("reply", "snooze"); not empty, and not "default". */
+	const char* id;
+	/** Shown to the user ("Reply"). */
+	const char* label;
+} RNotificationAction;
+
+/**
+ * A notification for Rnotification_show_desc. `size` must be
+ * sizeof(RNotificationDesc): the fields that later versions of Raven add
+ * come after the others, and a smaller size tells Raven they were not
+ * given. The other fields may be left to zero.
+ */
+typedef struct RNotificationDesc {
+	/** sizeof(RNotificationDesc). */
+	Ruint size;
+	/**
+	 * Names the notification: shown again with the same tag, it replaces the
+	 * one still shown instead of adding another; Rnotification_close takes it
+	 * away; the callback is given it. NULL or "": a tag of its own
+	 * ("raven.1", "raven.2"...).
+	 */
+	const char* tag;
+	const char* title;
+	const char* body;
+	/** 0: R_NOTIFICATION_NORMAL. */
+	RNotificationUrgency urgency;
+	/** An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL. */
+	const char* icon;
+	/** Up to 3 buttons, or NULL. */
+	const RNotificationAction* actions;
+	int action_count;
+	/** The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened). */
+	Rid window;
+} RNotificationDesc;
+
 /** A kind of file in a file dialog. */
 typedef struct RFileFilter {
 	/** Shown to the user: "Images". */
@@ -276,7 +339,11 @@ extern "C" {
 
 	/** @return R_TRUE when the system took the notification. */
 	RAVEN_API int Rnotification_show(const char* title, const char* body, RNotificationUrgency urgency);
-	/** @brief R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). */
+	/**
+	 * @brief R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+	 * the fallback): the null platform, no notification server on Linux, an executable outside of a
+	 * bundle on macOS.
+	 */
 	RAVEN_API int Rnotification_is_supported(void);
 	typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
 	/** @brief Called with the notifications the system could not show; NULL: none. */
@@ -284,12 +351,67 @@ extern "C" {
 	typedef void (*RNotificationClickedCallback)(void* user_data);
 	/**
 	 * @brief Called when the user clicks a notification of Rnotification_show
-	 * (on the UI thread; the application may then bring its window to the
-	 * front: the system lets it). It is the last one shown that was clicked:
-	 * the application remembers what it was about. NULL: none.
-	 * Windows and macOS (elsewhere it is never called).
+	 * (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+	 * Rnotification_set_callback, which also tells which one. NULL: none.
 	 */
 	RAVEN_API void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
+
+	/*
+	 * Tags, buttons, an icon, and what the user did with the notification.
+	 * The fallback toast (Rnotification_set_fallback_toast) shows the same
+	 * notification in a Toast of the application, with its buttons, when the
+	 * system shows none, and reports to the same callback: an application
+	 * behaves the same wherever its notifications are shown.
+	 *
+	 *     static const RNotificationAction actions[] = { { "reply", "Reply" }, { "later", "Later" } };
+	 *     RNotificationDesc desc = { sizeof(RNotificationDesc) };
+	 *     desc.tag = "chat-42";
+	 *     desc.title = "Ada";
+	 *     desc.body = "Are we still on for tonight?";
+	 *     desc.actions = actions;
+	 *     desc.action_count = 2;
+	 *     Rnotification_show_desc(&desc);
+	 *
+	 * What the systems do: macOS (inside a bundle) shows the buttons, the
+	 * icon (PNG, JPEG, GIF, HEIC) and reports every event. Linux and the BSDs
+	 * show the buttons where the notification server has them (GNOME, KDE,
+	 * dunst, mako...), the icon, and report every event. Windows shows a
+	 * balloon of the notification area: one at a time, no buttons, no icon
+	 * of its own; a click is reported. Rnotification_supports tells.
+	 */
+
+	/**
+	 * @brief Shows a notification described by `desc` (see RNotificationDesc).
+	 * @return R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+	 */
+	RAVEN_API int Rnotification_show_desc(const RNotificationDesc* desc);
+	/** @brief Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called. */
+	RAVEN_API void Rnotification_close(const char* tag);
+	/**
+	 * @brief Called on the UI thread when the user clicks a notification or
+	 * one of its buttons, or dismisses it. `tag` names the notification,
+	 * `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+	 * NULL: none.
+	 */
+	typedef void (*RNotificationCallback)(const char* tag, RNotificationEvent event, const char* action, void* user_data);
+	RAVEN_API void Rnotification_set_callback(RNotificationCallback callback, void* user_data);
+	/**
+	 * @brief R_TRUE (the default): a click on a notification (not on one of
+	 * its buttons) brings its window back before the callback is called:
+	 * shown again if it was hidden or minimized, in front, with the keyboard.
+	 * R_FALSE: the application does what it wants in the callback.
+	 */
+	RAVEN_API void Rnotification_set_bring_to_front(int enabled);
+	/**
+	 * @brief A Toast that shows the notifications the system could not show,
+	 * with their title, icon and buttons; a click on one, or on a button, is
+	 * reported to Rnotification_set_callback as for the system's. Put it in
+	 * an Overlay (Queue="Stack" shows several at once). It takes the place
+	 * of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+	 */
+	RAVEN_API void Rnotification_set_fallback_toast(Rid toast);
+	/** @brief Whether the notifications of the system have that feature here (R_FALSE where there are none). */
+	RAVEN_API int Rnotification_supports(RNotificationFeature feature);
 
 #ifdef __cplusplus
 } /* extern "C" */

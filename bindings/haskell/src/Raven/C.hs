@@ -1869,6 +1869,43 @@ pattern R_NOTIFICATION_NORMAL = RNotificationUrgency 1265
 pattern R_NOTIFICATION_CRITICAL :: RNotificationUrgency
 pattern R_NOTIFICATION_CRITICAL = RNotificationUrgency 1266
 
+-- | What happened to a notification (Rnotification_set_callback).
+newtype RNotificationEvent = RNotificationEvent CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The user clicked the notification itself (not one of its buttons).
+pattern R_NOTIFICATION_ACTIVATED :: RNotificationEvent
+pattern R_NOTIFICATION_ACTIVATED = RNotificationEvent 3104
+-- | The user clicked one of its buttons: `action` is the id of that button.
+pattern R_NOTIFICATION_ACTION_INVOKED :: RNotificationEvent
+pattern R_NOTIFICATION_ACTION_INVOKED = RNotificationEvent 3105
+-- | It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+pattern R_NOTIFICATION_DISMISSED :: RNotificationEvent
+pattern R_NOTIFICATION_DISMISSED = RNotificationEvent 3106
+
+-- | What the notifications of the system can do here (Rnotification_supports).
+newtype RNotificationFeature = RNotificationFeature CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Buttons (RNotificationDesc::actions).
+pattern R_NOTIFICATION_FEATURE_ACTIONS :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ACTIONS = RNotificationFeature 1
+-- | A notification shown again with the same tag replaces the first one.
+pattern R_NOTIFICATION_FEATURE_REPLACE :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_REPLACE = RNotificationFeature 2
+-- | Rnotification_close takes a notification away.
+pattern R_NOTIFICATION_FEATURE_CLOSE :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_CLOSE = RNotificationFeature 4
+-- | An image beside the text (RNotificationDesc::icon).
+pattern R_NOTIFICATION_FEATURE_ICON :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ICON = RNotificationFeature 8
+-- | A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+pattern R_NOTIFICATION_FEATURE_ACTIVATED :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ACTIVATED = RNotificationFeature 16
+-- | Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+pattern R_NOTIFICATION_FEATURE_DISMISSED :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_DISMISSED = RNotificationFeature 32
+
 newtype RFileDialogFlags = RFileDialogFlags CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
 
@@ -2848,6 +2885,16 @@ type RNotificationClickedCallback = FunPtr (Ptr () -> IO ())
 -- | Makes a 'RNotificationClickedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRNotificationClickedCallback :: (Ptr () -> IO ()) -> IO RNotificationClickedCallback
+
+-- | Called on the UI thread when the user clicks a notification or
+-- one of its buttons, or dismisses it. `tag` names the notification,
+-- `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+-- NULL: none.
+type RNotificationCallback = FunPtr (CString -> RNotificationEvent -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RNotificationCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRNotificationCallback :: (CString -> RNotificationEvent -> CString -> Ptr () -> IO ()) -> IO RNotificationCallback
 
 -- | Called on the render thread each time the window is rendered.
 -- State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -3879,6 +3926,81 @@ instance Storable RJumpTask where
         pokeByteOff p 0 (rJumpTask_title v)
         pokeByteOff p 8 (rJumpTask_arguments v)
         pokeByteOff p 16 (rJumpTask_description v)
+
+-- | A button of a notification.
+data RNotificationAction = RNotificationAction
+    { rNotificationAction_id :: CString
+      -- ^ Given back to the callback ("reply", "snooze"); not empty, and not "default".
+    , rNotificationAction_label :: CString
+      -- ^ Shown to the user ("Reply").
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RNotificationAction x = {0};@ is in C).
+rNotificationAction :: RNotificationAction
+rNotificationAction = RNotificationAction (nullPtr) (nullPtr)
+
+instance Storable RNotificationAction where
+    sizeOf _ = 16
+    alignment _ = 8
+    peek p = RNotificationAction
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+    poke p v = do
+        pokeByteOff p 0 (rNotificationAction_id v)
+        pokeByteOff p 8 (rNotificationAction_label v)
+
+-- | A notification for Rnotification_show_desc. `size` must be
+-- sizeof(RNotificationDesc): the fields that later versions of Raven add
+-- come after the others, and a smaller size tells Raven they were not
+-- given. The other fields may be left to zero.
+data RNotificationDesc = RNotificationDesc
+    { rNotificationDesc_size :: Word32
+      -- ^ sizeof(RNotificationDesc).
+    , rNotificationDesc_tag :: CString
+      -- ^ Names the notification: shown again with the same tag, it replaces the
+      -- one still shown instead of adding another; Rnotification_close takes it
+      -- away; the callback is given it. NULL or "": a tag of its own
+      -- ("raven.1", "raven.2"...).
+    , rNotificationDesc_title :: CString
+    , rNotificationDesc_body :: CString
+    , rNotificationDesc_urgency :: RNotificationUrgency
+      -- ^ 0: R_NOTIFICATION_NORMAL.
+    , rNotificationDesc_icon :: CString
+      -- ^ An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+    , rNotificationDesc_actions :: Ptr RNotificationAction
+      -- ^ Up to 3 buttons, or NULL.
+    , rNotificationDesc_action_count :: CInt
+    , rNotificationDesc_window :: Rid
+      -- ^ The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RNotificationDesc x = {0};@ is in C).
+rNotificationDesc :: RNotificationDesc
+rNotificationDesc = RNotificationDesc (0) (nullPtr) (nullPtr) (nullPtr) (0) (nullPtr) (nullPtr) (0) (0)
+
+instance Storable RNotificationDesc where
+    sizeOf _ = 64
+    alignment _ = 8
+    peek p = RNotificationDesc
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 56
+        <*> peekByteOff p 60
+    poke p v = do
+        pokeByteOff p 0 (rNotificationDesc_size v)
+        pokeByteOff p 8 (rNotificationDesc_tag v)
+        pokeByteOff p 16 (rNotificationDesc_title v)
+        pokeByteOff p 24 (rNotificationDesc_body v)
+        pokeByteOff p 32 (rNotificationDesc_urgency v)
+        pokeByteOff p 40 (rNotificationDesc_icon v)
+        pokeByteOff p 48 (rNotificationDesc_actions v)
+        pokeByteOff p 56 (rNotificationDesc_action_count v)
+        pokeByteOff p 60 (rNotificationDesc_window v)
 
 -- | A kind of file in a file dialog.
 data RFileFilter = RFileFilter
@@ -8375,18 +8497,43 @@ foreign import ccall safe "Rfile_browser_set_selection_changed_callback" rfile_b
 -- | Returns: R_TRUE when the system took the notification.
 foreign import ccall safe "Rnotification_show" rnotification_show :: CString -> CString -> RNotificationUrgency -> IO CInt
 
--- | R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+-- | R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+-- the fallback): the null platform, no notification server on Linux, an executable outside of a
+-- bundle on macOS.
 foreign import ccall safe "Rnotification_is_supported" rnotification_is_supported :: IO CInt
 
 -- | Called with the notifications the system could not show; NULL: none.
 foreign import ccall safe "Rnotification_set_fallback" rnotification_set_fallback :: RNotificationFallback -> Ptr () -> IO ()
 
 -- | Called when the user clicks a notification of Rnotification_show
--- (on the UI thread; the application may then bring its window to the
--- front: the system lets it). It is the last one shown that was clicked:
--- the application remembers what it was about. NULL: none.
--- Windows and macOS (elsewhere it is never called).
+-- (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+-- Rnotification_set_callback, which also tells which one. NULL: none.
 foreign import ccall safe "Rnotification_set_clicked_callback" rnotification_set_clicked_callback :: RNotificationClickedCallback -> Ptr () -> IO ()
+
+-- | Shows a notification described by `desc` (see RNotificationDesc).
+-- Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+foreign import ccall safe "Rnotification_show_desc" rnotification_show_desc :: Ptr RNotificationDesc -> IO CInt
+
+-- | Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+foreign import ccall safe "Rnotification_close" rnotification_close :: CString -> IO ()
+
+foreign import ccall safe "Rnotification_set_callback" rnotification_set_callback :: RNotificationCallback -> Ptr () -> IO ()
+
+-- | R_TRUE (the default): a click on a notification (not on one of
+-- its buttons) brings its window back before the callback is called:
+-- shown again if it was hidden or minimized, in front, with the keyboard.
+-- R_FALSE: the application does what it wants in the callback.
+foreign import ccall safe "Rnotification_set_bring_to_front" rnotification_set_bring_to_front :: CInt -> IO ()
+
+-- | A Toast that shows the notifications the system could not show,
+-- with their title, icon and buttons; a click on one, or on a button, is
+-- reported to Rnotification_set_callback as for the system's. Put it in
+-- an Overlay (Queue="Stack" shows several at once). It takes the place
+-- of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+foreign import ccall safe "Rnotification_set_fallback_toast" rnotification_set_fallback_toast :: Rid -> IO ()
+
+-- | Whether the notifications of the system have that feature here (R_FALSE where there are none).
+foreign import ccall safe "Rnotification_supports" rnotification_supports :: RNotificationFeature -> IO CInt
 
 -- | Shows a texture. R_INVALID_ID shows nothing.
 foreign import ccall safe "Rviewport_set_texture" rviewport_set_texture :: Rid -> Rid -> IO ()

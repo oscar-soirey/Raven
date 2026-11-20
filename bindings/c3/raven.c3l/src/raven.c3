@@ -1449,6 +1449,37 @@ constset NotificationUrgency : CInt
 	CRITICAL = 0x04F2,
 }
 
+<* What happened to a notification (Rnotification_set_callback). *>
+constset NotificationEvent : CInt
+{
+	<* The user clicked the notification itself (not one of its buttons). *>
+	ACTIVATED = 0x0C20,
+	<* The user clicked one of its buttons: `action` is the id of that button. *>
+	ACTION_INVOKED = 0x0C21,
+	<* It went away without being clicked: closed by the user, or its time ran out (where the system tells). *>
+	DISMISSED = 0x0C22,
+}
+
+<* What the notifications of the system can do here (Rnotification_supports). *>
+constset NotificationFeature : CInt
+{
+	<* Buttons (RNotificationDesc::actions). *>
+	ACTIONS = 1,
+	<* A notification shown again with the same tag replaces the first one. *>
+	REPLACE = 2,
+	<* Rnotification_close takes a notification away. *>
+	CLOSE = 4,
+	<* An image beside the text (RNotificationDesc::icon). *>
+	ICON = 8,
+	<* A click on the notification is reported (R_NOTIFICATION_ACTIVATED). *>
+	ACTIVATED = 0x0010,
+	<* Its dismissal is reported (R_NOTIFICATION_DISMISSED). *>
+	DISMISSED = 0x0020,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool NotificationFeature.has(self, NotificationFeature flags) @inline => (self & flags) == flags;
+
 constset FileDialogFlags : CInt
 {
 	<* Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result. *>
@@ -2022,6 +2053,13 @@ alias FileBrowserCallback = fn void(Id browser, ZString path, void* user_data);
 alias NotificationFallback = fn void(ZString title, ZString body, NotificationUrgency urgency, void* user_data);
 alias NotificationClickedCallback = fn void(void* user_data);
 <*
+ Called on the UI thread when the user clicks a notification or
+ one of its buttons, or dismisses it. `tag` names the notification,
+ `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+ NULL: none.
+*>
+alias NotificationCallback = fn void(ZString tag, NotificationEvent event, ZString action, void* user_data);
+<*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
  need to be restored. NULL removes the callback.
@@ -2533,6 +2571,45 @@ struct JumpTask
 	ZString arguments;
 	<* The tooltip; NULL: none. *>
 	ZString description;
+}
+
+<* A button of a notification. *>
+struct NotificationAction
+{
+	<* Given back to the callback ("reply", "snooze"); not empty, and not "default". *>
+	ZString id;
+	<* Shown to the user ("Reply"). *>
+	ZString label;
+}
+
+<*
+ A notification for Rnotification_show_desc. `size` must be
+ sizeof(RNotificationDesc): the fields that later versions of Raven add
+ come after the others, and a smaller size tells Raven they were not
+ given. The other fields may be left to zero.
+*>
+struct NotificationDesc
+{
+	<* sizeof(RNotificationDesc). *>
+	uint size;
+	<*
+	 Names the notification: shown again with the same tag, it replaces the
+	 one still shown instead of adding another; Rnotification_close takes it
+	 away; the callback is given it. NULL or "": a tag of its own
+	 ("raven.1", "raven.2"...).
+	*>
+	ZString tag;
+	ZString title;
+	ZString body;
+	<* 0: R_NOTIFICATION_NORMAL. *>
+	NotificationUrgency urgency;
+	<* An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL. *>
+	ZString icon;
+	<* Up to 3 buttons, or NULL. *>
+	NotificationAction* actions;
+	CInt action_count;
+	<* The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened). *>
+	Id window;
 }
 
 <* A kind of file in a file dialog. *>
@@ -8234,7 +8311,11 @@ fn CInt file_write(ZString path, void* data, usz size) @inline => c::r_file_writ
 <* Returns R_TRUE when the system took the notification. *>
 fn bool notification_show(ZString title, ZString body, NotificationUrgency urgency) @inline => c::r_notification_show((char*)title, (char*)body, (c::RNotificationUrgency)urgency) != 0;
 
-<* R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). *>
+<*
+ R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+ the fallback): the null platform, no notification server on Linux, an executable outside of a
+ bundle on macOS.
+*>
 alias notification_is_supported = c::r_notification_is_supported;
 
 <* Called with the notifications the system could not show; NULL: none. *>
@@ -8242,12 +8323,41 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
 
 <*
  Called when the user clicks a notification of Rnotification_show
- (on the UI thread; the application may then bring its window to the
- front: the system lets it). It is the last one shown that was clicked:
- the application remembers what it was about. NULL: none.
- Windows and macOS (elsewhere it is never called).
+ (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+ Rnotification_set_callback, which also tells which one. NULL: none.
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
+
+<*
+ Shows a notification described by `desc` (see RNotificationDesc).
+ Returns R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+*>
+fn bool notification_show_desc(NotificationDesc* desc) @inline => c::r_notification_show_desc((c::RNotificationDesc*)desc) != 0;
+
+<* Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called. *>
+fn void notification_close(ZString tag) @inline => c::r_notification_close((char*)tag);
+
+fn void notification_set_callback(NotificationCallback callback, void* user_data) @inline => c::r_notification_set_callback((c::RNotificationCallback)callback, user_data);
+
+<*
+ R_TRUE (the default): a click on a notification (not on one of
+ its buttons) brings its window back before the callback is called:
+ shown again if it was hidden or minimized, in front, with the keyboard.
+ R_FALSE: the application does what it wants in the callback.
+*>
+fn void notification_set_bring_to_front(bool enabled) @inline => c::r_notification_set_bring_to_front((CInt)enabled);
+
+<*
+ A Toast that shows the notifications the system could not show,
+ with their title, icon and buttons; a click on one, or on a button, is
+ reported to Rnotification_set_callback as for the system's. Put it in
+ an Overlay (Queue="Stack" shows several at once). It takes the place
+ of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+*>
+fn void notification_set_fallback_toast(Id toast) @inline => c::r_notification_set_fallback_toast((c::Rid)toast);
+
+<* Whether the notifications of the system have that feature here (R_FALSE where there are none). *>
+fn CInt notification_supports(NotificationFeature feature) @inline => c::r_notification_supports((c::RNotificationFeature)feature);
 
 <* Pushes a spring away from its target (units per second): it bounces back. *>
 fn void spring_kick(Spring* spring, float velocity) @inline => c::r_spring_kick((c::RSpring*)spring, velocity);

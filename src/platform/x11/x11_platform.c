@@ -1076,6 +1076,26 @@ static void rvn_x11_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t 
 	XFlush(g_x11.display);
 }
 
+/* Rwindow_focus (and a click on a notification): mapped, raised, and asked of the window manager as the
+ * active window, by an application (_NET_ACTIVE_WINDOW, source 1), which also takes it out of the icons.
+ * A window manager that prevents focus stealing may only mark it as asking for attention. */
+static void rvn_x11_window_focus(rvn_pwindow_t* window) {
+	XMapRaised(g_x11.display, window->handle);
+	if (rvn_x11_has_window_manager()) {
+		XEvent event;
+		memset(&event, 0, sizeof(event));
+		event.xclient.type = ClientMessage;
+		event.xclient.window = window->handle;
+		event.xclient.message_type = XInternAtom(g_x11.display, "_NET_ACTIVE_WINDOW", False);
+		event.xclient.format = 32;
+		event.xclient.data.l[0] = 1;
+		event.xclient.data.l[1] = CurrentTime;
+		event.xclient.data.l[2] = 0;
+		XSendEvent(g_x11.display, g_x11.root, False, SubstructureNotifyMask | SubstructureRedirectMask, &event);
+	}
+	XFlush(g_x11.display);
+}
+
 static rvn_pwindow_state_t rvn_x11_window_get_state(rvn_pwindow_t* window) {
 	Atom type;
 	int format, vertical = R_FALSE, horizontal = R_FALSE;
@@ -2040,9 +2060,9 @@ static void rvn_x11_pump(double timeout_seconds) {
 	XFlush(g_x11.display);
 
 	if (!XPending(g_x11.display) && timeout_seconds != 0.0) {
-		struct pollfd fds[4];
+		struct pollfd fds[5];
 		int timeout_ms = timeout_seconds < 0.0 ? -1 : (int)(timeout_seconds * 1000.0 + 0.999);
-		int count, a11y = rvn_atspi_fd(), tray = rvn_sni_fd();
+		int count, a11y = rvn_atspi_fd(), tray = rvn_sni_fd(), notifications = rvn_dbus_notify_fd();
 		fds[0].fd = ConnectionNumber(g_x11.display);
 		fds[0].events = POLLIN;
 		fds[0].revents = 0;
@@ -2064,10 +2084,18 @@ static void rvn_x11_pump(double timeout_seconds) {
 			fds[count].revents = 0;
 			count++;
 		}
+		/* and the notification server: a click on a notification or on one of its buttons */
+		if (notifications >= 0) {
+			fds[count].fd = notifications;
+			fds[count].events = POLLIN;
+			fds[count].revents = 0;
+			count++;
+		}
 		while (poll(fds, (nfds_t)count, timeout_ms) < 0 && errno == EINTR) {}
 	}
 	rvn_atspi_dispatch();
 	rvn_sni_dispatch();
+	rvn_dbus_notify_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_x11.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -2115,6 +2143,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_get_position = rvn_x11_window_get_position,
 		.window_get_scale = rvn_x11_window_get_scale,
 		.window_show = rvn_x11_window_show,
+		.window_focus = rvn_x11_window_focus,
 		.window_set_state = rvn_x11_window_set_state,
 		.window_get_state = rvn_x11_window_get_state,
 		.window_begin_move = rvn_x11_window_begin_move,
@@ -2139,6 +2168,8 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
 		.notify = rvn_dbus_notify,
+		.notify_close = rvn_dbus_notify_close,
+		.notify_features = rvn_dbus_notify_features,
 		.window_set_progress = rvn_x11_window_set_progress,
 		.window_request_attention = rvn_x11_window_request_attention,
 		.app_set_badge = rvn_dbus_launcher_badge,

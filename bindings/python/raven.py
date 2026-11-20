@@ -1561,6 +1561,32 @@ R_NOTIFICATION_LOW = RNotificationUrgency.R_NOTIFICATION_LOW
 R_NOTIFICATION_NORMAL = RNotificationUrgency.R_NOTIFICATION_NORMAL
 R_NOTIFICATION_CRITICAL = RNotificationUrgency.R_NOTIFICATION_CRITICAL
 
+class RNotificationEvent(enum.IntEnum):
+    """What happened to a notification (Rnotification_set_callback)."""
+    R_NOTIFICATION_ACTIVATED = 0x0C20
+    R_NOTIFICATION_ACTION_INVOKED = 0x0C21
+    R_NOTIFICATION_DISMISSED = 0x0C22
+
+R_NOTIFICATION_ACTIVATED = RNotificationEvent.R_NOTIFICATION_ACTIVATED
+R_NOTIFICATION_ACTION_INVOKED = RNotificationEvent.R_NOTIFICATION_ACTION_INVOKED
+R_NOTIFICATION_DISMISSED = RNotificationEvent.R_NOTIFICATION_DISMISSED
+
+class RNotificationFeature(enum.IntFlag):
+    """What the notifications of the system can do here (Rnotification_supports)."""
+    R_NOTIFICATION_FEATURE_ACTIONS = 1
+    R_NOTIFICATION_FEATURE_REPLACE = 2
+    R_NOTIFICATION_FEATURE_CLOSE = 4
+    R_NOTIFICATION_FEATURE_ICON = 8
+    R_NOTIFICATION_FEATURE_ACTIVATED = 0x0010
+    R_NOTIFICATION_FEATURE_DISMISSED = 0x0020
+
+R_NOTIFICATION_FEATURE_ACTIONS = RNotificationFeature.R_NOTIFICATION_FEATURE_ACTIONS
+R_NOTIFICATION_FEATURE_REPLACE = RNotificationFeature.R_NOTIFICATION_FEATURE_REPLACE
+R_NOTIFICATION_FEATURE_CLOSE = RNotificationFeature.R_NOTIFICATION_FEATURE_CLOSE
+R_NOTIFICATION_FEATURE_ICON = RNotificationFeature.R_NOTIFICATION_FEATURE_ICON
+R_NOTIFICATION_FEATURE_ACTIVATED = RNotificationFeature.R_NOTIFICATION_FEATURE_ACTIVATED
+R_NOTIFICATION_FEATURE_DISMISSED = RNotificationFeature.R_NOTIFICATION_FEATURE_DISMISSED
+
 class RFileDialogFlags(enum.IntFlag):
     R_FILE_DIALOG_MULTIPLE = 1
     R_FILE_DIALOG_RAVEN = 2
@@ -2091,6 +2117,32 @@ class RJumpTask(ctypes.Structure):
         ("title", ctypes.c_char_p),
         ("arguments", ctypes.c_char_p),
         ("description", ctypes.c_char_p),
+    ]
+
+
+class RNotificationAction(ctypes.Structure):
+    """A button of a notification."""
+    _fields_ = [
+        ("id", ctypes.c_char_p),
+        ("label", ctypes.c_char_p),
+    ]
+
+
+class RNotificationDesc(ctypes.Structure):
+    """A notification for Rnotification_show_desc. `size` must be
+    sizeof(RNotificationDesc): the fields that later versions of Raven add
+    come after the others, and a smaller size tells Raven they were not
+    given. The other fields may be left to zero."""
+    _fields_ = [
+        ("size", ctypes.c_uint32),
+        ("tag", ctypes.c_char_p),
+        ("title", ctypes.c_char_p),
+        ("body", ctypes.c_char_p),
+        ("urgency", ctypes.c_int),
+        ("icon", ctypes.c_char_p),
+        ("actions", ctypes.POINTER(RNotificationAction)),
+        ("action_count", ctypes.c_int),
+        ("window", ctypes.c_uint32),
     ]
 
 
@@ -2947,6 +2999,14 @@ RNotificationClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 def _adapt_RNotificationClickedCallback(function):
     def call(user_data):
         function(user_data)
+    return call
+
+RNotificationCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RNotificationCallback(function):
+    def call(tag, event, action, user_data):
+        function(_r(tag), _e(RNotificationEvent, event), _r(action), user_data)
     return call
 
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
@@ -14873,7 +14933,9 @@ _lib.Rnotification_is_supported.restype = ctypes.c_int
 
 
 def Rnotification_is_supported():
-    """R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback)."""
+    """R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+    the fallback): the null platform, no notification server on Linux, an executable outside of a
+    bundle on macOS."""
     return _lib.Rnotification_is_supported()
 
 
@@ -14892,11 +14954,70 @@ _lib.Rnotification_set_clicked_callback.restype = None
 
 def Rnotification_set_clicked_callback(callback, user_data=None):
     """Called when the user clicks a notification of Rnotification_show
-    (on the UI thread; the application may then bring its window to the
-    front: the system lets it). It is the last one shown that was clicked:
-    the application remembers what it was about. NULL: none.
-    Windows and macOS (elsewhere it is never called)."""
+    (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+    Rnotification_set_callback, which also tells which one. NULL: none."""
     _lib.Rnotification_set_clicked_callback(_callback(RNotificationClickedCallback, _adapt_RNotificationClickedCallback, callback), user_data)
+
+
+_lib.Rnotification_show_desc.argtypes = [ctypes.POINTER(RNotificationDesc)]
+_lib.Rnotification_show_desc.restype = ctypes.c_int
+
+
+def Rnotification_show_desc(desc):
+    """Shows a notification described by `desc` (see RNotificationDesc).
+    Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere)."""
+    return _lib.Rnotification_show_desc(_p(desc))
+
+
+_lib.Rnotification_close.argtypes = [ctypes.c_char_p]
+_lib.Rnotification_close.restype = None
+
+
+def Rnotification_close(tag):
+    """Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called."""
+    _lib.Rnotification_close(_s(tag))
+
+
+_lib.Rnotification_set_callback.argtypes = [RNotificationCallback, ctypes.c_void_p]
+_lib.Rnotification_set_callback.restype = None
+
+
+def Rnotification_set_callback(callback, user_data=None):
+    _lib.Rnotification_set_callback(_callback(RNotificationCallback, _adapt_RNotificationCallback, callback), user_data)
+
+
+_lib.Rnotification_set_bring_to_front.argtypes = [ctypes.c_int]
+_lib.Rnotification_set_bring_to_front.restype = None
+
+
+def Rnotification_set_bring_to_front(enabled):
+    """R_TRUE (the default): a click on a notification (not on one of
+    its buttons) brings its window back before the callback is called:
+    shown again if it was hidden or minimized, in front, with the keyboard.
+    R_FALSE: the application does what it wants in the callback."""
+    _lib.Rnotification_set_bring_to_front(enabled)
+
+
+_lib.Rnotification_set_fallback_toast.argtypes = [ctypes.c_uint32]
+_lib.Rnotification_set_fallback_toast.restype = None
+
+
+def Rnotification_set_fallback_toast(toast):
+    """A Toast that shows the notifications the system could not show,
+    with their title, icon and buttons; a click on one, or on a button, is
+    reported to Rnotification_set_callback as for the system's. Put it in
+    an Overlay (Queue="Stack" shows several at once). It takes the place
+    of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none."""
+    _lib.Rnotification_set_fallback_toast(toast)
+
+
+_lib.Rnotification_supports.argtypes = [ctypes.c_int]
+_lib.Rnotification_supports.restype = ctypes.c_int
+
+
+def Rnotification_supports(feature):
+    """Whether the notifications of the system have that feature here (R_FALSE where there are none)."""
+    return _lib.Rnotification_supports(int(feature))
 
 
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]

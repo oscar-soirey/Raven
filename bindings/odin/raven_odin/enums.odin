@@ -1189,6 +1189,32 @@ Notification_Urgency :: enum i32 {
 	Critical = 0x04F2,
 }
 
+// What happened to a notification (Rnotification_set_callback).
+Notification_Event :: enum i32 {
+	// The user clicked the notification itself (not one of its buttons).
+	Activated = 0x0C20,
+	// The user clicked one of its buttons: `action` is the id of that button.
+	Action_Invoked = 0x0C21,
+	// It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+	Dismissed = 0x0C22,
+}
+
+// What the notifications of the system can do here (Rnotification_supports).
+Notification_Feature :: enum i32 {
+	// Buttons (RNotificationDesc::actions).
+	Actions = 1,
+	// A notification shown again with the same tag replaces the first one.
+	Replace = 2,
+	// Rnotification_close takes a notification away.
+	Close = 4,
+	// An image beside the text (RNotificationDesc::icon).
+	Icon = 8,
+	// A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+	Activated = 0x0010,
+	// Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+	Dismissed = 0x0020,
+}
+
 File_Dialog_Flag :: enum u32 {
 	// Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
 	Multiple = 0,

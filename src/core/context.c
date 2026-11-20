@@ -281,6 +281,7 @@ void Rshutdown(void) {
 	rvn_xml_shutdown();
 	rvn_taskbar_shutdown();
 	rvn_tray_shutdown();
+	rvn_notify_shutdown();
 	rvn_locale_shutdown();
 	rvn_a11y_shutdown();
 	rvn_themes_shutdown();
