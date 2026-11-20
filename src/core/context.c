@@ -300,6 +300,7 @@ void Rshutdown(void) {
 	for (i = 0; i < g_rvn.action_count; i++) rvn_free(g_rvn.actions[i].name);
 	rvn_free(g_rvn.actions);
 	rvn_free(g_rvn.tasks);
+	rvn_free(g_rvn.icons);
 	rvn_free(g_rvn.dead_widgets);
 	rvn_free(g_rvn.dead_windows);
 	rvn_free(g_rvn.clipboard);

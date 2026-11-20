@@ -55,9 +55,18 @@ typedef struct rvn_texture_t {
 	int svg_auto;
 	rvn_atomic_t svg_wanted;
 	int svg_pending;
+	/** An SVG painted only in currentColor, drawn in white: the widgets that show it tint it with their text color. */
+	int current_color;
 } rvn_texture_t;
 
 rvn_texture_t* rvn_texture_get(Rid id);
+/** R_TRUE when the texture is an SVG painted only in currentColor (rvn_texture_t.current_color). */
+int rvn_texture_is_current_color(Rid id);
+/**
+ * The tint a widget gives an icon: its text color `foreground` when it asks
+ * for it (`tint`) or when the icon is drawn in currentColor, else `plain`.
+ */
+rvn_color_t rvn_icon_tint(Rid texture, int tint, rvn_color_t foreground, rvn_color_t plain);
 /** Allocates a handle with no backend texture yet. */
 rvn_texture_t* rvn_texture_register(void);
 /** Creates a texture from raw pixels. Takes ownership of `pixels` (rvn_alloc'ed, may be NULL). */
@@ -104,8 +113,10 @@ uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* hei
  * Same; an SVG is rasterized at `svg_scale` pixels per unit of the SVG (0 or
  * less: RVN_SVG_DENSITY). `density`, when given, receives the pixels per
  * logical unit of the result: the scale of an SVG, 1 for the other images.
+ * `current_color`, when given, receives R_TRUE for an SVG painted only in
+ * currentColor, drawn in white: a mask that widgets tint with their text color.
  */
-uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density);
+uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density, int* current_color);
 /** Pixels per unit an SVG is first drawn at, before it has been shown (then: at the size it is shown, rvn_textures_update_svg). */
 #define RVN_SVG_DENSITY 2.0f
 /**
@@ -116,7 +127,7 @@ uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, 
 void rvn_textures_update_svg(void);
 /* ---- render/svg_decode.c (nanosvg) ---- */
 int rvn_svg_detect(const uint8_t* data, size_t size);
-uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height);
+uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height, int* current_color);
 /** Downloads and decodes an HTTP(S) image asynchronously. Internal resource helper. */
 
 /* ---------------------------------------------------------------------------

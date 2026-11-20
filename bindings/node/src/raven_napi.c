@@ -266,6 +266,7 @@ static struct {
 	Rid (*Rtexture_create)(const char*, size_t);
 	Rid (*Rtexture_create_async)(const char*, size_t);
 	Rid (*Rtexture_create_from_svg)(const char*, size_t, float);
+	int (*Rtexture_uses_current_color)(Rid);
 	float (*Rtexture_get_density)(Rid);
 	Rid (*Rtexture_create_from_file)(const char*);
 	Rid (*Rtexture_create_from_file_async)(const char*);
@@ -281,6 +282,9 @@ static struct {
 	int (*Rtexture_is_valid)(Rid);
 	void (*Rtexture_get_size)(Rid, int*, int*);
 	void (*Rtexture_set_filter)(Rid, RFilterType);
+	Rid (*Ricon_get)(const char*);
+	int (*Ricon_get_count)(void);
+	const char* (*Ricon_get_name)(int);
 	Rid (*Rwidget_create)(RWidgetType);
 	void (*Rwidget_destroy)(Rid);
 	int (*Rwidget_is_valid)(Rid);
@@ -1703,6 +1707,7 @@ static const struct {
 	{"Rtexture_create", offsetof(__typeof__(rn), Rtexture_create)},
 	{"Rtexture_create_async", offsetof(__typeof__(rn), Rtexture_create_async)},
 	{"Rtexture_create_from_svg", offsetof(__typeof__(rn), Rtexture_create_from_svg)},
+	{"Rtexture_uses_current_color", offsetof(__typeof__(rn), Rtexture_uses_current_color)},
 	{"Rtexture_get_density", offsetof(__typeof__(rn), Rtexture_get_density)},
 	{"Rtexture_create_from_file", offsetof(__typeof__(rn), Rtexture_create_from_file)},
 	{"Rtexture_create_from_file_async", offsetof(__typeof__(rn), Rtexture_create_from_file_async)},
@@ -1718,6 +1723,9 @@ static const struct {
 	{"Rtexture_is_valid", offsetof(__typeof__(rn), Rtexture_is_valid)},
 	{"Rtexture_get_size", offsetof(__typeof__(rn), Rtexture_get_size)},
 	{"Rtexture_set_filter", offsetof(__typeof__(rn), Rtexture_set_filter)},
+	{"Ricon_get", offsetof(__typeof__(rn), Ricon_get)},
+	{"Ricon_get_count", offsetof(__typeof__(rn), Ricon_get_count)},
+	{"Ricon_get_name", offsetof(__typeof__(rn), Ricon_get_name)},
 	{"Rwidget_create", offsetof(__typeof__(rn), Rwidget_create)},
 	{"Rwidget_destroy", offsetof(__typeof__(rn), Rwidget_destroy)},
 	{"Rwidget_is_valid", offsetof(__typeof__(rn), Rwidget_is_valid)},
@@ -8975,6 +8983,19 @@ done:
 	return result_;
 }
 
+static napi_value rn_w_Rtexture_uses_current_color(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtexture_uses_current_color((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rtexture_get_density(napi_env env, napi_callback_info info) {
 	size_t argc = 1;
 	napi_value argv[1];
@@ -9224,6 +9245,43 @@ static napi_value rn_w_Rtexture_set_filter(napi_env env, napi_callback_info info
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	if (!rn_get_int(env, argv[1], &a1)) return NULL;
 	rn.Rtexture_set_filter((Rid)a0, (RFilterType)a1);
+	return result_;
+}
+
+static napi_value rn_w_Ricon_get(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	Rid value_ = rn.Ricon_get(a0.p);
+	napi_create_uint32(env, value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Ricon_get_count(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Ricon_get_count();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Ricon_get_name(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Ricon_get_name((int)a0));
 	return result_;
 }
 
@@ -29150,6 +29208,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtexture_create", NULL, rn_w_Rtexture_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_async", NULL, rn_w_Rtexture_create_async, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_svg", NULL, rn_w_Rtexture_create_from_svg, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtexture_uses_current_color", NULL, rn_w_Rtexture_uses_current_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_get_density", NULL, rn_w_Rtexture_get_density, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_file", NULL, rn_w_Rtexture_create_from_file, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_file_async", NULL, rn_w_Rtexture_create_from_file_async, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29165,6 +29224,9 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtexture_is_valid", NULL, rn_w_Rtexture_is_valid, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_get_size", NULL, rn_w_Rtexture_get_size, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_set_filter", NULL, rn_w_Rtexture_set_filter, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Ricon_get", NULL, rn_w_Ricon_get, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Ricon_get_count", NULL, rn_w_Ricon_get_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Ricon_get_name", NULL, rn_w_Ricon_get_name, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_create", NULL, rn_w_Rwidget_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_destroy", NULL, rn_w_Rwidget_destroy, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_is_valid", NULL, rn_w_Rwidget_is_valid, NULL, NULL, NULL, napi_enumerable, NULL},

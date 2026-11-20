@@ -3712,7 +3712,7 @@ data RTileItem = RTileItem
     , rTileItem_badge :: CString
       -- ^ Small text at the top right of the tile, or NULL.
     , rTileItem_icon :: Rid
-      -- ^ Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
+      -- ^ Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name).
     , rTileItem_uv :: [CFloat]
     , rTileItem_tint :: [CFloat]
     , rTileItem_icon_radius :: CFloat
@@ -5284,7 +5284,21 @@ foreign import ccall safe "Rtexture_create_async" rtexture_create_async :: CStri
 -- does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
 -- ones read SVG files this way. Paths, fills, strokes and gradients are
 -- drawn; text, filters and masks are not.
+--
+-- currentColor: an SVG painted only in currentColor (fill="currentColor",
+-- stroke="currentColor") is drawn in white, keeping its shape and its
+-- opacity, and the widgets that show it (Image, the icons of menu items,
+-- tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+-- their text at draw time: it follows the theme, hover, pressed and
+-- disabled without being drawn again. Rdraw_image draws it in its tint
+-- color. In an SVG that also uses other colors, currentColor is black.
+-- See Rtexture_uses_current_color.
 foreign import ccall safe "Rtexture_create_from_svg" rtexture_create_from_svg :: CString -> CSize -> CFloat -> IO Rid
+
+-- | R_TRUE when the texture is an SVG painted only in currentColor:
+-- white where it is painted, tinted with the color of the text by the
+-- widgets that show it (see Rtexture_create_from_svg).
+foreign import ccall safe "Rtexture_uses_current_color" rtexture_uses_current_color :: Rid -> IO CInt
 
 -- | Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
 foreign import ccall safe "Rtexture_get_density" rtexture_get_density :: Rid -> IO CFloat
@@ -5340,6 +5354,24 @@ foreign import ccall safe "Rtexture_get_size" rtexture_get_size :: Rid -> Ptr CI
 -- from image files start with R_FILTER_MIPMAP, the others with
 -- R_FILTER_LINEAR.
 foreign import ccall safe "Rtexture_set_filter" rtexture_set_filter :: Rid -> RFilterType -> IO ()
+
+-- | An icon shipped with Raven, by its name: "search", "settings",
+-- "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+-- XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+-- License), 24 x 24 logical units, drawn with lines in currentColor: the
+-- widgets that show them tint them with the color of their text, so they
+-- follow the theme and the states (Rtexture_create_from_svg). Drawn at
+-- the density they are shown with, sharp on every screen.
+-- Returns: A texture owned by Raven, made on first use and then shared
+-- (do not destroy it; if it was, the next call makes it again);
+-- R_INVALID_ID, with an error, when there is no icon of that name.
+foreign import ccall safe "Ricon_get" ricon_get :: CString -> IO Rid
+
+-- | Returns: The number of icons shipped with Raven.
+foreign import ccall safe "Ricon_get_count" ricon_get_count :: IO CInt
+
+-- | Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
+foreign import ccall safe "Ricon_get_name" ricon_get_name :: CInt -> IO CString
 
 -- | Creates a widget. It is not shown until it is added to a parent
 -- that belongs to a window (Rwidget_add_child, Rwindow_set_content).
@@ -5741,7 +5773,7 @@ foreign import ccall safe "Rtab_view_find_tab" rtab_view_find_tab :: Rid -> Rid 
 
 foreign import ccall safe "Rtab_view_set_tab_title" rtab_view_set_tab_title :: Rid -> Rid -> CString -> IO ()
 
--- | Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+-- | Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
 foreign import ccall safe "Rtab_view_set_tab_icon" rtab_view_set_tab_icon :: Rid -> Rid -> Rid -> CFloat -> CFloat -> CFloat -> CFloat -> CInt -> IO ()
 
 -- | R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default.
@@ -5889,6 +5921,9 @@ foreign import ccall safe "Rprogress_bar_get_value" rprogress_bar_get_value :: R
 
 foreign import ccall safe "Rimage_set_texture" rimage_set_texture :: Rid -> Rid -> IO ()
 
+-- | Color the image is multiplied by (white by default). An SVG in
+-- currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+-- the text around it until a tint is given; then in the tint. XML: Tint.
 foreign import ccall safe "Rimage_set_tint_color" rimage_set_tint_color :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 -- | R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText.
@@ -6088,6 +6123,7 @@ foreign import ccall safe "Rtree_view_set_selection_changed_callback" rtree_view
 foreign import ccall safe "Rtree_view_set_activated_callback" rtree_view_set_activated_callback :: Rid -> RTreeEventCallback -> Ptr () -> IO ()
 
 -- | Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+-- An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 foreign import ccall safe "Rtree_item_set_icon" rtree_item_set_icon :: Rid -> Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 -- | Color of the text of the item; alpha 0 goes back to the theme.
@@ -6174,6 +6210,7 @@ foreign import ccall safe "Rmenu_item_set_checked" rmenu_item_set_checked :: Rid
 -- | Icon drawn before the text of a menu item (after the check mark column).
 -- texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
 -- tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+--                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 foreign import ccall safe "Rmenu_item_set_icon" rmenu_item_set_icon :: Rid -> Rid -> CFloat -> CFloat -> CFloat -> CFloat -> CInt -> IO ()
 
 foreign import ccall safe "Rmenu_item_is_checked" rmenu_item_is_checked :: Rid -> IO CInt

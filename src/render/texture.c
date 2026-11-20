@@ -132,11 +132,11 @@ void rvn_texture_restore(rvn_texture_t* texture) {
 	} else if (texture->source_data || texture->source_path) {
 		int w = 0, h = 0;
 		if (texture->source_data) {
-			pixels = rvn_image_decode_at(texture->source_data, texture->source_size, texture->density, &w, &h, NULL);
+			pixels = rvn_image_decode_at(texture->source_data, texture->source_size, texture->density, &w, &h, NULL, NULL);
 		} else if (!rvn_is_http_url(texture->source_path)) {
 			size_t size = 0;
 			char* data = rvn_read_file(texture->source_path, &size);
-			if (data) pixels = rvn_image_decode_at((const uint8_t*)data, size, texture->density, &w, &h, NULL);
+			if (data) pixels = rvn_image_decode_at((const uint8_t*)data, size, texture->density, &w, &h, NULL, NULL);
 			rvn_free(data);
 		}
 		/* (the file changed size meanwhile: what was shown keeps its size, transparent) */
@@ -164,6 +164,8 @@ typedef struct rvn_texture_job_t {
 	/** The scale an SVG is drawn at (0: RVN_SVG_DENSITY); R_TRUE when the file is an SVG. */
 	float svg_scale;
 	int svg;
+	/** R_TRUE: an SVG painted only in currentColor (rvn_texture_t.current_color). */
+	int current_color;
 	/** Drawing an SVG again at another scale (rvn_textures_update_svg), not making the texture. */
 	int redraw;
 	/** The URL could not be downloaded (already reported). */
@@ -186,6 +188,7 @@ static void rvn_texture_job_finish(void* arg) {
 	} else if (texture && job->pixels) {
 		texture->density = job->density;
 		texture->svg_auto = job->svg;
+		texture->current_color = job->current_color;
 		rvn_texture_upload(texture, job->width, job->height, job->pixels);
 		job->pixels = NULL;
 		rvn_invalidate_all_windows();
@@ -217,7 +220,7 @@ static void rvn_texture_job_run(void* arg) {
 	}
 	if (job->data) {
 		job->svg = rvn_svg_detect(job->data, job->size);
-		job->pixels = rvn_image_decode_at(job->data, job->size, job->svg_scale, &job->width, &job->height, &job->density);
+		job->pixels = rvn_image_decode_at(job->data, job->size, job->svg_scale, &job->width, &job->height, &job->density, &job->current_color);
 	}
 	rvn_free(job->data);
 	job->data = NULL;
@@ -245,7 +248,7 @@ static void rvn_web_image_complete(emscripten_fetch_t* fetch, int success) {
                                   (size_t)fetch->numBytes);
         job->pixels = rvn_image_decode_at((const uint8_t*)fetch->data,
             (size_t)fetch->numBytes, job->svg_scale,
-            &job->width, &job->height, &job->density);
+            &job->width, &job->height, &job->density, &job->current_color);
         if (texture && job->pixels) {
             /* Recovery and SVG rescaling must not need synchronous networking. */
             rvn_free(texture->source_path); texture->source_path = NULL;
@@ -344,7 +347,8 @@ static void rvn_texture_set_svg_auto(rvn_texture_t* texture, const char* path, c
 static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float svg_scale, const char* function) {
 	int width = 0, height = 0;
 	float density = 1.0f;
-	uint8_t* pixels = rvn_image_decode_at((const uint8_t*)data, data_size, svg_scale, &width, &height, &density);
+	int current_color = R_FALSE;
+	uint8_t* pixels = rvn_image_decode_at((const uint8_t*)data, data_size, svg_scale, &width, &height, &density, &current_color);
 	if (!pixels) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "%s: cannot decode the image", function);
 		return R_INVALID_ID;
@@ -353,6 +357,7 @@ static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float 
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
+		if (texture) texture->current_color = current_color;
 		if (texture && svg_scale <= 0.0f && rvn_svg_detect((const uint8_t*)data, data_size)) rvn_texture_set_svg_auto(texture, NULL, data, data_size);
 		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
 		return id;
@@ -403,14 +408,14 @@ Rid Rtexture_create_from_file(const char* path) {
 	int width = 0, height = 0;
 	float density = 1.0f;
 	uint8_t* pixels;
-	int svg;
+	int svg, current_color = R_FALSE;
 	RVN_API_GUARD(R_INVALID_ID);
 	data = rvn_read_file(path, &size);
 	if (!data) {
 		rvn_error(R_ERROR_FILE_NOT_FOUND, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot read '%s'", path ? path : "");
 		return R_INVALID_ID;
 	}
-	pixels = rvn_image_decode_at((const uint8_t*)data, size, 0.0f, &width, &height, &density);
+	pixels = rvn_image_decode_at((const uint8_t*)data, size, 0.0f, &width, &height, &density, &current_color);
 	svg = rvn_svg_detect((const uint8_t*)data, size);
 	rvn_free(data);
 	if (!pixels) {
@@ -421,6 +426,7 @@ Rid Rtexture_create_from_file(const char* path) {
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
+		if (texture) texture->current_color = current_color;
 		if (texture && svg) rvn_texture_set_svg_auto(texture, path, NULL, 0);
 		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
 		return id;
@@ -473,6 +479,7 @@ void Rtexture_update(Rid id, const uint8_t* rgba, int width, int height) {
 	memcpy(copy, rgba, size);
 	texture->density = 1.0f;
 	texture->svg_auto = R_FALSE;
+	texture->current_color = R_FALSE;
 	/* the pixels come from the application now: the file is no longer what it shows */
 	rvn_free(texture->source_path);
 	rvn_free(texture->source_data);
@@ -529,6 +536,19 @@ void Rtexture_destroy(Rid id) {
 	rvn_pool_remove(&g_rvn.textures, id);
 	rvn_texture_free(texture);
 	rvn_invalidate_all_windows();
+}
+
+int rvn_texture_is_current_color(Rid id) {
+	rvn_texture_t* texture = rvn_texture_get(id);
+	return texture ? texture->current_color : R_FALSE;
+}
+
+rvn_color_t rvn_icon_tint(Rid texture, int tint, rvn_color_t foreground, rvn_color_t plain) {
+	return tint || rvn_texture_is_current_color(texture) ? foreground : plain;
+}
+
+int Rtexture_uses_current_color(Rid id) {
+	return g_rvn.initialized ? rvn_texture_is_current_color(id) : R_FALSE;
 }
 
 int Rtexture_is_valid(Rid id) {

@@ -126,6 +126,15 @@ RVN_INLINE rvn_color_t rvn_color_mix(rvn_color_t a, rvn_color_t b, float t) {
 	}
 	return out;
 }
+/** Each channel of `a` times the same channel of `b`. */
+RVN_INLINE rvn_color_t rvn_color_multiply(rvn_color_t a, rvn_color_t b) {
+	uint32_t i, out = 0;
+	for (i = 0; i < 4; i++) {
+		uint32_t ca = (a >> (i * 8)) & 0xFFu, cb = (b >> (i * 8)) & 0xFFu;
+		out |= ((ca * cb + 127u) / 255u) << (i * 8);
+	}
+	return out;
+}
 RVN_INLINE void rvn_color_to_floats(rvn_color_t c, float* r, float* g, float* b, float* a) {
 	if (r) *r = (float)(c & 0xFFu) / 255.0f;
 	if (g) *g = (float)((c >> 8) & 0xFFu) / 255.0f;

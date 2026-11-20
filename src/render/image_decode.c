@@ -66,16 +66,17 @@ static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, 
 
 #endif
 
-uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density) {
+uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density, int* current_color) {
 	if (density) *density = 1.0f;
+	if (current_color) *current_color = R_FALSE;
 	if (data && rvn_svg_detect(data, size)) {
 		float scale = svg_scale > 0.0f ? svg_scale : RVN_SVG_DENSITY;
 		if (density) *density = scale;
-		return rvn_svg_decode(data, size, scale, width, height);
+		return rvn_svg_decode(data, size, scale, width, height, current_color);
 	}
 	return rvn_bitmap_decode(data, size, width, height);
 }
 
 uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height) {
-	return rvn_image_decode_at(data, size, 0.0f, width, height, NULL);
+	return rvn_image_decode_at(data, size, 0.0f, width, height, NULL, NULL);
 }

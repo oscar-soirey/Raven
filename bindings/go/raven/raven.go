@@ -2482,11 +2482,22 @@ func TextureCreateAsync(data []byte) ID {
 // and comes down when it is shown much smaller (sides of at most 4096 pixels). Its width and height in pixels
 // (Rtexture_get_size) change then; its size in logical units does not. Rtexture_create,
 // Rtexture_create_from_file and the asynchronous ones read SVG files this way. Paths, fills, strokes and
-// gradients are drawn; text, filters and masks are not.
+// gradients are drawn; text, filters and masks are not. currentColor: an SVG painted only in currentColor
+// (fill="currentColor", stroke="currentColor") is drawn in white, keeping its shape and its opacity, and the
+// widgets that show it (Image, the icons of menu items, tabs, tree items, dock panels, tiles, nodes) tint it
+// with the color of their text at draw time: it follows the theme, hover, pressed and disabled without being
+// drawn again. Rdraw_image draws it in its tint color. In an SVG that also uses other colors, currentColor is
+// black. See Rtexture_uses_current_color.
 func TextureCreateFromSvg(svg string, svg_size int, scale float32) ID {
 	svg_ := C.CString(svg)
 	defer C.free(unsafe.Pointer(svg_))
 	return ID(C.Rtexture_create_from_svg(svg_, C.size_t(svg_size), C.float(scale)))
+}
+
+// TextureUsesCurrentColor: R_TRUE when the texture is an SVG painted only in currentColor: white where it is
+// painted, tinted with the color of the text by the widgets that show it (see Rtexture_create_from_svg).
+func TextureUsesCurrentColor(texture ID) int {
+	return int(C.Rtexture_uses_current_color(C.Rid(texture)))
 }
 
 // TextureGetDensity: Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
@@ -2550,6 +2561,30 @@ func TextureGetSize(texture ID) (width int, height int) {
 // with R_FILTER_MIPMAP, the others with R_FILTER_LINEAR.
 func TextureSetFilter(texture ID, filter RFilterType) {
 	C.Rtexture_set_filter(C.Rid(texture), C.RFilterType(filter))
+}
+
+// IconGet: An icon shipped with Raven, by its name: "search", "settings", "close"... (Ricon_get_name lists
+// them; "raven:search" works too, as in XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+// License), 24 x 24 logical units, drawn with lines in currentColor: the widgets that show them tint them
+// with the color of their text, so they follow the theme and the states (Rtexture_create_from_svg). Drawn at
+// the density they are shown with, sharp on every screen. Returns: A texture owned by Raven, made on first
+// use and then shared (do not destroy it; if it was, the next call makes it again); R_INVALID_ID, with an
+// error, when there is no icon of that name.
+func IconGet(name string) ID {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return ID(C.Ricon_get(name_))
+}
+
+// IconGetCount: Returns: The number of icons shipped with Raven.
+func IconGetCount() int {
+	return int(C.Ricon_get_count())
+}
+
+// IconGetName: Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out
+// of range.
+func IconGetName(index int) string {
+	return C.GoString(C.Ricon_get_name(C.int(index)))
 }
 
 // WidgetCreate: Creates a widget. It is not shown until it is added to a parent that belongs to a window
@@ -3195,7 +3230,7 @@ func TabViewSetTabTitle(tab_view ID, content ID, title string) {
 }
 
 // TabViewSetTabIcon: Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text
-// color.
+// color (always, for an SVG in currentColor). XML: Slot.Icon.
 func TabViewSetTabIcon(tab_view ID, content ID, texture ID, u0 float32, v0 float32, u1 float32, v1 float32, tint int) {
 	C.Rtab_view_set_tab_icon(C.Rid(tab_view), C.Rid(content), C.Rid(texture), C.float(u0), C.float(v0), C.float(u1), C.float(v1), C.int(tint))
 }
@@ -3434,6 +3469,9 @@ func ImageSetTexture(image ID, texture ID) {
 	C.Rimage_set_texture(C.Rid(image), C.Rid(texture))
 }
 
+// ImageSetTintColor: Color the image is multiplied by (white by default). An SVG in currentColor (Ricon_get,
+// Rtexture_create_from_svg) is drawn in the color of the text around it until a tint is given; then in the
+// tint. XML: Tint.
 func ImageSetTintColor(image ID, r float32, g float32, b float32, a float32) {
 	C.Rimage_set_tint_color(C.Rid(image), C.float(r), C.float(g), C.float(b), C.float(a))
 }
@@ -3756,7 +3794,7 @@ func TreeViewGetSelectedItem(tree_view ID) ID {
 }
 
 // TreeItemSetIcon: Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID
-// removes it.
+// removes it. An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 func TreeItemSetIcon(item ID, texture ID, u0 float32, v0 float32, u1 float32, v1 float32) {
 	C.Rtree_item_set_icon(C.Rid(item), C.Rid(texture), C.float(u0), C.float(v0), C.float(u1), C.float(v1))
 }
@@ -3908,7 +3946,7 @@ func MenuItemSetChecked(item ID, checked int) {
 
 // MenuItemSetIcon: Icon drawn before the text of a menu item (after the check mark column). texture
 // R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture. tint R_TRUE: the texture is a mask drawn
-// in the text color (monochrome icons).
+// in the text color (monochrome icons). An SVG in currentColor (Ricon_get) always is. XML: Icon.
 func MenuItemSetIcon(item ID, texture ID, u0 float32, v0 float32, u1 float32, v1 float32, tint int) {
 	C.Rmenu_item_set_icon(C.Rid(item), C.Rid(texture), C.float(u0), C.float(v0), C.float(u1), C.float(v1), C.int(tint))
 }

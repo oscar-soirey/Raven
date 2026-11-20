@@ -19,6 +19,7 @@
  */
 
 #include "common.h"
+#include "../render/renderer.h"
 
 #define RVN_MD_BOLD   (1u << 0)
 #define RVN_MD_ITALIC (1u << 1)
@@ -1611,7 +1612,8 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 					rvn_widget_color(widget, R_COLOR_ACCENT_TEXT));
 				break;
 			case RVN_MD_BOX_IMAGE:
-				rvn_paint_image(painter, rect, box->texture, NULL, rvn_hex(0xFFFFFF, 255), 6.0f);
+				/* (an icon in currentColor takes the color of the text) */
+				rvn_paint_image(painter, rect, box->texture, NULL, rvn_icon_tint(box->texture, R_FALSE, color, rvn_hex(0xFFFFFF, 255)), 6.0f);
 				break;
 			default:
 				break;

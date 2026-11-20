@@ -2673,7 +2673,7 @@ export class RTileItem extends RStruct {
 	/** Small text at the top right of the tile, or NULL. */
 	get badge(): string | null;
 	set badge(value: string | null);
-	/** Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default). */
+	/** Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name). */
 	get icon(): Rid;
 	set icon(value: Rid);
 	get uv(): Float32Array;
@@ -4709,8 +4709,24 @@ export function Rtexture_create_async(data: string | null): Rid;
  * does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
  * ones read SVG files this way. Paths, fills, strokes and gradients are
  * drawn; text, filters and masks are not.
+ *
+ * currentColor: an SVG painted only in currentColor (fill="currentColor",
+ * stroke="currentColor") is drawn in white, keeping its shape and its
+ * opacity, and the widgets that show it (Image, the icons of menu items,
+ * tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+ * their text at draw time: it follows the theme, hover, pressed and
+ * disabled without being drawn again. Rdraw_image draws it in its tint
+ * color. In an SVG that also uses other colors, currentColor is black.
+ * See Rtexture_uses_current_color.
  */
 export function Rtexture_create_from_svg(svg: string | null, svg_size: number, scale: number): Rid;
+
+/**
+ * R_TRUE when the texture is an SVG painted only in currentColor:
+ * white where it is painted, tinted with the color of the text by the
+ * widgets that show it (see Rtexture_create_from_svg).
+ */
+export function Rtexture_uses_current_color(texture: Rid): number;
 
 /** Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. */
 export function Rtexture_get_density(texture: Rid): number;
@@ -4776,6 +4792,26 @@ export function Rtexture_get_size(texture: Rid): [width: number, height: number]
  * R_FILTER_LINEAR.
  */
 export function Rtexture_set_filter(texture: Rid, filter: RFilterType): void;
+
+/**
+ * An icon shipped with Raven, by its name: "search", "settings",
+ * "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+ * XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+ * License), 24 x 24 logical units, drawn with lines in currentColor: the
+ * widgets that show them tint them with the color of their text, so they
+ * follow the theme and the states (Rtexture_create_from_svg). Drawn at
+ * the density they are shown with, sharp on every screen.
+ * Returns: A texture owned by Raven, made on first use and then shared
+ * (do not destroy it; if it was, the next call makes it again);
+ * R_INVALID_ID, with an error, when there is no icon of that name.
+ */
+export function Ricon_get(name: string | null): Rid;
+
+/** Returns: The number of icons shipped with Raven. */
+export function Ricon_get_count(): number;
+
+/** Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range. */
+export function Ricon_get_name(index: number): string | null;
 
 /**
  * Creates a widget. It is not shown until it is added to a parent
@@ -5237,7 +5273,7 @@ export function Rtab_view_find_tab(tab_view: Rid, content: Rid): number;
 
 export function Rtab_view_set_tab_title(tab_view: Rid, content: Rid, title: string | null): void;
 
-/** Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color. */
+/** Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon. */
 export function Rtab_view_set_tab_icon(tab_view: Rid, content: Rid, texture: Rid, u0: number, v0: number, u1: number, v1: number, tint: number): void;
 
 /** R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default. */
@@ -5391,6 +5427,11 @@ export function Rprogress_bar_get_value(progress_bar: Rid): number;
 
 export function Rimage_set_texture(image: Rid, texture: Rid): void;
 
+/**
+ * Color the image is multiplied by (white by default). An SVG in
+ * currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+ * the text around it until a tint is given; then in the tint. XML: Tint.
+ */
 export function Rimage_set_tint_color(image: Rid, r: number, g: number, b: number, a: number): void;
 
 /** R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText. */
@@ -5597,7 +5638,10 @@ export function Rtree_view_set_selection_changed_callback(tree_view: Rid, callba
 /** Called on double click or Enter. This also fires the action of the widget. */
 export function Rtree_view_set_activated_callback(tree_view: Rid, callback: RTreeEventCallback | Pointer | null, user_data?: RPointer): void;
 
-/** Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it. */
+/**
+ * Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+ * An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
+ */
 export function Rtree_item_set_icon(item: Rid, texture: Rid, u0: number, v0: number, u1: number, v1: number): void;
 
 /** Color of the text of the item; alpha 0 goes back to the theme. */
@@ -5695,6 +5739,7 @@ export function Rmenu_item_set_checked(item: Rid, checked: number): void;
  * Icon drawn before the text of a menu item (after the check mark column).
  * texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
  * tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+ *                An SVG in currentColor (Ricon_get) always is. XML: Icon.
  */
 export function Rmenu_item_set_icon(item: Rid, texture: Rid, u0: number, v0: number, u1: number, v1: number, tint: number): void;
 

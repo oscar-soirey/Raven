@@ -56,7 +56,7 @@ WIDGET_TYPE_CLASS = {"vbox": "panel", "hbox": "panel", "wrap_box": "panel"}
 # handles that are not widgets
 HANDLE_PREFIXES = ["window", "tree_item", "font", "texture", "timer", "xml_document", "xml_node", "tray", "shader"]
 # functions outside the types whose Rid is a handle the name does not tell
-FREE_RETURNS = {"Rtheme_get_wallpaper": "texture", "Reffect_get": "shader", "Reffect_find": "shader"}
+FREE_RETURNS = {"Rtheme_get_wallpaper": "texture", "Reffect_get": "shader", "Reffect_find": "shader", "Ricon_get": "texture"}
 
 # headers of include/raven read here (cparse.py skips them, or Raven.h does not
 # include them), with the feature (@feat) of the builds that have their

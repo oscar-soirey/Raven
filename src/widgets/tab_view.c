@@ -11,6 +11,7 @@
  */
 
 #include "common.h"
+#include "../render/renderer.h"
 
 typedef struct rvn_tab_view_t {
 	rvn_widget_t base;
@@ -333,7 +334,7 @@ static void rvn_tab_view_paint_fluent(rvn_widget_t* widget, RPainter* painter, f
 			tx = tab.x + 12.0f;
 			rvn_paint_push_clip(painter, rvn_rect(tab.x, tab.y, rvn_maxf(0.0f, tab.w - (closable ? RVN_TAB_CLOSE + 10.0f : 6.0f)), tab.h));
 			if (page->slot.has_icon) {
-				rvn_color_t tint = page->slot.icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f);
+				rvn_color_t tint = rvn_icon_tint(page->slot.icon, page->slot.icon_tint, look.foreground, rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f));
 				rvn_paint_image(painter, rvn_rect(tx, floorf(tab.y + (tab.h - RVN_TAB_ICON) * 0.5f), RVN_TAB_ICON, RVN_TAB_ICON),
 					page->slot.icon, page->slot.icon_uv, tint, 0.0f);
 				tx += RVN_TAB_ICON + RVN_TAB_ICON_GAP;
@@ -448,7 +449,7 @@ static void rvn_tab_view_paint_other(rvn_widget_t* widget, RPainter* painter, fl
 			rvn_paint_part(painter, tab, &look);
 			rvn_paint_push_clip(painter, rvn_rect(tab.x, tab.y, rvn_maxf(0.0f, tab.w - (closable ? RVN_TAB_CLOSE + 8.0f : 4.0f)), tab.h));
 			if (page->slot.has_icon) {
-				rvn_color_t tint = page->slot.icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f);
+				rvn_color_t tint = rvn_icon_tint(page->slot.icon, page->slot.icon_tint, look.foreground, rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f));
 				rvn_paint_image(painter, rvn_rect(tx, floorf(tab.y + (tab.h - RVN_TAB_ICON) * 0.5f), RVN_TAB_ICON, RVN_TAB_ICON),
 					page->slot.icon, page->slot.icon_uv, tint, 0.0f);
 				tx += RVN_TAB_ICON + RVN_TAB_ICON_GAP;
@@ -558,7 +559,7 @@ static void rvn_tab_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			}
 			rvn_paint_push_clip(painter, rvn_rect(tab.x, tab.y, rvn_maxf(0.0f, tab.w - (closable ? RVN_TAB_CLOSE + 8.0f : 4.0f)), tab.h));
 			if (page->slot.has_icon) {
-				rvn_color_t tint = page->slot.icon_tint ? color : rvn_rgba(1.0f, 1.0f, 1.0f, is_active ? 1.0f : 0.75f);
+				rvn_color_t tint = rvn_icon_tint(page->slot.icon, page->slot.icon_tint, color, rvn_rgba(1.0f, 1.0f, 1.0f, is_active ? 1.0f : 0.75f));
 				rvn_paint_image(painter, rvn_rect(tx, floorf(tab.y + (tab.h - RVN_TAB_ICON) * 0.5f), RVN_TAB_ICON, RVN_TAB_ICON),
 					page->slot.icon, page->slot.icon_uv, tint, 0.0f);
 				tx += RVN_TAB_ICON + RVN_TAB_ICON_GAP;

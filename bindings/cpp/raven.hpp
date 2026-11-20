@@ -661,6 +661,9 @@ public:
 
 	void set_texture(Rid texture) const { Rimage_set_texture(id_, texture); }
 
+	/// Color the image is multiplied by (white by default). An SVG in
+	/// currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+	/// the text around it until a tint is given; then in the tint. XML: Tint.
 	void set_tint_color(float r, float g, float b, float a) const { Rimage_set_tint_color(id_, r, g, b, a); }
 
 	/// R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText.
@@ -988,6 +991,7 @@ public:
 	/// Icon drawn before the text of a menu item (after the check mark column).
 	/// texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
 	/// tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+	///                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 	void set_icon(Rid texture, float u0, float v0, float u1, float v1, int tint) const { Rmenu_item_set_icon(id_, texture, u0, v0, u1, v1, tint); }
 
 	int is_checked() const { return Rmenu_item_is_checked(id_); }
@@ -1239,7 +1243,7 @@ public:
 
 	void set_tab_title(Rid content, const char* title) const { Rtab_view_set_tab_title(id_, content, title); }
 
-	/// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+	/// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
 	void set_tab_icon(Rid content, Rid texture, float u0, float v0, float u1, float v1, int tint) const { Rtab_view_set_tab_icon(id_, content, texture, u0, v0, u1, v1, tint); }
 
 	/// R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default.
@@ -2345,6 +2349,7 @@ public:
 	Rid get_child(int index) const { return Rtree_item_get_child(id_, index); }
 
 	/// Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+	/// An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 	void set_icon(Rid texture, float u0, float v0, float u1, float v1) const { Rtree_item_set_icon(id_, texture, u0, v0, u1, v1); }
 
 	/// Color of the text of the item; alpha 0 goes back to the theme.
@@ -2434,7 +2439,21 @@ public:
 	/// does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
 	/// ones read SVG files this way. Paths, fills, strokes and gradients are
 	/// drawn; text, filters and masks are not.
+	///
+	/// currentColor: an SVG painted only in currentColor (fill="currentColor",
+	/// stroke="currentColor") is drawn in white, keeping its shape and its
+	/// opacity, and the widgets that show it (Image, the icons of menu items,
+	/// tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+	/// their text at draw time: it follows the theme, hover, pressed and
+	/// disabled without being drawn again. Rdraw_image draws it in its tint
+	/// color. In an SVG that also uses other colors, currentColor is black.
+	/// See Rtexture_uses_current_color.
 	static Texture create_from_svg(const char* svg, size_t svg_size, float scale) { return Texture(Rtexture_create_from_svg(svg, svg_size, scale)); }
+
+	/// R_TRUE when the texture is an SVG painted only in currentColor:
+	/// white where it is painted, tinted with the color of the text by the
+	/// widgets that show it (see Rtexture_create_from_svg).
+	int uses_current_color() const { return Rtexture_uses_current_color(id_); }
 
 	/// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
 	float get_density() const { return Rtexture_get_density(id_); }
@@ -3122,6 +3141,24 @@ inline int theme_save(const char* path, const char* name) { return Rtheme_save(p
 
 /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 inline void pixels_free(uint8_t* pixels) { Rpixels_free(pixels); }
+
+/// An icon shipped with Raven, by its name: "search", "settings",
+/// "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+/// XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+/// License), 24 x 24 logical units, drawn with lines in currentColor: the
+/// widgets that show them tint them with the color of their text, so they
+/// follow the theme and the states (Rtexture_create_from_svg). Drawn at
+/// the density they are shown with, sharp on every screen.
+/// Returns: A texture owned by Raven, made on first use and then shared
+/// (do not destroy it; if it was, the next call makes it again);
+/// R_INVALID_ID, with an error, when there is no icon of that name.
+inline Rid icon_get(const char* name) { return Ricon_get(name); }
+
+/// Returns: The number of icons shipped with Raven.
+inline int icon_get_count() { return Ricon_get_count(); }
+
+/// Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
+inline const char* icon_get_name(int index) { return Ricon_get_name(index); }
 
 /// Creates a panel that shows what is behind it out of focus,
 /// with one child over it. In XML:

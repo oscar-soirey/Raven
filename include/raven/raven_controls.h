@@ -379,6 +379,11 @@ extern "C" {
 	 * ============================================================================ */
 
 	RAVEN_API void Rimage_set_texture(Rid image, Rid texture);
+	/**
+	 * @brief Color the image is multiplied by (white by default). An SVG in
+	 * currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+	 * the text around it until a tint is given; then in the tint. XML: Tint.
+	 */
 	RAVEN_API void Rimage_set_tint_color(Rid image, float r, float g, float b, float a);
 	/** @brief R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText. */
 	RAVEN_API void Rimage_set_tint_text(Rid image, int enabled);
@@ -569,7 +574,10 @@ extern "C" {
 	/** @brief Called on double click or Enter. This also fires the action of the widget. */
 	RAVEN_API void Rtree_view_set_activated_callback(Rid tree_view, RTreeEventCallback callback, void* user_data);
 
-	/** @brief Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it. */
+	/**
+	 * @brief Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+	 * An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
+	 */
 	RAVEN_API void Rtree_item_set_icon(Rid item, Rid texture, float u0, float v0, float u1, float v1);
 	/** @brief Color of the text of the item; alpha 0 goes back to the theme. */
 	RAVEN_API void Rtree_item_set_text_color(Rid item, float r, float g, float b, float a);
@@ -661,6 +669,7 @@ extern "C" {
 	 * @brief Icon drawn before the text of a menu item (after the check mark column).
 	 * @param texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
 	 * @param tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+	 *                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 	 */
 	RAVEN_API void Rmenu_item_set_icon(Rid item, Rid texture, float u0, float v0, float u1, float v1, int tint);
 	RAVEN_API int Rmenu_item_is_checked(Rid item);
@@ -685,7 +694,7 @@ extern "C" {
 		const char* detail;
 		/** Small text at the top right of the tile, or NULL. */
 		const char* badge;
-		/** Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default). */
+		/** Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name). */
 		Rid icon;
 		float uv[4];
 		float tint[4];

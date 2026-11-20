@@ -15,6 +15,8 @@ typedef struct rvn_image_t {
 	float radius;
 	/** R_TRUE: tinted with the text color (white glyphs that follow the theme), times `tint`. */
 	int tint_text;
+	/** R_TRUE once a tint was given: an SVG in currentColor is then drawn in it, not in the text color. */
+	int tint_set;
 } rvn_image_t;
 
 static void rvn_image_init(rvn_widget_t* widget) {
@@ -94,12 +96,18 @@ static void rvn_image_paint(rvn_widget_t* widget, RPainter* painter) {
 
 	if (image->texture == R_INVALID_ID) return;
 	rvn_image_fit(image->stretch, rvn_image_source_size(image), widget->rect.w, widget->rect.h, image->uv, &rect, uv);
-	if (image->tint_text) {
-		rvn_color_t text = rvn_widget_text_color(widget, painter);
-		/* the alpha of `tint` still applies */
-		tint = rvn_color_fade(text, (float)rvn_color_a(image->tint) / 255.0f);
+	if (rvn_texture_is_current_color(image->texture) && (image->tint_text || !image->tint_set)) {
+		/* an SVG in currentColor: the color of the text, which follows the theme and the
+		 * states (hovered, pressed, disabled) of the button around it; the alpha of `tint` still applies */
+		tint = rvn_color_fade(rvn_widget_text_color(widget, painter), (float)rvn_color_a(image->tint) / 255.0f);
+	} else {
+		if (image->tint_text) {
+			rvn_color_t text = rvn_widget_text_color(widget, painter);
+			/* the alpha of `tint` still applies */
+			tint = rvn_color_fade(text, (float)rvn_color_a(image->tint) / 255.0f);
+		}
+		if (!painter->enabled) tint = rvn_color_fade(tint, 0.4f);
 	}
-	if (!painter->enabled) tint = rvn_color_fade(tint, 0.4f);
 	/* an unscaled image larger than the widget is cut at its bounds */
 	clip = image->stretch == R_STRETCH_NONE && (rect.w > widget->rect.w || rect.h > widget->rect.h);
 	if (clip) rvn_paint_push_clip(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h));
@@ -123,6 +131,7 @@ static int rvn_image_set_attribute(rvn_widget_t* widget, const char* name, const
 		if (image->texture == R_INVALID_ID) return R_FALSE;
 	} else if (RVN_ATTR("Tint")) {
 		if (!rvn_parse_color(value, &image->tint)) return R_FALSE;
+		image->tint_set = R_TRUE;
 	} else if (RVN_ATTR("TintText")) {
 		if (!rvn_parse_bool(value, &image->tint_text)) return R_FALSE;
 	} else if (RVN_ATTR("Stretch")) {
@@ -162,6 +171,7 @@ void Rimage_set_texture(Rid id, Rid texture) {
 void Rimage_set_tint_color(Rid id, float r, float g, float b, float a) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_IMAGE);
 	((rvn_image_t*)widget)->tint = rvn_rgba(r, g, b, a);
+	((rvn_image_t*)widget)->tint_set = R_TRUE;
 	rvn_widget_invalidate_paint(widget);
 }
 

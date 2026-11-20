@@ -8,6 +8,7 @@ in the repository and compiled into the library.
 | stb_truetype 1.26 (Sean Barrett) | `third_party/stb/stb_truetype.h` | public domain or MIT, see `third_party/stb/LICENSE` | glyph outlines and rasterization |
 | stb_image 2.30 (Sean Barrett) | `third_party/stb/stb_image.h` | public domain or MIT, see `third_party/stb/LICENSE` | PNG / JPEG / BMP / TGA decoding; optional (`RAVEN_WITH_STB_IMAGE`) |
 | nanosvg and nanosvgrast (Mikko Mononen), master of November 2026 | `third_party/nanosvg/nanosvg.h`, `nanosvgrast.h` | zlib, see `third_party/nanosvg/LICENSE.txt` | SVG parsing and rasterization; optional (`RAVEN_WITH_SVG`) |
+| Lucide icons 1.76.0 (Lucide Contributors; some from Feather, Cole Bemis) | 63 icons in `third_party/lucide/icons/*.svg`, embedded as `src/resources/icons.c` by `tools/embed_icons.py` | ISC License, the ones from Feather MIT, see `third_party/lucide/LICENSE` | the icons shipped with Raven (`Ricon_get`, `raven:search` in XML) |
 | Roboto Regular (Google) | `third_party/roboto/Roboto-Regular-subset.ttf`, embedded as `src/resources/default_font.c` | Apache License 2.0, see `third_party/roboto/LICENSE` | default font |
 | Wayland protocol descriptions (Wayland, wayland-protocols) | `third_party/wayland-protocols/*.xml`, turned into `src/platform/wayland/wayland_protocols.h` by `tools/wayland/gen_wayland.py` | MIT, see `third_party/wayland-protocols/COPYING` | the protocols of the Wayland platform (Linux, BSD) |
 | Roboto Mono Regular (The Roboto Mono Project Authors) | `third_party/roboto-mono/RobotoMono-Regular-subset.ttf`, embedded as `src/resources/mono_font.c` | SIL Open Font License 1.1, see `third_party/roboto-mono/LICENSE` | fixed-width font of the text editor (`Rfont_get_monospace`) |
@@ -27,10 +28,25 @@ cannot clash with another copy of stb in the application.
 
 nanosvg is compiled in a single source file (`src/render/svg_decode.c`)
 whose `#define`s give its public names the prefix `rvn_`, so that it cannot
-clash with another copy in the application. It is not changed; before it
-draws, `svg_decode.c` leaves out the shapes far outside the picture and
-dashes much smaller than a pixel, which a damaged file could otherwise make
-it draw for minutes.
+clash with another copy in the application. Before it draws, `svg_decode.c`
+leaves out the shapes far outside the picture and dashes much smaller than a
+pixel, which a damaged file could otherwise make it draw for minutes. Its
+changes are marked `Raven:`. In `nanosvgrast.h`, the active edges are sorted
+with a stable merge sort and the new edges of a row merged in a batch (the
+original took O(n^2) on a path of many points), in the order the original
+gave, so the pixels stay the same; and the slope of an edge is kept in the
+range of an int. In `nanosvg.h`, a fill or a stroke of `currentColor` (in any
+case, as an attribute or in `style`) is flagged on its shape
+(`NSVG_FLAGS_FILL_CURRENT_COLOR`, `NSVG_FLAGS_STROKE_CURRENT_COLOR`) and
+parsed as black, where the original read it as an unknown color name (grey);
+`svg_decode.c` draws an SVG painted only in `currentColor` in white, for the
+widgets to tint it.
+
+The icons are the SVG files of the `lucide-static` package, unchanged. Each is
+the same `<svg>` element (24 x 24, no fill, a stroke of 2 in `currentColor`,
+round caps and joins) around a few shapes; `tools/embed_icons.py` keeps the
+shapes only, without the white space between them, and checks that the
+`<svg>` element is that one. Raven puts it back when an icon is asked for.
 
 `stb_truetype.h` has three changes, marked `Raven:`: the CFF table of an
 OpenType font is read within its length (the original reads up to 512 MB

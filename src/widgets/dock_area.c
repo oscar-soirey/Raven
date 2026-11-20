@@ -15,6 +15,7 @@
  */
 
 #include "common.h"
+#include "../render/renderer.h"
 
 /** A panel is not squeezed below this size by its neighbours. */
 #define RVN_DOCK_MIN 72.0f
@@ -444,7 +445,7 @@ static float rvn_dock_tab_natural_width(const rvn_widget_t* widget, const rvn_wi
 static float rvn_dock_paint_panel_icon(RPainter* painter, const rvn_widget_t* panel, float x, float cy, rvn_color_t color) {
 	rvn_color_t tint;
 	if (!panel->slot.has_icon) return 0.0f;
-	tint = panel->slot.icon_tint ? color : rvn_rgba(1.0f, 1.0f, 1.0f, rvn_color_a(color) / 255.0f);
+	tint = rvn_icon_tint(panel->slot.icon, panel->slot.icon_tint, color, rvn_rgba(1.0f, 1.0f, 1.0f, rvn_color_a(color) / 255.0f));
 	rvn_paint_image(painter, rvn_rect(x, floorf(cy - RVN_DOCK_ICON_SIZE * 0.5f), RVN_DOCK_ICON_SIZE, RVN_DOCK_ICON_SIZE),
 		panel->slot.icon, panel->slot.icon_uv, tint, 0.0f);
 	return RVN_DOCK_ICON_SIZE + RVN_DOCK_ICON_GAP;

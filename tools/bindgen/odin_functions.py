@@ -60,7 +60,7 @@ for _kind, _names in {
     "Font": "Rfont_create Rfont_create_from_file Rfont_get_default Rfont_get_monospace Rfont_get_variant "
             "Rtheme_get_font Rwidget_get_font",
     "Texture": "Rtexture_create Rtexture_create_async Rtexture_create_from_svg Rtexture_create_from_file "
-               "Rtexture_create_from_file_async Rtexture_create_from_pixels",
+               "Rtexture_create_from_file_async Rtexture_create_from_pixels Ricon_get",
     "Shader": "Rshader_create Rshader_create_from_file Reffect_get Reffect_find Rborder_get_effect",
     "Xml_Document": "Rxml_document_create Rxml_document_parse Rxml_document_load Rxml_node_get_document",
     "Xml_Node": "Rxml_document_get_root Rxml_node_get_parent Rxml_node_get_child Rxml_node_add_child "

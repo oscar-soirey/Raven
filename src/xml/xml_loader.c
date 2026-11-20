@@ -14,6 +14,7 @@
 #include "../script/script_raven.h"
 #include "../widgets/common.h"
 #include "../render/renderer.h"
+#include "../render/icons.h"
 #include "../core/fs.h"
 
 /* ---------------------------------------------------------------------------
@@ -473,10 +474,15 @@ char* rvn_xml_resolve_path(const char* path) {
 }
 
 Rid rvn_xml_texture(const char* path) {
-	char* full = rvn_is_http_url(path) ? rvn_strdup(path) : rvn_xml_resolve(path);
-	int remote = rvn_is_http_url(path);
+	char* full;
+	int remote;
 	Rid texture;
 	uint32_t i;
+
+	/* an icon shipped with Raven: "raven:search" */
+	if (rvn_icon_is_reference(path)) return Ricon_get(path);
+	full = rvn_is_http_url(path) ? rvn_strdup(path) : rvn_xml_resolve(path);
+	remote = rvn_is_http_url(path);
 
 	for (i = 0; i < g_xml.texture_count; i++) {
 		if (strcmp(g_xml.textures[i].path, full) != 0) continue;
