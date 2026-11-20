@@ -568,7 +568,7 @@ static void rvn_test_make_parents(const char* path) {
 	}
 }
 
-static int rvn_test_write_png(const char* path, const uint8_t* rgba, int width, int height) {
+int rvn_test_write_png(const char* path, const uint8_t* rgba, int width, int height) {
 	size_t size = 0;
 	uint8_t* png = rvn_png_encode(rgba, width, height, &size);
 	int written;
@@ -580,14 +580,14 @@ static int rvn_test_write_png(const char* path, const uint8_t* rgba, int width, 
 }
 
 /* The pixels of a window or a widget: the window captured, cut to the rectangle of the widget. */
-static uint8_t* rvn_test_capture(Rid id, int* width, int* height) {
+uint8_t* rvn_test_capture(Rid id, const char* function, int* width, int* height) {
 	rvn_test_target_t target;
 	uint8_t* pixels;
 	uint8_t* part;
 	int window_width = 0, window_height = 0, x0, y0, x1, y1, row;
 	float scale;
 	*width = *height = 0;
-	if (!rvn_test_target(id, "Rtest_expect_golden", &target)) return NULL;
+	if (!rvn_test_target(id, function, &target)) return NULL;
 	pixels = Rwindow_capture(target.window, &window_width, &window_height);
 	if (!pixels) return NULL;
 	if (rvn_handle_type(id) == RVN_HANDLE_WINDOW) {
@@ -658,7 +658,7 @@ int Rtest_expect_golden(Rid target, const char* golden_path, const RGoldenOption
 	rvn_test_output_name(g_rvn_golden_path, options->output_directory, "actual", actual_path, sizeof(actual_path));
 	rvn_test_output_name(g_rvn_golden_path, options->output_directory, "diff", diff_path, sizeof(diff_path));
 
-	actual = rvn_test_capture(target, &width, &height);
+	actual = rvn_test_capture(target, __func__, &width, &height);
 	if (result) {
 		result->width = width;
 		result->height = height;

@@ -212,6 +212,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/window.c
 	src/widget/inspector.c
 	src/widget/testing.c
+	src/widget/headless.c
 )
 
 set(RAVEN_WIDGETS_SOURCES

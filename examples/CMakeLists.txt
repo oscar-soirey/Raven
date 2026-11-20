@@ -22,6 +22,7 @@
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
 #   ui_test          a test of an interface: widgets driven by name, a golden image
+#   headless         scripts that drive hello and music from outside (RAVEN_HEADLESS, RAVEN_SCRIPT)
 #   viewport_vulkan  a Vulkan scene shown in the UI (offscreen image + in-pass draw)
 #   viewport_opengl  an OpenGL scene shown in a native child window
 
@@ -88,6 +89,16 @@ if(NOT EMSCRIPTEN)
 	raven_add_example(ui_test ui_test/main.c ui_test/login.xml)
 	add_test(NAME example_ui_test COMMAND raven_ui_test)
 	set_tests_properties(example_ui_test PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# Any application driven from outside, without a change of its code (RAVEN_HEADLESS, RAVEN_SCRIPT):
+# hello, which names none of its widgets, by the script of headless/hello.script. Without a GPU the
+# run goes on with the null backend: the checks and the tree, no pictures.
+if(NOT EMSCRIPTEN)
+	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/headless_output")
+	add_test(NAME example_headless_hello COMMAND "${CMAKE_COMMAND}" -E env RAVEN_HEADLESS=1
+		"RAVEN_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/headless/hello.script" "$<TARGET_FILE:raven_hello>")
+	set_tests_properties(example_headless_hello PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/headless_output")
 endif()
 
 # Web pages in the interface: needs the optional library (RAVEN_BUILD_WEB).

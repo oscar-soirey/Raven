@@ -1,0 +1,16 @@
+# A script for examples/hello, which knows nothing of it: run from the build
+# folder (see "Driving any application headlessly" in README.md)
+#
+#   RAVEN_HEADLESS=1 RAVEN_SCRIPT=../examples/headless/hello.script bin/raven_hello
+#
+# hello names none of its widgets: they are found by what they read.
+
+expect "text:Press the button" shown
+snap hello-start
+click "text:Click me"
+expect "text:Clicked 1 time" shown
+click "text:Click me"
+expect "text:Clicked 2 times" shown
+mark clicked-twice
+snap hello-clicked
+tree hello-tree.json

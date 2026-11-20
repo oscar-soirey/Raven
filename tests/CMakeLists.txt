@@ -3,9 +3,15 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing
+#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing,
+#   test_headless
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
+#   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
+#   headless_cli_quit, headless_cli_snap
+#       headless_app.c, an ordinary application, driven from outside by the
+#       environment (headless_cli.cmake); the pictures of headless_cli_snap need
+#       a GPU backend (skipped without).
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
@@ -117,6 +123,20 @@ endif()
 raven_add_test(test_testing)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_testing_output")
 target_compile_definitions(test_testing PRIVATE "RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_testing_output\"")
+# the tree as JSON and the scripts of steps, in the process (headless, null backend)
+raven_add_test(test_headless)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_headless_output")
+target_compile_definitions(test_headless PRIVATE "RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_headless_output\"")
+# an ordinary application driven from outside by the environment (RAVEN_HEADLESS, RAVEN_SCRIPT, RAVEN_TREE,
+# RAVEN_SNAP): the tree, a script, the exit codes; the pictures need a GPU backend (skipped without)
+add_executable(headless_app headless_app.c)
+target_link_libraries(headless_app PRIVATE raven::raven)
+set_target_properties(headless_app PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
+foreach(case tree script fail syntax quit snap)
+	add_test(NAME headless_cli_${case} COMMAND "${CMAKE_COMMAND}" "-DAPP=$<TARGET_FILE:headless_app>" -DCASE=${case}
+		"-DOUT=${CMAKE_CURRENT_BINARY_DIR}/headless_cli_output/${case}" -P "${CMAKE_CURRENT_SOURCE_DIR}/headless_cli.cmake")
+endforeach()
+set_tests_properties(headless_cli_snap PROPERTIES SKIP_REGULAR_EXPRESSION "SKIPPED")
 # trees far deeper than the stack allows a recursion to follow: the stack is made small (by the program itself elsewhere)
 raven_add_test(test_deep_trees)
 if(MSVC)

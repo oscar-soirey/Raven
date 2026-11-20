@@ -1,0 +1,25 @@
+# A script for examples/music: its widgets found by their names (Name="..."
+# in music/ui/*.xml) and by what they read. From the build folder:
+#
+#   RAVEN_HEADLESS=1 RAVEN_SCRIPT=../examples/headless/music.script bin/raven_music
+#
+# With a film of the run (one PNG per frame, a ring where it clicks):
+#
+#   mkdir film
+#   RAVEN_HEADLESS=1 RAVEN_SCRIPT=../examples/headless/music.script RAVEN_FILM=film/ bin/raven_music
+#   ffmpeg -framerate 60 -i film/%05d.png -pix_fmt yuv420p music.mp4
+
+# a playlist of the library
+click "text:Focus flow"
+expect collection.title text "Focus flow"
+snap music-playlist
+
+# a search: typed in the field of the header
+click search.query
+type "Static"
+key Enter
+settle 1
+expect "text:Cathedral in Berlin" shown
+mark searched
+snap music-search
+tree music-search.json
