@@ -1,0 +1,23 @@
+<!-- Two versions of a file compared by a DiffView. main.c drives the buttons, follows the changes and adds a note. -->
+<Window Title="Raven diff view" Width="1180" Height="760">
+	<VBox Spacing="12" Slot.Padding="18">
+		<HBox Spacing="10">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Diff view" TextSize="24"/>
+				<Label Name="status" Text="" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="split" Text="Side by side" Style="Switch" Checked="true" OnChanged="diff.split" Slot.VAlign="Center"/>
+			<Checkbox Name="spaces" Text="Ignore spaces" Style="Switch" OnChanged="diff.spaces" Slot.VAlign="Center"/>
+			<ComboBox Name="context" Items="3 lines of context|10 lines of context|Every line" Selected="0" OnChanged="diff.context" Slot.VAlign="Center"/>
+			<Button Name="previous" Text="Previous" OnClicked="diff.previous" Slot.VAlign="Center"/>
+			<Button Name="next" Text="Next change" Class="primary" OnClicked="diff.next" Slot.VAlign="Center"/>
+		</HBox>
+
+		<DiffView Name="diff" Mode="Split" Context="3"
+			LeftSource="samples/v1.0/server.c" RightSource="samples/v1.1/server.c"
+			LeftName="v1.0/server.c" RightName="v1.1/server.c"
+			OnClicked="diff.line" Slot.Fill="1"/>
+
+		<Label Text="F7 / Shift+F7 or Alt+Down / Alt+Up: next / previous change  -  click a fold to open it  -  drag to select, Ctrl+C to copy" Opacity="0.5"/>
+	</VBox>
+</Window>

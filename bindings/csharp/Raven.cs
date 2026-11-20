@@ -821,6 +821,16 @@ namespace Raven
         /// Background of code in formatted text.
         /// </summary>
         R_COLOR_CODE = 0x0123,
+        /// <summary>
+        /// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+        /// </summary>
+        R_COLOR_DIFF_ADDED = 0x0124,
+        R_COLOR_DIFF_REMOVED = 0x0125,
+        /// <summary>
+        /// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+        /// </summary>
+        R_COLOR_DIFF_ADDED_WORD = 0x0126,
+        R_COLOR_DIFF_REMOVED_WORD = 0x0127,
     }
 
     /// <summary>
@@ -1081,6 +1091,10 @@ namespace Raven
         /// Pages shown one at a time and swiped (a page view), with dots and arrows.
         /// </summary>
         R_WIDGET_CAROUSEL = 0x0236,
+        /// <summary>
+        /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+        /// </summary>
+        R_WIDGET_DIFF_VIEW = 0x0237,
     }
 
     public enum RHAlign : int
@@ -1752,6 +1766,86 @@ namespace Raven
         R_BLOCK_NEXT = 0x0710,
         R_BLOCK_BODY = 0x0711,
         R_BLOCK_INPUT = 0x0712,
+    }
+
+    public enum RDiffViewMode : int
+    {
+        /// <summary>
+        /// One column: the removed lines, then the added lines, between the lines kept.
+        /// </summary>
+        R_DIFF_VIEW_UNIFIED = 0x0C50,
+        /// <summary>
+        /// Two columns: the left text and the right text side by side, aligned.
+        /// </summary>
+        R_DIFF_VIEW_SPLIT = 0x0C51,
+    }
+
+    public enum RDiffSide : int
+    {
+        /// <summary>
+        /// The text before (the old one, "a/", the lines removed).
+        /// </summary>
+        R_DIFF_LEFT = 0x0C54,
+        /// <summary>
+        /// The text after (the new one, "b/", the lines added).
+        /// </summary>
+        R_DIFF_RIGHT = 0x0C55,
+    }
+
+    public enum RDiffRowKind : int
+    {
+        /// <summary>
+        /// A line that is on both sides.
+        /// </summary>
+        R_DIFF_ROW_SAME = 0x0C58,
+        /// <summary>
+        /// A line of the left text only.
+        /// </summary>
+        R_DIFF_ROW_REMOVED = 0x0C59,
+        /// <summary>
+        /// A line of the right text only.
+        /// </summary>
+        R_DIFF_ROW_ADDED = 0x0C5A,
+        /// <summary>
+        /// Split mode: a removed line facing the added line that replaces it.
+        /// </summary>
+        R_DIFF_ROW_CHANGED = 0x0C5B,
+        /// <summary>
+        /// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+        /// </summary>
+        R_DIFF_ROW_FOLD = 0x0C5C,
+        /// <summary>
+        /// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+        /// </summary>
+        R_DIFF_ROW_HUNK = 0x0C5D,
+        /// <summary>
+        /// A patch: the names of a file.
+        /// </summary>
+        R_DIFF_ROW_FILE = 0x0C5E,
+        /// <summary>
+        /// A note attached to the line above it (Rdiff_view_add_annotation).
+        /// </summary>
+        R_DIFF_ROW_NOTE = 0x0C5F,
+    }
+
+    /// <summary>
+    /// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+    /// </summary>
+    [Flags]
+    public enum RDiffFlags : int
+    {
+        /// <summary>
+        /// Spaces and tabs at the end of a line (and a carriage return) do not count.
+        /// </summary>
+        R_DIFF_IGNORE_TRAILING_SPACE = 1,
+        /// <summary>
+        /// No space or tab counts, wherever it is.
+        /// </summary>
+        R_DIFF_IGNORE_SPACE = 2,
+        /// <summary>
+        /// Upper and lower case letters are the same (A to Z).
+        /// </summary>
+        R_DIFF_IGNORE_CASE = 4,
     }
 
     /// <summary>
@@ -3542,6 +3636,15 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RBlockEditorContextCallback(uint editor, int block, float x, float y, IntPtr user_data);
+
+    /// <summary>
+    /// A line, or its number in the gutter, was clicked. `side` is the side
+    /// of the line clicked (in unified mode: the left side for a removed line
+    /// and for the left column of numbers, else the right side), `line` its
+    /// number on that side, from 1.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RDiffViewLineCallback(uint diff_view, RDiffSide side, int line, int in_gutter, IntPtr user_data);
 
     /// <summary>
     /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
@@ -10033,6 +10136,198 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rblock_editor_set_view(uint editor, float x, float y, float zoom);
+
+        /// <summary>
+        /// The differences between two texts as a unified diff (the format
+        /// of `diff -u` and `git diff`), with `context` unchanged lines around each
+        /// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+        /// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+        /// the library: it may be called from any thread.
+        /// Returns: The patch followed by a '\0' (an empty text when the texts are
+        /// the same), to release with Rmemory_free; NULL when a text is NULL.
+        /// `size` receives its length in bytes, and may be NULL.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rdiff_unified([MarshalAs(Utf8.Str)] string left, [MarshalAs(Utf8.Str)] string right, [MarshalAs(Utf8.Str)] string left_name, [MarshalAs(Utf8.Str)] string right_name, int context, uint flags, out UIntPtr size);
+
+        /// <summary>
+        /// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_count_changes([MarshalAs(Utf8.Str)] string left, [MarshalAs(Utf8.Str)] string right, uint flags);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rdiff_view_create();
+
+        /// <summary>
+        /// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_texts(uint diff_view, [MarshalAs(Utf8.Str)] string left, [MarshalAs(Utf8.Str)] string right);
+
+        /// <summary>
+        /// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_names(uint diff_view, [MarshalAs(Utf8.Str)] string left_name, [MarshalAs(Utf8.Str)] string right_name);
+
+        /// <summary>
+        /// Compares two files. Their paths become the names unless names
+        /// were given. Returns: R_FALSE when a file cannot be read (it is compared
+        /// as empty).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_load_files(uint diff_view, [MarshalAs(Utf8.Str)] string left_path, [MarshalAs(Utf8.Str)] string right_path);
+
+        /// <summary>
+        /// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+        /// instead of two texts: each file with its name, each hunk with its header.
+        /// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_set_patch(uint diff_view, [MarshalAs(Utf8.Str)] string patch);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_mode(uint diff_view, RDiffViewMode mode);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RDiffViewMode Rdiff_view_get_mode(uint diff_view);
+
+        /// <summary>
+        /// Unchanged lines shown around each change (3 by default); the
+        /// others are folded. A negative number shows every line.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_context(uint diff_view, int lines);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_context(uint diff_view);
+
+        /// <summary>
+        /// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_flags(uint diff_view, uint flags);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rdiff_view_get_flags(uint diff_view);
+
+        /// <summary>
+        /// Marks the words that changed inside a changed line (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_word_diff(uint diff_view, int enabled);
+
+        /// <summary>
+        /// Shows the numbers of the lines (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_line_numbers(uint diff_view, int visible);
+
+        /// <summary>
+        /// Colors the code as the text editor does: a language name of
+        /// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+        /// NULL (default) to guess it from the extension of the names.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_language(uint diff_view, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// The number of changes: runs of lines removed and / or added.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_change_count(uint diff_view);
+
+        /// <summary>
+        /// Where a change is: its first line and its number of lines on
+        /// each side (a count of 0: nothing on that side; the line is then the one
+        /// after which the other side's lines go). Returns: R_FALSE when there is
+        /// no such change.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_change(uint diff_view, int change, out int left_line, out int left_count, out int right_line, out int right_count);
+
+        /// <summary>
+        /// Scrolls to a change (from 0) and marks it as the current one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_go_to_change(uint diff_view, int change);
+
+        /// <summary>
+        /// The current change, -1 before the first one is gone to.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_current_change(uint diff_view);
+
+        /// <summary>
+        /// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_next_change(uint diff_view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_prev_change(uint diff_view);
+
+        /// <summary>
+        /// The rows shown, folds, hunk headers and notes included.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_row_count(uint diff_view);
+
+        /// <summary>
+        /// What a row shows, and the numbers of its lines (0 for a side it
+        /// has no line of). A fold gives the first line it hides on each side.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RDiffRowKind Rdiff_view_get_row(uint diff_view, int row, out int left_line, out int right_line);
+
+        /// <summary>
+        /// The text of a row on one side (in unified mode the side does not
+        /// matter for a line); a fold, a hunk, a file or a note give their label.
+        /// Valid until the next call. "" when there is none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rdiff_view_get_row_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rdiff_view_get_row_text_(uint diff_view, int row, RDiffSide side);
+        public static string Rdiff_view_get_row_text(uint diff_view, int row, RDiffSide side) { return Text(Rdiff_view_get_row_text_(diff_view, row, side)); }
+
+        /// <summary>
+        /// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_expand(uint diff_view, int row);
+
+        /// <summary>
+        /// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdiff_view_get_first_visible_row(uint diff_view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_scroll_to_row(uint diff_view, int row);
+
+        /// <summary>
+        /// Attaches a short note to a line (a review comment, an error): a
+        /// mark in the gutter and the text in a row under the line, which is never
+        /// folded away. Several notes may go to one line.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_add_annotation(uint diff_view, RDiffSide side, int line, [MarshalAs(Utf8.Str)] string text);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_clear_annotations(uint diff_view);
+
+        /// <summary>
+        /// The text selected by the user ("" when none), one line after another.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rdiff_view_get_selected_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rdiff_view_get_selected_text_(uint diff_view);
+        public static string Rdiff_view_get_selected_text(uint diff_view) { return Text(Rdiff_view_get_selected_text_(diff_view)); }
+
+        /// <summary>
+        /// Called when a line or its number is clicked (the action of the widget is fired too).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdiff_view_set_line_clicked_callback(uint diff_view, RDiffViewLineCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Shows a widget as a dialog of a window. The window takes

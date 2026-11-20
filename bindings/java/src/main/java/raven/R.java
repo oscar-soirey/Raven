@@ -841,6 +841,16 @@ public final class R {
      * Background of code in formatted text.
      */
     public static final int R_COLOR_CODE = 0x0123;
+    /**
+     * Diff view: the background of an added line and of a removed line (see-through: the background shows).
+     */
+    public static final int R_COLOR_DIFF_ADDED = 0x0124;
+    public static final int R_COLOR_DIFF_REMOVED = 0x0125;
+    /**
+     * Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+     */
+    public static final int R_COLOR_DIFF_ADDED_WORD = 0x0126;
+    public static final int R_COLOR_DIFF_REMOVED_WORD = 0x0127;
 
     // RMetric: Sizes, in logical units.
     public static final int R_METRIC_FONT_SIZE = 0x0140;
@@ -1087,6 +1097,10 @@ public final class R {
      * Pages shown one at a time and swiped (a page view), with dots and arrows.
      */
     public static final int R_WIDGET_CAROUSEL = 0x0236;
+    /**
+     * The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+     */
+    public static final int R_WIDGET_DIFF_VIEW = 0x0237;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1608,6 +1622,74 @@ public final class R {
     public static final int R_BLOCK_NEXT = 0x0710;
     public static final int R_BLOCK_BODY = 0x0711;
     public static final int R_BLOCK_INPUT = 0x0712;
+
+    // RDiffViewMode
+    /**
+     * One column: the removed lines, then the added lines, between the lines kept.
+     */
+    public static final int R_DIFF_VIEW_UNIFIED = 0x0C50;
+    /**
+     * Two columns: the left text and the right text side by side, aligned.
+     */
+    public static final int R_DIFF_VIEW_SPLIT = 0x0C51;
+
+    // RDiffSide
+    /**
+     * The text before (the old one, "a/", the lines removed).
+     */
+    public static final int R_DIFF_LEFT = 0x0C54;
+    /**
+     * The text after (the new one, "b/", the lines added).
+     */
+    public static final int R_DIFF_RIGHT = 0x0C55;
+
+    // RDiffRowKind
+    /**
+     * A line that is on both sides.
+     */
+    public static final int R_DIFF_ROW_SAME = 0x0C58;
+    /**
+     * A line of the left text only.
+     */
+    public static final int R_DIFF_ROW_REMOVED = 0x0C59;
+    /**
+     * A line of the right text only.
+     */
+    public static final int R_DIFF_ROW_ADDED = 0x0C5A;
+    /**
+     * Split mode: a removed line facing the added line that replaces it.
+     */
+    public static final int R_DIFF_ROW_CHANGED = 0x0C5B;
+    /**
+     * Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+     */
+    public static final int R_DIFF_ROW_FOLD = 0x0C5C;
+    /**
+     * A patch: the header of a hunk ("&#64;&#64; -12,7 +12,8 &#64;&#64; main").
+     */
+    public static final int R_DIFF_ROW_HUNK = 0x0C5D;
+    /**
+     * A patch: the names of a file.
+     */
+    public static final int R_DIFF_ROW_FILE = 0x0C5E;
+    /**
+     * A note attached to the line above it (Rdiff_view_add_annotation).
+     */
+    public static final int R_DIFF_ROW_NOTE = 0x0C5F;
+
+    // RDiffFlags: How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+    /**
+     * Spaces and tabs at the end of a line (and a carriage return) do not count.
+     */
+    public static final int R_DIFF_IGNORE_TRAILING_SPACE = 1;
+    /**
+     * No space or tab counts, wherever it is.
+     */
+    public static final int R_DIFF_IGNORE_SPACE = 2;
+    /**
+     * Upper and lower case letters are the same (A to Z).
+     */
+    public static final int R_DIFF_IGNORE_CASE = 4;
 
     // RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
     /**
@@ -6056,6 +6138,30 @@ public final class R {
 
     private static MemorySegment upcall(RBlockEditorContextCallback f) {
         return stub(f, RBlockEditorContextCallback.class, "RBlockEditorContextCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS));
+    }
+
+    /**
+     * A line, or its number in the gutter, was clicked. `side` is the side
+     * of the line clicked (in unified mode: the left side for a removed line
+     * and for the left column of numbers, else the right side), `line` its
+     * number on that side, from 1.
+     */
+    @FunctionalInterface
+    public interface RDiffViewLineCallback {
+        void invoke(int diff_view, int side, int line, int in_gutter, MemorySegment user_data);
+    }
+
+    private static void RDiffViewLineCallback$raw(RDiffViewLineCallback f, int diff_view, int side, int line, int in_gutter, MemorySegment user_data) {
+        try {
+            f.invoke(diff_view, side, line, in_gutter, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RDiffViewLineCallback f) {
+        return stub(f, RDiffViewLineCallback.class, "RDiffViewLineCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -24341,6 +24447,541 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rdiff_unified$;
+
+    /**
+     * The differences between two texts as a unified diff (the format
+     * of `diff -u` and `git diff`), with `context` unchanged lines around each
+     * change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+     * (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+     * the library: it may be called from any thread.
+     * Returns: The patch followed by a '\0' (an empty text when the texts are
+     * the same), to release with Rmemory_free; NULL when a text is NULL.
+     * `size` receives its length in bytes, and may be NULL.
+     */
+    public static byte[] Rdiff_unified(String left, String right, String left_name, String right_name, int context, int flags) {
+        MethodHandle $h = Rdiff_unified$;
+        if ($h == null) Rdiff_unified$ = $h = find("Rdiff_unified", FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left$ = left == null ? MemorySegment.NULL : utf8($a, left);
+            MemorySegment right$ = right == null ? MemorySegment.NULL : utf8($a, right);
+            MemorySegment left_name$ = left_name == null ? MemorySegment.NULL : utf8($a, left_name);
+            MemorySegment right_name$ = right_name == null ? MemorySegment.NULL : utf8($a, right_name);
+            MemorySegment size$ = $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(left$, right$, left_name$, right_name$, context, flags, size$);
+            if ($r.equals(MemorySegment.NULL)) return null;
+            byte[] $data = $r.reinterpret(size$.get(JAVA_LONG, 0)).toArray(JAVA_BYTE);
+            Rmemory_free($r);
+            return $data;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_count_changes$;
+
+    /**
+     * The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+     */
+    public static int Rdiff_count_changes(String left, String right, int flags) {
+        MethodHandle $h = Rdiff_count_changes$;
+        if ($h == null) Rdiff_count_changes$ = $h = find("Rdiff_count_changes", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left$ = left == null ? MemorySegment.NULL : utf8($a, left);
+            MemorySegment right$ = right == null ? MemorySegment.NULL : utf8($a, right);
+            int $r = (int) $h.invokeExact(left$, right$, flags);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_create$;
+
+    public static int Rdiff_view_create() {
+        MethodHandle $h = Rdiff_view_create$;
+        if ($h == null) Rdiff_view_create$ = $h = find("Rdiff_view_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_texts$;
+
+    /**
+     * The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+     */
+    public static void Rdiff_view_set_texts(int diff_view, String left, String right) {
+        MethodHandle $h = Rdiff_view_set_texts$;
+        if ($h == null) Rdiff_view_set_texts$ = $h = find("Rdiff_view_set_texts", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left$ = left == null ? MemorySegment.NULL : utf8($a, left);
+            MemorySegment right$ = right == null ? MemorySegment.NULL : utf8($a, right);
+            $h.invokeExact(diff_view, left$, right$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_names$;
+
+    /**
+     * Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+     */
+    public static void Rdiff_view_set_names(int diff_view, String left_name, String right_name) {
+        MethodHandle $h = Rdiff_view_set_names$;
+        if ($h == null) Rdiff_view_set_names$ = $h = find("Rdiff_view_set_names", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left_name$ = left_name == null ? MemorySegment.NULL : utf8($a, left_name);
+            MemorySegment right_name$ = right_name == null ? MemorySegment.NULL : utf8($a, right_name);
+            $h.invokeExact(diff_view, left_name$, right_name$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_load_files$;
+
+    /**
+     * Compares two files. Their paths become the names unless names
+     * were given. Returns: R_FALSE when a file cannot be read (it is compared
+     * as empty).
+     */
+    public static int Rdiff_view_load_files(int diff_view, String left_path, String right_path) {
+        MethodHandle $h = Rdiff_view_load_files$;
+        if ($h == null) Rdiff_view_load_files$ = $h = find("Rdiff_view_load_files", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left_path$ = left_path == null ? MemorySegment.NULL : utf8($a, left_path);
+            MemorySegment right_path$ = right_path == null ? MemorySegment.NULL : utf8($a, right_path);
+            int $r = (int) $h.invokeExact(diff_view, left_path$, right_path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_patch$;
+
+    /**
+     * Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+     * instead of two texts: each file with its name, each hunk with its header.
+     * Returns: R_FALSE when the text holds no hunk (nothing is shown).
+     */
+    public static int Rdiff_view_set_patch(int diff_view, String patch) {
+        MethodHandle $h = Rdiff_view_set_patch$;
+        if ($h == null) Rdiff_view_set_patch$ = $h = find("Rdiff_view_set_patch", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment patch$ = patch == null ? MemorySegment.NULL : utf8($a, patch);
+            int $r = (int) $h.invokeExact(diff_view, patch$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_mode$;
+
+    public static void Rdiff_view_set_mode(int diff_view, int mode) {
+        MethodHandle $h = Rdiff_view_set_mode$;
+        if ($h == null) Rdiff_view_set_mode$ = $h = find("Rdiff_view_set_mode", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, mode);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_mode$;
+
+    public static int Rdiff_view_get_mode(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_mode$;
+        if ($h == null) Rdiff_view_get_mode$ = $h = find("Rdiff_view_get_mode", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_context$;
+
+    /**
+     * Unchanged lines shown around each change (3 by default); the
+     * others are folded. A negative number shows every line.
+     */
+    public static void Rdiff_view_set_context(int diff_view, int lines) {
+        MethodHandle $h = Rdiff_view_set_context$;
+        if ($h == null) Rdiff_view_set_context$ = $h = find("Rdiff_view_set_context", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, lines);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_context$;
+
+    public static int Rdiff_view_get_context(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_context$;
+        if ($h == null) Rdiff_view_get_context$ = $h = find("Rdiff_view_get_context", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_flags$;
+
+    /**
+     * How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+     */
+    public static void Rdiff_view_set_flags(int diff_view, int flags) {
+        MethodHandle $h = Rdiff_view_set_flags$;
+        if ($h == null) Rdiff_view_set_flags$ = $h = find("Rdiff_view_set_flags", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, flags);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_flags$;
+
+    public static int Rdiff_view_get_flags(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_flags$;
+        if ($h == null) Rdiff_view_get_flags$ = $h = find("Rdiff_view_get_flags", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_word_diff$;
+
+    /**
+     * Marks the words that changed inside a changed line (default R_TRUE).
+     */
+    public static void Rdiff_view_set_word_diff(int diff_view, int enabled) {
+        MethodHandle $h = Rdiff_view_set_word_diff$;
+        if ($h == null) Rdiff_view_set_word_diff$ = $h = find("Rdiff_view_set_word_diff", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_line_numbers$;
+
+    /**
+     * Shows the numbers of the lines (default R_TRUE).
+     */
+    public static void Rdiff_view_set_line_numbers(int diff_view, int visible) {
+        MethodHandle $h = Rdiff_view_set_line_numbers$;
+        if ($h == null) Rdiff_view_set_line_numbers$ = $h = find("Rdiff_view_set_line_numbers", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_language$;
+
+    /**
+     * Colors the code as the text editor does: a language name of
+     * Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+     * NULL (default) to guess it from the extension of the names.
+     */
+    public static void Rdiff_view_set_language(int diff_view, String language) {
+        MethodHandle $h = Rdiff_view_set_language$;
+        if ($h == null) Rdiff_view_set_language$ = $h = find("Rdiff_view_set_language", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            $h.invokeExact(diff_view, language$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_change_count$;
+
+    /**
+     * The number of changes: runs of lines removed and / or added.
+     */
+    public static int Rdiff_view_get_change_count(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_change_count$;
+        if ($h == null) Rdiff_view_get_change_count$ = $h = find("Rdiff_view_get_change_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_change$;
+
+    /**
+     * Where a change is: its first line and its number of lines on
+     * each side (a count of 0: nothing on that side; the line is then the one
+     * after which the other side's lines go). Returns: R_FALSE when there is
+     * no such change.
+     */
+    public static int Rdiff_view_get_change(int diff_view, int change, int[] left_line, int[] left_count, int[] right_line, int[] right_count) {
+        MethodHandle $h = Rdiff_view_get_change$;
+        if ($h == null) Rdiff_view_get_change$ = $h = find("Rdiff_view_get_change", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left_line$ = left_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment left_count$ = left_count == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment right_line$ = right_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment right_count$ = right_count == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(diff_view, change, left_line$, left_count$, right_line$, right_count$);
+            if (left_line != null && left_line.length > 0) left_line[0] = left_line$.get(JAVA_INT, 0);
+            if (left_count != null && left_count.length > 0) left_count[0] = left_count$.get(JAVA_INT, 0);
+            if (right_line != null && right_line.length > 0) right_line[0] = right_line$.get(JAVA_INT, 0);
+            if (right_count != null && right_count.length > 0) right_count[0] = right_count$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_go_to_change$;
+
+    /**
+     * Scrolls to a change (from 0) and marks it as the current one.
+     */
+    public static void Rdiff_view_go_to_change(int diff_view, int change) {
+        MethodHandle $h = Rdiff_view_go_to_change$;
+        if ($h == null) Rdiff_view_go_to_change$ = $h = find("Rdiff_view_go_to_change", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, change);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_current_change$;
+
+    /**
+     * The current change, -1 before the first one is gone to.
+     */
+    public static int Rdiff_view_get_current_change(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_current_change$;
+        if ($h == null) Rdiff_view_get_current_change$ = $h = find("Rdiff_view_get_current_change", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_next_change$;
+
+    /**
+     * Goes to the next / previous change. Returns: Its index, -1 when there is none.
+     */
+    public static int Rdiff_view_next_change(int diff_view) {
+        MethodHandle $h = Rdiff_view_next_change$;
+        if ($h == null) Rdiff_view_next_change$ = $h = find("Rdiff_view_next_change", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_prev_change$;
+
+    public static int Rdiff_view_prev_change(int diff_view) {
+        MethodHandle $h = Rdiff_view_prev_change$;
+        if ($h == null) Rdiff_view_prev_change$ = $h = find("Rdiff_view_prev_change", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_row_count$;
+
+    /**
+     * The rows shown, folds, hunk headers and notes included.
+     */
+    public static int Rdiff_view_get_row_count(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_row_count$;
+        if ($h == null) Rdiff_view_get_row_count$ = $h = find("Rdiff_view_get_row_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_row$;
+
+    /**
+     * What a row shows, and the numbers of its lines (0 for a side it
+     * has no line of). A fold gives the first line it hides on each side.
+     */
+    public static int Rdiff_view_get_row(int diff_view, int row, int[] left_line, int[] right_line) {
+        MethodHandle $h = Rdiff_view_get_row$;
+        if ($h == null) Rdiff_view_get_row$ = $h = find("Rdiff_view_get_row", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment left_line$ = left_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment right_line$ = right_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(diff_view, row, left_line$, right_line$);
+            if (left_line != null && left_line.length > 0) left_line[0] = left_line$.get(JAVA_INT, 0);
+            if (right_line != null && right_line.length > 0) right_line[0] = right_line$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_row_text$;
+
+    /**
+     * The text of a row on one side (in unified mode the side does not
+     * matter for a line); a fold, a hunk, a file or a note give their label.
+     * Valid until the next call. "" when there is none.
+     */
+    public static String Rdiff_view_get_row_text(int diff_view, int row, int side) {
+        MethodHandle $h = Rdiff_view_get_row_text$;
+        if ($h == null) Rdiff_view_get_row_text$ = $h = find("Rdiff_view_get_row_text", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(diff_view, row, side);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_expand$;
+
+    /**
+     * Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+     */
+    public static int Rdiff_view_expand(int diff_view, int row) {
+        MethodHandle $h = Rdiff_view_expand$;
+        if ($h == null) Rdiff_view_expand$ = $h = find("Rdiff_view_expand", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view, row);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_first_visible_row$;
+
+    /**
+     * The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+     */
+    public static int Rdiff_view_get_first_visible_row(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_first_visible_row$;
+        if ($h == null) Rdiff_view_get_first_visible_row$ = $h = find("Rdiff_view_get_first_visible_row", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(diff_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_scroll_to_row$;
+
+    public static void Rdiff_view_scroll_to_row(int diff_view, int row) {
+        MethodHandle $h = Rdiff_view_scroll_to_row$;
+        if ($h == null) Rdiff_view_scroll_to_row$ = $h = find("Rdiff_view_scroll_to_row", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(diff_view, row);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_add_annotation$;
+
+    /**
+     * Attaches a short note to a line (a review comment, an error): a
+     * mark in the gutter and the text in a row under the line, which is never
+     * folded away. Several notes may go to one line.
+     */
+    public static void Rdiff_view_add_annotation(int diff_view, int side, int line, String text) {
+        MethodHandle $h = Rdiff_view_add_annotation$;
+        if ($h == null) Rdiff_view_add_annotation$ = $h = find("Rdiff_view_add_annotation", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(diff_view, side, line, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_clear_annotations$;
+
+    public static void Rdiff_view_clear_annotations(int diff_view) {
+        MethodHandle $h = Rdiff_view_clear_annotations$;
+        if ($h == null) Rdiff_view_clear_annotations$ = $h = find("Rdiff_view_clear_annotations", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(diff_view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_get_selected_text$;
+
+    /**
+     * The text selected by the user ("" when none), one line after another.
+     */
+    public static String Rdiff_view_get_selected_text(int diff_view) {
+        MethodHandle $h = Rdiff_view_get_selected_text$;
+        if ($h == null) Rdiff_view_get_selected_text$ = $h = find("Rdiff_view_get_selected_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(diff_view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdiff_view_set_line_clicked_callback$;
+
+    /**
+     * Called when a line or its number is clicked (the action of the widget is fired too).
+     */
+    public static void Rdiff_view_set_line_clicked_callback(int diff_view, RDiffViewLineCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rdiff_view_set_line_clicked_callback$;
+        if ($h == null) Rdiff_view_set_line_clicked_callback$ = $h = find("Rdiff_view_set_line_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(diff_view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when a line or its number is clicked (the action of the widget is fired too).
+     */
+    public static void Rdiff_view_set_line_clicked_callback(int diff_view, RDiffViewLineCallback callback) {
+        Rdiff_view_set_line_clicked_callback(diff_view, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rdialog_open$;

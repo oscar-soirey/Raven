@@ -458,7 +458,7 @@ as it changes, and alive.
   material, motion, accent, font, wallpaper; *Generate the palette* works out
   every color from the accent (tint and depth adjustable), *Surprise me* tries
   another one.
-- **Colors**, **Sizes**, **Code**: the 36 color roles, the metrics, the glass
+- **Colors**, **Sizes**, **Code**: the 40 color roles, the metrics, the glass
   multipliers and the syntax colors, each showing what the look gives until it
   is set, with a button to go back to it.
 - **Styles**: the `<Style>` rules as text, with ready-made ones to add.
@@ -659,6 +659,7 @@ The build trees are in `build\dist\`.
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
+| `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1295,6 +1296,54 @@ them every so many seconds, and waits while the pointer is on the carousel.
 Only the page shown, and the one coming in while the pages move, is drawn and
 reached by the mouse and the keyboard. Screen readers see a list of tabs, one
 per page (its `Slot.Title`, else "Page 2 of 5").
+
+
+### Diff view
+
+```xml
+<DiffView Name="diff" Mode="Split" Context="3" IgnoreWhitespace="Trailing"
+          LeftSource="v1.0/server.c" RightSource="v1.1/server.c" Slot.Fill="1"/>
+```
+
+```c
+Rid diff = Rdiff_view_create();
+Rdiff_view_set_texts(diff, old_text, new_text);     /* or Rdiff_view_load_files, Rdiff_view_set_patch */
+Rdiff_view_set_names(diff, "config.ini (saved)", "config.ini (now)");
+Rdiff_view_set_mode(diff, R_DIFF_VIEW_SPLIT);
+Rdiff_view_add_annotation(diff, R_DIFF_RIGHT, 42, "Why this timeout?");
+Rdiff_view_next_change(diff);                       /* scrolls to it; F7 / Shift+F7 do the same */
+
+char* patch = Rdiff_unified(old_text, new_text, "a/config.ini", "b/config.ini", 3, 0, NULL);
+/* ... the patch of `diff -u`, without a widget, from any thread ... */
+Rmemory_free(patch);
+```
+
+![Two versions of a file side by side in a DiffView](docs/images/diff_view.png)
+
+A `DiffView` shows what changed between two texts (two versions of a file,
+of a setting, of a document), or a patch as `git diff` writes it, files and
+hunks included. The removed and added lines are in one column (`Unified`) or
+side by side (`Split`, where the lines of a change face each other and both
+sides scroll together), with the numbers of the lines of both sides and the
+words that changed inside a changed line marked. Unchanged lines are folded
+away except `Context` lines around each change; a click on "20 unchanged
+lines" shows them. With the extension of the names or `Language`, the code
+is colored as in the text editor. Only the rows on screen are drawn: a
+hundred thousand lines scroll as ten do. The text is selected and copied as
+in an editor; F7 / Shift+F7 (or Alt+Down / Alt+Up) go from change to change,
+`Rdiff_view_get_change` tells where each one is, and a click on a line or on
+its number calls `Rdiff_view_set_line_clicked_callback`. Notes
+(`Rdiff_view_add_annotation`) show under their line, which is never folded.
+
+The comparison is Myers' algorithm in linear memory, after the lines found
+on one side only are set apart (two texts with nothing in common cost no
+more than reading them); a limit on the work keeps the worst cases (the
+same few lines shuffled) bounded, with a result a little longer than the
+shortest one. Two files of 50 000 lines with 1% of them changed are compared
+in a few milliseconds. `R_DIFF_IGNORE_TRAILING_SPACE`, `R_DIFF_IGNORE_SPACE`
+and `R_DIFF_IGNORE_CASE` decide which lines are the same. The colors are the
+theme roles `R_COLOR_DIFF_ADDED`, `R_COLOR_DIFF_REMOVED` and their `_WORD`
+shades. Screen readers read each row ("added line 12: return 0;").
 
 ### Tables, dates and the small controls
 

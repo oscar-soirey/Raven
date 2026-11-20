@@ -388,6 +388,10 @@ typedef enum RColorRole {
 	R_COLOR_DANGER = 289,
 	R_COLOR_LINK = 290,
 	R_COLOR_CODE = 291,
+	R_COLOR_DIFF_ADDED = 292,
+	R_COLOR_DIFF_REMOVED = 293,
+	R_COLOR_DIFF_ADDED_WORD = 294,
+	R_COLOR_DIFF_REMOVED_WORD = 295,
 } RColorRole;
 typedef enum RMetric {
 	R_METRIC_FONT_SIZE = 320,
@@ -478,6 +482,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CHART = 564,
 	R_WIDGET_MAP_VIEW = 565,
 	R_WIDGET_CAROUSEL = 566,
+	R_WIDGET_DIFF_VIEW = 567,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -727,6 +732,29 @@ typedef enum RBlockPlace {
 	R_BLOCK_BODY = 1809,
 	R_BLOCK_INPUT = 1810,
 } RBlockPlace;
+typedef enum RDiffViewMode {
+	R_DIFF_VIEW_UNIFIED = 3152,
+	R_DIFF_VIEW_SPLIT = 3153,
+} RDiffViewMode;
+typedef enum RDiffSide {
+	R_DIFF_LEFT = 3156,
+	R_DIFF_RIGHT = 3157,
+} RDiffSide;
+typedef enum RDiffRowKind {
+	R_DIFF_ROW_SAME = 3160,
+	R_DIFF_ROW_REMOVED = 3161,
+	R_DIFF_ROW_ADDED = 3162,
+	R_DIFF_ROW_CHANGED = 3163,
+	R_DIFF_ROW_FOLD = 3164,
+	R_DIFF_ROW_HUNK = 3165,
+	R_DIFF_ROW_FILE = 3166,
+	R_DIFF_ROW_NOTE = 3167,
+} RDiffRowKind;
+typedef enum RDiffFlags {
+	R_DIFF_IGNORE_TRAILING_SPACE = 1,
+	R_DIFF_IGNORE_SPACE = 2,
+	R_DIFF_IGNORE_CASE = 4,
+} RDiffFlags;
 typedef enum RNotificationUrgency {
 	R_NOTIFICATION_LOW = 1264,
 	R_NOTIFICATION_NORMAL = 1265,
@@ -952,6 +980,7 @@ typedef void (*RNodeGraphContextCallback)(Rid graph, int node, float x, float y,
 typedef void (*RNodeGraphPointCallback)(Rid graph, int item, float x, float y, void* user_data);
 typedef void (*RBlockEditorCallback)(Rid editor, int block, void* user_data);
 typedef void (*RBlockEditorContextCallback)(Rid editor, int block, float x, float y, void* user_data);
+typedef void (*RDiffViewLineCallback)(Rid diff_view, RDiffSide side, int line, int in_gutter, void* user_data);
 typedef void (*RDialogClosedCallback)(Rid content, int result, void* user_data);
 typedef void (*RFileBrowserCallback)(Rid browser, const char* path, void* user_data);
 typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
@@ -2414,6 +2443,38 @@ int Rblock_editor_get_selected(Rid editor, int index);
 void Rblock_editor_select(Rid editor, int block, int add);
 void Rblock_editor_get_view(Rid editor, float* x, float* y, float* zoom);
 void Rblock_editor_set_view(Rid editor, float x, float y, float zoom);
+char* Rdiff_unified(const char* left, const char* right, const char* left_name, const char* right_name, int context, uint32_t flags, size_t* size);
+int Rdiff_count_changes(const char* left, const char* right, uint32_t flags);
+Rid Rdiff_view_create(void);
+void Rdiff_view_set_texts(Rid diff_view, const char* left, const char* right);
+void Rdiff_view_set_names(Rid diff_view, const char* left_name, const char* right_name);
+int Rdiff_view_load_files(Rid diff_view, const char* left_path, const char* right_path);
+int Rdiff_view_set_patch(Rid diff_view, const char* patch);
+void Rdiff_view_set_mode(Rid diff_view, RDiffViewMode mode);
+RDiffViewMode Rdiff_view_get_mode(Rid diff_view);
+void Rdiff_view_set_context(Rid diff_view, int lines);
+int Rdiff_view_get_context(Rid diff_view);
+void Rdiff_view_set_flags(Rid diff_view, uint32_t flags);
+uint32_t Rdiff_view_get_flags(Rid diff_view);
+void Rdiff_view_set_word_diff(Rid diff_view, int enabled);
+void Rdiff_view_set_line_numbers(Rid diff_view, int visible);
+void Rdiff_view_set_language(Rid diff_view, const char* language);
+int Rdiff_view_get_change_count(Rid diff_view);
+int Rdiff_view_get_change(Rid diff_view, int change, int* left_line, int* left_count, int* right_line, int* right_count);
+void Rdiff_view_go_to_change(Rid diff_view, int change);
+int Rdiff_view_get_current_change(Rid diff_view);
+int Rdiff_view_next_change(Rid diff_view);
+int Rdiff_view_prev_change(Rid diff_view);
+int Rdiff_view_get_row_count(Rid diff_view);
+RDiffRowKind Rdiff_view_get_row(Rid diff_view, int row, int* left_line, int* right_line);
+const char* Rdiff_view_get_row_text(Rid diff_view, int row, RDiffSide side);
+int Rdiff_view_expand(Rid diff_view, int row);
+int Rdiff_view_get_first_visible_row(Rid diff_view);
+void Rdiff_view_scroll_to_row(Rid diff_view, int row);
+void Rdiff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const char* text);
+void Rdiff_view_clear_annotations(Rid diff_view);
+const char* Rdiff_view_get_selected_text(Rid diff_view);
+void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
 void Rdialog_open(Rid window, Rid content, RDialogClosedCallback closed, void* user_data);
 void Rdialog_close(Rid widget, int result);
 int Rdialog_run(Rid window, Rid content);

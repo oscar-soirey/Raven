@@ -3,7 +3,8 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing
+#   test_chart, test_carousel, test_diff_view, test_diff_engine, test_deep_trees, test_lifecycle,
+#   test_package, test_testing
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -96,6 +97,11 @@ endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
+raven_add_test(test_diff_view)
+if(NOT RAVEN_BUILD_SHARED)
+	# the comparison itself (core/diff.c), through its internal header
+	raven_add_test(test_diff_engine)
+endif()
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)

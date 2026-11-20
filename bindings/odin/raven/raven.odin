@@ -579,6 +579,12 @@ R_COLOR_DANGER :: 0x0121
 R_COLOR_LINK :: 0x0122
 // Background of code in formatted text.
 R_COLOR_CODE :: 0x0123
+// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+R_COLOR_DIFF_ADDED :: 0x0124
+R_COLOR_DIFF_REMOVED :: 0x0125
+// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+R_COLOR_DIFF_ADDED_WORD :: 0x0126
+R_COLOR_DIFF_REMOVED_WORD :: 0x0127
 
 // Sizes, in logical units.
 RMetric :: i32
@@ -727,6 +733,8 @@ R_WIDGET_CHART :: 0x0234
 R_WIDGET_MAP_VIEW :: 0x0235
 // Pages shown one at a time and swiped (a page view), with dots and arrows.
 R_WIDGET_CAROUSEL :: 0x0236
+// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+R_WIDGET_DIFF_VIEW :: 0x0237
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -1100,6 +1108,45 @@ RBlockPlace :: i32
 R_BLOCK_NEXT :: 0x0710
 R_BLOCK_BODY :: 0x0711
 R_BLOCK_INPUT :: 0x0712
+
+RDiffViewMode :: i32
+// One column: the removed lines, then the added lines, between the lines kept.
+R_DIFF_VIEW_UNIFIED :: 0x0C50
+// Two columns: the left text and the right text side by side, aligned.
+R_DIFF_VIEW_SPLIT :: 0x0C51
+
+RDiffSide :: i32
+// The text before (the old one, "a/", the lines removed).
+R_DIFF_LEFT :: 0x0C54
+// The text after (the new one, "b/", the lines added).
+R_DIFF_RIGHT :: 0x0C55
+
+RDiffRowKind :: i32
+// A line that is on both sides.
+R_DIFF_ROW_SAME :: 0x0C58
+// A line of the left text only.
+R_DIFF_ROW_REMOVED :: 0x0C59
+// A line of the right text only.
+R_DIFF_ROW_ADDED :: 0x0C5A
+// Split mode: a removed line facing the added line that replaces it.
+R_DIFF_ROW_CHANGED :: 0x0C5B
+// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+R_DIFF_ROW_FOLD :: 0x0C5C
+// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+R_DIFF_ROW_HUNK :: 0x0C5D
+// A patch: the names of a file.
+R_DIFF_ROW_FILE :: 0x0C5E
+// A note attached to the line above it (Rdiff_view_add_annotation).
+R_DIFF_ROW_NOTE :: 0x0C5F
+
+// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+RDiffFlags :: i32
+// Spaces and tabs at the end of a line (and a carriage return) do not count.
+R_DIFF_IGNORE_TRAILING_SPACE :: 1
+// No space or tab counts, wherever it is.
+R_DIFF_IGNORE_SPACE :: 2
+// Upper and lower case letters are the same (A to Z).
+R_DIFF_IGNORE_CASE :: 4
 
 // How much a notification of the system asks for attention (Rnotification_show).
 RNotificationUrgency :: i32
@@ -1501,6 +1548,11 @@ RNodeGraphPointCallback :: #type proc "c" (graph: Rid, item: i32, x: f32, y: f32
 RBlockEditorCallback :: #type proc "c" (editor: Rid, block: i32, user_data: rawptr)
 // Right click: on a block (0 on the canvas), at x, y in the widget.
 RBlockEditorContextCallback :: #type proc "c" (editor: Rid, block: i32, x: f32, y: f32, user_data: rawptr)
+// A line, or its number in the gutter, was clicked. `side` is the side
+// of the line clicked (in unified mode: the left side for a removed line
+// and for the left column of numbers, else the right side), `line` its
+// number on that side, from 1.
+RDiffViewLineCallback :: #type proc "c" (diff_view: Rid, side: RDiffSide, line: i32, in_gutter: i32, user_data: rawptr)
 // Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 RDialogClosedCallback :: #type proc "c" (content: Rid, result: i32, user_data: rawptr)
 // Called when the user chooses: a double click or Enter on a file,
@@ -4587,6 +4639,84 @@ foreign lib {
 	// Pan (canvas units at the top left) and zoom.
 	Rblock_editor_get_view :: proc(editor: Rid, x: ^f32, y: ^f32, zoom: ^f32) ---
 	Rblock_editor_set_view :: proc(editor: Rid, x: f32, y: f32, zoom: f32) ---
+	// The differences between two texts as a unified diff (the format
+	// of `diff -u` and `git diff`), with `context` unchanged lines around each
+	// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+	// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+	// the library: it may be called from any thread.
+	// Returns: The patch followed by a '\0' (an empty text when the texts are
+	// the same), to release with Rmemory_free; NULL when a text is NULL.
+	// `size` receives its length in bytes, and may be NULL.
+	Rdiff_unified :: proc(left: cstring, right: cstring, left_name: cstring, right_name: cstring, context_: i32, flags: u32, size: ^uint) -> cstring ---
+	// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+	Rdiff_count_changes :: proc(left: cstring, right: cstring, flags: u32) -> i32 ---
+	Rdiff_view_create :: proc() -> Rid ---
+	// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+	Rdiff_view_set_texts :: proc(diff_view: Rid, left: cstring, right: cstring) ---
+	// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+	Rdiff_view_set_names :: proc(diff_view: Rid, left_name: cstring, right_name: cstring) ---
+	// Compares two files. Their paths become the names unless names
+	// were given. Returns: R_FALSE when a file cannot be read (it is compared
+	// as empty).
+	Rdiff_view_load_files :: proc(diff_view: Rid, left_path: cstring, right_path: cstring) -> i32 ---
+	// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+	// instead of two texts: each file with its name, each hunk with its header.
+	// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+	Rdiff_view_set_patch :: proc(diff_view: Rid, patch: cstring) -> i32 ---
+	Rdiff_view_set_mode :: proc(diff_view: Rid, mode: RDiffViewMode) ---
+	Rdiff_view_get_mode :: proc(diff_view: Rid) -> RDiffViewMode ---
+	// Unchanged lines shown around each change (3 by default); the
+	// others are folded. A negative number shows every line.
+	Rdiff_view_set_context :: proc(diff_view: Rid, lines: i32) ---
+	Rdiff_view_get_context :: proc(diff_view: Rid) -> i32 ---
+	// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+	Rdiff_view_set_flags :: proc(diff_view: Rid, flags: u32) ---
+	Rdiff_view_get_flags :: proc(diff_view: Rid) -> u32 ---
+	// Marks the words that changed inside a changed line (default R_TRUE).
+	Rdiff_view_set_word_diff :: proc(diff_view: Rid, enabled: i32) ---
+	// Shows the numbers of the lines (default R_TRUE).
+	Rdiff_view_set_line_numbers :: proc(diff_view: Rid, visible: i32) ---
+	// Colors the code as the text editor does: a language name of
+	// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+	// NULL (default) to guess it from the extension of the names.
+	Rdiff_view_set_language :: proc(diff_view: Rid, language: cstring) ---
+	// The number of changes: runs of lines removed and / or added.
+	Rdiff_view_get_change_count :: proc(diff_view: Rid) -> i32 ---
+	// Where a change is: its first line and its number of lines on
+	// each side (a count of 0: nothing on that side; the line is then the one
+	// after which the other side's lines go). Returns: R_FALSE when there is
+	// no such change.
+	Rdiff_view_get_change :: proc(diff_view: Rid, change: i32, left_line: ^i32, left_count: ^i32, right_line: ^i32, right_count: ^i32) -> i32 ---
+	// Scrolls to a change (from 0) and marks it as the current one.
+	Rdiff_view_go_to_change :: proc(diff_view: Rid, change: i32) ---
+	// The current change, -1 before the first one is gone to.
+	Rdiff_view_get_current_change :: proc(diff_view: Rid) -> i32 ---
+	// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+	Rdiff_view_next_change :: proc(diff_view: Rid) -> i32 ---
+	Rdiff_view_prev_change :: proc(diff_view: Rid) -> i32 ---
+	// The rows shown, folds, hunk headers and notes included.
+	Rdiff_view_get_row_count :: proc(diff_view: Rid) -> i32 ---
+	// What a row shows, and the numbers of its lines (0 for a side it
+	// has no line of). A fold gives the first line it hides on each side.
+	Rdiff_view_get_row :: proc(diff_view: Rid, row: i32, left_line: ^i32, right_line: ^i32) -> RDiffRowKind ---
+	// The text of a row on one side (in unified mode the side does not
+	// matter for a line); a fold, a hunk, a file or a note give their label.
+	// Valid until the next call. "" when there is none.
+	Rdiff_view_get_row_text :: proc(diff_view: Rid, row: i32, side: RDiffSide) -> cstring ---
+	// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+	Rdiff_view_expand :: proc(diff_view: Rid, row: i32) -> i32 ---
+	// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+	Rdiff_view_get_first_visible_row :: proc(diff_view: Rid) -> i32 ---
+	Rdiff_view_scroll_to_row :: proc(diff_view: Rid, row: i32) ---
+	// Attaches a short note to a line (a review comment, an error): a
+	// mark in the gutter and the text in a row under the line, which is never
+	// folded away. Several notes may go to one line.
+	Rdiff_view_add_annotation :: proc(diff_view: Rid, side: RDiffSide, line: i32, text: cstring) ---
+	Rdiff_view_clear_annotations :: proc(diff_view: Rid) ---
+	// The text selected by the user ("" when none), one line after another.
+	Rdiff_view_get_selected_text :: proc(diff_view: Rid) -> cstring ---
+	// Called when a line or its number is clicked (the action of the widget is fired too).
+	Rdiff_view_set_line_clicked_callback :: proc(diff_view: Rid, callback: RDiffViewLineCallback, user_data: rawptr) ---
 	// Shows a widget as a dialog of a window. The window takes
 	// ownership of `content`: it is deleted when the dialog closes, so read
 	// what you need from it before, or in `closed`.

@@ -1306,6 +1306,38 @@ const _symbols = {
 	Rblock_editor_select: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rblock_editor_get_view: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rblock_editor_set_view: { args: ["u32", "f32", "f32", "f32"], returns: "void" },
+	Rdiff_unified: { args: ["ptr", "ptr", "ptr", "ptr", "i32", "u32", "ptr"], returns: "ptr" },
+	Rdiff_count_changes: { args: ["ptr", "ptr", "u32"], returns: "i32" },
+	Rdiff_view_create: { args: [], returns: "u32" },
+	Rdiff_view_set_texts: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdiff_view_set_names: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdiff_view_load_files: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_set_patch: { args: ["u32", "ptr"], returns: "i32" },
+	Rdiff_view_set_mode: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_mode: { args: ["u32"], returns: "i32" },
+	Rdiff_view_set_context: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_context: { args: ["u32"], returns: "i32" },
+	Rdiff_view_set_flags: { args: ["u32", "u32"], returns: "void" },
+	Rdiff_view_get_flags: { args: ["u32"], returns: "u32" },
+	Rdiff_view_set_word_diff: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_set_line_numbers: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_set_language: { args: ["u32", "ptr"], returns: "void" },
+	Rdiff_view_get_change_count: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_change: { args: ["u32", "i32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_go_to_change: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_get_current_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_next_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_prev_change: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_row_count: { args: ["u32"], returns: "i32" },
+	Rdiff_view_get_row: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
+	Rdiff_view_get_row_text: { args: ["u32", "i32", "i32"], returns: "cstring" },
+	Rdiff_view_expand: { args: ["u32", "i32"], returns: "i32" },
+	Rdiff_view_get_first_visible_row: { args: ["u32"], returns: "i32" },
+	Rdiff_view_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
+	Rdiff_view_add_annotation: { args: ["u32", "i32", "i32", "ptr"], returns: "void" },
+	Rdiff_view_clear_annotations: { args: ["u32"], returns: "void" },
+	Rdiff_view_get_selected_text: { args: ["u32"], returns: "cstring" },
+	Rdiff_view_set_line_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_open: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_close: { args: ["u32", "i32"], returns: "void" },
 	Rdialog_run: { args: ["u32", "u32"], returns: "i32" },
@@ -2454,6 +2486,12 @@ export enum RColorRole {
 	R_COLOR_LINK = 0x0122,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE = 0x0123,
+	/** Diff view: the background of an added line and of a removed line (see-through: the background shows). */
+	R_COLOR_DIFF_ADDED = 0x0124,
+	R_COLOR_DIFF_REMOVED = 0x0125,
+	/** Diff view: the words that changed inside an added line and inside a removed line, over the color of the line. */
+	R_COLOR_DIFF_ADDED_WORD = 0x0126,
+	R_COLOR_DIFF_REMOVED_WORD = 0x0127,
 }
 
 export const R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW;
@@ -2492,6 +2530,10 @@ export const R_COLOR_WARNING = RColorRole.R_COLOR_WARNING;
 export const R_COLOR_DANGER = RColorRole.R_COLOR_DANGER;
 export const R_COLOR_LINK = RColorRole.R_COLOR_LINK;
 export const R_COLOR_CODE = RColorRole.R_COLOR_CODE;
+export const R_COLOR_DIFF_ADDED = RColorRole.R_COLOR_DIFF_ADDED;
+export const R_COLOR_DIFF_REMOVED = RColorRole.R_COLOR_DIFF_REMOVED;
+export const R_COLOR_DIFF_ADDED_WORD = RColorRole.R_COLOR_DIFF_ADDED_WORD;
+export const R_COLOR_DIFF_REMOVED_WORD = RColorRole.R_COLOR_DIFF_REMOVED_WORD;
 
 /** Sizes, in logical units. */
 export enum RMetric {
@@ -2677,6 +2719,8 @@ export enum RWidgetType {
 	R_WIDGET_MAP_VIEW = 0x0235,
 	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
 	R_WIDGET_CAROUSEL = 0x0236,
+	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
+	R_WIDGET_DIFF_VIEW = 0x0237,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2734,6 +2778,7 @@ export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
+export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3369,6 +3414,68 @@ export enum RBlockPlace {
 export const R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT;
 export const R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY;
 export const R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT;
+
+export enum RDiffViewMode {
+	/** One column: the removed lines, then the added lines, between the lines kept. */
+	R_DIFF_VIEW_UNIFIED = 0x0C50,
+	/** Two columns: the left text and the right text side by side, aligned. */
+	R_DIFF_VIEW_SPLIT = 0x0C51,
+}
+
+export const R_DIFF_VIEW_UNIFIED = RDiffViewMode.R_DIFF_VIEW_UNIFIED;
+export const R_DIFF_VIEW_SPLIT = RDiffViewMode.R_DIFF_VIEW_SPLIT;
+
+export enum RDiffSide {
+	/** The text before (the old one, "a/", the lines removed). */
+	R_DIFF_LEFT = 0x0C54,
+	/** The text after (the new one, "b/", the lines added). */
+	R_DIFF_RIGHT = 0x0C55,
+}
+
+export const R_DIFF_LEFT = RDiffSide.R_DIFF_LEFT;
+export const R_DIFF_RIGHT = RDiffSide.R_DIFF_RIGHT;
+
+export enum RDiffRowKind {
+	/** A line that is on both sides. */
+	R_DIFF_ROW_SAME = 0x0C58,
+	/** A line of the left text only. */
+	R_DIFF_ROW_REMOVED = 0x0C59,
+	/** A line of the right text only. */
+	R_DIFF_ROW_ADDED = 0x0C5A,
+	/** Split mode: a removed line facing the added line that replaces it. */
+	R_DIFF_ROW_CHANGED = 0x0C5B,
+	/** Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them. */
+	R_DIFF_ROW_FOLD = 0x0C5C,
+	/** A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main"). */
+	R_DIFF_ROW_HUNK = 0x0C5D,
+	/** A patch: the names of a file. */
+	R_DIFF_ROW_FILE = 0x0C5E,
+	/** A note attached to the line above it (Rdiff_view_add_annotation). */
+	R_DIFF_ROW_NOTE = 0x0C5F,
+}
+
+export const R_DIFF_ROW_SAME = RDiffRowKind.R_DIFF_ROW_SAME;
+export const R_DIFF_ROW_REMOVED = RDiffRowKind.R_DIFF_ROW_REMOVED;
+export const R_DIFF_ROW_ADDED = RDiffRowKind.R_DIFF_ROW_ADDED;
+export const R_DIFF_ROW_CHANGED = RDiffRowKind.R_DIFF_ROW_CHANGED;
+export const R_DIFF_ROW_FOLD = RDiffRowKind.R_DIFF_ROW_FOLD;
+export const R_DIFF_ROW_HUNK = RDiffRowKind.R_DIFF_ROW_HUNK;
+export const R_DIFF_ROW_FILE = RDiffRowKind.R_DIFF_ROW_FILE;
+export const R_DIFF_ROW_NOTE = RDiffRowKind.R_DIFF_ROW_NOTE;
+
+/** How lines are compared (Rdiff_view_set_flags, Rdiff_unified). */
+export enum RDiffFlags {
+	/** Spaces and tabs at the end of a line (and a carriage return) do not count. */
+	R_DIFF_IGNORE_TRAILING_SPACE = 1,
+	/** No space or tab counts, wherever it is. */
+	R_DIFF_IGNORE_SPACE = 2,
+	/** Upper and lower case letters are the same (A to Z). */
+	R_DIFF_IGNORE_CASE = 4,
+}
+
+export const R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE;
+export const R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE;
+export const R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE;
 
 /** How much a notification of the system asks for attention (Rnotification_show). */
 export enum RNotificationUrgency {
@@ -7356,6 +7463,27 @@ function _adapt_RBlockEditorContextCallback(function_: RBlockEditorContextCallba
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "f32", "f32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * A line, or its number in the gutter, was clicked. `side` is the side
+ * of the line clicked (in unified mode: the left side for a removed line
+ * and for the left column of numbers, else the right side), `line` its
+ * number on that side, from 1.
+ */
+export type RDiffViewLineCallback = (diff_view: Rid, side: RDiffSide, line: number, in_gutter: number, user_data: Pointer | null) => void;
+
+function _adapt_RDiffViewLineCallback(function_: RDiffViewLineCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((diff_view: number, side: number, line: number, in_gutter: number, user_data: Pointer | null): void => {
+		try {
+			function_(diff_view, side as RDiffSide, line, in_gutter, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed. */
@@ -14190,6 +14318,214 @@ export function Rblock_editor_get_view(editor: Rid): [x: number, y: number, zoom
 
 export function Rblock_editor_set_view(editor: Rid, x: number, y: number, zoom: number): void {
 	_lib.Rblock_editor_set_view(editor, x, y, zoom);
+}
+
+/**
+ * The differences between two texts as a unified diff (the format
+ * of `diff -u` and `git diff`), with `context` unchanged lines around each
+ * change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+ * (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+ * the library: it may be called from any thread.
+ * Returns: The patch followed by a '\0' (an empty text when the texts are
+ * the same), to release with Rmemory_free; NULL when a text is NULL.
+ * `size` receives its length in bytes, and may be NULL.
+ */
+export function Rdiff_unified(left: string | null, right: string | null, left_name: string | null, right_name: string | null, context: number, flags: number): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rdiff_unified(_s(left), _s(right), _s(left_name), _s(right_name), context, flags, size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/** The number of changes (runs of lines removed and / or added) between two texts. Any thread. */
+export function Rdiff_count_changes(left: string | null, right: string | null, flags: number): number {
+	return _lib.Rdiff_count_changes(_s(left), _s(right), flags);
+}
+
+export function Rdiff_view_create(): Rid {
+	return _lib.Rdiff_view_create();
+}
+
+/** The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n". */
+export function Rdiff_view_set_texts(diff_view: Rid, left: string | null, right: string | null): void {
+	_lib.Rdiff_view_set_texts(diff_view, _s(left), _s(right));
+}
+
+/** Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code. */
+export function Rdiff_view_set_names(diff_view: Rid, left_name: string | null, right_name: string | null): void {
+	_lib.Rdiff_view_set_names(diff_view, _s(left_name), _s(right_name));
+}
+
+/**
+ * Compares two files. Their paths become the names unless names
+ * were given. Returns: R_FALSE when a file cannot be read (it is compared
+ * as empty).
+ */
+export function Rdiff_view_load_files(diff_view: Rid, left_path: string | null, right_path: string | null): number {
+	return _lib.Rdiff_view_load_files(diff_view, _s(left_path), _s(right_path));
+}
+
+/**
+ * Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+ * instead of two texts: each file with its name, each hunk with its header.
+ * Returns: R_FALSE when the text holds no hunk (nothing is shown).
+ */
+export function Rdiff_view_set_patch(diff_view: Rid, patch: string | null): number {
+	return _lib.Rdiff_view_set_patch(diff_view, _s(patch));
+}
+
+export function Rdiff_view_set_mode(diff_view: Rid, mode: RDiffViewMode): void {
+	_lib.Rdiff_view_set_mode(diff_view, mode);
+}
+
+export function Rdiff_view_get_mode(diff_view: Rid): RDiffViewMode {
+	return _lib.Rdiff_view_get_mode(diff_view) as RDiffViewMode;
+}
+
+/**
+ * Unchanged lines shown around each change (3 by default); the
+ * others are folded. A negative number shows every line.
+ */
+export function Rdiff_view_set_context(diff_view: Rid, lines: number): void {
+	_lib.Rdiff_view_set_context(diff_view, lines);
+}
+
+export function Rdiff_view_get_context(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_context(diff_view);
+}
+
+/** How lines are compared: RDiffFlags (0 by default). Not used by a patch. */
+export function Rdiff_view_set_flags(diff_view: Rid, flags: number): void {
+	_lib.Rdiff_view_set_flags(diff_view, flags);
+}
+
+export function Rdiff_view_get_flags(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_flags(diff_view);
+}
+
+/** Marks the words that changed inside a changed line (default R_TRUE). */
+export function Rdiff_view_set_word_diff(diff_view: Rid, enabled: number): void {
+	_lib.Rdiff_view_set_word_diff(diff_view, enabled);
+}
+
+/** Shows the numbers of the lines (default R_TRUE). */
+export function Rdiff_view_set_line_numbers(diff_view: Rid, visible: number): void {
+	_lib.Rdiff_view_set_line_numbers(diff_view, visible);
+}
+
+/**
+ * Colors the code as the text editor does: a language name of
+ * Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+ * NULL (default) to guess it from the extension of the names.
+ */
+export function Rdiff_view_set_language(diff_view: Rid, language: string | null): void {
+	_lib.Rdiff_view_set_language(diff_view, _s(language));
+}
+
+/** The number of changes: runs of lines removed and / or added. */
+export function Rdiff_view_get_change_count(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_change_count(diff_view);
+}
+
+/**
+ * Where a change is: its first line and its number of lines on
+ * each side (a count of 0: nothing on that side; the line is then the one
+ * after which the other side's lines go). Returns: R_FALSE when there is
+ * no such change.
+ */
+export function Rdiff_view_get_change(diff_view: Rid, change: number): [result: number, left_line: number, left_count: number, right_line: number, right_count: number] {
+	const left_line_ = new Int32Array(1);
+	const left_count_ = new Int32Array(1);
+	const right_line_ = new Int32Array(1);
+	const right_count_ = new Int32Array(1);
+	const result_ = _lib.Rdiff_view_get_change(diff_view, change, left_line_, left_count_, right_line_, right_count_);
+	return [result_, left_line_[0]!, left_count_[0]!, right_line_[0]!, right_count_[0]!];
+}
+
+/** Scrolls to a change (from 0) and marks it as the current one. */
+export function Rdiff_view_go_to_change(diff_view: Rid, change: number): void {
+	_lib.Rdiff_view_go_to_change(diff_view, change);
+}
+
+/** The current change, -1 before the first one is gone to. */
+export function Rdiff_view_get_current_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_current_change(diff_view);
+}
+
+/** Goes to the next / previous change. Returns: Its index, -1 when there is none. */
+export function Rdiff_view_next_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_next_change(diff_view);
+}
+
+export function Rdiff_view_prev_change(diff_view: Rid): number {
+	return _lib.Rdiff_view_prev_change(diff_view);
+}
+
+/** The rows shown, folds, hunk headers and notes included. */
+export function Rdiff_view_get_row_count(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_row_count(diff_view);
+}
+
+/**
+ * What a row shows, and the numbers of its lines (0 for a side it
+ * has no line of). A fold gives the first line it hides on each side.
+ */
+export function Rdiff_view_get_row(diff_view: Rid, row: number): [result: RDiffRowKind, left_line: number, right_line: number] {
+	const left_line_ = new Int32Array(1);
+	const right_line_ = new Int32Array(1);
+	const result_ = _lib.Rdiff_view_get_row(diff_view, row, left_line_, right_line_) as RDiffRowKind;
+	return [result_, left_line_[0]!, right_line_[0]!];
+}
+
+/**
+ * The text of a row on one side (in unified mode the side does not
+ * matter for a line); a fold, a hunk, a file or a note give their label.
+ * Valid until the next call. "" when there is none.
+ */
+export function Rdiff_view_get_row_text(diff_view: Rid, row: number, side: RDiffSide): string | null {
+	return _lib.Rdiff_view_get_row_text(diff_view, row, side);
+}
+
+/** Shows the lines of a fold. Returns: R_FALSE when the row is not a fold. */
+export function Rdiff_view_expand(diff_view: Rid, row: number): number {
+	return _lib.Rdiff_view_expand(diff_view, row);
+}
+
+/** The first row at the top of the view; Rdiff_view_scroll_to_row brings one there. */
+export function Rdiff_view_get_first_visible_row(diff_view: Rid): number {
+	return _lib.Rdiff_view_get_first_visible_row(diff_view);
+}
+
+export function Rdiff_view_scroll_to_row(diff_view: Rid, row: number): void {
+	_lib.Rdiff_view_scroll_to_row(diff_view, row);
+}
+
+/**
+ * Attaches a short note to a line (a review comment, an error): a
+ * mark in the gutter and the text in a row under the line, which is never
+ * folded away. Several notes may go to one line.
+ */
+export function Rdiff_view_add_annotation(diff_view: Rid, side: RDiffSide, line: number, text: string | null): void {
+	_lib.Rdiff_view_add_annotation(diff_view, side, line, _s(text));
+}
+
+export function Rdiff_view_clear_annotations(diff_view: Rid): void {
+	_lib.Rdiff_view_clear_annotations(diff_view);
+}
+
+/** The text selected by the user ("" when none), one line after another. */
+export function Rdiff_view_get_selected_text(diff_view: Rid): string | null {
+	return _lib.Rdiff_view_get_selected_text(diff_view);
+}
+
+/** Called when a line or its number is clicked (the action of the widget is fired too). */
+export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdiff_view_set_line_clicked_callback(diff_view, _adapt_RDiffViewLineCallback(callback), user_data);
 }
 
 /**

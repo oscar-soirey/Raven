@@ -811,6 +811,10 @@ class RColorRole(enum.IntEnum):
     R_COLOR_DANGER = 0x0121
     R_COLOR_LINK = 0x0122
     R_COLOR_CODE = 0x0123
+    R_COLOR_DIFF_ADDED = 0x0124
+    R_COLOR_DIFF_REMOVED = 0x0125
+    R_COLOR_DIFF_ADDED_WORD = 0x0126
+    R_COLOR_DIFF_REMOVED_WORD = 0x0127
 
 R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW
 R_COLOR_PANEL = RColorRole.R_COLOR_PANEL
@@ -848,6 +852,10 @@ R_COLOR_WARNING = RColorRole.R_COLOR_WARNING
 R_COLOR_DANGER = RColorRole.R_COLOR_DANGER
 R_COLOR_LINK = RColorRole.R_COLOR_LINK
 R_COLOR_CODE = RColorRole.R_COLOR_CODE
+R_COLOR_DIFF_ADDED = RColorRole.R_COLOR_DIFF_ADDED
+R_COLOR_DIFF_REMOVED = RColorRole.R_COLOR_DIFF_REMOVED
+R_COLOR_DIFF_ADDED_WORD = RColorRole.R_COLOR_DIFF_ADDED_WORD
+R_COLOR_DIFF_REMOVED_WORD = RColorRole.R_COLOR_DIFF_REMOVED_WORD
 
 class RMetric(enum.IntEnum):
     """Sizes, in logical units."""
@@ -970,6 +978,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CHART = 0x0234
     R_WIDGET_MAP_VIEW = 0x0235
     R_WIDGET_CAROUSEL = 0x0236
+    R_WIDGET_DIFF_VIEW = 0x0237
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1026,6 +1035,7 @@ R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
 R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
+R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1510,6 +1520,49 @@ class RBlockPlace(enum.IntEnum):
 R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT
 R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY
 R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT
+
+class RDiffViewMode(enum.IntEnum):
+    R_DIFF_VIEW_UNIFIED = 0x0C50
+    R_DIFF_VIEW_SPLIT = 0x0C51
+
+R_DIFF_VIEW_UNIFIED = RDiffViewMode.R_DIFF_VIEW_UNIFIED
+R_DIFF_VIEW_SPLIT = RDiffViewMode.R_DIFF_VIEW_SPLIT
+
+class RDiffSide(enum.IntEnum):
+    R_DIFF_LEFT = 0x0C54
+    R_DIFF_RIGHT = 0x0C55
+
+R_DIFF_LEFT = RDiffSide.R_DIFF_LEFT
+R_DIFF_RIGHT = RDiffSide.R_DIFF_RIGHT
+
+class RDiffRowKind(enum.IntEnum):
+    R_DIFF_ROW_SAME = 0x0C58
+    R_DIFF_ROW_REMOVED = 0x0C59
+    R_DIFF_ROW_ADDED = 0x0C5A
+    R_DIFF_ROW_CHANGED = 0x0C5B
+    R_DIFF_ROW_FOLD = 0x0C5C
+    R_DIFF_ROW_HUNK = 0x0C5D
+    R_DIFF_ROW_FILE = 0x0C5E
+    R_DIFF_ROW_NOTE = 0x0C5F
+
+R_DIFF_ROW_SAME = RDiffRowKind.R_DIFF_ROW_SAME
+R_DIFF_ROW_REMOVED = RDiffRowKind.R_DIFF_ROW_REMOVED
+R_DIFF_ROW_ADDED = RDiffRowKind.R_DIFF_ROW_ADDED
+R_DIFF_ROW_CHANGED = RDiffRowKind.R_DIFF_ROW_CHANGED
+R_DIFF_ROW_FOLD = RDiffRowKind.R_DIFF_ROW_FOLD
+R_DIFF_ROW_HUNK = RDiffRowKind.R_DIFF_ROW_HUNK
+R_DIFF_ROW_FILE = RDiffRowKind.R_DIFF_ROW_FILE
+R_DIFF_ROW_NOTE = RDiffRowKind.R_DIFF_ROW_NOTE
+
+class RDiffFlags(enum.IntFlag):
+    """How lines are compared (Rdiff_view_set_flags, Rdiff_unified)."""
+    R_DIFF_IGNORE_TRAILING_SPACE = 1
+    R_DIFF_IGNORE_SPACE = 2
+    R_DIFF_IGNORE_CASE = 4
+
+R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE
+R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE
+R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE
 
 class RNotificationUrgency(enum.IntEnum):
     """How much a notification of the system asks for attention (Rnotification_show)."""
@@ -2798,6 +2851,14 @@ RBlockEditorContextCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_i
 def _adapt_RBlockEditorContextCallback(function):
     def call(editor, block, x, y, user_data):
         function(editor, block, x, y, user_data)
+    return call
+
+RDiffViewLineCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDiffViewLineCallback(function):
+    def call(diff_view, side, line, in_gutter, user_data):
+        function(diff_view, _e(RDiffSide, side), line, in_gutter, user_data)
     return call
 
 RDialogClosedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
@@ -13668,6 +13729,322 @@ _lib.Rblock_editor_set_view.restype = None
 
 def Rblock_editor_set_view(editor, x, y, zoom):
     _lib.Rblock_editor_set_view(editor, x, y, zoom)
+
+
+_lib.Rdiff_unified.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rdiff_unified.restype = ctypes.c_void_p
+
+
+def Rdiff_unified(left, right, left_name, right_name, context, flags):
+    """The differences between two texts as a unified diff (the format
+    of `diff -u` and `git diff`), with `context` unchanged lines around each
+    change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+    (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+    the library: it may be called from any thread.
+    Returns: The patch followed by a '\\0' (an empty text when the texts are
+    the same), to release with Rmemory_free; NULL when a text is NULL.
+    `size` receives its length in bytes, and may be NULL."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rdiff_unified(_s(left), _s(right), _s(left_name), _s(right_name), context, flags, ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
+
+
+_lib.Rdiff_count_changes.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32]
+_lib.Rdiff_count_changes.restype = ctypes.c_int
+
+
+def Rdiff_count_changes(left, right, flags):
+    """The number of changes (runs of lines removed and / or added) between two texts. Any thread."""
+    return _lib.Rdiff_count_changes(_s(left), _s(right), flags)
+
+
+_lib.Rdiff_view_create.argtypes = []
+_lib.Rdiff_view_create.restype = ctypes.c_uint32
+
+
+def Rdiff_view_create():
+    return _lib.Rdiff_view_create()
+
+
+_lib.Rdiff_view_set_texts.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_set_texts.restype = None
+
+
+def Rdiff_view_set_texts(diff_view, left, right):
+    """The two texts to compare (NULL: empty). Lines end with "\\n" or "\\r\\n"."""
+    _lib.Rdiff_view_set_texts(diff_view, _s(left), _s(right))
+
+
+_lib.Rdiff_view_set_names.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_set_names.restype = None
+
+
+def Rdiff_view_set_names(diff_view, left_name, right_name):
+    """Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code."""
+    _lib.Rdiff_view_set_names(diff_view, _s(left_name), _s(right_name))
+
+
+_lib.Rdiff_view_load_files.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rdiff_view_load_files.restype = ctypes.c_int
+
+
+def Rdiff_view_load_files(diff_view, left_path, right_path):
+    """Compares two files. Their paths become the names unless names
+    were given. Returns: R_FALSE when a file cannot be read (it is compared
+    as empty)."""
+    return _lib.Rdiff_view_load_files(diff_view, _s(left_path), _s(right_path))
+
+
+_lib.Rdiff_view_set_patch.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdiff_view_set_patch.restype = ctypes.c_int
+
+
+def Rdiff_view_set_patch(diff_view, patch):
+    """Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+    instead of two texts: each file with its name, each hunk with its header.
+    Returns: R_FALSE when the text holds no hunk (nothing is shown)."""
+    return _lib.Rdiff_view_set_patch(diff_view, _s(patch))
+
+
+_lib.Rdiff_view_set_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_mode.restype = None
+
+
+def Rdiff_view_set_mode(diff_view, mode):
+    _lib.Rdiff_view_set_mode(diff_view, int(mode))
+
+
+_lib.Rdiff_view_get_mode.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_mode.restype = ctypes.c_int
+
+
+def Rdiff_view_get_mode(diff_view):
+    return _e(RDiffViewMode, _lib.Rdiff_view_get_mode(diff_view))
+
+
+_lib.Rdiff_view_set_context.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_context.restype = None
+
+
+def Rdiff_view_set_context(diff_view, lines):
+    """Unchanged lines shown around each change (3 by default); the
+    others are folded. A negative number shows every line."""
+    _lib.Rdiff_view_set_context(diff_view, lines)
+
+
+_lib.Rdiff_view_get_context.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_context.restype = ctypes.c_int
+
+
+def Rdiff_view_get_context(diff_view):
+    return _lib.Rdiff_view_get_context(diff_view)
+
+
+_lib.Rdiff_view_set_flags.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rdiff_view_set_flags.restype = None
+
+
+def Rdiff_view_set_flags(diff_view, flags):
+    """How lines are compared: RDiffFlags (0 by default). Not used by a patch."""
+    _lib.Rdiff_view_set_flags(diff_view, flags)
+
+
+_lib.Rdiff_view_get_flags.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_flags.restype = ctypes.c_uint32
+
+
+def Rdiff_view_get_flags(diff_view):
+    return _lib.Rdiff_view_get_flags(diff_view)
+
+
+_lib.Rdiff_view_set_word_diff.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_word_diff.restype = None
+
+
+def Rdiff_view_set_word_diff(diff_view, enabled):
+    """Marks the words that changed inside a changed line (default R_TRUE)."""
+    _lib.Rdiff_view_set_word_diff(diff_view, enabled)
+
+
+_lib.Rdiff_view_set_line_numbers.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_set_line_numbers.restype = None
+
+
+def Rdiff_view_set_line_numbers(diff_view, visible):
+    """Shows the numbers of the lines (default R_TRUE)."""
+    _lib.Rdiff_view_set_line_numbers(diff_view, visible)
+
+
+_lib.Rdiff_view_set_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdiff_view_set_language.restype = None
+
+
+def Rdiff_view_set_language(diff_view, language):
+    """Colors the code as the text editor does: a language name of
+    Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+    NULL (default) to guess it from the extension of the names."""
+    _lib.Rdiff_view_set_language(diff_view, _s(language))
+
+
+_lib.Rdiff_view_get_change_count.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_change_count.restype = ctypes.c_int
+
+
+def Rdiff_view_get_change_count(diff_view):
+    """The number of changes: runs of lines removed and / or added."""
+    return _lib.Rdiff_view_get_change_count(diff_view)
+
+
+_lib.Rdiff_view_get_change.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdiff_view_get_change.restype = ctypes.c_int
+
+
+def Rdiff_view_get_change(diff_view, change):
+    """Where a change is: its first line and its number of lines on
+    each side (a count of 0: nothing on that side; the line is then the one
+    after which the other side's lines go). Returns: R_FALSE when there is
+    no such change."""
+    left_line_ = ctypes.c_int()
+    left_count_ = ctypes.c_int()
+    right_line_ = ctypes.c_int()
+    right_count_ = ctypes.c_int()
+    result = _lib.Rdiff_view_get_change(diff_view, change, ctypes.byref(left_line_), ctypes.byref(left_count_), ctypes.byref(right_line_), ctypes.byref(right_count_))
+    return (result, left_line_.value, left_count_.value, right_line_.value, right_count_.value)
+
+
+_lib.Rdiff_view_go_to_change.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_go_to_change.restype = None
+
+
+def Rdiff_view_go_to_change(diff_view, change):
+    """Scrolls to a change (from 0) and marks it as the current one."""
+    _lib.Rdiff_view_go_to_change(diff_view, change)
+
+
+_lib.Rdiff_view_get_current_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_current_change.restype = ctypes.c_int
+
+
+def Rdiff_view_get_current_change(diff_view):
+    """The current change, -1 before the first one is gone to."""
+    return _lib.Rdiff_view_get_current_change(diff_view)
+
+
+_lib.Rdiff_view_next_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_next_change.restype = ctypes.c_int
+
+
+def Rdiff_view_next_change(diff_view):
+    """Goes to the next / previous change. Returns: Its index, -1 when there is none."""
+    return _lib.Rdiff_view_next_change(diff_view)
+
+
+_lib.Rdiff_view_prev_change.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_prev_change.restype = ctypes.c_int
+
+
+def Rdiff_view_prev_change(diff_view):
+    return _lib.Rdiff_view_prev_change(diff_view)
+
+
+_lib.Rdiff_view_get_row_count.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_row_count.restype = ctypes.c_int
+
+
+def Rdiff_view_get_row_count(diff_view):
+    """The rows shown, folds, hunk headers and notes included."""
+    return _lib.Rdiff_view_get_row_count(diff_view)
+
+
+_lib.Rdiff_view_get_row.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdiff_view_get_row.restype = ctypes.c_int
+
+
+def Rdiff_view_get_row(diff_view, row):
+    """What a row shows, and the numbers of its lines (0 for a side it
+    has no line of). A fold gives the first line it hides on each side."""
+    left_line_ = ctypes.c_int()
+    right_line_ = ctypes.c_int()
+    result = _e(RDiffRowKind, _lib.Rdiff_view_get_row(diff_view, row, ctypes.byref(left_line_), ctypes.byref(right_line_)))
+    return (result, left_line_.value, right_line_.value)
+
+
+_lib.Rdiff_view_get_row_text.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rdiff_view_get_row_text.restype = ctypes.c_char_p
+
+
+def Rdiff_view_get_row_text(diff_view, row, side):
+    """The text of a row on one side (in unified mode the side does not
+    matter for a line); a fold, a hunk, a file or a note give their label.
+    Valid until the next call. "" when there is none."""
+    return _r(_lib.Rdiff_view_get_row_text(diff_view, row, int(side)))
+
+
+_lib.Rdiff_view_expand.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_expand.restype = ctypes.c_int
+
+
+def Rdiff_view_expand(diff_view, row):
+    """Shows the lines of a fold. Returns: R_FALSE when the row is not a fold."""
+    return _lib.Rdiff_view_expand(diff_view, row)
+
+
+_lib.Rdiff_view_get_first_visible_row.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_first_visible_row.restype = ctypes.c_int
+
+
+def Rdiff_view_get_first_visible_row(diff_view):
+    """The first row at the top of the view; Rdiff_view_scroll_to_row brings one there."""
+    return _lib.Rdiff_view_get_first_visible_row(diff_view)
+
+
+_lib.Rdiff_view_scroll_to_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdiff_view_scroll_to_row.restype = None
+
+
+def Rdiff_view_scroll_to_row(diff_view, row):
+    _lib.Rdiff_view_scroll_to_row(diff_view, row)
+
+
+_lib.Rdiff_view_add_annotation.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rdiff_view_add_annotation.restype = None
+
+
+def Rdiff_view_add_annotation(diff_view, side, line, text):
+    """Attaches a short note to a line (a review comment, an error): a
+    mark in the gutter and the text in a row under the line, which is never
+    folded away. Several notes may go to one line."""
+    _lib.Rdiff_view_add_annotation(diff_view, int(side), line, _s(text))
+
+
+_lib.Rdiff_view_clear_annotations.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_clear_annotations.restype = None
+
+
+def Rdiff_view_clear_annotations(diff_view):
+    _lib.Rdiff_view_clear_annotations(diff_view)
+
+
+_lib.Rdiff_view_get_selected_text.argtypes = [ctypes.c_uint32]
+_lib.Rdiff_view_get_selected_text.restype = ctypes.c_char_p
+
+
+def Rdiff_view_get_selected_text(diff_view):
+    """The text selected by the user ("" when none), one line after another."""
+    return _r(_lib.Rdiff_view_get_selected_text(diff_view))
+
+
+_lib.Rdiff_view_set_line_clicked_callback.argtypes = [ctypes.c_uint32, RDiffViewLineCallback, ctypes.c_void_p]
+_lib.Rdiff_view_set_line_clicked_callback.restype = None
+
+
+def Rdiff_view_set_line_clicked_callback(diff_view, callback, user_data=None):
+    """Called when a line or its number is clicked (the action of the widget is fired too)."""
+    _lib.Rdiff_view_set_line_clicked_callback(diff_view, _callback(RDiffViewLineCallback, _adapt_RDiffViewLineCallback, callback), user_data)
 
 
 _lib.Rdialog_open.argtypes = [ctypes.c_uint32, ctypes.c_uint32, RDialogClosedCallback, ctypes.c_void_p]

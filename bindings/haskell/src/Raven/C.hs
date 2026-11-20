@@ -937,6 +937,16 @@ pattern R_COLOR_LINK = RColorRole 290
 -- | Background of code in formatted text.
 pattern R_COLOR_CODE :: RColorRole
 pattern R_COLOR_CODE = RColorRole 291
+-- | Diff view: the background of an added line and of a removed line (see-through: the background shows).
+pattern R_COLOR_DIFF_ADDED :: RColorRole
+pattern R_COLOR_DIFF_ADDED = RColorRole 292
+pattern R_COLOR_DIFF_REMOVED :: RColorRole
+pattern R_COLOR_DIFF_REMOVED = RColorRole 293
+-- | Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+pattern R_COLOR_DIFF_ADDED_WORD :: RColorRole
+pattern R_COLOR_DIFF_ADDED_WORD = RColorRole 294
+pattern R_COLOR_DIFF_REMOVED_WORD :: RColorRole
+pattern R_COLOR_DIFF_REMOVED_WORD = RColorRole 295
 
 -- | Sizes, in logical units.
 newtype RMetric = RMetric CInt
@@ -1175,6 +1185,9 @@ pattern R_WIDGET_MAP_VIEW = RWidgetType 565
 -- | Pages shown one at a time and swiped (a page view), with dots and arrows.
 pattern R_WIDGET_CAROUSEL :: RWidgetType
 pattern R_WIDGET_CAROUSEL = RWidgetType 566
+-- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+pattern R_WIDGET_DIFF_VIEW :: RWidgetType
+pattern R_WIDGET_DIFF_VIEW = RWidgetType 567
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1797,6 +1810,68 @@ pattern R_BLOCK_BODY = RBlockPlace 1809
 pattern R_BLOCK_INPUT :: RBlockPlace
 pattern R_BLOCK_INPUT = RBlockPlace 1810
 
+newtype RDiffViewMode = RDiffViewMode CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | One column: the removed lines, then the added lines, between the lines kept.
+pattern R_DIFF_VIEW_UNIFIED :: RDiffViewMode
+pattern R_DIFF_VIEW_UNIFIED = RDiffViewMode 3152
+-- | Two columns: the left text and the right text side by side, aligned.
+pattern R_DIFF_VIEW_SPLIT :: RDiffViewMode
+pattern R_DIFF_VIEW_SPLIT = RDiffViewMode 3153
+
+newtype RDiffSide = RDiffSide CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The text before (the old one, "a/", the lines removed).
+pattern R_DIFF_LEFT :: RDiffSide
+pattern R_DIFF_LEFT = RDiffSide 3156
+-- | The text after (the new one, "b/", the lines added).
+pattern R_DIFF_RIGHT :: RDiffSide
+pattern R_DIFF_RIGHT = RDiffSide 3157
+
+newtype RDiffRowKind = RDiffRowKind CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | A line that is on both sides.
+pattern R_DIFF_ROW_SAME :: RDiffRowKind
+pattern R_DIFF_ROW_SAME = RDiffRowKind 3160
+-- | A line of the left text only.
+pattern R_DIFF_ROW_REMOVED :: RDiffRowKind
+pattern R_DIFF_ROW_REMOVED = RDiffRowKind 3161
+-- | A line of the right text only.
+pattern R_DIFF_ROW_ADDED :: RDiffRowKind
+pattern R_DIFF_ROW_ADDED = RDiffRowKind 3162
+-- | Split mode: a removed line facing the added line that replaces it.
+pattern R_DIFF_ROW_CHANGED :: RDiffRowKind
+pattern R_DIFF_ROW_CHANGED = RDiffRowKind 3163
+-- | Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+pattern R_DIFF_ROW_FOLD :: RDiffRowKind
+pattern R_DIFF_ROW_FOLD = RDiffRowKind 3164
+-- | A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+pattern R_DIFF_ROW_HUNK :: RDiffRowKind
+pattern R_DIFF_ROW_HUNK = RDiffRowKind 3165
+-- | A patch: the names of a file.
+pattern R_DIFF_ROW_FILE :: RDiffRowKind
+pattern R_DIFF_ROW_FILE = RDiffRowKind 3166
+-- | A note attached to the line above it (Rdiff_view_add_annotation).
+pattern R_DIFF_ROW_NOTE :: RDiffRowKind
+pattern R_DIFF_ROW_NOTE = RDiffRowKind 3167
+
+-- | How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+newtype RDiffFlags = RDiffFlags CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Spaces and tabs at the end of a line (and a carriage return) do not count.
+pattern R_DIFF_IGNORE_TRAILING_SPACE :: RDiffFlags
+pattern R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags 1
+-- | No space or tab counts, wherever it is.
+pattern R_DIFF_IGNORE_SPACE :: RDiffFlags
+pattern R_DIFF_IGNORE_SPACE = RDiffFlags 2
+-- | Upper and lower case letters are the same (A to Z).
+pattern R_DIFF_IGNORE_CASE :: RDiffFlags
+pattern R_DIFF_IGNORE_CASE = RDiffFlags 4
+
 -- | How much a notification of the system asks for attention (Rnotification_show).
 newtype RNotificationUrgency = RNotificationUrgency CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -2054,6 +2129,28 @@ pattern R_ROLE_SCROLL_BAR :: RAccessibleRole
 pattern R_ROLE_SCROLL_BAR = RAccessibleRole 1922
 pattern R_ROLE_PANE :: RAccessibleRole
 pattern R_ROLE_PANE = RAccessibleRole 1923
+
+newtype RGoldenStatus = RGoldenStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The capture matches the golden.
+pattern R_GOLDEN_MATCH :: RGoldenStatus
+pattern R_GOLDEN_MATCH = RGoldenStatus 2976
+-- | RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+pattern R_GOLDEN_UPDATED :: RGoldenStatus
+pattern R_GOLDEN_UPDATED = RGoldenStatus 2977
+-- | Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+pattern R_GOLDEN_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_MISMATCH = RGoldenStatus 2978
+-- | The capture and the golden do not have the same size: NAME.actual.png was written.
+pattern R_GOLDEN_SIZE_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_SIZE_MISMATCH = RGoldenStatus 2979
+-- | There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+pattern R_GOLDEN_MISSING :: RGoldenStatus
+pattern R_GOLDEN_MISSING = RGoldenStatus 2980
+-- | The window could not be captured, or a file could not be read or written.
+pattern R_GOLDEN_FAILED :: RGoldenStatus
+pattern R_GOLDEN_FAILED = RGoldenStatus 2981
 
 -- | Registers a function called once per frame, before the layout.
 -- The body of your loop does the same job; the callback is also called
@@ -2686,6 +2783,16 @@ type RBlockEditorContextCallback = FunPtr (Rid -> CInt -> CFloat -> CFloat -> Pt
 -- | Makes a 'RBlockEditorContextCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRBlockEditorContextCallback :: (Rid -> CInt -> CFloat -> CFloat -> Ptr () -> IO ()) -> IO RBlockEditorContextCallback
+
+-- | A line, or its number in the gutter, was clicked. `side` is the side
+-- of the line clicked (in unified mode: the left side for a removed line
+-- and for the left column of numbers, else the right side), `line` its
+-- number on that side, from 1.
+type RDiffViewLineCallback = FunPtr (Rid -> RDiffSide -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDiffViewLineCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDiffViewLineCallback :: (Rid -> RDiffSide -> CInt -> CInt -> Ptr () -> IO ()) -> IO RDiffViewLineCallback
 
 -- | Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 type RDialogClosedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
@@ -4047,6 +4154,77 @@ instance Storable RHostPlatformDesc where
         pokeByteOff p 24 (rHostPlatformDesc_wake v)
         pokeByteOff p 32 (rHostPlatformDesc_user_data v)
 
+-- | How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+data RGoldenOptions = RGoldenOptions
+    { rGoldenOptions_channel_tolerance :: CInt
+      -- ^ Largest difference on one channel (0..255) for which two pixels are still the same.
+    , rGoldenOptions_max_diff_ratio :: CFloat
+      -- ^ Share of the pixels (0..1) that may differ while the images still match.
+    , rGoldenOptions_per_platform :: CInt
+      -- ^ R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    , rGoldenOptions_output_directory :: CString
+      -- ^ Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenOptions x = {0};@ is in C).
+rGoldenOptions :: RGoldenOptions
+rGoldenOptions = RGoldenOptions (0) (0) (0) (nullPtr)
+
+instance Storable RGoldenOptions where
+    sizeOf _ = 24
+    alignment _ = 8
+    peek p = RGoldenOptions
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+    poke p v = do
+        pokeByteOff p 0 (rGoldenOptions_channel_tolerance v)
+        pokeByteOff p 4 (rGoldenOptions_max_diff_ratio v)
+        pokeByteOff p 8 (rGoldenOptions_per_platform v)
+        pokeByteOff p 16 (rGoldenOptions_output_directory v)
+
+-- | What Rtest_expect_golden found.
+data RGoldenResult = RGoldenResult
+    { rGoldenResult_status :: RGoldenStatus
+    , rGoldenResult_width :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_height :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_differing_pixels :: CInt
+      -- ^ Pixels farther from the golden than the tolerance.
+    , rGoldenResult_max_channel_difference :: CInt
+      -- ^ Largest difference found on one channel (0..255).
+    , rGoldenResult_golden_path :: CString
+      -- ^ The golden that was read or written (with the platform tag). Valid until the next call.
+    , rGoldenResult_message :: CString
+      -- ^ One line that says what happened, for the log of the test. Valid until the next call.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenResult x = {0};@ is in C).
+rGoldenResult :: RGoldenResult
+rGoldenResult = RGoldenResult (0) (0) (0) (0) (0) (nullPtr) (nullPtr)
+
+instance Storable RGoldenResult where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RGoldenResult
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+    poke p v = do
+        pokeByteOff p 0 (rGoldenResult_status v)
+        pokeByteOff p 4 (rGoldenResult_width v)
+        pokeByteOff p 8 (rGoldenResult_height v)
+        pokeByteOff p 12 (rGoldenResult_differing_pixels v)
+        pokeByteOff p 16 (rGoldenResult_max_channel_difference v)
+        pokeByteOff p 24 (rGoldenResult_golden_path v)
+        pokeByteOff p 32 (rGoldenResult_message v)
+
 -- | Starts the library with default settings on the given backend.
 -- The calling thread becomes the UI thread.
 -- Returns: R_TRUE on success. On failure, see Rerror_get_last.
@@ -4584,6 +4762,18 @@ foreign import ccall safe "Rwindow_inject_key" rwindow_inject_key :: Rid -> RKey
 
 foreign import ccall safe "Rwindow_inject_text" rwindow_inject_text :: Rid -> CString -> IO ()
 
+-- | The text an input method is composing (preedit: Chinese,
+-- Japanese, Korean, dead keys), as the platforms send it. The focused
+-- TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+-- place of its selection, but it is not in its text and no changed
+-- callback runs. [selection_start, selection_end) are bytes of `text`:
+-- the part the input method works on (underlined thicker), or the caret
+-- when they are equal; -1 is the end of `text`. NULL or "" ends the
+-- composition without typing anything (cancel). The committed text comes
+-- through Rwindow_inject_text, which ends the composition too, and so
+-- does a change of focus. Ignored when the focus takes no text.
+foreign import ccall safe "Rwindow_inject_composition" rwindow_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | A drag from another application moves over the window
 -- (`inside` R_TRUE) or leaves it.
 -- Returns: R_TRUE when a drop at this position would be accepted.
@@ -4627,13 +4817,20 @@ foreign import ccall safe "Rwindow_set_text_input_selection" rwindow_set_text_in
 -- applies). R_FALSE when there is none or it is read-only.
 foreign import ccall safe "Rwindow_replace_text_input" rwindow_replace_text_input :: Rid -> CInt -> CInt -> CString -> IO CInt
 
+-- | The composition of the input method in progress (UTF-8, valid
+-- until it changes) and its selection in bytes; NULL when there is none.
+-- Any output pointer may be NULL.
+foreign import ccall safe "Rwindow_get_text_composition" rwindow_get_text_composition :: Rid -> Ptr CInt -> Ptr CInt -> IO CString
+
 -- | R_TRUE while a menu, list or dialog is open over the window.
 foreign import ccall safe "Rwindow_has_popup" rwindow_has_popup :: Rid -> IO CInt
 
 -- | Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 -- Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 -- outputs when there is no visible editable caret, the window is inactive, or focus changed
--- since painting. Any output pointer may be NULL.
+-- since painting. Any output pointer may be NULL. While an input method
+-- composes, it is the caret inside the composition: where its candidate
+-- window goes.
 foreign import ccall safe "Rwindow_get_text_input_rect" rwindow_get_text_input_rect :: Rid -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
 
 -- | Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
@@ -4965,6 +5162,18 @@ foreign import ccall safe "Rimage_decode" rimage_decode :: Ptr () -> CSize -> Pt
 
 -- | Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 foreign import ccall safe "Rpixels_free" rpixels_free :: Ptr Word8 -> IO ()
+
+-- | Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+-- returns) as a PNG file in memory. Thread-safe.
+-- size Receives the number of bytes.
+-- Returns: The bytes of the file, to release with Rpixels_free; NULL when
+-- there are no pixels.
+foreign import ccall safe "Rimage_encode_png" rimage_encode_png :: Ptr Word8 -> CInt -> CInt -> Ptr CSize -> IO (Ptr Word8)
+
+-- | Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+-- of Rwindow_capture, a picture made by the application. Thread-safe.
+-- Returns: R_FALSE when the file cannot be written.
+foreign import ccall safe "Rimage_save_png" rimage_save_png :: CString -> Ptr Word8 -> CInt -> CInt -> IO CInt
 
 -- | Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 foreign import ccall safe "Rtexture_is_ready" rtexture_is_ready :: Rid -> IO CInt
@@ -7659,6 +7868,116 @@ foreign import ccall safe "Rblock_editor_get_view" rblock_editor_get_view :: Rid
 
 foreign import ccall safe "Rblock_editor_set_view" rblock_editor_set_view :: Rid -> CFloat -> CFloat -> CFloat -> IO ()
 
+-- | The differences between two texts as a unified diff (the format
+-- of `diff -u` and `git diff`), with `context` unchanged lines around each
+-- change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+-- (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+-- the library: it may be called from any thread.
+-- Returns: The patch followed by a '\0' (an empty text when the texts are
+-- the same), to release with Rmemory_free; NULL when a text is NULL.
+-- `size` receives its length in bytes, and may be NULL.
+foreign import ccall safe "Rdiff_unified" rdiff_unified :: CString -> CString -> CString -> CString -> CInt -> Word32 -> Ptr CSize -> IO CString
+
+-- | The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+foreign import ccall safe "Rdiff_count_changes" rdiff_count_changes :: CString -> CString -> Word32 -> IO CInt
+
+foreign import ccall safe "Rdiff_view_create" rdiff_view_create :: IO Rid
+
+-- | The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+foreign import ccall safe "Rdiff_view_set_texts" rdiff_view_set_texts :: Rid -> CString -> CString -> IO ()
+
+-- | Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+foreign import ccall safe "Rdiff_view_set_names" rdiff_view_set_names :: Rid -> CString -> CString -> IO ()
+
+-- | Compares two files. Their paths become the names unless names
+-- were given. Returns: R_FALSE when a file cannot be read (it is compared
+-- as empty).
+foreign import ccall safe "Rdiff_view_load_files" rdiff_view_load_files :: Rid -> CString -> CString -> IO CInt
+
+-- | Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+-- instead of two texts: each file with its name, each hunk with its header.
+-- Returns: R_FALSE when the text holds no hunk (nothing is shown).
+foreign import ccall safe "Rdiff_view_set_patch" rdiff_view_set_patch :: Rid -> CString -> IO CInt
+
+foreign import ccall safe "Rdiff_view_set_mode" rdiff_view_set_mode :: Rid -> RDiffViewMode -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_mode" rdiff_view_get_mode :: Rid -> IO RDiffViewMode
+
+-- | Unchanged lines shown around each change (3 by default); the
+-- others are folded. A negative number shows every line.
+foreign import ccall safe "Rdiff_view_set_context" rdiff_view_set_context :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_context" rdiff_view_get_context :: Rid -> IO CInt
+
+-- | How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+foreign import ccall safe "Rdiff_view_set_flags" rdiff_view_set_flags :: Rid -> Word32 -> IO ()
+
+foreign import ccall safe "Rdiff_view_get_flags" rdiff_view_get_flags :: Rid -> IO Word32
+
+-- | Marks the words that changed inside a changed line (default R_TRUE).
+foreign import ccall safe "Rdiff_view_set_word_diff" rdiff_view_set_word_diff :: Rid -> CInt -> IO ()
+
+-- | Shows the numbers of the lines (default R_TRUE).
+foreign import ccall safe "Rdiff_view_set_line_numbers" rdiff_view_set_line_numbers :: Rid -> CInt -> IO ()
+
+-- | Colors the code as the text editor does: a language name of
+-- Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+-- NULL (default) to guess it from the extension of the names.
+foreign import ccall safe "Rdiff_view_set_language" rdiff_view_set_language :: Rid -> CString -> IO ()
+
+-- | The number of changes: runs of lines removed and / or added.
+foreign import ccall safe "Rdiff_view_get_change_count" rdiff_view_get_change_count :: Rid -> IO CInt
+
+-- | Where a change is: its first line and its number of lines on
+-- each side (a count of 0: nothing on that side; the line is then the one
+-- after which the other side's lines go). Returns: R_FALSE when there is
+-- no such change.
+foreign import ccall safe "Rdiff_view_get_change" rdiff_view_get_change :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Scrolls to a change (from 0) and marks it as the current one.
+foreign import ccall safe "Rdiff_view_go_to_change" rdiff_view_go_to_change :: Rid -> CInt -> IO ()
+
+-- | The current change, -1 before the first one is gone to.
+foreign import ccall safe "Rdiff_view_get_current_change" rdiff_view_get_current_change :: Rid -> IO CInt
+
+-- | Goes to the next / previous change. Returns: Its index, -1 when there is none.
+foreign import ccall safe "Rdiff_view_next_change" rdiff_view_next_change :: Rid -> IO CInt
+
+foreign import ccall safe "Rdiff_view_prev_change" rdiff_view_prev_change :: Rid -> IO CInt
+
+-- | The rows shown, folds, hunk headers and notes included.
+foreign import ccall safe "Rdiff_view_get_row_count" rdiff_view_get_row_count :: Rid -> IO CInt
+
+-- | What a row shows, and the numbers of its lines (0 for a side it
+-- has no line of). A fold gives the first line it hides on each side.
+foreign import ccall safe "Rdiff_view_get_row" rdiff_view_get_row :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> IO RDiffRowKind
+
+-- | The text of a row on one side (in unified mode the side does not
+-- matter for a line); a fold, a hunk, a file or a note give their label.
+-- Valid until the next call. "" when there is none.
+foreign import ccall safe "Rdiff_view_get_row_text" rdiff_view_get_row_text :: Rid -> CInt -> RDiffSide -> IO CString
+
+-- | Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+foreign import ccall safe "Rdiff_view_expand" rdiff_view_expand :: Rid -> CInt -> IO CInt
+
+-- | The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+foreign import ccall safe "Rdiff_view_get_first_visible_row" rdiff_view_get_first_visible_row :: Rid -> IO CInt
+
+foreign import ccall safe "Rdiff_view_scroll_to_row" rdiff_view_scroll_to_row :: Rid -> CInt -> IO ()
+
+-- | Attaches a short note to a line (a review comment, an error): a
+-- mark in the gutter and the text in a row under the line, which is never
+-- folded away. Several notes may go to one line.
+foreign import ccall safe "Rdiff_view_add_annotation" rdiff_view_add_annotation :: Rid -> RDiffSide -> CInt -> CString -> IO ()
+
+foreign import ccall safe "Rdiff_view_clear_annotations" rdiff_view_clear_annotations :: Rid -> IO ()
+
+-- | The text selected by the user ("" when none), one line after another.
+foreign import ccall safe "Rdiff_view_get_selected_text" rdiff_view_get_selected_text :: Rid -> IO CString
+
+-- | Called when a line or its number is clicked (the action of the widget is fired too).
+foreign import ccall safe "Rdiff_view_set_line_clicked_callback" rdiff_view_set_line_clicked_callback :: Rid -> RDiffViewLineCallback -> Ptr () -> IO ()
+
 -- | Shows a widget as a dialog of a window. The window takes
 -- ownership of `content`: it is deleted when the dialog closes, so read
 -- what you need from it before, or in `closed`.
@@ -8369,8 +8688,133 @@ foreign import ccall safe "Rhost_inject_key" rhost_inject_key :: Rid -> RKey -> 
 -- | One typed Unicode code point.
 foreign import ccall safe "Rhost_inject_text" rhost_inject_text :: Rid -> Word32 -> IO ()
 
+-- | The input method of the application's system composes `text`
+-- (preedit), with its selection in bytes (see Rwindow_inject_composition).
+-- NULL or "" cancels it; the committed text then comes through
+-- Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+-- candidate window.
+foreign import ccall safe "Rhost_inject_composition" rhost_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | The window gained or lost the keyboard. Losing it closes popups and drops captures.
 foreign import ccall safe "Rhost_inject_focus" rhost_inject_focus :: Rid -> CInt -> IO ()
 
 -- | The user asked to close the window (its close callback decides).
 foreign import ccall safe "Rhost_inject_close" rhost_inject_close :: Rid -> IO ()
+
+-- | R_TRUE makes what is drawn depend only on what the test does:
+-- every frame advances the animations by 1/60 s (Rset_animation_time_step),
+-- and the carets of the text fields stay lit instead of blinking. R_FALSE
+-- gives the clock back (time step 0).
+foreign import ccall safe "Rtest_set_deterministic" rtest_set_deterministic :: CInt -> IO ()
+
+foreign import ccall safe "Rtest_is_deterministic" rtest_is_deterministic :: IO CInt
+
+-- | Returns: What the goldens of this run are made with, "OS-backend":
+-- "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+-- "null" with the null backend.
+foreign import ccall safe "Rtest_get_platform_tag" rtest_get_platform_tag :: IO CString
+
+-- | Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+-- path may have several names separated by '/': "settings/ok" is the
+-- widget named "ok" inside the one named "settings". In a window, the
+-- open popups (menus, dialogs) are searched first, top first, then the
+-- content.
+-- scope A window or a widget.
+-- Returns: R_INVALID_ID when nothing has that name (no error is reported).
+foreign import ccall safe "Rtest_find" rtest_find :: Rid -> CString -> IO Rid
+
+-- | Moves the mouse to the middle of the widget, presses and releases the left button.
+foreign import ccall safe "Rtest_click" rtest_click :: Rid -> IO CInt
+
+-- | Two clicks in a row on the middle of the widget, seen as a double click.
+foreign import ccall safe "Rtest_double_click" rtest_double_click :: Rid -> IO CInt
+
+-- | A click of the right button on the middle of the widget (a context menu).
+foreign import ccall safe "Rtest_right_click" rtest_right_click :: Rid -> IO CInt
+
+-- | Clicks at a position of a widget or a window.
+-- clicks 1 for a click, 2 for a double click, 3 for a triple click.
+-- modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+foreign import ccall safe "Rtest_click_at" rtest_click_at :: Rid -> CFloat -> CFloat -> RMouseButton -> CInt -> Word32 -> IO CInt
+
+-- | Moves the mouse over the middle of the widget, without clicking.
+foreign import ccall safe "Rtest_hover" rtest_hover :: Rid -> IO CInt
+
+-- | Moves the mouse to a position of a widget or a window.
+foreign import ccall safe "Rtest_hover_at" rtest_hover_at :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses the left button on the middle of the widget, moves by
+-- (dx, dy) in several steps, and releases: a slider, a splitter, a
+-- window dragged by a widget.
+foreign import ccall safe "Rtest_drag" rtest_drag :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Drags from the middle of one widget to the middle of another (drag and drop).
+foreign import ccall safe "Rtest_drag_to" rtest_drag_to :: Rid -> Rid -> IO CInt
+
+-- | Turns the mouse wheel over the middle of the widget: `wheel_y`
+-- notches (positive: toward the top, as a wheel turned away from the
+-- user), `wheel_x` notches sideways.
+foreign import ccall safe "Rtest_scroll" rtest_scroll :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses and releases a key, with RModifier held. A widget
+-- target gets the keyboard focus first; a window sends the key to what
+-- has the focus.
+foreign import ccall safe "Rtest_key" rtest_key :: Rid -> RKey -> Word32 -> IO CInt
+
+-- | Types UTF-8 text as a keyboard would. A widget target gets the
+-- keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+-- Tab and Backspace.
+foreign import ccall safe "Rtest_type_text" rtest_type_text :: Rid -> CString -> IO CInt
+
+-- | A finger touches the middle of the widget and leaves at once.
+foreign import ccall safe "Rtest_tap" rtest_tap :: Rid -> IO CInt
+
+-- | A finger put on the middle of the widget moves by (dx, dy) in
+-- `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+-- (Rtest_settle lets it stop).
+foreign import ccall safe "Rtest_swipe" rtest_swipe :: Rid -> CFloat -> CFloat -> CDouble -> IO CInt
+
+-- | Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+foreign import ccall safe "Rtest_pump" rtest_pump :: CInt -> IO CInt
+
+-- | Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+-- to do, nothing to paint, no animation, no layout spring, no inertia.
+-- Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+-- realtime viewport) and the timers are not counted.
+foreign import ccall safe "Rtest_is_idle" rtest_is_idle :: IO CInt
+
+-- | Produces frames until Rtest_is_idle, each advancing the
+-- animations by the time step (1/60 s unless Rset_animation_time_step
+-- gives another), for at most `max_seconds` of that time.
+-- Returns: R_FALSE when it was still moving at the end.
+foreign import ccall safe "Rtest_settle" rtest_settle :: CDouble -> IO CInt
+
+-- | Returns: What the user reads in the widget: the text of a field, else
+-- its label (as screen readers say it: the text of a Label, a Button, a
+-- Checkbox...). "" when it has none. Valid until the next call.
+foreign import ccall safe "Rtest_get_text" rtest_get_text :: Rid -> IO CString
+
+-- | Returns: R_TRUE when the widget can be seen: in a window, Visible with
+-- all that holds it, on the page a Switcher or a TabView shows, and laid
+-- out with a size.
+foreign import ccall safe "Rtest_is_shown" rtest_is_shown :: Rid -> IO CInt
+
+-- | Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+foreign import ccall safe "Rtest_is_checked" rtest_is_checked :: Rid -> IO CInt
+
+-- | Captures a window, or the rectangle of one widget, and compares
+-- it with the PNG file `golden_path` (see the top of this file).
+-- target A window or a widget.
+-- options NULL for the defaults.
+-- result Receives the details; may be NULL.
+-- Returns: R_TRUE when the capture matches (or the golden was written
+-- because RAVEN_UPDATE_GOLDENS=1).
+foreign import ccall safe "Rtest_expect_golden" rtest_expect_golden :: Rid -> CString -> Ptr RGoldenOptions -> Ptr RGoldenResult -> IO CInt
+
+-- | Compares two RGBA8 images of the same size as Rtest_expect_golden
+-- does, without files.
+-- diff_rgba When not NULL, receives width * height * 4 bytes: the
+-- expected image faded, with the different pixels in red.
+-- Returns: The number of pixels farther apart than `channel_tolerance`;
+-- -1 when an image is missing.
+foreign import ccall safe "Rtest_compare_pixels" rtest_compare_pixels :: Ptr Word8 -> Ptr Word8 -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr Word8 -> IO CInt

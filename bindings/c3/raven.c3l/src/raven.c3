@@ -749,6 +749,12 @@ constset ColorRole : CInt
 	LINK = 0x0122,
 	<* Background of code in formatted text. *>
 	CODE = 0x0123,
+	<* Diff view: the background of an added line and of a removed line (see-through: the background shows). *>
+	DIFF_ADDED = 0x0124,
+	DIFF_REMOVED = 0x0125,
+	<* Diff view: the words that changed inside an added line and inside a removed line, over the color of the line. *>
+	DIFF_ADDED_WORD = 0x0126,
+	DIFF_REMOVED_WORD = 0x0127,
 }
 
 <* Sizes, in logical units. *>
@@ -909,6 +915,8 @@ constset WidgetType : CInt
 	MAP_VIEW = 0x0235,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
+	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
+	DIFF_VIEW = 0x0237,
 }
 
 constset HAlign : CInt
@@ -1385,6 +1393,56 @@ constset BlockPlace : CInt
 	BODY = 0x0711,
 	INPUT = 0x0712,
 }
+
+constset DiffViewMode : CInt
+{
+	<* One column: the removed lines, then the added lines, between the lines kept. *>
+	UNIFIED = 0x0C50,
+	<* Two columns: the left text and the right text side by side, aligned. *>
+	SPLIT = 0x0C51,
+}
+
+constset DiffSide : CInt
+{
+	<* The text before (the old one, "a/", the lines removed). *>
+	LEFT = 0x0C54,
+	<* The text after (the new one, "b/", the lines added). *>
+	RIGHT = 0x0C55,
+}
+
+constset DiffRowKind : CInt
+{
+	<* A line that is on both sides. *>
+	SAME = 0x0C58,
+	<* A line of the left text only. *>
+	REMOVED = 0x0C59,
+	<* A line of the right text only. *>
+	ADDED = 0x0C5A,
+	<* Split mode: a removed line facing the added line that replaces it. *>
+	CHANGED = 0x0C5B,
+	<* Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them. *>
+	FOLD = 0x0C5C,
+	<* A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main"). *>
+	HUNK = 0x0C5D,
+	<* A patch: the names of a file. *>
+	FILE = 0x0C5E,
+	<* A note attached to the line above it (Rdiff_view_add_annotation). *>
+	NOTE = 0x0C5F,
+}
+
+<* How lines are compared (Rdiff_view_set_flags, Rdiff_unified). *>
+constset DiffFlags : CInt
+{
+	<* Spaces and tabs at the end of a line (and a carriage return) do not count. *>
+	TRAILING_SPACE = 1,
+	<* No space or tab counts, wherever it is. *>
+	SPACE = 2,
+	<* Upper and lower case letters are the same (A to Z). *>
+	CASE = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool DiffFlags.has(self, DiffFlags flags) @inline => (self & flags) == flags;
 
 <* How much a notification of the system asks for attention (Rnotification_show). *>
 constset NotificationUrgency : CInt
@@ -1929,6 +1987,13 @@ alias NodeGraphPointCallback = fn void(Id graph, CInt item, float x, float y, vo
 alias BlockEditorCallback = fn void(Id editor, CInt block, void* user_data);
 <* Right click: on a block (0 on the canvas), at x, y in the widget. *>
 alias BlockEditorContextCallback = fn void(Id editor, CInt block, float x, float y, void* user_data);
+<*
+ A line, or its number in the gutter, was clicked. `side` is the side
+ of the line clicked (in unified mode: the left side for a removed line
+ and for the left column of numbers, else the right side), `line` its
+ number on that side, from 1.
+*>
+alias DiffViewLineCallback = fn void(Id diff_view, DiffSide side, CInt line, CInt in_gutter, void* user_data);
 <* Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed. *>
 alias DialogClosedCallback = fn void(Id content, CInt result, void* user_data);
 <*
@@ -5963,6 +6028,123 @@ fn Orientation Carousel.get_orientation(self) @inline => (Orientation)c::r_carou
 
 fn void Carousel.set_page_changed_callback(self, CarouselPageChangedCallback callback, void* user_data) @inline => c::r_carousel_set_page_changed_callback((c::Rid)self, (c::RCarouselPageChangedCallback)callback, user_data);
 
+// ---- DiffView
+
+typedef DiffView = inline Widget;
+
+fn DiffView diff_view_create() @inline => (DiffView)c::r_diff_view_create();
+
+<* The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n". *>
+fn void DiffView.set_texts(self, ZString left, ZString right) @inline => c::r_diff_view_set_texts((c::Rid)self, (char*)left, (char*)right);
+
+<* Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code. *>
+fn void DiffView.set_names(self, ZString left_name, ZString right_name) @inline => c::r_diff_view_set_names((c::Rid)self, (char*)left_name, (char*)right_name);
+
+<*
+ Compares two files. Their paths become the names unless names
+ were given. @return R_FALSE when a file cannot be read (it is compared
+ as empty).
+*>
+fn bool DiffView.load_files(self, ZString left_path, ZString right_path) @inline => c::r_diff_view_load_files((c::Rid)self, (char*)left_path, (char*)right_path) != 0;
+
+<*
+ Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+ instead of two texts: each file with its name, each hunk with its header.
+ Returns R_FALSE when the text holds no hunk (nothing is shown).
+*>
+fn bool DiffView.set_patch(self, ZString patch) @inline => c::r_diff_view_set_patch((c::Rid)self, (char*)patch) != 0;
+
+fn void DiffView.set_mode(self, DiffViewMode mode) @inline => c::r_diff_view_set_mode((c::Rid)self, (c::RDiffViewMode)mode);
+
+fn DiffViewMode DiffView.get_mode(self) @inline => (DiffViewMode)c::r_diff_view_get_mode((c::Rid)self);
+
+<*
+ Unchanged lines shown around each change (3 by default); the
+ others are folded. A negative number shows every line.
+*>
+fn void DiffView.set_context(self, CInt lines) @inline => c::r_diff_view_set_context((c::Rid)self, lines);
+
+fn CInt DiffView.get_context(self) @inline => c::r_diff_view_get_context((c::Rid)self);
+
+<* How lines are compared: RDiffFlags (0 by default). Not used by a patch. *>
+fn void DiffView.set_flags(self, uint flags) @inline => c::r_diff_view_set_flags((c::Rid)self, flags);
+
+fn uint DiffView.get_flags(self) @inline => c::r_diff_view_get_flags((c::Rid)self);
+
+<* Marks the words that changed inside a changed line (default R_TRUE). *>
+fn void DiffView.set_word_diff(self, bool enabled) @inline => c::r_diff_view_set_word_diff((c::Rid)self, (CInt)enabled);
+
+<* Shows the numbers of the lines (default R_TRUE). *>
+fn void DiffView.set_line_numbers(self, bool visible) @inline => c::r_diff_view_set_line_numbers((c::Rid)self, (CInt)visible);
+
+<*
+ Colors the code as the text editor does: a language name of
+ Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+ NULL (default) to guess it from the extension of the names.
+*>
+fn void DiffView.set_language(self, ZString language) @inline => c::r_diff_view_set_language((c::Rid)self, (char*)language);
+
+<* The number of changes: runs of lines removed and / or added. *>
+fn CInt DiffView.get_change_count(self) @inline => c::r_diff_view_get_change_count((c::Rid)self);
+
+<*
+ Where a change is: its first line and its number of lines on
+ each side (a count of 0: nothing on that side; the line is then the one
+ after which the other side's lines go). @return R_FALSE when there is
+ no such change.
+*>
+fn bool DiffView.get_change(self, CInt change, CInt* left_line, CInt* left_count, CInt* right_line, CInt* right_count) @inline => c::r_diff_view_get_change((c::Rid)self, change, left_line, left_count, right_line, right_count) != 0;
+
+<* Scrolls to a change (from 0) and marks it as the current one. *>
+fn void DiffView.go_to_change(self, CInt change) @inline => c::r_diff_view_go_to_change((c::Rid)self, change);
+
+<* The current change, -1 before the first one is gone to. *>
+fn CInt DiffView.get_current_change(self) @inline => c::r_diff_view_get_current_change((c::Rid)self);
+
+<* Goes to the next / previous change. @return Its index, -1 when there is none. *>
+fn CInt DiffView.next_change(self) @inline => c::r_diff_view_next_change((c::Rid)self);
+
+fn CInt DiffView.prev_change(self) @inline => c::r_diff_view_prev_change((c::Rid)self);
+
+<* The rows shown, folds, hunk headers and notes included. *>
+fn CInt DiffView.get_row_count(self) @inline => c::r_diff_view_get_row_count((c::Rid)self);
+
+<*
+ What a row shows, and the numbers of its lines (0 for a side it
+ has no line of). A fold gives the first line it hides on each side.
+*>
+fn DiffRowKind DiffView.get_row(self, CInt row, CInt* left_line, CInt* right_line) @inline => (DiffRowKind)c::r_diff_view_get_row((c::Rid)self, row, left_line, right_line);
+
+<*
+ The text of a row on one side (in unified mode the side does not
+ matter for a line); a fold, a hunk, a file or a note give their label.
+ Valid until the next call. "" when there is none.
+*>
+fn ZString DiffView.get_row_text(self, CInt row, DiffSide side) @inline => (ZString)c::r_diff_view_get_row_text((c::Rid)self, row, (c::RDiffSide)side);
+
+<* Shows the lines of a fold. @return R_FALSE when the row is not a fold. *>
+fn bool DiffView.expand(self, CInt row) @inline => c::r_diff_view_expand((c::Rid)self, row) != 0;
+
+<* The first row at the top of the view; Rdiff_view_scroll_to_row brings one there. *>
+fn CInt DiffView.get_first_visible_row(self) @inline => c::r_diff_view_get_first_visible_row((c::Rid)self);
+
+fn void DiffView.scroll_to_row(self, CInt row) @inline => c::r_diff_view_scroll_to_row((c::Rid)self, row);
+
+<*
+ Attaches a short note to a line (a review comment, an error): a
+ mark in the gutter and the text in a row under the line, which is never
+ folded away. Several notes may go to one line.
+*>
+fn void DiffView.add_annotation(self, DiffSide side, CInt line, ZString text) @inline => c::r_diff_view_add_annotation((c::Rid)self, (c::RDiffSide)side, line, (char*)text);
+
+fn void DiffView.clear_annotations(self) @inline => c::r_diff_view_clear_annotations((c::Rid)self);
+
+<* The text selected by the user ("" when none), one line after another. *>
+fn ZString DiffView.get_selected_text(self) @inline => (ZString)c::r_diff_view_get_selected_text((c::Rid)self);
+
+<* Called when a line or its number is clicked (the action of the widget is fired too). *>
+fn void DiffView.set_line_clicked_callback(self, DiffViewLineCallback callback, void* user_data) @inline => c::r_diff_view_set_line_clicked_callback((c::Rid)self, (c::RDiffViewLineCallback)callback, user_data);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -7674,6 +7856,21 @@ fn CInt taskbar_set_jump_list(JumpTask* tasks, CInt count) @inline => c::r_taskb
 alias color_rgb_to_hsv = c::r_color_rgb_to_hsv;
 
 alias color_hsv_to_rgb = c::r_color_hsv_to_rgb;
+
+<*
+ The differences between two texts as a unified diff (the format
+ of `diff -u` and `git diff`), with `context` unchanged lines around each
+ change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+ (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+ the library: it may be called from any thread.
+ Returns The patch followed by a '\0' (an empty text when the texts are
+ the same), to release with Rmemory_free; NULL when a text is NULL.
+ `size` receives its length in bytes, and may be NULL.
+*>
+fn ZString diff_unified(ZString left, ZString right, ZString left_name, ZString right_name, CInt context, uint flags, usz* size) @inline => (ZString)c::r_diff_unified((char*)left, (char*)right, (char*)left_name, (char*)right_name, context, flags, size);
+
+<* The number of changes (runs of lines removed and / or added) between two texts. Any thread. *>
+fn CInt diff_count_changes(ZString left, ZString right, uint flags) @inline => c::r_diff_count_changes((char*)left, (char*)right, flags);
 
 <*
  Shows a widget as a dialog of a window. The window takes

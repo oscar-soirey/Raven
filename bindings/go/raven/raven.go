@@ -551,42 +551,46 @@ const (
 type RColorRole int32
 
 const (
-	R_COLOR_WINDOW           RColorRole = 0x0100
-	R_COLOR_PANEL            RColorRole = 0x0101
-	R_COLOR_BORDER           RColorRole = 0x0102
-	R_COLOR_TEXT             RColorRole = 0x0103
-	R_COLOR_TEXT_DISABLED    RColorRole = 0x0104
-	R_COLOR_TEXT_PLACEHOLDER RColorRole = 0x0105
-	R_COLOR_ACCENT           RColorRole = 0x0106
-	R_COLOR_ACCENT_HOVERED   RColorRole = 0x0107
-	R_COLOR_ACCENT_PRESSED   RColorRole = 0x0108
-	R_COLOR_ACCENT_TEXT      RColorRole = 0x0109
-	R_COLOR_CONTROL          RColorRole = 0x010A
-	R_COLOR_CONTROL_HOVERED  RColorRole = 0x010B
-	R_COLOR_CONTROL_PRESSED  RColorRole = 0x010C
-	R_COLOR_CONTROL_BORDER   RColorRole = 0x010D
-	R_COLOR_INPUT            RColorRole = 0x010E
-	R_COLOR_FOCUS            RColorRole = 0x010F
-	R_COLOR_SELECTION        RColorRole = 0x0110
-	R_COLOR_ROW_HOVERED      RColorRole = 0x0111
-	R_COLOR_TRACK            RColorRole = 0x0112
-	R_COLOR_HANDLE           RColorRole = 0x0113
-	R_COLOR_HANDLE_HOVERED   RColorRole = 0x0114
-	R_COLOR_SEPARATOR        RColorRole = 0x0115
-	R_COLOR_HEADER           RColorRole = 0x0116
-	R_COLOR_HEADER_HOVERED   RColorRole = 0x0117
-	R_COLOR_TAB_ACTIVE       RColorRole = 0x0118
-	R_COLOR_POPUP            RColorRole = 0x0119
-	R_COLOR_POPUP_BORDER     RColorRole = 0x011A
-	R_COLOR_SHADOW           RColorRole = 0x011B
-	R_COLOR_TOOLTIP          RColorRole = 0x011C
-	R_COLOR_TOOLTIP_TEXT     RColorRole = 0x011D
-	R_COLOR_SWITCH           RColorRole = 0x011E
-	R_COLOR_SUCCESS          RColorRole = 0x011F
-	R_COLOR_WARNING          RColorRole = 0x0120
-	R_COLOR_DANGER           RColorRole = 0x0121
-	R_COLOR_LINK             RColorRole = 0x0122
-	R_COLOR_CODE             RColorRole = 0x0123
+	R_COLOR_WINDOW            RColorRole = 0x0100
+	R_COLOR_PANEL             RColorRole = 0x0101
+	R_COLOR_BORDER            RColorRole = 0x0102
+	R_COLOR_TEXT              RColorRole = 0x0103
+	R_COLOR_TEXT_DISABLED     RColorRole = 0x0104
+	R_COLOR_TEXT_PLACEHOLDER  RColorRole = 0x0105
+	R_COLOR_ACCENT            RColorRole = 0x0106
+	R_COLOR_ACCENT_HOVERED    RColorRole = 0x0107
+	R_COLOR_ACCENT_PRESSED    RColorRole = 0x0108
+	R_COLOR_ACCENT_TEXT       RColorRole = 0x0109
+	R_COLOR_CONTROL           RColorRole = 0x010A
+	R_COLOR_CONTROL_HOVERED   RColorRole = 0x010B
+	R_COLOR_CONTROL_PRESSED   RColorRole = 0x010C
+	R_COLOR_CONTROL_BORDER    RColorRole = 0x010D
+	R_COLOR_INPUT             RColorRole = 0x010E
+	R_COLOR_FOCUS             RColorRole = 0x010F
+	R_COLOR_SELECTION         RColorRole = 0x0110
+	R_COLOR_ROW_HOVERED       RColorRole = 0x0111
+	R_COLOR_TRACK             RColorRole = 0x0112
+	R_COLOR_HANDLE            RColorRole = 0x0113
+	R_COLOR_HANDLE_HOVERED    RColorRole = 0x0114
+	R_COLOR_SEPARATOR         RColorRole = 0x0115
+	R_COLOR_HEADER            RColorRole = 0x0116
+	R_COLOR_HEADER_HOVERED    RColorRole = 0x0117
+	R_COLOR_TAB_ACTIVE        RColorRole = 0x0118
+	R_COLOR_POPUP             RColorRole = 0x0119
+	R_COLOR_POPUP_BORDER      RColorRole = 0x011A
+	R_COLOR_SHADOW            RColorRole = 0x011B
+	R_COLOR_TOOLTIP           RColorRole = 0x011C
+	R_COLOR_TOOLTIP_TEXT      RColorRole = 0x011D
+	R_COLOR_SWITCH            RColorRole = 0x011E
+	R_COLOR_SUCCESS           RColorRole = 0x011F
+	R_COLOR_WARNING           RColorRole = 0x0120
+	R_COLOR_DANGER            RColorRole = 0x0121
+	R_COLOR_LINK              RColorRole = 0x0122
+	R_COLOR_CODE              RColorRole = 0x0123
+	R_COLOR_DIFF_ADDED        RColorRole = 0x0124
+	R_COLOR_DIFF_REMOVED      RColorRole = 0x0125
+	R_COLOR_DIFF_ADDED_WORD   RColorRole = 0x0126
+	R_COLOR_DIFF_REMOVED_WORD RColorRole = 0x0127
 )
 
 // RMetric: Sizes, in logical units.
@@ -691,6 +695,7 @@ const (
 	R_WIDGET_CHART           RWidgetType = 0x0234
 	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
+	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0237
 )
 
 type RHAlign int32
@@ -1079,6 +1084,42 @@ const (
 	R_BLOCK_NEXT  RBlockPlace = 0x0710
 	R_BLOCK_BODY  RBlockPlace = 0x0711
 	R_BLOCK_INPUT RBlockPlace = 0x0712
+)
+
+type RDiffViewMode int32
+
+const (
+	R_DIFF_VIEW_UNIFIED RDiffViewMode = 0x0C50
+	R_DIFF_VIEW_SPLIT   RDiffViewMode = 0x0C51
+)
+
+type RDiffSide int32
+
+const (
+	R_DIFF_LEFT  RDiffSide = 0x0C54
+	R_DIFF_RIGHT RDiffSide = 0x0C55
+)
+
+type RDiffRowKind int32
+
+const (
+	R_DIFF_ROW_SAME    RDiffRowKind = 0x0C58
+	R_DIFF_ROW_REMOVED RDiffRowKind = 0x0C59
+	R_DIFF_ROW_ADDED   RDiffRowKind = 0x0C5A
+	R_DIFF_ROW_CHANGED RDiffRowKind = 0x0C5B
+	R_DIFF_ROW_FOLD    RDiffRowKind = 0x0C5C
+	R_DIFF_ROW_HUNK    RDiffRowKind = 0x0C5D
+	R_DIFF_ROW_FILE    RDiffRowKind = 0x0C5E
+	R_DIFF_ROW_NOTE    RDiffRowKind = 0x0C5F
+)
+
+// RDiffFlags: How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+type RDiffFlags int32
+
+const (
+	R_DIFF_IGNORE_TRAILING_SPACE RDiffFlags = 1
+	R_DIFF_IGNORE_SPACE          RDiffFlags = 2
+	R_DIFF_IGNORE_CASE           RDiffFlags = 4
 )
 
 // RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
@@ -6959,6 +7000,197 @@ func BlockEditorSetView(editor ID, x float32, y float32, zoom float32) {
 	C.Rblock_editor_set_view(C.Rid(editor), C.float(x), C.float(y), C.float(zoom))
 }
 
+// DiffCountChanges: The number of changes (runs of lines removed and / or added) between two texts. Any
+// thread.
+func DiffCountChanges(left string, right string, flags uint32) int {
+	left_ := C.CString(left)
+	defer C.free(unsafe.Pointer(left_))
+	right_ := C.CString(right)
+	defer C.free(unsafe.Pointer(right_))
+	return int(C.Rdiff_count_changes(left_, right_, C.Ruint(flags)))
+}
+
+func DiffViewCreate() ID {
+	return ID(C.Rdiff_view_create())
+}
+
+// DiffViewSetTexts: The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+func DiffViewSetTexts(diff_view ID, left string, right string) {
+	left_ := C.CString(left)
+	defer C.free(unsafe.Pointer(left_))
+	right_ := C.CString(right)
+	defer C.free(unsafe.Pointer(right_))
+	C.Rdiff_view_set_texts(C.Rid(diff_view), left_, right_)
+}
+
+// DiffViewSetNames: Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their
+// extension chooses the colors of the code.
+func DiffViewSetNames(diff_view ID, left_name string, right_name string) {
+	left_name_ := C.CString(left_name)
+	defer C.free(unsafe.Pointer(left_name_))
+	right_name_ := C.CString(right_name)
+	defer C.free(unsafe.Pointer(right_name_))
+	C.Rdiff_view_set_names(C.Rid(diff_view), left_name_, right_name_)
+}
+
+// DiffViewLoadFiles: Compares two files. Their paths become the names unless names were given. Returns:
+// R_FALSE when a file cannot be read (it is compared as empty).
+func DiffViewLoadFiles(diff_view ID, left_path string, right_path string) int {
+	left_path_ := C.CString(left_path)
+	defer C.free(unsafe.Pointer(left_path_))
+	right_path_ := C.CString(right_path)
+	defer C.free(unsafe.Pointer(right_path_))
+	return int(C.Rdiff_view_load_files(C.Rid(diff_view), left_path_, right_path_))
+}
+
+// DiffViewSetPatch: Shows a patch (unified diff: the output of `git diff`, `diff -u`) instead of two texts:
+// each file with its name, each hunk with its header. Returns: R_FALSE when the text holds no hunk (nothing
+// is shown).
+func DiffViewSetPatch(diff_view ID, patch string) int {
+	patch_ := C.CString(patch)
+	defer C.free(unsafe.Pointer(patch_))
+	return int(C.Rdiff_view_set_patch(C.Rid(diff_view), patch_))
+}
+
+func DiffViewSetMode(diff_view ID, mode RDiffViewMode) {
+	C.Rdiff_view_set_mode(C.Rid(diff_view), C.RDiffViewMode(mode))
+}
+
+func DiffViewGetMode(diff_view ID) RDiffViewMode {
+	return RDiffViewMode(C.Rdiff_view_get_mode(C.Rid(diff_view)))
+}
+
+// DiffViewSetContext: Unchanged lines shown around each change (3 by default); the others are folded. A
+// negative number shows every line.
+func DiffViewSetContext(diff_view ID, lines int) {
+	C.Rdiff_view_set_context(C.Rid(diff_view), C.int(lines))
+}
+
+func DiffViewGetContext(diff_view ID) int {
+	return int(C.Rdiff_view_get_context(C.Rid(diff_view)))
+}
+
+// DiffViewSetFlags: How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+func DiffViewSetFlags(diff_view ID, flags uint32) {
+	C.Rdiff_view_set_flags(C.Rid(diff_view), C.Ruint(flags))
+}
+
+func DiffViewGetFlags(diff_view ID) uint32 {
+	return uint32(C.Rdiff_view_get_flags(C.Rid(diff_view)))
+}
+
+// DiffViewSetWordDiff: Marks the words that changed inside a changed line (default R_TRUE).
+func DiffViewSetWordDiff(diff_view ID, enabled int) {
+	C.Rdiff_view_set_word_diff(C.Rid(diff_view), C.int(enabled))
+}
+
+// DiffViewSetLineNumbers: Shows the numbers of the lines (default R_TRUE).
+func DiffViewSetLineNumbers(diff_view ID, visible int) {
+	C.Rdiff_view_set_line_numbers(C.Rid(diff_view), C.int(visible))
+}
+
+// DiffViewSetLanguage: Colors the code as the text editor does: a language name of Rlanguage_register ("C",
+// "Python", "JSON"...), "None" for plain text, NULL (default) to guess it from the extension of the names.
+func DiffViewSetLanguage(diff_view ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rdiff_view_set_language(C.Rid(diff_view), language_)
+}
+
+// DiffViewGetChangeCount: The number of changes: runs of lines removed and / or added.
+func DiffViewGetChangeCount(diff_view ID) int {
+	return int(C.Rdiff_view_get_change_count(C.Rid(diff_view)))
+}
+
+// DiffViewGetChange: Where a change is: its first line and its number of lines on each side (a count of 0:
+// nothing on that side; the line is then the one after which the other side's lines go). Returns: R_FALSE
+// when there is no such change.
+func DiffViewGetChange(diff_view ID, change int) (result int, left_line int, left_count int, right_line int, right_count int) {
+	var left_line_ C.int
+	var left_count_ C.int
+	var right_line_ C.int
+	var right_count_ C.int
+	result = int(C.Rdiff_view_get_change(C.Rid(diff_view), C.int(change), &left_line_, &left_count_, &right_line_, &right_count_))
+	left_line = int(left_line_)
+	left_count = int(left_count_)
+	right_line = int(right_line_)
+	right_count = int(right_count_)
+	return
+}
+
+// DiffViewGoToChange: Scrolls to a change (from 0) and marks it as the current one.
+func DiffViewGoToChange(diff_view ID, change int) {
+	C.Rdiff_view_go_to_change(C.Rid(diff_view), C.int(change))
+}
+
+// DiffViewGetCurrentChange: The current change, -1 before the first one is gone to.
+func DiffViewGetCurrentChange(diff_view ID) int {
+	return int(C.Rdiff_view_get_current_change(C.Rid(diff_view)))
+}
+
+// DiffViewNextChange: Goes to the next / previous change. Returns: Its index, -1 when there is none.
+func DiffViewNextChange(diff_view ID) int {
+	return int(C.Rdiff_view_next_change(C.Rid(diff_view)))
+}
+
+func DiffViewPrevChange(diff_view ID) int {
+	return int(C.Rdiff_view_prev_change(C.Rid(diff_view)))
+}
+
+// DiffViewGetRowCount: The rows shown, folds, hunk headers and notes included.
+func DiffViewGetRowCount(diff_view ID) int {
+	return int(C.Rdiff_view_get_row_count(C.Rid(diff_view)))
+}
+
+// DiffViewGetRow: What a row shows, and the numbers of its lines (0 for a side it has no line of). A fold
+// gives the first line it hides on each side.
+func DiffViewGetRow(diff_view ID, row int) (result RDiffRowKind, left_line int, right_line int) {
+	var left_line_ C.int
+	var right_line_ C.int
+	result = RDiffRowKind(C.Rdiff_view_get_row(C.Rid(diff_view), C.int(row), &left_line_, &right_line_))
+	left_line = int(left_line_)
+	right_line = int(right_line_)
+	return
+}
+
+// DiffViewGetRowText: The text of a row on one side (in unified mode the side does not matter for a line); a
+// fold, a hunk, a file or a note give their label. Valid until the next call. "" when there is none.
+func DiffViewGetRowText(diff_view ID, row int, side RDiffSide) string {
+	return C.GoString(C.Rdiff_view_get_row_text(C.Rid(diff_view), C.int(row), C.RDiffSide(side)))
+}
+
+// DiffViewExpand: Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+func DiffViewExpand(diff_view ID, row int) int {
+	return int(C.Rdiff_view_expand(C.Rid(diff_view), C.int(row)))
+}
+
+// DiffViewGetFirstVisibleRow: The first row at the top of the view; Rdiff_view_scroll_to_row brings one
+// there.
+func DiffViewGetFirstVisibleRow(diff_view ID) int {
+	return int(C.Rdiff_view_get_first_visible_row(C.Rid(diff_view)))
+}
+
+func DiffViewScrollToRow(diff_view ID, row int) {
+	C.Rdiff_view_scroll_to_row(C.Rid(diff_view), C.int(row))
+}
+
+// DiffViewAddAnnotation: Attaches a short note to a line (a review comment, an error): a mark in the gutter
+// and the text in a row under the line, which is never folded away. Several notes may go to one line.
+func DiffViewAddAnnotation(diff_view ID, side RDiffSide, line int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rdiff_view_add_annotation(C.Rid(diff_view), C.RDiffSide(side), C.int(line), text_)
+}
+
+func DiffViewClearAnnotations(diff_view ID) {
+	C.Rdiff_view_clear_annotations(C.Rid(diff_view))
+}
+
+// DiffViewGetSelectedText: The text selected by the user ("" when none), one line after another.
+func DiffViewGetSelectedText(diff_view ID) string {
+	return C.GoString(C.Rdiff_view_get_selected_text(C.Rid(diff_view)))
+}
+
 // DialogClose: Closes the dialog that contains a widget (the content itself or anything inside it: the button
 // that was clicked). result Passed to the closed callback and returned by Rdialog_run.
 func DialogClose(widget ID, result int) {
@@ -8135,8 +8367,9 @@ func TestIsChecked(widget ID) int {
 // Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
 // Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
 // Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rdiff_unified, Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open
+// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

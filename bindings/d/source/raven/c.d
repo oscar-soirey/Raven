@@ -646,6 +646,12 @@ enum : RColorRole
     R_COLOR_LINK = 0x0122,
     /// Background of code in formatted text.
     R_COLOR_CODE = 0x0123,
+    /// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+    R_COLOR_DIFF_ADDED = 0x0124,
+    R_COLOR_DIFF_REMOVED = 0x0125,
+    /// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+    R_COLOR_DIFF_ADDED_WORD = 0x0126,
+    R_COLOR_DIFF_REMOVED_WORD = 0x0127,
 }
 
 /// Sizes, in logical units.
@@ -806,6 +812,8 @@ enum : RWidgetType
     R_WIDGET_MAP_VIEW = 0x0235,
     /// Pages shown one at a time and swiped (a page view), with dots and arrows.
     R_WIDGET_CAROUSEL = 0x0236,
+    /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+    R_WIDGET_DIFF_VIEW = 0x0237,
 }
 
 alias RHAlign = int;
@@ -1295,6 +1303,57 @@ enum : RBlockPlace
     R_BLOCK_INPUT = 0x0712,
 }
 
+alias RDiffViewMode = int;
+enum : RDiffViewMode
+{
+    /// One column: the removed lines, then the added lines, between the lines kept.
+    R_DIFF_VIEW_UNIFIED = 0x0C50,
+    /// Two columns: the left text and the right text side by side, aligned.
+    R_DIFF_VIEW_SPLIT = 0x0C51,
+}
+
+alias RDiffSide = int;
+enum : RDiffSide
+{
+    /// The text before (the old one, "a/", the lines removed).
+    R_DIFF_LEFT = 0x0C54,
+    /// The text after (the new one, "b/", the lines added).
+    R_DIFF_RIGHT = 0x0C55,
+}
+
+alias RDiffRowKind = int;
+enum : RDiffRowKind
+{
+    /// A line that is on both sides.
+    R_DIFF_ROW_SAME = 0x0C58,
+    /// A line of the left text only.
+    R_DIFF_ROW_REMOVED = 0x0C59,
+    /// A line of the right text only.
+    R_DIFF_ROW_ADDED = 0x0C5A,
+    /// Split mode: a removed line facing the added line that replaces it.
+    R_DIFF_ROW_CHANGED = 0x0C5B,
+    /// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+    R_DIFF_ROW_FOLD = 0x0C5C,
+    /// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+    R_DIFF_ROW_HUNK = 0x0C5D,
+    /// A patch: the names of a file.
+    R_DIFF_ROW_FILE = 0x0C5E,
+    /// A note attached to the line above it (Rdiff_view_add_annotation).
+    R_DIFF_ROW_NOTE = 0x0C5F,
+}
+
+/// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+alias RDiffFlags = int;
+enum : RDiffFlags
+{
+    /// Spaces and tabs at the end of a line (and a carriage return) do not count.
+    R_DIFF_IGNORE_TRAILING_SPACE = 1,
+    /// No space or tab counts, wherever it is.
+    R_DIFF_IGNORE_SPACE = 2,
+    /// Upper and lower case letters are the same (A to Z).
+    R_DIFF_IGNORE_CASE = 4,
+}
+
 /// How much a notification of the system asks for attention (Rnotification_show).
 alias RNotificationUrgency = int;
 enum : RNotificationUrgency
@@ -1731,6 +1790,11 @@ alias RNodeGraphPointCallback = extern (C) void function(Rid graph, int item, fl
 alias RBlockEditorCallback = extern (C) void function(Rid editor, int block, void* user_data);
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
 alias RBlockEditorContextCallback = extern (C) void function(Rid editor, int block, float x, float y, void* user_data);
+/// A line, or its number in the gutter, was clicked. `side` is the side
+/// of the line clicked (in unified mode: the left side for a removed line
+/// and for the left column of numbers, else the right side), `line` its
+/// number on that side, from 1.
+alias RDiffViewLineCallback = extern (C) void function(Rid diff_view, RDiffSide side, int line, int in_gutter, void* user_data);
 /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 alias RDialogClosedCallback = extern (C) void function(Rid content, int result, void* user_data);
 /// Called when the user chooses: a double click or Enter on a file,
@@ -4844,6 +4908,84 @@ void Rblock_editor_select(Rid editor, int block, int add);
 /// Pan (canvas units at the top left) and zoom.
 void Rblock_editor_get_view(Rid editor, float* x, float* y, float* zoom);
 void Rblock_editor_set_view(Rid editor, float x, float y, float zoom);
+/// The differences between two texts as a unified diff (the format
+/// of `diff -u` and `git diff`), with `context` unchanged lines around each
+/// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+/// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+/// the library: it may be called from any thread.
+/// Returns: The patch followed by a '\0' (an empty text when the texts are
+/// the same), to release with Rmemory_free; NULL when a text is NULL.
+/// `size` receives its length in bytes, and may be NULL.
+char* Rdiff_unified(const(char)* left, const(char)* right, const(char)* left_name, const(char)* right_name, int context, uint flags, size_t* size);
+/// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+int Rdiff_count_changes(const(char)* left, const(char)* right, uint flags);
+Rid Rdiff_view_create();
+/// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+void Rdiff_view_set_texts(Rid diff_view, const(char)* left, const(char)* right);
+/// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+void Rdiff_view_set_names(Rid diff_view, const(char)* left_name, const(char)* right_name);
+/// Compares two files. Their paths become the names unless names
+/// were given. Returns: R_FALSE when a file cannot be read (it is compared
+/// as empty).
+int Rdiff_view_load_files(Rid diff_view, const(char)* left_path, const(char)* right_path);
+/// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+/// instead of two texts: each file with its name, each hunk with its header.
+/// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+int Rdiff_view_set_patch(Rid diff_view, const(char)* patch);
+void Rdiff_view_set_mode(Rid diff_view, RDiffViewMode mode);
+RDiffViewMode Rdiff_view_get_mode(Rid diff_view);
+/// Unchanged lines shown around each change (3 by default); the
+/// others are folded. A negative number shows every line.
+void Rdiff_view_set_context(Rid diff_view, int lines);
+int Rdiff_view_get_context(Rid diff_view);
+/// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+void Rdiff_view_set_flags(Rid diff_view, uint flags);
+uint Rdiff_view_get_flags(Rid diff_view);
+/// Marks the words that changed inside a changed line (default R_TRUE).
+void Rdiff_view_set_word_diff(Rid diff_view, int enabled);
+/// Shows the numbers of the lines (default R_TRUE).
+void Rdiff_view_set_line_numbers(Rid diff_view, int visible);
+/// Colors the code as the text editor does: a language name of
+/// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+/// NULL (default) to guess it from the extension of the names.
+void Rdiff_view_set_language(Rid diff_view, const(char)* language);
+/// The number of changes: runs of lines removed and / or added.
+int Rdiff_view_get_change_count(Rid diff_view);
+/// Where a change is: its first line and its number of lines on
+/// each side (a count of 0: nothing on that side; the line is then the one
+/// after which the other side's lines go). Returns: R_FALSE when there is
+/// no such change.
+int Rdiff_view_get_change(Rid diff_view, int change, int* left_line, int* left_count, int* right_line, int* right_count);
+/// Scrolls to a change (from 0) and marks it as the current one.
+void Rdiff_view_go_to_change(Rid diff_view, int change);
+/// The current change, -1 before the first one is gone to.
+int Rdiff_view_get_current_change(Rid diff_view);
+/// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+int Rdiff_view_next_change(Rid diff_view);
+int Rdiff_view_prev_change(Rid diff_view);
+/// The rows shown, folds, hunk headers and notes included.
+int Rdiff_view_get_row_count(Rid diff_view);
+/// What a row shows, and the numbers of its lines (0 for a side it
+/// has no line of). A fold gives the first line it hides on each side.
+RDiffRowKind Rdiff_view_get_row(Rid diff_view, int row, int* left_line, int* right_line);
+/// The text of a row on one side (in unified mode the side does not
+/// matter for a line); a fold, a hunk, a file or a note give their label.
+/// Valid until the next call. "" when there is none.
+const(char)* Rdiff_view_get_row_text(Rid diff_view, int row, RDiffSide side);
+/// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+int Rdiff_view_expand(Rid diff_view, int row);
+/// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+int Rdiff_view_get_first_visible_row(Rid diff_view);
+void Rdiff_view_scroll_to_row(Rid diff_view, int row);
+/// Attaches a short note to a line (a review comment, an error): a
+/// mark in the gutter and the text in a row under the line, which is never
+/// folded away. Several notes may go to one line.
+void Rdiff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const(char)* text);
+void Rdiff_view_clear_annotations(Rid diff_view);
+/// The text selected by the user ("" when none), one line after another.
+const(char)* Rdiff_view_get_selected_text(Rid diff_view);
+/// Called when a line or its number is clicked (the action of the widget is fired too).
+void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
 /// Shows a widget as a dialog of a window. The window takes
 /// ownership of `content`: it is deleted when the dialog closes, so read
 /// what you need from it before, or in `closed`.

@@ -62,7 +62,8 @@ static const rvn_widget_class_t* const g_classes[] = {
 	&rvn_class_pdf_view,
 	&rvn_class_chart,
 	&rvn_class_map_view,
-	&rvn_class_carousel
+	&rvn_class_carousel,
+	&rvn_class_diff_view
 };
 
 /** Other tags accepted in XML, for people coming from Slate / UMG. */
@@ -96,7 +97,8 @@ static const struct { const char* alias; RWidgetType type; } g_aliases[] = {
 	{ "Map", R_WIDGET_MAP_VIEW },
 	{ "TileMap", R_WIDGET_MAP_VIEW },
 	{ "PageView", R_WIDGET_CAROUSEL },
-	{ "Slideshow", R_WIDGET_CAROUSEL }
+	{ "Slideshow", R_WIDGET_CAROUSEL },
+	{ "DiffViewer", R_WIDGET_DIFF_VIEW }
 };
 
 const rvn_widget_class_t* rvn_widget_class_by_type(RWidgetType type) {

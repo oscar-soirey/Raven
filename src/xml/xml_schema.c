@@ -125,6 +125,7 @@ static const rvn_schema_attribute_t g_colors[] = {
 	K("Color.HeaderHovered", ""), K("Color.TabActive", ""), K("Color.Popup", ""), K("Color.PopupBorder", ""), K("Color.Shadow", ""),
 	K("Color.Tooltip", ""), K("Color.TooltipText", ""), K("Color.Switch", ""), K("Color.Success", ""), K("Color.Warning", ""),
 	K("Color.Danger", ""), K("Color.Link", ""), K("Color.Code", ""),
+	K("Color.DiffAdded", ""), K("Color.DiffRemoved", ""), K("Color.DiffAddedWord", ""), K("Color.DiffRemovedWord", ""),
 };
 
 static const rvn_schema_attribute_t g_metrics[] = {
@@ -448,6 +449,24 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 	B("Markdown", "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."),
 	A("OnChanged", "Action fired at each change."),
 };
+static const rvn_schema_attribute_t g_diff_view[] = {
+	F("LeftSource", "The file before, compared with RightSource; its path is the name shown unless LeftName is given."),
+	F("RightSource", "The file after."),
+	T("Left", "The text before (or a <Left> element holding it)."),
+	T("Right", "The text after (or a <Right> element holding it)."),
+	T("LeftName", "Name shown over the text before (its extension chooses the colors of the code)."),
+	T("RightName", "Name shown over the text after."),
+	T("Patch", "A unified diff (git diff, diff -u) to show instead of two texts (or a <Patch> element holding it)."),
+	F("PatchSource", "A file holding a unified diff."),
+	C("Mode", "Unified|Split", "One column, or the two texts side by side (Split)."),
+	N("Context", "Unchanged lines shown around each change (3); the others are folded. All, or -1: every line."),
+	C("IgnoreWhitespace", "None|Trailing|All", "Spaces that do not count: none, those at the end of the lines, all of them."),
+	B("IgnoreCase", "Upper and lower case letters are the same."),
+	B("WordDiff", "Marks the words that changed inside a changed line (default true)."),
+	B("LineNumbers", "The numbers of the lines of both sides (default true)."),
+	C("Language", "None|C|C++|C#|Java|JavaScript|TypeScript|Python|Rust|GLSL|JSON|CSS|XML|HTML", "Colors the code; by default guessed from the extension of the names."),
+	A("OnClicked", "Action fired when a line or its number is clicked."),
+};
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
 	C("Buttons", "All|None|Close|Close,Minimize|Close,Maximize", "The window buttons the bar shows."),
@@ -596,6 +615,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Viewport", g_viewport, "A place the application draws in with its own renderer."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
+	TAG("DiffView", g_diff_view, "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked."),
 	TAG("HeaderBar", g_header_bar, "The title bar of a window with a custom header; holds any widgets."),
 	TAG("FileBrowser", g_file_browser, "Folders and files to choose from."),
 	TAG("DockArea", g_dock_area, "Panels the user arranges by dragging their tabs."),

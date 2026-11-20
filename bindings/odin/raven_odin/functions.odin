@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
+// 1035 of the 1420 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 353 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (120):
+//   a handle that is not known (149):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -46,8 +46,15 @@
 //     Rmap_view_remove_marker Rmap_view_clear_markers Rmap_view_get_marker_count
 //     Rmap_view_set_marker_position Rmap_view_set_marker_label Rmap_view_set_marker_color
 //     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
-//     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
-//     Rtest_expect_golden
+//     Rmap_view_get_attribution Rdiff_view_set_texts Rdiff_view_set_names Rdiff_view_load_files
+//     Rdiff_view_set_patch Rdiff_view_set_mode Rdiff_view_get_mode Rdiff_view_set_context
+//     Rdiff_view_get_context Rdiff_view_set_flags Rdiff_view_get_flags Rdiff_view_set_word_diff
+//     Rdiff_view_set_line_numbers Rdiff_view_set_language Rdiff_view_get_change_count Rdiff_view_get_change
+//     Rdiff_view_go_to_change Rdiff_view_get_current_change Rdiff_view_next_change Rdiff_view_prev_change
+//     Rdiff_view_get_row_count Rdiff_view_get_row Rdiff_view_get_row_text Rdiff_view_expand
+//     Rdiff_view_get_first_visible_row Rdiff_view_scroll_to_row Rdiff_view_add_annotation
+//     Rdiff_view_clear_annotations Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback
+//     Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden
 //
 //   a callback (105):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
@@ -92,9 +99,9 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (9):
+//   a handle result that is not known (10):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
-//     Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
+//     Rcarousel_create Rmap_view_create Rpdf_document_create Rdiff_view_create Rtest_find
 //
 //   a parameter of type const uint8_t* (8):
 //     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rimage_encode_png Rimage_save_png
@@ -130,6 +137,9 @@
 //   a parameter of type const RPdfPrintDesc* (3):
 //     Rpdf_print Rpdf_print_file Rpdf_document_print
 //
+//   a result of type char* (3):
+//     Rpdf_document_save_memory Rdiff_unified Rfile_read
+//
 //   a parameter of type RInsets* (2):
 //     Rwindow_get_safe_area Rwindow_get_keyboard_area
 //
@@ -147,9 +157,6 @@
 //
 //   a parameter of type const double* (2):
 //     Rplot_set_series_data Rplot_append_series_data
-//
-//   a result of type char* (2):
-//     Rpdf_document_save_memory Rfile_read
 //
 //   a parameter of type RAccessibilitySettings* (1):
 //     Raccessibility_get_system_settings
@@ -713,6 +720,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +795,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +811,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -4978,6 +5009,13 @@ block_editor_set_view :: proc(editor: Widget, x: f32, y: f32, zoom: f32) {
 	raw.Rblock_editor_set_view(raw.Rid(editor), x, y, zoom)
 }
 
+// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+diff_count_changes :: proc(left: string, right: string, flags: u32) -> i32 {
+	buffer_left: [cstring_buffer_size]u8
+	buffer_right: [cstring_buffer_size]u8
+	return raw.Rdiff_count_changes(to_cstring(left, &buffer_left), to_cstring(right, &buffer_right), flags)
+}
+
 // Closes the dialog that contains a widget (the content itself or
 // anything inside it: the button that was clicked).
 // result Passed to the closed callback and returned by Rdialog_run.
@@ -5897,6 +5935,15 @@ host_inject_key :: proc(window: Window, key: Key, pressed: bool, modifiers: u32,
 // One typed Unicode code point.
 host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
+}
+
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
 }
 
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.

@@ -18,6 +18,7 @@
 #   charts           a dashboard: KPI tiles with sparklines, a pie, a donut, gauges with bands, a heatmap
 #   map              a MapView whose tiles it draws itself (offline), markers, flights; or tiles from files
 #   carousel         pages swiped one at a time: an onboarding with dots, arrows, loop and autoplay
+#   diff_view        two versions of a file compared: side by side or unified, folds, changes, a note
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -42,7 +43,7 @@ function(raven_add_example name)
 		file(GLOB_RECURSE assets CONFIGURE_DEPENDS
 			"${name}/*.xml" "${name}/*.svg" "${name}/*.md"
 			"${name}/*.frag" "${name}/*.png" "${name}/*.jpg"
-			"${name}/*.jpeg" "${name}/*.webp")
+			"${name}/*.jpeg" "${name}/*.webp" "${name}/samples/*")
 		foreach(asset IN LISTS assets)
 			file(RELATIVE_PATH relative "${CMAKE_CURRENT_SOURCE_DIR}" "${asset}")
 			target_link_options(raven_${name} PRIVATE
@@ -77,6 +78,7 @@ raven_add_example(charts charts/main.c charts/charts.xml)
 raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(map map/main.c map/world.h map/map.xml)
 raven_add_example(carousel carousel/main.c carousel/carousel.xml)
+raven_add_example(diff_view diff_view/main.c diff_view/diff_view.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml

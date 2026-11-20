@@ -517,7 +517,7 @@ static void build_content(te_text* x) {
 		"Swatches=\"#0A84FF, #5E5CE6, #BF5AF2, #FF375F, #FF453A, #FF9F0A, #FFD60A, #30D158, #64D2FF, #22D3EE, #8E8E93\"/>");
 
 	add_eyebrow(x, "PALETTE FROM THE ACCENT");
-	add_hint(x, "Works out the 36 colors and the syntax colors from the accent: surfaces tinted with its hue, readable text, matching states and status colors. Fine-tune them in Colors afterwards.");
+	add_hint(x, "Works out the 40 colors and the syntax colors from the accent: surfaces tinted with its hue, readable text, matching states and status colors. Fine-tune them in Colors afterwards.");
 	te_add(x, "<Grid Columns=\"auto,1,auto\" Spacing=\"8\">"
 		"<Label Text=\"Tint\" Slot.Column=\"0\" Slot.Row=\"0\" Slot.VAlign=\"Center\"/>"
 		"<Slider Name=\"tint\" Min=\"0\" Max=\"1\" Value=\"0.35\" Slot.Column=\"1\" Slot.Row=\"0\" Tooltip=\"How much the surfaces take the hue of the accent\"/>"
@@ -541,7 +541,7 @@ static void build_content(te_text* x) {
 
 	/* ---- colors ---- */
 	te_add(x, "<VBox Slot.Title=\"Colors\" Spacing=\"8\" Slot.Padding=\"12\">"
-		"<HBox Spacing=\"8\"><TextInput Name=\"filter\" Placeholder=\"Filter the 36 colors\" Slot.Fill=\"1\"/>"
+		"<HBox Spacing=\"8\"><TextInput Name=\"filter\" Placeholder=\"Filter the 40 colors\" Slot.Fill=\"1\"/>"
 		"<Button Text=\"Reset all\" Style=\"Flat\" OnClicked=\"te.reset.colors\"/></HBox>"
 		"<ScrollBox Slot.Fill=\"1\"><VBox Spacing=\"2\" Slot.Padding=\"0,0,8,0\">");
 	for (i = 0; i < TE_COLOR_COUNT; i++) {

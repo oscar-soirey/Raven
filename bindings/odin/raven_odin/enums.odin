@@ -567,6 +567,12 @@ Color_Role :: enum i32 {
 	Link = 0x0122,
 	// Background of code in formatted text.
 	Code = 0x0123,
+	// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+	Diff_Added = 0x0124,
+	Diff_Removed = 0x0125,
+	// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+	Diff_Added_Word = 0x0126,
+	Diff_Removed_Word = 0x0127,
 }
 
 // Sizes, in logical units.
@@ -719,6 +725,8 @@ Widget_Type :: enum i32 {
 	Map_View = 0x0235,
 	// Pages shown one at a time and swiped (a page view), with dots and arrows.
 	Carousel = 0x0236,
+	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+	Diff_View = 0x0237,
 }
 
 H_Align :: enum i32 {
@@ -1136,6 +1144,50 @@ Block_Place :: enum i32 {
 	Body = 0x0711,
 	Input = 0x0712,
 }
+
+Diff_View_Mode :: enum i32 {
+	// One column: the removed lines, then the added lines, between the lines kept.
+	Unified = 0x0C50,
+	// Two columns: the left text and the right text side by side, aligned.
+	Split = 0x0C51,
+}
+
+Diff_Side :: enum i32 {
+	// The text before (the old one, "a/", the lines removed).
+	Left = 0x0C54,
+	// The text after (the new one, "b/", the lines added).
+	Right = 0x0C55,
+}
+
+Diff_Row_Kind :: enum i32 {
+	// A line that is on both sides.
+	Same = 0x0C58,
+	// A line of the left text only.
+	Removed = 0x0C59,
+	// A line of the right text only.
+	Added = 0x0C5A,
+	// Split mode: a removed line facing the added line that replaces it.
+	Changed = 0x0C5B,
+	// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+	Fold = 0x0C5C,
+	// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+	Hunk = 0x0C5D,
+	// A patch: the names of a file.
+	File = 0x0C5E,
+	// A note attached to the line above it (Rdiff_view_add_annotation).
+	Note = 0x0C5F,
+}
+
+// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+Diff_Flag :: enum u32 {
+	// Spaces and tabs at the end of a line (and a carriage return) do not count.
+	Trailing_Space = 0,
+	// No space or tab counts, wherever it is.
+	Space = 1,
+	// Upper and lower case letters are the same (A to Z).
+	Case = 2,
+}
+Diff_Flags :: bit_set[Diff_Flag; u32]
 
 // How much a notification of the system asks for attention (Rnotification_show).
 Notification_Urgency :: enum i32 {

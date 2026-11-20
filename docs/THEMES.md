@@ -183,7 +183,7 @@ widget takes from the nearest ancestor that has one.
 
 | Element | |
 |---|---|
-| `<Colors>` | one attribute per role: `Window Panel Border Text TextDisabled TextPlaceholder Accent AccentHovered AccentPressed AccentText Control ControlHovered ControlPressed ControlBorder Input Focus Selection RowHovered Track Handle HandleHovered Separator Header HeaderHovered TabActive Popup PopupBorder Shadow Tooltip TooltipText Switch Success Warning Danger Link Code` |
+| `<Colors>` | one attribute per role: `Window Panel Border Text TextDisabled TextPlaceholder Accent AccentHovered AccentPressed AccentText Control ControlHovered ControlPressed ControlBorder Input Focus Selection RowHovered Track Handle HandleHovered Separator Header HeaderHovered TabActive Popup PopupBorder Shadow Tooltip TooltipText Switch Success Warning Danger Link Code DiffAdded DiffRemoved DiffAddedWord DiffRemovedWord` |
 | `<Metrics>` | `FontSize CornerRadius BorderWidth ControlHeight PaddingX PaddingY Spacing ScrollbarSize RowHeight Indent SplitterSize CheckSize SliderHandleSize PopupRadius BlurRadius` |
 | `<Glass>` | `Frost Refraction Saturation Rim Shadow`: multipliers of what the glass of the theme does (1 = as designed, 0 = none) |
 | `<Syntax>` | colors of code in the text editor: `Comment String Number Keyword Type Function Tag Attribute Punctuation Directive Heading Strong Emphasis Link` |
@@ -328,7 +328,7 @@ type and drag in it.
 
 - **Theme**: the name, the look it starts from, dark or light, the material,
   the motion, the accent (with swatches), the font and the wallpaper. *Generate
-  the palette* works out the 36 colors and the syntax colors from the accent:
+  the palette* works out the 40 colors and the syntax colors from the accent:
   surfaces tinted with its hue (*Tint*), as far apart as *Depth* says, text
   that reads, matching states and status colors. *Surprise me* tries another
   accent.

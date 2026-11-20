@@ -4732,13 +4732,126 @@ inline void block_editor_get_view(Rid editor, float* x, float* y, float* zoom) {
 
 inline void block_editor_set_view(Rid editor, float x, float y, float zoom) { Rblock_editor_set_view(editor, x, y, zoom); }
 
+/// The differences between two texts as a unified diff (the format
+/// of `diff -u` and `git diff`), with `context` unchanged lines around each
+/// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+/// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+/// the library: it may be called from any thread.
+/// Returns: The patch followed by a '\0' (an empty text when the texts are
+/// the same), to release with Rmemory_free; NULL when a text is NULL.
+/// `size` receives its length in bytes, and may be NULL.
+inline char* diff_unified(const char* left, const char* right, const char* left_name, const char* right_name, int context, uint32_t flags, size_t* size) { return Rdiff_unified(left, right, left_name, right_name, context, flags, size); }
+
+/// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+inline int diff_count_changes(const char* left, const char* right, uint32_t flags) { return Rdiff_count_changes(left, right, flags); }
+
+inline Rid diff_view_create() { return Rdiff_view_create(); }
+
+/// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+inline void diff_view_set_texts(Rid diff_view, const char* left, const char* right) { Rdiff_view_set_texts(diff_view, left, right); }
+
+/// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+inline void diff_view_set_names(Rid diff_view, const char* left_name, const char* right_name) { Rdiff_view_set_names(diff_view, left_name, right_name); }
+
+/// Compares two files. Their paths become the names unless names
+/// were given. Returns: R_FALSE when a file cannot be read (it is compared
+/// as empty).
+inline int diff_view_load_files(Rid diff_view, const char* left_path, const char* right_path) { return Rdiff_view_load_files(diff_view, left_path, right_path); }
+
+/// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+/// instead of two texts: each file with its name, each hunk with its header.
+/// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+inline int diff_view_set_patch(Rid diff_view, const char* patch) { return Rdiff_view_set_patch(diff_view, patch); }
+
+inline void diff_view_set_mode(Rid diff_view, RDiffViewMode mode) { Rdiff_view_set_mode(diff_view, mode); }
+
+inline RDiffViewMode diff_view_get_mode(Rid diff_view) { return Rdiff_view_get_mode(diff_view); }
+
+/// Unchanged lines shown around each change (3 by default); the
+/// others are folded. A negative number shows every line.
+inline void diff_view_set_context(Rid diff_view, int lines) { Rdiff_view_set_context(diff_view, lines); }
+
+inline int diff_view_get_context(Rid diff_view) { return Rdiff_view_get_context(diff_view); }
+
+/// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+inline void diff_view_set_flags(Rid diff_view, uint32_t flags) { Rdiff_view_set_flags(diff_view, flags); }
+
+inline uint32_t diff_view_get_flags(Rid diff_view) { return Rdiff_view_get_flags(diff_view); }
+
+/// Marks the words that changed inside a changed line (default R_TRUE).
+inline void diff_view_set_word_diff(Rid diff_view, int enabled) { Rdiff_view_set_word_diff(diff_view, enabled); }
+
+/// Shows the numbers of the lines (default R_TRUE).
+inline void diff_view_set_line_numbers(Rid diff_view, int visible) { Rdiff_view_set_line_numbers(diff_view, visible); }
+
+/// Colors the code as the text editor does: a language name of
+/// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+/// NULL (default) to guess it from the extension of the names.
+inline void diff_view_set_language(Rid diff_view, const char* language) { Rdiff_view_set_language(diff_view, language); }
+
+/// The number of changes: runs of lines removed and / or added.
+inline int diff_view_get_change_count(Rid diff_view) { return Rdiff_view_get_change_count(diff_view); }
+
+/// Where a change is: its first line and its number of lines on
+/// each side (a count of 0: nothing on that side; the line is then the one
+/// after which the other side's lines go). Returns: R_FALSE when there is
+/// no such change.
+inline int diff_view_get_change(Rid diff_view, int change, int* left_line, int* left_count, int* right_line, int* right_count) { return Rdiff_view_get_change(diff_view, change, left_line, left_count, right_line, right_count); }
+
+/// Scrolls to a change (from 0) and marks it as the current one.
+inline void diff_view_go_to_change(Rid diff_view, int change) { Rdiff_view_go_to_change(diff_view, change); }
+
+/// The current change, -1 before the first one is gone to.
+inline int diff_view_get_current_change(Rid diff_view) { return Rdiff_view_get_current_change(diff_view); }
+
+/// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+inline int diff_view_next_change(Rid diff_view) { return Rdiff_view_next_change(diff_view); }
+
+inline int diff_view_prev_change(Rid diff_view) { return Rdiff_view_prev_change(diff_view); }
+
+/// The rows shown, folds, hunk headers and notes included.
+inline int diff_view_get_row_count(Rid diff_view) { return Rdiff_view_get_row_count(diff_view); }
+
+/// What a row shows, and the numbers of its lines (0 for a side it
+/// has no line of). A fold gives the first line it hides on each side.
+inline RDiffRowKind diff_view_get_row(Rid diff_view, int row, int* left_line, int* right_line) { return Rdiff_view_get_row(diff_view, row, left_line, right_line); }
+
+/// The text of a row on one side (in unified mode the side does not
+/// matter for a line); a fold, a hunk, a file or a note give their label.
+/// Valid until the next call. "" when there is none.
+inline const char* diff_view_get_row_text(Rid diff_view, int row, RDiffSide side) { return Rdiff_view_get_row_text(diff_view, row, side); }
+
+/// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+inline int diff_view_expand(Rid diff_view, int row) { return Rdiff_view_expand(diff_view, row); }
+
+/// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+inline int diff_view_get_first_visible_row(Rid diff_view) { return Rdiff_view_get_first_visible_row(diff_view); }
+
+inline void diff_view_scroll_to_row(Rid diff_view, int row) { Rdiff_view_scroll_to_row(diff_view, row); }
+
+/// Attaches a short note to a line (a review comment, an error): a
+/// mark in the gutter and the text in a row under the line, which is never
+/// folded away. Several notes may go to one line.
+inline void diff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const char* text) { Rdiff_view_add_annotation(diff_view, side, line, text); }
+
+inline void diff_view_clear_annotations(Rid diff_view) { Rdiff_view_clear_annotations(diff_view); }
+
+/// The text selected by the user ("" when none), one line after another.
+inline const char* diff_view_get_selected_text(Rid diff_view) { return Rdiff_view_get_selected_text(diff_view); }
+
+/// Called when a line or its number is clicked (the action of the widget is fired too).
+inline void diff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data) { Rdiff_view_set_line_clicked_callback(diff_view, callback, user_data); }
+inline void diff_view_set_line_clicked_callback(Rid diff_view, std::function<void(Rid, RDiffSide, int, int)> callback) {
+	Rdiff_view_set_line_clicked_callback(diff_view, [](Rid diff_view, RDiffSide side, int line, int in_gutter, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RDiffSide, int, int)>*>(kept_))(diff_view, side, line, in_gutter); }, detail::keep(diff_view, 108, std::move(callback)));
+}
+
 /// Shows a widget as a dialog of a window. The window takes
 /// ownership of `content`: it is deleted when the dialog closes, so read
 /// what you need from it before, or in `closed`.
 /// The Escape key dismisses the dialog (result 0).
 inline void dialog_open(Rid window, Rid content, RDialogClosedCallback closed, void* user_data) { Rdialog_open(window, content, closed, user_data); }
 inline void dialog_open(Rid window, Rid content, std::function<void(Rid, int)> closed) {
-	Rdialog_open(window, content, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 108, std::move(closed)));
+	Rdialog_open(window, content, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 109, std::move(closed)));
 }
 
 /// Closes the dialog that contains a widget (the content itself or
@@ -4758,7 +4871,7 @@ inline int dialog_run(Rid window, Rid content) { return Rdialog_run(window, cont
 /// The content draws its own background (a Border with a Background...).
 inline void popup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data) { Rpopup_open(window, content, x, y, closed, user_data); }
 inline void popup_open(Rid window, Rid content, float x, float y, std::function<void(Rid, int)> closed) {
-	Rpopup_open(window, content, x, y, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 109, std::move(closed)));
+	Rpopup_open(window, content, x, y, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 110, std::move(closed)));
 }
 
 /// Closes the popup that contains a widget (the content or anything inside it).
@@ -4824,7 +4937,7 @@ inline int notification_is_supported() { return Rnotification_is_supported(); }
 /// Called with the notifications the system could not show; NULL: none.
 inline void notification_set_fallback(RNotificationFallback callback, void* user_data) { Rnotification_set_fallback(callback, user_data); }
 inline void notification_set_fallback(std::function<void(const char*, const char*, RNotificationUrgency)> callback) {
-	Rnotification_set_fallback([](const char* title, const char* body, RNotificationUrgency urgency, void* kept_) -> void { return (*static_cast<std::function<void(const char*, const char*, RNotificationUrgency)>*>(kept_))(title, body, urgency); }, detail::keep(0, 110, std::move(callback)));
+	Rnotification_set_fallback([](const char* title, const char* body, RNotificationUrgency urgency, void* kept_) -> void { return (*static_cast<std::function<void(const char*, const char*, RNotificationUrgency)>*>(kept_))(title, body, urgency); }, detail::keep(0, 111, std::move(callback)));
 }
 
 /// Called when the user clicks a notification of Rnotification_show
@@ -4834,7 +4947,7 @@ inline void notification_set_fallback(std::function<void(const char*, const char
 /// Windows and macOS (elsewhere it is never called).
 inline void notification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) { Rnotification_set_clicked_callback(callback, user_data); }
 inline void notification_set_clicked_callback(std::function<void()> callback) {
-	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 111, std::move(callback)));
+	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 112, std::move(callback)));
 }
 
 /// Pushes a spring away from its target (units per second): it bounces back.
@@ -4896,7 +5009,7 @@ inline int xml_get_live_reload() { return Rxml_get_live_reload(); }
 
 inline void xml_set_reload_callback(RXmlReloadCallback callback, void* user_data) { Rxml_set_reload_callback(callback, user_data); }
 inline void xml_set_reload_callback(std::function<void(const char*, int)> callback) {
-	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 112, std::move(callback)));
+	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 113, std::move(callback)));
 }
 
 /// Looks at the files now, without waiting for the next look
@@ -4925,7 +5038,7 @@ inline const char* xml_get_registered_widget_name(int index) { return Rxml_get_r
 /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, void* user_data) { return Rxml_register_tag(tag, create, set_attribute, user_data); }
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, std::function<int(Rid, const char*, const char*)> set_attribute) {
-	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 113, std::move(set_attribute)));
+	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 114, std::move(set_attribute)));
 }
 
 inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
@@ -5007,12 +5120,12 @@ inline void script_set_limits(Ruint max_instructions, int max_depth, size_t max_
 
 inline void script_set_log_callback(RScriptLogCallback callback, void* user_data) { Rscript_set_log_callback(callback, user_data); }
 inline void script_set_log_callback(std::function<void(const char*)> callback) {
-	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 114, std::move(callback)));
+	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 115, std::move(callback)));
 }
 
 inline void script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) { Rscript_set_diagnostic_callback(callback, user_data); }
 inline void script_set_diagnostic_callback(std::function<void(RSeverity, const char*, const char*, int, int, const char*)> callback) {
-	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 115, std::move(callback)));
+	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 116, std::move(callback)));
 }
 
 /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
@@ -5054,7 +5167,7 @@ inline int locale_is_rtl() { return Rlocale_is_rtl(); }
 /// Called after the language or the tables changed (the widgets are already updated).
 inline void locale_set_changed_callback(RLocaleChangedCallback callback, void* user_data) { Rlocale_set_changed_callback(callback, user_data); }
 inline void locale_set_changed_callback(std::function<void(const char*)> callback) {
-	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 116, std::move(callback)));
+	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 117, std::move(callback)));
 }
 
 /// The text of a key in the current language (see the fallbacks above). Never NULL.

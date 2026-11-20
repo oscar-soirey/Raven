@@ -235,7 +235,9 @@ static int rvn_locale_is_key(const char* text) {
 static int rvn_locale_attribute_is_text(const char* name) {
 	static const char* const names[] = {
 		"Name", "Id", "Class", "Theme", "Action", "Source", "Style", "Cursor", "Font", "Icon", "Image", "Texture",
-		"Visibility", "Material", "Appear", "DockTo", "Shortcut", "Language", "Direction"
+		"Visibility", "Material", "Appear", "DockTo", "Shortcut", "Language", "Direction",
+		/* a unified diff starts with "@@" (DiffView) */
+		"Patch"
 	};
 	size_t i;
 	if (rvn_strnicmp(name, "On", 2) == 0 && name[2] >= 'A' && name[2] <= 'Z') return R_FALSE;

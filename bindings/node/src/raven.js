@@ -557,8 +557,12 @@ export const RColorRole = _enum({
 	R_COLOR_DANGER: 289,
 	R_COLOR_LINK: 290,
 	R_COLOR_CODE: 291,
+	R_COLOR_DIFF_ADDED: 292,
+	R_COLOR_DIFF_REMOVED: 293,
+	R_COLOR_DIFF_ADDED_WORD: 294,
+	R_COLOR_DIFF_REMOVED_WORD: 295,
 });
-export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE } = RColorRole;
+export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE, R_COLOR_DIFF_ADDED, R_COLOR_DIFF_REMOVED, R_COLOR_DIFF_ADDED_WORD, R_COLOR_DIFF_REMOVED_WORD } = RColorRole;
 
 export const RMetric = _enum({
 	R_METRIC_FONT_SIZE: 320,
@@ -655,8 +659,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CHART: 564,
 	R_WIDGET_MAP_VIEW: 565,
 	R_WIDGET_CAROUSEL: 566,
+	R_WIDGET_DIFF_VIEW: 567,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_DIFF_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -981,6 +986,37 @@ export const RBlockPlace = _enum({
 	R_BLOCK_INPUT: 1810,
 });
 export const { R_BLOCK_NEXT, R_BLOCK_BODY, R_BLOCK_INPUT } = RBlockPlace;
+
+export const RDiffViewMode = _enum({
+	R_DIFF_VIEW_UNIFIED: 3152,
+	R_DIFF_VIEW_SPLIT: 3153,
+});
+export const { R_DIFF_VIEW_UNIFIED, R_DIFF_VIEW_SPLIT } = RDiffViewMode;
+
+export const RDiffSide = _enum({
+	R_DIFF_LEFT: 3156,
+	R_DIFF_RIGHT: 3157,
+});
+export const { R_DIFF_LEFT, R_DIFF_RIGHT } = RDiffSide;
+
+export const RDiffRowKind = _enum({
+	R_DIFF_ROW_SAME: 3160,
+	R_DIFF_ROW_REMOVED: 3161,
+	R_DIFF_ROW_ADDED: 3162,
+	R_DIFF_ROW_CHANGED: 3163,
+	R_DIFF_ROW_FOLD: 3164,
+	R_DIFF_ROW_HUNK: 3165,
+	R_DIFF_ROW_FILE: 3166,
+	R_DIFF_ROW_NOTE: 3167,
+});
+export const { R_DIFF_ROW_SAME, R_DIFF_ROW_REMOVED, R_DIFF_ROW_ADDED, R_DIFF_ROW_CHANGED, R_DIFF_ROW_FOLD, R_DIFF_ROW_HUNK, R_DIFF_ROW_FILE, R_DIFF_ROW_NOTE } = RDiffRowKind;
+
+export const RDiffFlags = _enum({
+	R_DIFF_IGNORE_TRAILING_SPACE: 1,
+	R_DIFF_IGNORE_SPACE: 2,
+	R_DIFF_IGNORE_CASE: 4,
+});
+export const { R_DIFF_IGNORE_TRAILING_SPACE, R_DIFF_IGNORE_SPACE, R_DIFF_IGNORE_CASE } = RDiffFlags;
 
 export const RNotificationUrgency = _enum({
 	R_NOTIFICATION_LOW: 1264,
@@ -4522,6 +4558,38 @@ export const Rblock_editor_get_selected = _lib.Rblock_editor_get_selected;
 export const Rblock_editor_select = _lib.Rblock_editor_select;
 export const Rblock_editor_get_view = _lib.Rblock_editor_get_view;
 export const Rblock_editor_set_view = _lib.Rblock_editor_set_view;
+export const Rdiff_unified = _lib.Rdiff_unified;
+export const Rdiff_count_changes = _lib.Rdiff_count_changes;
+export const Rdiff_view_create = _lib.Rdiff_view_create;
+export const Rdiff_view_set_texts = _lib.Rdiff_view_set_texts;
+export const Rdiff_view_set_names = _lib.Rdiff_view_set_names;
+export const Rdiff_view_load_files = _lib.Rdiff_view_load_files;
+export const Rdiff_view_set_patch = _lib.Rdiff_view_set_patch;
+export const Rdiff_view_set_mode = _lib.Rdiff_view_set_mode;
+export const Rdiff_view_get_mode = _lib.Rdiff_view_get_mode;
+export const Rdiff_view_set_context = _lib.Rdiff_view_set_context;
+export const Rdiff_view_get_context = _lib.Rdiff_view_get_context;
+export const Rdiff_view_set_flags = _lib.Rdiff_view_set_flags;
+export const Rdiff_view_get_flags = _lib.Rdiff_view_get_flags;
+export const Rdiff_view_set_word_diff = _lib.Rdiff_view_set_word_diff;
+export const Rdiff_view_set_line_numbers = _lib.Rdiff_view_set_line_numbers;
+export const Rdiff_view_set_language = _lib.Rdiff_view_set_language;
+export const Rdiff_view_get_change_count = _lib.Rdiff_view_get_change_count;
+export const Rdiff_view_get_change = _lib.Rdiff_view_get_change;
+export const Rdiff_view_go_to_change = _lib.Rdiff_view_go_to_change;
+export const Rdiff_view_get_current_change = _lib.Rdiff_view_get_current_change;
+export const Rdiff_view_next_change = _lib.Rdiff_view_next_change;
+export const Rdiff_view_prev_change = _lib.Rdiff_view_prev_change;
+export const Rdiff_view_get_row_count = _lib.Rdiff_view_get_row_count;
+export const Rdiff_view_get_row = _lib.Rdiff_view_get_row;
+export const Rdiff_view_get_row_text = _lib.Rdiff_view_get_row_text;
+export const Rdiff_view_expand = _lib.Rdiff_view_expand;
+export const Rdiff_view_get_first_visible_row = _lib.Rdiff_view_get_first_visible_row;
+export const Rdiff_view_scroll_to_row = _lib.Rdiff_view_scroll_to_row;
+export const Rdiff_view_add_annotation = _lib.Rdiff_view_add_annotation;
+export const Rdiff_view_clear_annotations = _lib.Rdiff_view_clear_annotations;
+export const Rdiff_view_get_selected_text = _lib.Rdiff_view_get_selected_text;
+export const Rdiff_view_set_line_clicked_callback = _lib.Rdiff_view_set_line_clicked_callback;
 export const Rdialog_open = _lib.Rdialog_open;
 export const Rdialog_close = _lib.Rdialog_close;
 export const Rdialog_run = _lib.Rdialog_run;

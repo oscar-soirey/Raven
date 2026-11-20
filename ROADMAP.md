@@ -96,6 +96,8 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Widgets
 
+- [x] Diff view: two texts or a patch, unified or side by side, folds,
+  words that changed, notes on lines, virtualized.
 - [ ] Table: several selected rows, cells that are edited in place, cells
   holding a widget (a checkbox, a progress bar), frozen first column.
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a

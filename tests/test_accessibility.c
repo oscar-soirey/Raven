@@ -105,6 +105,54 @@ static void test_carousel(void) {
 	Rwindow_destroy(window);
 }
 
+/* A diff view is a list of its rows, each read with what happened to its line; a fold opens when pressed. */
+static void test_diff_view(void) {
+	rvn_a11y_node_t node;
+	Rid window = Rwindow_create("Diff", 500, 300, 0);
+	Rid view = Rdiff_view_create();
+	rvn_a11y_id_t row;
+	int i, rows;
+	char left[256] = "", right[256] = "";
+	for (i = 1; i <= 12; i++) {
+		char line[16];
+		snprintf(line, sizeof(line), "line %d\n", i);
+		strcat(left, line);
+		strcat(right, i == 10 ? "line ten\n" : line);
+	}
+	Rdiff_view_set_texts(view, left, right);
+	Rdiff_view_set_context(view, 1);
+	Rwindow_set_content(window, view);
+	Rdraw_frame();
+	CHECK(rvn_a11y_describe(view, &node));
+	CHECK(node.role == R_ROLE_LIST);
+	CHECK_STR(node.value, "1 change");
+	/* a fold of 8 lines, line 9, removed 10, added 10, line 11, line 12 */
+	rows = Rdiff_view_get_row_count(view);
+	CHECK(rows == 6);
+	CHECK(rvn_a11y_child_count(view) == rows);
+	CHECK(rvn_a11y_describe(rvn_a11y_child(view, 2), &node));
+	CHECK(node.role == R_ROLE_LIST_ITEM);
+	CHECK_STR(node.name, "removed line 10: line 10");
+	CHECK(rvn_a11y_describe(rvn_a11y_child(view, 3), &node));
+	CHECK_STR(node.name, "added line 10: line ten");
+	CHECK(rvn_a11y_describe(rvn_a11y_child(view, 1), &node));
+	CHECK_STR(node.name, "line 9: line 9");
+	row = rvn_a11y_child(view, 0);
+	CHECK(rvn_a11y_describe(row, &node));
+	CHECK_STR(node.name, "8 unchanged lines, folded");
+	CHECK(node.states & RVN_A11Y_EXPANDABLE);
+	CHECK(rvn_a11y_act(row, RVN_A11Y_PRESS));
+	CHECK(Rdiff_view_get_row_count(view) == 13);
+	/* side by side: one row for the pair */
+	Rdiff_view_set_mode(view, R_DIFF_VIEW_SPLIT);
+	Rdiff_view_go_to_change(view, 0);
+	CHECK(rvn_a11y_describe(view, &node));
+	CHECK_STR(node.value, "change 1 of 1");
+	CHECK(rvn_a11y_describe(rvn_a11y_child(view, 9), &node));
+	CHECK_STR(node.name, "removed line 10: line 10; added line 10: line ten");
+	Rwindow_destroy(window);
+}
+
 /* What VoiceOver and TalkBack are told (core/accessibility_touch.c), and the double tap / swipe they act with. */
 static void test_touch(void) {
 	rvn_a11y_node_t node;
@@ -325,6 +373,7 @@ int main(void) {
 	RUN(test_custom_actions);
 	RUN(test_default_checked);
 	RUN(test_carousel);
+	RUN(test_diff_view);
 	RUN(test_touch);
 	RUN(test_touch_roles);
 	RUN(test_switcher);
