@@ -5268,9 +5268,10 @@ xml_get_auto_load :: proc() -> bool {
 	return raw.Rxml_get_auto_load() != 0
 }
 
-// Turns live reload on or off. It is on by default; the
-// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
-// rebuilding. When off, files are never looked at again.
+// Turns live reload on or off. It is on by default, except in
+// the browser (Emscripten), where watching files would keep the page
+// drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+// default without rebuilding. When off, files are never looked at again.
 xml_set_live_reload :: proc(enabled: bool) {
 	raw.Rxml_set_live_reload((1 if enabled else 0))
 }
