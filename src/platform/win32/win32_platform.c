@@ -11,6 +11,7 @@
  *     Windows still moves, snaps and resizes them, from the answers to
  *     WM_NCHITTEST,
  *   - files dropped from the Explorer (WM_DROPFILES),
+ *   - clipboard formats and drags out of the windows (win32_transfer.c),
  *   - precision touchpads through Direct Manipulation (win32_manipulation.c):
  *     scrolling by pixels, its inertia and the pinch,
  *   - an event object so that other threads can wake the event loop.
@@ -41,6 +42,7 @@
 #include "win32_uia.h"
 #include "win32_manipulation.h"
 #include "win32_taskbar.h"
+#include "win32_transfer.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -1446,6 +1448,7 @@ static void rvn_win32_shutdown(void) {
 	rvn_win32_manipulation_shutdown();
 	rvn_win32_taskbar_shutdown();
 	rvn_win32_tray_shutdown();
+	rvn_win32_transfer_shutdown();
 	if (g_win32.wake_event) CloseHandle(g_win32.wake_event);
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
@@ -2070,6 +2073,28 @@ static char* rvn_win32_clipboard_get(void) {
 	return text;
 }
 
+/*
+ * A drag out of the window: DoDragDrop runs it and returns at its end. It
+ * takes the release of the button itself: the window lets the mouse go.
+ * The end reaches the core in its turn with the other events.
+ */
+static int rvn_win32_drag_begin(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
+	const uint8_t* rgba, int width, int height) {
+	rvn_pevent_t event;
+	int operation = R_DRAG_OPERATION_NONE;
+	if (!window || !window->handle) return R_FALSE;
+	if (window->buttons_down) {
+		window->buttons_down = 0;
+		ReleaseCapture();
+	}
+	if (!rvn_win32_drag(window->handle, items, count, operations, rgba, width, height, &operation)) return R_FALSE;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_DRAG_END;
+	event.operation = operation;
+	rvn_win32_emit_app(&event);
+	return R_TRUE;
+}
+
 /* ---------------------------------------------------------------------------
  *  Events
  * ------------------------------------------------------------------------- */
@@ -2202,6 +2227,10 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.wake = rvn_win32_wake,
 		.clipboard_set = rvn_win32_clipboard_set,
 		.clipboard_get = rvn_win32_clipboard_get,
+		.clipboard_set_data = rvn_win32_clipboard_set_data,
+		.clipboard_has_data = rvn_win32_clipboard_has_data,
+		.clipboard_get_data = rvn_win32_clipboard_get_data,
+		.drag_begin = rvn_win32_drag_begin,
 		.wait_service = rvn_win32_wait_service,
 		.a11y_event = rvn_win32_a11y_event,
 		.a11y_announce = rvn_win32_a11y_announce,

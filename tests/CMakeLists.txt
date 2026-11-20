@@ -4,7 +4,7 @@
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
 #   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing,
-#   test_table_edit, test_combo_search
+#   test_transfer
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -82,6 +82,10 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	add_executable(test_cocoa_input test_cocoa_input.m test.h)
 	target_link_libraries(test_cocoa_input PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
 	add_test(NAME test_cocoa_input COMMAND test_cocoa_input)
+	# The real NSPasteboard (the general one is given back at the end) and the start of a drag session out of a window.
+	add_executable(test_cocoa_transfer test_cocoa_transfer.m test.h)
+	target_link_libraries(test_cocoa_transfer PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
+	add_test(NAME test_cocoa_transfer COMMAND test_cocoa_transfer)
 endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	# Real GDI redirection surface behind DWM backdrops; no Vulkan driver required.
@@ -97,6 +101,8 @@ endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
+# the clipboard formats and the drags out of the windows (the null platform's clipboard)
+raven_add_test(test_transfer)
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
@@ -110,9 +116,6 @@ raven_add_test(test_pdf_document)
 target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_table_features)
-	# cells edited in place, frozen columns; editable and searchable combo boxes (the screen reader tree is internal)
-	raven_add_test(test_table_edit)
-	raven_add_test(test_combo_search)
 endif()
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)

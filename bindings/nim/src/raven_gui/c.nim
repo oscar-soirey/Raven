@@ -75,6 +75,8 @@ type
   REventType* = cint
   RDropPhase* = cint
     ## Moments of a drag coming from another application (files from the file manager, text...).
+  RDragOperation* = cint
+    ## What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
   RTouchMode* = cint
     ## What a finger does on a widget (Rwidget_set_touch_mode).
   RTouchPhase* = cint
@@ -250,6 +252,10 @@ type
     ## handle). Return R_TRUE to accept: while the pointer is over the target this
     ## shows the "can drop here" cursor and highlights the target; for
     ## R_DROP_DROPPED it tells the source that the data was taken.
+  RDragFinishedCallback* = proc (source: Rid, operation: RDragOperation, user_data: pointer) {.cdecl.}
+    ## The end of a drag out of the window (Rdrag_begin_external):
+    ## `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+    ## took it. Called once per drag, whatever ended it.
   RBackCallback* = proc (window: Rid, user_data: pointer): cint {.cdecl.}
     ## Called on Back when no popup or dialog of Raven is open. Return
     ## R_TRUE when the application went back, R_FALSE when it had nowhere to
@@ -542,6 +548,33 @@ type
       ## Glass: times the frame was copied and blurred to be seen through (0 without glass).
     paint_job_count*: uint32
     frame_index*: uint64
+  RDataItem* {.bycopy.} = object
+    ## One format of something given to the other applications: put on
+    ## the clipboard (Rclipboard_set_data) or dragged out of a window
+    ## (Rdrag_begin_external). The program that receives it takes the format
+    ## it prefers.
+    ##
+    ## `mime` names the format. Raven gives these their native names on each
+    ## system (and converts them), so that every program understands them:
+    ##
+    ##   text/plain      UTF-8 text
+    ##   text/html       HTML (UTF-8)
+    ##   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+    ##                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+    ##   text/uri-list   files, as file:// URLs, one per line: the file
+    ##                   manager copies or moves them, the other programs
+    ##                   open them
+    ##   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+    ##   application/json, text/csv, image/svg+xml
+    ##
+    ## Any other name is a format of the application ("application/x-myapp-node"):
+    ## passed as it is, and read back by the programs that know it (other
+    ## instances of the application).
+    mime*: cstring
+      ## The format: a MIME type.
+    data*: pointer
+      ## The bytes (copied by the function they are given to). Text is not followed by a '\0'.
+    size*: csize_t
   RInsets* {.bycopy.} = object
     ## Distances from the edges of a window, in logical units.
     top*: cfloat
@@ -1285,6 +1318,16 @@ const
     ## It left the target without dropping.
   R_DROP_DROPPED*: RDropPhase = 0x00E3
     ## The user dropped: `paths` and `text` hold what was dropped.
+
+  # RDragOperation
+  R_DRAG_OPERATION_NONE*: RDragOperation = 0
+    ## Nothing was taken: dropped where nothing accepted it, or cancelled.
+  R_DRAG_OPERATION_COPY*: RDragOperation = 1
+    ## The target made a copy: the source keeps its data.
+  R_DRAG_OPERATION_MOVE*: RDragOperation = 2
+    ## The target took the data: the source removes it (a file the file manager moved...).
+  R_DRAG_OPERATION_LINK*: RDragOperation = 4
+    ## The target made a link, an alias or a shortcut to it.
 
   # RTouchMode
   R_TOUCH_MODE_AUTO*: RTouchMode = 0x0480
@@ -2304,10 +2347,36 @@ proc Rclipboard_set_html*(text: cstring, html: cstring) {.rapi.}
   ## Copies one content in two formats: `html` for the programs that
   ## paste formatting (word processors, chat, mail) and `text` for the
   ## others (editors, terminals). Each program takes the format it prefers.
-  ## Where the window system has no clipboard formats (Win32 and macOS for
-  ## now), or `html` is NULL, it is Rclipboard_set_text(text).
+  ## Where the window system has no clipboard formats, or `html` is NULL,
+  ## it is Rclipboard_set_text(text).
 proc Rclipboard_get_text*(): cstring {.rapi.}
   ## Returns: The clipboard text, or "" when empty. Valid until the next call.
+proc Rclipboard_set_data*(items: ptr RDataItem, count: cint): cint {.rapi.}
+  ## Replaces what the clipboard holds with one content in several
+  ## formats (RDataItem): each program pastes the one it prefers.
+  ## Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+  ## some could not be (a window system that only takes text: X11 and
+  ## Wayland for now, where the text/plain item, if any, still is).
+proc Rclipboard_has_data*(mime: cstring): cint {.rapi.}
+  ## Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+proc Rclipboard_get_data*(mime: cstring, size: ptr csize_t): cstring {.rapi.}
+  ## What the clipboard holds in one format, converted from the
+  ## native one when needed (a bitmap given as image/png...).
+  ## Returns: The bytes, followed by a '\0' that `size` does not count, to
+  ## release with Rmemory_free; NULL when the clipboard does not hold it.
+proc Rclipboard_set_image*(rgba: ptr uint8, width: cint, height: cint, stride: cint): cint {.rapi.}
+  ## Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+  ## bytes apart (0: width * 4). It goes on the clipboard as image/png
+  ## (and as the bitmaps of the system), so that image editors, documents
+  ## and mail paste it.
+  ## Returns: R_FALSE when it could not be put there.
+proc Rclipboard_has_image*(): cint {.rapi.}
+  ## Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+proc Rclipboard_get_image*(width: ptr cint, height: ptr cint): ptr uint8 {.rapi.}
+  ## The picture on the clipboard (copied from any program: PNG,
+  ## TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+  ## Returns: The pixels, to release with Rpixels_free; NULL when there is
+  ## none (or no decoder: RAVEN_WITH_STB_IMAGE off).
 proc Rerror_get_last*(detail: ptr cstring, severity: ptr RSeverity): RError {.rapi.}
   ## Retrieves and clears the last recorded error.
   ## detail   Optional output: human-readable description.
@@ -2532,6 +2601,11 @@ proc Rwindow_inject_drag*(window: Rid, x: cfloat, y: cfloat, inside: cint): cint
   ## Returns: R_TRUE when a drop at this position would be accepted.
 proc Rwindow_inject_drop*(window: Rid, x: cfloat, y: cfloat, paths: cstringArray, path_count: cint, text: cstring): cint {.rapi.}
   ## Drops files and / or text at a position. Returns R_TRUE when a target took them.
+proc Rwindow_inject_drag_end*(window: Rid, operation: RDragOperation): cint {.rapi.}
+  ## The end of the drag out of the window that the window system
+  ## holds (Rdrag_begin_external), as it reports it: `operation` is what the
+  ## target did (an RDragOperation). Returns R_FALSE when no such drag is in
+  ## progress.
 proc Rwindow_inject_back*(window: Rid): cint {.rapi.}
   ## Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 proc Rwindow_is_key_down*(window: Rid, key: RKey): cint {.rapi.}
@@ -2593,6 +2667,42 @@ proc Rdrag_get_data*(window: Rid): cstring {.rapi.}
   ## Data of the drag in progress, or NULL.
 proc Rdrag_cancel*(window: Rid) {.rapi.}
   ## Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
+proc Rdrag_begin_external*(source: Rid, items: ptr RDataItem, count: cint, operations: uint32, callback: RDragFinishedCallback, user_data: pointer): cint {.rapi.}
+  ## Lets the user drag data out of the window, to another
+  ## application: a picture into a document, files into the file manager,
+  ## text into an editor. `items` is one content in several formats
+  ## (RDataItem, copied): the target takes the one it prefers.
+  ## `operations` is a bitmask of RDragOperation the target may do (0:
+  ## R_DRAG_OPERATION_COPY).
+  ##
+  ## Call it as Rdrag_begin, while the mouse button is held (from a mouse
+  ## move once the pointer has moved a few units). The window system then
+  ## takes the drag at the next move of the pointer: it shows the picture
+  ## that follows the pointer (Rdrag_set_image) and the cursor that tells
+  ## what a drop there does; the button released, `callback` (may be NULL)
+  ## is told what the target did.
+  ##
+  ## Called while a drag inside the application (Rdrag_begin) is in progress
+  ## in the window of `source`, it gives that drag the data for outside:
+  ## the drag stays inside the window, to its drop targets, and becomes a
+  ## drag of the window system only when the pointer leaves the window.
+  ## Brought back over a window of the application, it still comes to the
+  ## drop targets with the type and data given to Rdrag_begin.
+  ##
+  ## Implemented on macOS and Windows; elsewhere it returns R_FALSE
+  ## (Rdrag_external_supported).
+  ## Returns: R_FALSE when the widget is not in a window or the window
+  ## system cannot drag out of its windows.
+proc Rdrag_set_image*(rgba: ptr uint8, width: cint, height: cint) {.rapi.}
+  ## The picture that follows the pointer during the drag given by
+  ## Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+  ## copied), held by the pointer at its center. Call it right after
+  ## Rdrag_begin_external. Without it the system chooses: the picture
+  ## dragged, the icons of the files, or a generic one.
+proc Rdrag_external_supported*(): cint {.rapi.}
+  ## R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+proc Rdrag_external_is_active*(): cint {.rapi.}
+  ## R_TRUE from Rdrag_begin_external until its callback was called.
 proc Rwindow_register_shortcut*(window: Rid, key: RKey, modifiers: uint32, action: cstring) {.rapi.}
 proc Rwindow_unregister_shortcut*(window: Rid, key: RKey, modifiers: uint32) {.rapi.}
 proc Rtouch_get_settings*(settings: ptr RTouchSettings) {.rapi.}
@@ -3438,6 +3548,14 @@ proc Rtile_view_set_drag_type*(tile_view: Rid, `type`: cstring) {.rapi.}
   ## Tiles can be dragged: the selected tiles are given to Rdrag_begin
   ## with this type and, as data, their indices separated by spaces.
 proc Rtile_view_set_drag_data_callback*(tile_view: Rid, callback: RTileDragDataCallback, user_data: pointer) {.rapi.}
+proc Rtile_view_set_drag_out_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
+  ## Tiles can be dragged out of the window, to other applications:
+  ## when the user starts dragging the selected tiles (`index` is the one
+  ## under the pointer), the callback gives their data by calling
+  ## Rdrag_begin_external (the pictures, the files they stand for...), and
+  ## Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+  ## drag first goes to the drop targets of the window and only leaves it
+  ## with the pointer. NULL: the tiles stay in the application (default).
 proc Rtile_view_set_selection_changed_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
 proc Rtile_view_set_activated_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
 proc Rtile_view_set_context_callback*(tile_view: Rid, callback: RTileContextCallback, user_data: pointer) {.rapi.}

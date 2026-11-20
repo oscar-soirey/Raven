@@ -769,6 +769,16 @@ extern "C" {
 	 */
 	typedef const char* (*RTileDragDataCallback)(Rid tile_view, void* user_data);
 	RAVEN_API void Rtile_view_set_drag_data_callback(Rid tile_view, RTileDragDataCallback callback, void* user_data);
+	/**
+	 * @brief Tiles can be dragged out of the window, to other applications:
+	 * when the user starts dragging the selected tiles (`index` is the one
+	 * under the pointer), the callback gives their data by calling
+	 * Rdrag_begin_external (the pictures, the files they stand for...), and
+	 * Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+	 * drag first goes to the drop targets of the window and only leaves it
+	 * with the pointer. NULL: the tiles stay in the application (default).
+	 */
+	RAVEN_API void Rtile_view_set_drag_out_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 
 	RAVEN_API void Rtile_view_set_selection_changed_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 	RAVEN_API void Rtile_view_set_activated_callback(Rid tile_view, RTileEventCallback callback, void* user_data);

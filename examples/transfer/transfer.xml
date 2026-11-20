@@ -1,0 +1,25 @@
+<!-- Swatches to give to the other applications: copied, pasted, dragged out of the window. main.c makes the pictures and the data. -->
+<Window Title="Raven transfer" Width="920" Height="600">
+	<VBox Spacing="16" Slot.Padding="24">
+		<VBox Spacing="2">
+			<Label Text="Copy, paste and drag out" TextSize="26"/>
+			<Label Text="Drag a swatch to the Finder or the Explorer (a PNG file), into a document, a mail or an image editor (the picture). Copy one and paste it elsewhere; paste here a picture copied from anywhere." Opacity="0.6" Wrap="true"/>
+		</VBox>
+		<HBox Spacing="20" Slot.Fill="1">
+			<TileView Name="swatches" TileWidth="124" TileHeight="140" IconSize="96" Spacing="12" DragType="swatch" Slot.Fill="1"/>
+			<VBox Spacing="12" Width="300">
+				<Border Name="well" CornerRadius="16" Background="#80808022" BorderColor="#80808055" BorderWidth="1" Height="250" Padding="12">
+					<Image Name="preview" Stretch="Fit"/>
+				</Border>
+				<Label Name="caption" Text="Drop a swatch here, or paste a picture" Opacity="0.7" Slot.HAlign="Center"/>
+				<HBox Spacing="8">
+					<Button Text="Copy picture" OnClicked="transfer.copy" Slot.Fill="1"/>
+					<Button Text="Paste picture" OnClicked="transfer.paste" Slot.Fill="1"/>
+				</HBox>
+				<Button Text="Copy name as HTML" OnClicked="transfer.copy_html"/>
+				<Label Name="clipboard" Opacity="0.6" Wrap="true"/>
+				<Label Name="status" Wrap="true"/>
+			</VBox>
+		</HBox>
+	</VBox>
+</Window>

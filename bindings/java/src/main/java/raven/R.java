@@ -550,6 +550,24 @@ public final class R {
      */
     public static final int R_DROP_DROPPED = 0x00E3;
 
+    // RDragOperation: What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
+    /**
+     * Nothing was taken: dropped where nothing accepted it, or cancelled.
+     */
+    public static final int R_DRAG_OPERATION_NONE = 0;
+    /**
+     * The target made a copy: the source keeps its data.
+     */
+    public static final int R_DRAG_OPERATION_COPY = 1;
+    /**
+     * The target took the data: the source removes it (a file the file manager moved...).
+     */
+    public static final int R_DRAG_OPERATION_MOVE = 2;
+    /**
+     * The target made a link, an alias or a shortcut to it.
+     */
+    public static final int R_DRAG_OPERATION_LINK = 4;
+
     // RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
     /**
      * The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
@@ -2136,6 +2154,84 @@ public final class R {
 
         public long frame_index() { return s.get(JAVA_LONG, 48); }
         public RFrameStats frame_index(long value) { s.set(JAVA_LONG, 48, value); return this; }
+    }
+
+    /**
+     * One format of something given to the other applications: put on
+     * the clipboard (Rclipboard_set_data) or dragged out of a window
+     * (Rdrag_begin_external). The program that receives it takes the format
+     * it prefers.
+     *
+     * `mime` names the format. Raven gives these their native names on each
+     * system (and converts them), so that every program understands them:
+     *
+     *   text/plain      UTF-8 text
+     *   text/html       HTML (UTF-8)
+     *   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+     *                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+     *   text/uri-list   files, as file:// URLs, one per line: the file
+     *                   manager copies or moves them, the other programs
+     *                   open them
+     *   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+     *   application/json, text/csv, image/svg+xml
+     *
+     * Any other name is a format of the application ("application/x-myapp-node"):
+     * passed as it is, and read back by the programs that know it (other
+     * instances of the application).
+     */
+    public static final class RDataItem {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 24;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RDataItem x = {0};` is in C). */
+        public RDataItem() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RDataItem(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RDataItem(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RDataItem[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RDataItem[] items = new RDataItem[count];
+            for (int i = 0; i < count; i++) items[i] = new RDataItem(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * The format: a MIME type.
+         */
+        public String mime() { return R.text(s.get(ADDRESS, 0)); }
+        public RDataItem mime(String value) { s.set(ADDRESS, 0, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The bytes (copied by the function they are given to). Text is not followed by a '\0'.
+         */
+        public MemorySegment data() { return s.get(ADDRESS, 8); }
+        public RDataItem data(MemorySegment value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : value); return this; }
+
+        public long size() { return s.get(JAVA_LONG, 16); }
+        public RDataItem size(long value) { s.set(JAVA_LONG, 16, value); return this; }
     }
 
     /**
@@ -4568,6 +4664,29 @@ public final class R {
 
     private static MemorySegment upcall(RDropCallback f) {
         return stub(f, RDropCallback.class, "RDropCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * The end of a drag out of the window (Rdrag_begin_external):
+     * `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+     * took it. Called once per drag, whatever ended it.
+     */
+    @FunctionalInterface
+    public interface RDragFinishedCallback {
+        void invoke(int source, int operation, MemorySegment user_data);
+    }
+
+    private static void RDragFinishedCallback$raw(RDragFinishedCallback f, int source, int operation, MemorySegment user_data) {
+        try {
+            f.invoke(source, operation, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RDragFinishedCallback f) {
+        return stub(f, RDragFinishedCallback.class, "RDragFinishedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -7490,8 +7609,8 @@ public final class R {
      * Copies one content in two formats: `html` for the programs that
      * paste formatting (word processors, chat, mail) and `text` for the
      * others (editors, terminals). Each program takes the format it prefers.
-     * Where the window system has no clipboard formats (Win32 and macOS for
-     * now), or `html` is NULL, it is Rclipboard_set_text(text).
+     * Where the window system has no clipboard formats, or `html` is NULL,
+     * it is Rclipboard_set_text(text).
      */
     public static void Rclipboard_set_html(String text, String html) {
         MethodHandle $h = Rclipboard_set_html$;
@@ -7516,6 +7635,127 @@ public final class R {
         try {
             MemorySegment $r = (MemorySegment) $h.invokeExact();
             return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_set_data$;
+
+    /**
+     * Replaces what the clipboard holds with one content in several
+     * formats (RDataItem): each program pastes the one it prefers.
+     * Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+     * some could not be (a window system that only takes text: X11 and
+     * Wayland for now, where the text/plain item, if any, still is).
+     */
+    public static int Rclipboard_set_data(RDataItem items, int count) {
+        MethodHandle $h = Rclipboard_set_data$;
+        if ($h == null) Rclipboard_set_data$ = $h = find("Rclipboard_set_data", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (items == null ? MemorySegment.NULL : items.segment()), count);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_has_data$;
+
+    /**
+     * Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+     */
+    public static int Rclipboard_has_data(String mime) {
+        MethodHandle $h = Rclipboard_has_data$;
+        if ($h == null) Rclipboard_has_data$ = $h = find("Rclipboard_has_data", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment mime$ = mime == null ? MemorySegment.NULL : utf8($a, mime);
+            int $r = (int) $h.invokeExact(mime$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_get_data$;
+
+    /**
+     * What the clipboard holds in one format, converted from the
+     * native one when needed (a bitmap given as image/png...).
+     * Returns: The bytes, followed by a '\0' that `size` does not count, to
+     * release with Rmemory_free; NULL when the clipboard does not hold it.
+     */
+    public static byte[] Rclipboard_get_data(String mime) {
+        MethodHandle $h = Rclipboard_get_data$;
+        if ($h == null) Rclipboard_get_data$ = $h = find("Rclipboard_get_data", FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment mime$ = mime == null ? MemorySegment.NULL : utf8($a, mime);
+            MemorySegment size$ = $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(mime$, size$);
+            if ($r.equals(MemorySegment.NULL)) return null;
+            byte[] $data = $r.reinterpret(size$.get(JAVA_LONG, 0)).toArray(JAVA_BYTE);
+            Rmemory_free($r);
+            return $data;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_set_image$;
+
+    /**
+     * Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+     * bytes apart (0: width * 4). It goes on the clipboard as image/png
+     * (and as the bitmaps of the system), so that image editors, documents
+     * and mail paste it.
+     * Returns: R_FALSE when it could not be put there.
+     */
+    public static int Rclipboard_set_image(byte[] rgba, int width, int height, int stride) {
+        MethodHandle $h = Rclipboard_set_image$;
+        if ($h == null) Rclipboard_set_image$ = $h = find("Rclipboard_set_image", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            int $r = (int) $h.invokeExact(rgba$, width, height, stride);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_has_image$;
+
+    /**
+     * Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+     */
+    public static int Rclipboard_has_image() {
+        MethodHandle $h = Rclipboard_has_image$;
+        if ($h == null) Rclipboard_has_image$ = $h = find("Rclipboard_has_image", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_get_image$;
+
+    /**
+     * The picture on the clipboard (copied from any program: PNG,
+     * TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+     * Returns: The pixels, to release with Rpixels_free; NULL when there is
+     * none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+     */
+    public static MemorySegment Rclipboard_get_image(int[] width, int[] height) {
+        MethodHandle $h = Rclipboard_get_image$;
+        if ($h == null) Rclipboard_get_image$ = $h = find("Rclipboard_get_image", FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(width$, height$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -8821,6 +9061,25 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_inject_drag_end$;
+
+    /**
+     * The end of the drag out of the window that the window system
+     * holds (Rdrag_begin_external), as it reports it: `operation` is what the
+     * target did (an RDragOperation). Returns R_FALSE when no such drag is in
+     * progress.
+     */
+    public static int Rwindow_inject_drag_end(int window, int operation) {
+        MethodHandle $h = Rwindow_inject_drag_end$;
+        if ($h == null) Rwindow_inject_drag_end$ = $h = find("Rwindow_inject_drag_end", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, operation);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_inject_back$;
 
     /**
@@ -9218,6 +9477,129 @@ public final class R {
         if ($h == null) Rdrag_cancel$ = $h = find("Rdrag_cancel", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdrag_begin_external$;
+
+    /**
+     * Lets the user drag data out of the window, to another
+     * application: a picture into a document, files into the file manager,
+     * text into an editor. `items` is one content in several formats
+     * (RDataItem, copied): the target takes the one it prefers.
+     * `operations` is a bitmask of RDragOperation the target may do (0:
+     * R_DRAG_OPERATION_COPY).
+     *
+     * Call it as Rdrag_begin, while the mouse button is held (from a mouse
+     * move once the pointer has moved a few units). The window system then
+     * takes the drag at the next move of the pointer: it shows the picture
+     * that follows the pointer (Rdrag_set_image) and the cursor that tells
+     * what a drop there does; the button released, `callback` (may be NULL)
+     * is told what the target did.
+     *
+     * Called while a drag inside the application (Rdrag_begin) is in progress
+     * in the window of `source`, it gives that drag the data for outside:
+     * the drag stays inside the window, to its drop targets, and becomes a
+     * drag of the window system only when the pointer leaves the window.
+     * Brought back over a window of the application, it still comes to the
+     * drop targets with the type and data given to Rdrag_begin.
+     *
+     * Implemented on macOS and Windows; elsewhere it returns R_FALSE
+     * (Rdrag_external_supported).
+     * Returns: R_FALSE when the widget is not in a window or the window
+     * system cannot drag out of its windows.
+     */
+    public static int Rdrag_begin_external(int source, RDataItem items, int count, int operations, RDragFinishedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rdrag_begin_external$;
+        if ($h == null) Rdrag_begin_external$ = $h = find("Rdrag_begin_external", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact(source, (MemorySegment) (items == null ? MemorySegment.NULL : items.segment()), count, operations, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Lets the user drag data out of the window, to another
+     * application: a picture into a document, files into the file manager,
+     * text into an editor. `items` is one content in several formats
+     * (RDataItem, copied): the target takes the one it prefers.
+     * `operations` is a bitmask of RDragOperation the target may do (0:
+     * R_DRAG_OPERATION_COPY).
+     *
+     * Call it as Rdrag_begin, while the mouse button is held (from a mouse
+     * move once the pointer has moved a few units). The window system then
+     * takes the drag at the next move of the pointer: it shows the picture
+     * that follows the pointer (Rdrag_set_image) and the cursor that tells
+     * what a drop there does; the button released, `callback` (may be NULL)
+     * is told what the target did.
+     *
+     * Called while a drag inside the application (Rdrag_begin) is in progress
+     * in the window of `source`, it gives that drag the data for outside:
+     * the drag stays inside the window, to its drop targets, and becomes a
+     * drag of the window system only when the pointer leaves the window.
+     * Brought back over a window of the application, it still comes to the
+     * drop targets with the type and data given to Rdrag_begin.
+     *
+     * Implemented on macOS and Windows; elsewhere it returns R_FALSE
+     * (Rdrag_external_supported).
+     * Returns: R_FALSE when the widget is not in a window or the window
+     * system cannot drag out of its windows.
+     */
+    public static int Rdrag_begin_external(int source, RDataItem items, int count, int operations, RDragFinishedCallback callback) {
+        return Rdrag_begin_external(source, items, count, operations, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rdrag_set_image$;
+
+    /**
+     * The picture that follows the pointer during the drag given by
+     * Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+     * copied), held by the pointer at its center. Call it right after
+     * Rdrag_begin_external. Without it the system chooses: the picture
+     * dragged, the icons of the files, or a generic one.
+     */
+    public static void Rdrag_set_image(byte[] rgba, int width, int height) {
+        MethodHandle $h = Rdrag_set_image$;
+        if ($h == null) Rdrag_set_image$ = $h = find("Rdrag_set_image", FunctionDescriptor.ofVoid(ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            $h.invokeExact(rgba$, width, height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdrag_external_supported$;
+
+    /**
+     * R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+     */
+    public static int Rdrag_external_supported() {
+        MethodHandle $h = Rdrag_external_supported$;
+        if ($h == null) Rdrag_external_supported$ = $h = find("Rdrag_external_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdrag_external_is_active$;
+
+    /**
+     * R_TRUE from Rdrag_begin_external until its callback was called.
+     */
+    public static int Rdrag_external_is_active() {
+        MethodHandle $h = Rdrag_external_is_active$;
+        if ($h == null) Rdrag_external_is_active$ = $h = find("Rdrag_external_is_active", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -15211,6 +15593,40 @@ public final class R {
 
     public static void Rtile_view_set_drag_data_callback(int tile_view, RTileDragDataCallback callback) {
         Rtile_view_set_drag_data_callback(tile_view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtile_view_set_drag_out_callback$;
+
+    /**
+     * Tiles can be dragged out of the window, to other applications:
+     * when the user starts dragging the selected tiles (`index` is the one
+     * under the pointer), the callback gives their data by calling
+     * Rdrag_begin_external (the pictures, the files they stand for...), and
+     * Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+     * drag first goes to the drop targets of the window and only leaves it
+     * with the pointer. NULL: the tiles stay in the application (default).
+     */
+    public static void Rtile_view_set_drag_out_callback(int tile_view, RTileEventCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtile_view_set_drag_out_callback$;
+        if ($h == null) Rtile_view_set_drag_out_callback$ = $h = find("Rtile_view_set_drag_out_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tile_view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Tiles can be dragged out of the window, to other applications:
+     * when the user starts dragging the selected tiles (`index` is the one
+     * under the pointer), the callback gives their data by calling
+     * Rdrag_begin_external (the pictures, the files they stand for...), and
+     * Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+     * drag first goes to the drop targets of the window and only leaves it
+     * with the pointer. NULL: the tiles stay in the application (default).
+     */
+    public static void Rtile_view_set_drag_out_callback(int tile_view, RTileEventCallback callback) {
+        Rtile_view_set_drag_out_callback(tile_view, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtile_view_set_selection_changed_callback$;

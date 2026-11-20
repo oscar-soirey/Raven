@@ -601,13 +601,80 @@ extern "C" {
 	 * @brief Copies one content in two formats: `html` for the programs that
 	 * paste formatting (word processors, chat, mail) and `text` for the
 	 * others (editors, terminals). Each program takes the format it prefers.
-	 * Where the window system has no clipboard formats (Win32 and macOS for
-	 * now), or `html` is NULL, it is Rclipboard_set_text(text).
+	 * Where the window system has no clipboard formats, or `html` is NULL,
+	 * it is Rclipboard_set_text(text).
 	 */
 	RAVEN_API void Rclipboard_set_html(const char* text, const char* html);
 
 	/** @return The clipboard text, or "" when empty. Valid until the next call. */
 	RAVEN_API const char* Rclipboard_get_text(void);
+
+	/**
+	 * @brief One format of something given to the other applications: put on
+	 * the clipboard (Rclipboard_set_data) or dragged out of a window
+	 * (Rdrag_begin_external). The program that receives it takes the format
+	 * it prefers.
+	 *
+	 * `mime` names the format. Raven gives these their native names on each
+	 * system (and converts them), so that every program understands them:
+	 *
+	 *   text/plain      UTF-8 text
+	 *   text/html       HTML (UTF-8)
+	 *   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+	 *                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+	 *   text/uri-list   files, as file:// URLs, one per line: the file
+	 *                   manager copies or moves them, the other programs
+	 *                   open them
+	 *   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+	 *   application/json, text/csv, image/svg+xml
+	 *
+	 * Any other name is a format of the application ("application/x-myapp-node"):
+	 * passed as it is, and read back by the programs that know it (other
+	 * instances of the application).
+	 */
+	typedef struct RDataItem {
+		/** The format: a MIME type. */
+		const char* mime;
+		/** The bytes (copied by the function they are given to). Text is not followed by a '\0'. */
+		const void* data;
+		size_t size;
+	} RDataItem;
+
+	/**
+	 * @brief Replaces what the clipboard holds with one content in several
+	 * formats (RDataItem): each program pastes the one it prefers.
+	 * @return R_TRUE when every format was put on the clipboard; R_FALSE when
+	 * some could not be (a window system that only takes text: X11 and
+	 * Wayland for now, where the text/plain item, if any, still is).
+	 */
+	RAVEN_API int Rclipboard_set_data(const RDataItem* items, int count);
+	/** @return R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it. */
+	RAVEN_API int Rclipboard_has_data(const char* mime);
+	/**
+	 * @brief What the clipboard holds in one format, converted from the
+	 * native one when needed (a bitmap given as image/png...).
+	 * @return The bytes, followed by a '\0' that `size` does not count, to
+	 * release with Rmemory_free; NULL when the clipboard does not hold it.
+	 */
+	RAVEN_API char* Rclipboard_get_data(const char* mime, size_t* size);
+
+	/**
+	 * @brief Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+	 * bytes apart (0: width * 4). It goes on the clipboard as image/png
+	 * (and as the bitmaps of the system), so that image editors, documents
+	 * and mail paste it.
+	 * @return R_FALSE when it could not be put there.
+	 */
+	RAVEN_API int Rclipboard_set_image(const uint8_t* rgba, int width, int height, int stride);
+	/** @return R_TRUE when the clipboard holds a picture Rclipboard_get_image can read. */
+	RAVEN_API int Rclipboard_has_image(void);
+	/**
+	 * @brief The picture on the clipboard (copied from any program: PNG,
+	 * TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+	 * @return The pixels, to release with Rpixels_free; NULL when there is
+	 * none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+	 */
+	RAVEN_API uint8_t* Rclipboard_get_image(int* width, int* height);
 
 
 	/* ============================================================================

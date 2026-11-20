@@ -134,7 +134,13 @@ typedef enum rvn_pevent_type_t {
 	 * platform sends the keys the input method takes neither as
 	 * RVN_PEVENT_KEY nor as RVN_PEVENT_TEXT.
 	 */
-	RVN_PEVENT_COMPOSITION
+	RVN_PEVENT_COMPOSITION,
+	/**
+	 * The drag out of the window (drag_begin) ended: `operation` is what the
+	 * target did (RDragOperation, 0 when nothing took it). `user` may be NULL
+	 * (the window is gone): the core keeps the drag itself.
+	 */
+	RVN_PEVENT_DRAG_END
 } rvn_pevent_type_t;
 
 /**
@@ -235,6 +241,8 @@ typedef struct rvn_pevent_t {
 	/** RVN_PEVENT_COMPOSITION: the text being composed and its selection (bytes). */
 	const char* composition;
 	int composition_start, composition_end;
+	/** RVN_PEVENT_DRAG_END: an RDragOperation. */
+	int operation;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -387,6 +395,32 @@ typedef struct rvn_platform_t {
 	void  (*clipboard_set_html)(const char* text, const char* html);
 	/** Returns a rvn_alloc'ed string, or NULL. */
 	char* (*clipboard_get)(void);
+	/*
+	 * ---- formats on the clipboard, and drags out of the windows (all optional, NULL: text only, no drags) ----
+	 *
+	 * The formats are named by MIME types (RDataItem); the platform gives
+	 * them their native names and converts them (core/transfer.c has the
+	 * conversions shared by the platforms).
+	 */
+	/** Replaces the clipboard with these formats. Returns R_FALSE when some could not be put there. */
+	int   (*clipboard_set_data)(const RDataItem* items, int count);
+	/** R_TRUE when the clipboard holds `mime`, or a native format the platform converts to it. */
+	int   (*clipboard_has_data)(const char* mime);
+	/** The bytes of `mime` (rvn_alloc'ed, followed by a '\0' not counted in `size`), or NULL. */
+	char* (*clipboard_get_data)(const char* mime, size_t* size);
+	/**
+	 * Hands a drag out of `window` to the window system, while a mouse
+	 * button is held: called by the core from a mouse move of the window.
+	 * `operations` is the RDragOperation bitmask allowed (never 0), `rgba`
+	 * (`width` x `height`, may be NULL) the picture that follows the
+	 * pointer. Returns R_FALSE when it could not start. Once started, the
+	 * window gets no more mouse button events for this press: the core
+	 * forgets the buttons held. The end is told with RVN_PEVENT_DRAG_END,
+	 * exactly once, possibly before drag_begin returns (a system whose drag
+	 * is a modal loop, Win32).
+	 */
+	int   (*drag_begin)(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
+		const uint8_t* rgba, int width, int height);
 
 	/**
 	 * Optional (may be NULL). Called repeatedly while the UI thread is blocked

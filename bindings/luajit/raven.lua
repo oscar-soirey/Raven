@@ -282,6 +282,12 @@ typedef enum RDropPhase {
 	R_DROP_LEAVE = 226,
 	R_DROP_DROPPED = 227,
 } RDropPhase;
+typedef enum RDragOperation {
+	R_DRAG_OPERATION_NONE = 0,
+	R_DRAG_OPERATION_COPY = 1,
+	R_DRAG_OPERATION_MOVE = 2,
+	R_DRAG_OPERATION_LINK = 4,
+} RDragOperation;
 typedef enum RTouchMode {
 	R_TOUCH_MODE_AUTO = 1152,
 	R_TOUCH_MODE_SCROLL = 1153,
@@ -848,6 +854,7 @@ typedef struct RInitDesc RInitDesc;
 typedef struct RAllocator RAllocator;
 typedef struct RMemoryStats RMemoryStats;
 typedef struct RFrameStats RFrameStats;
+typedef struct RDataItem RDataItem;
 typedef struct RInsets RInsets;
 typedef struct RTextInputInfo RTextInputInfo;
 typedef struct RNativeWindow RNativeWindow;
@@ -884,6 +891,7 @@ typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* deta
 typedef void (*RDeviceResetCallback)(void* user_data);
 typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
+typedef void (*RDragFinishedCallback)(Rid source, RDragOperation operation, void* user_data);
 typedef int (*RBackCallback)(Rid window, void* user_data);
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
@@ -1002,6 +1010,11 @@ struct RFrameStats {
 	Ruint backdrop_count;
 	Ruint paint_job_count;
 	uint64_t frame_index;
+};
+struct RDataItem {
+	const char* mime;
+	const void* data;
+	size_t size;
 };
 struct RInsets {
 	float top;
@@ -1329,6 +1342,12 @@ int Ropen_url(const char* url);
 void Rclipboard_set_text(const char* text);
 void Rclipboard_set_html(const char* text, const char* html);
 const char* Rclipboard_get_text(void);
+int Rclipboard_set_data(const RDataItem* items, int count);
+int Rclipboard_has_data(const char* mime);
+char* Rclipboard_get_data(const char* mime, size_t* size);
+int Rclipboard_set_image(const uint8_t* rgba, int width, int height, int stride);
+int Rclipboard_has_image(void);
+uint8_t* Rclipboard_get_image(int* width, int* height);
 RError Rerror_get_last(const char** detail, RSeverity* severity);
 const char* Rerror_to_string(RError error);
 const char* Rseverity_to_string(RSeverity severity);
@@ -1410,6 +1429,7 @@ void Rwindow_inject_text(Rid window, const char* text);
 void Rwindow_inject_composition(Rid window, const char* text, int selection_start, int selection_end);
 int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 int Rwindow_inject_drop(Rid window, float x, float y, const char* const* paths, int path_count, const char* text);
+int Rwindow_inject_drag_end(Rid window, RDragOperation operation);
 int Rwindow_inject_back(Rid window);
 int Rwindow_is_key_down(Rid window, RKey key);
 int Rwindow_is_mouse_button_down(Rid window, RMouseButton button);
@@ -1433,6 +1453,10 @@ int Rdrag_is_active(Rid window);
 const char* Rdrag_get_type(Rid window);
 const char* Rdrag_get_data(Rid window);
 void Rdrag_cancel(Rid window);
+int Rdrag_begin_external(Rid source, const RDataItem* items, int count, Ruint operations, RDragFinishedCallback callback, void* user_data);
+void Rdrag_set_image(const uint8_t* rgba, int width, int height);
+int Rdrag_external_supported(void);
+int Rdrag_external_is_active(void);
 void Rwindow_register_shortcut(Rid window, RKey key, Ruint modifiers, const char* action);
 void Rwindow_unregister_shortcut(Rid window, RKey key, Ruint modifiers);
 void Rtouch_get_settings(RTouchSettings* settings);
@@ -1825,6 +1849,7 @@ int Rtile_view_get_item_at(Rid tile_view, float local_x, float local_y);
 void Rtile_view_set_drop_highlight(Rid tile_view, int index);
 void Rtile_view_set_drag_type(Rid tile_view, const char* type);
 void Rtile_view_set_drag_data_callback(Rid tile_view, RTileDragDataCallback callback, void* user_data);
+void Rtile_view_set_drag_out_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_selection_changed_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_activated_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_context_callback(Rid tile_view, RTileContextCallback callback, void* user_data);

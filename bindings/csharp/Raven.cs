@@ -468,6 +468,30 @@ namespace Raven
     }
 
     /// <summary>
+    /// What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
+    /// </summary>
+    [Flags]
+    public enum RDragOperation : int
+    {
+        /// <summary>
+        /// Nothing was taken: dropped where nothing accepted it, or cancelled.
+        /// </summary>
+        R_DRAG_OPERATION_NONE = 0,
+        /// <summary>
+        /// The target made a copy: the source keeps its data.
+        /// </summary>
+        R_DRAG_OPERATION_COPY = 1,
+        /// <summary>
+        /// The target took the data: the source removes it (a file the file manager moved...).
+        /// </summary>
+        R_DRAG_OPERATION_MOVE = 2,
+        /// <summary>
+        /// The target made a link, an alias or a shortcut to it.
+        /// </summary>
+        R_DRAG_OPERATION_LINK = 4,
+    }
+
+    /// <summary>
     /// What a finger does on a widget (Rwidget_set_touch_mode).
     /// </summary>
     public enum RTouchMode : int
@@ -2133,6 +2157,43 @@ namespace Raven
     }
 
     /// <summary>
+    /// One format of something given to the other applications: put on
+    /// the clipboard (Rclipboard_set_data) or dragged out of a window
+    /// (Rdrag_begin_external). The program that receives it takes the format
+    /// it prefers.
+    /// 
+    /// `mime` names the format. Raven gives these their native names on each
+    /// system (and converts them), so that every program understands them:
+    /// 
+    ///   text/plain      UTF-8 text
+    ///   text/html       HTML (UTF-8)
+    ///   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+    ///                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+    ///   text/uri-list   files, as file:// URLs, one per line: the file
+    ///                   manager copies or moves them, the other programs
+    ///                   open them
+    ///   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+    ///   application/json, text/csv, image/svg+xml
+    /// 
+    /// Any other name is a format of the application ("application/x-myapp-node"):
+    /// passed as it is, and read back by the programs that know it (other
+    /// instances of the application).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RDataItem
+    {
+        /// <summary>
+        /// The format: a MIME type.
+        /// </summary>
+        public IntPtr mime;
+        /// <summary>
+        /// The bytes (copied by the function they are given to). Text is not followed by a '\0'.
+        /// </summary>
+        public IntPtr data;
+        public UIntPtr size;
+    }
+
+    /// <summary>
     /// Distances from the edges of a window, in logical units.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -3107,6 +3168,14 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RDropCallback(uint target, ref RDropEvent @event, IntPtr user_data);
+
+    /// <summary>
+    /// The end of a drag out of the window (Rdrag_begin_external):
+    /// `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+    /// took it. Called once per drag, whatever ended it.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RDragFinishedCallback(uint source, RDragOperation operation, IntPtr user_data);
 
     /// <summary>
     /// Called on Back when no popup or dialog of Raven is open. Return
@@ -4124,8 +4193,8 @@ namespace Raven
         /// Copies one content in two formats: `html` for the programs that
         /// paste formatting (word processors, chat, mail) and `text` for the
         /// others (editors, terminals). Each program takes the format it prefers.
-        /// Where the window system has no clipboard formats (Win32 and macOS for
-        /// now), or `html` is NULL, it is Rclipboard_set_text(text).
+        /// Where the window system has no clipboard formats, or `html` is NULL,
+        /// it is Rclipboard_set_text(text).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rclipboard_set_html([MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string html);
@@ -4136,6 +4205,66 @@ namespace Raven
         [DllImport(Lib, EntryPoint = "Rclipboard_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rclipboard_get_text_();
         public static string Rclipboard_get_text() { return Text(Rclipboard_get_text_()); }
+
+        /// <summary>
+        /// Replaces what the clipboard holds with one content in several
+        /// formats (RDataItem): each program pastes the one it prefers.
+        /// Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+        /// some could not be (a window system that only takes text: X11 and
+        /// Wayland for now, where the text/plain item, if any, still is).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rclipboard_set_data(ref RDataItem items, int count);
+
+        /// <summary>
+        /// Replaces what the clipboard holds with one content in several
+        /// formats (RDataItem): each program pastes the one it prefers.
+        /// Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+        /// some could not be (a window system that only takes text: X11 and
+        /// Wayland for now, where the text/plain item, if any, still is).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rclipboard_set_data(IntPtr items, int count);
+
+        /// <summary>
+        /// Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rclipboard_has_data([MarshalAs(Utf8.Str)] string mime);
+
+        /// <summary>
+        /// What the clipboard holds in one format, converted from the
+        /// native one when needed (a bitmap given as image/png...).
+        /// Returns: The bytes, followed by a '\0' that `size` does not count, to
+        /// release with Rmemory_free; NULL when the clipboard does not hold it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rclipboard_get_data([MarshalAs(Utf8.Str)] string mime, out UIntPtr size);
+
+        /// <summary>
+        /// Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+        /// bytes apart (0: width * 4). It goes on the clipboard as image/png
+        /// (and as the bitmaps of the system), so that image editors, documents
+        /// and mail paste it.
+        /// Returns: R_FALSE when it could not be put there.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rclipboard_set_image(byte[] rgba, int width, int height, int stride);
+
+        /// <summary>
+        /// Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rclipboard_has_image();
+
+        /// <summary>
+        /// The picture on the clipboard (copied from any program: PNG,
+        /// TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+        /// Returns: The pixels, to release with Rpixels_free; NULL when there is
+        /// none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rclipboard_get_image(out int width, out int height);
 
         /// <summary>
         /// Retrieves and clears the last recorded error.
@@ -4644,6 +4773,15 @@ namespace Raven
         public static extern int Rwindow_inject_drop(uint window, float x, float y, [MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] string[] paths, int path_count, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
+        /// The end of the drag out of the window that the window system
+        /// holds (Rdrag_begin_external), as it reports it: `operation` is what the
+        /// target did (an RDragOperation). Returns R_FALSE when no such drag is in
+        /// progress.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_inject_drag_end(uint window, RDragOperation operation);
+
+        /// <summary>
         /// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -4803,6 +4941,88 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rdrag_cancel(uint window);
+
+        /// <summary>
+        /// Lets the user drag data out of the window, to another
+        /// application: a picture into a document, files into the file manager,
+        /// text into an editor. `items` is one content in several formats
+        /// (RDataItem, copied): the target takes the one it prefers.
+        /// `operations` is a bitmask of RDragOperation the target may do (0:
+        /// R_DRAG_OPERATION_COPY).
+        /// 
+        /// Call it as Rdrag_begin, while the mouse button is held (from a mouse
+        /// move once the pointer has moved a few units). The window system then
+        /// takes the drag at the next move of the pointer: it shows the picture
+        /// that follows the pointer (Rdrag_set_image) and the cursor that tells
+        /// what a drop there does; the button released, `callback` (may be NULL)
+        /// is told what the target did.
+        /// 
+        /// Called while a drag inside the application (Rdrag_begin) is in progress
+        /// in the window of `source`, it gives that drag the data for outside:
+        /// the drag stays inside the window, to its drop targets, and becomes a
+        /// drag of the window system only when the pointer leaves the window.
+        /// Brought back over a window of the application, it still comes to the
+        /// drop targets with the type and data given to Rdrag_begin.
+        /// 
+        /// Implemented on macOS and Windows; elsewhere it returns R_FALSE
+        /// (Rdrag_external_supported).
+        /// Returns: R_FALSE when the widget is not in a window or the window
+        /// system cannot drag out of its windows.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdrag_begin_external(uint source, ref RDataItem items, int count, uint operations, RDragFinishedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Lets the user drag data out of the window, to another
+        /// application: a picture into a document, files into the file manager,
+        /// text into an editor. `items` is one content in several formats
+        /// (RDataItem, copied): the target takes the one it prefers.
+        /// `operations` is a bitmask of RDragOperation the target may do (0:
+        /// R_DRAG_OPERATION_COPY).
+        /// 
+        /// Call it as Rdrag_begin, while the mouse button is held (from a mouse
+        /// move once the pointer has moved a few units). The window system then
+        /// takes the drag at the next move of the pointer: it shows the picture
+        /// that follows the pointer (Rdrag_set_image) and the cursor that tells
+        /// what a drop there does; the button released, `callback` (may be NULL)
+        /// is told what the target did.
+        /// 
+        /// Called while a drag inside the application (Rdrag_begin) is in progress
+        /// in the window of `source`, it gives that drag the data for outside:
+        /// the drag stays inside the window, to its drop targets, and becomes a
+        /// drag of the window system only when the pointer leaves the window.
+        /// Brought back over a window of the application, it still comes to the
+        /// drop targets with the type and data given to Rdrag_begin.
+        /// 
+        /// Implemented on macOS and Windows; elsewhere it returns R_FALSE
+        /// (Rdrag_external_supported).
+        /// Returns: R_FALSE when the widget is not in a window or the window
+        /// system cannot drag out of its windows.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdrag_begin_external(uint source, IntPtr items, int count, uint operations, RDragFinishedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The picture that follows the pointer during the drag given by
+        /// Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+        /// copied), held by the pointer at its center. Call it right after
+        /// Rdrag_begin_external. Without it the system chooses: the picture
+        /// dragged, the icons of the files, or a generic one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdrag_set_image(byte[] rgba, int width, int height);
+
+        /// <summary>
+        /// R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdrag_external_supported();
+
+        /// <summary>
+        /// R_TRUE from Rdrag_begin_external until its callback was called.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdrag_external_is_active();
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_register_shortcut(uint window, RKey key, uint modifiers, [MarshalAs(Utf8.Str)] string action);
@@ -6906,6 +7126,18 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_drag_data_callback(uint tile_view, RTileDragDataCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Tiles can be dragged out of the window, to other applications:
+        /// when the user starts dragging the selected tiles (`index` is the one
+        /// under the pointer), the callback gives their data by calling
+        /// Rdrag_begin_external (the pictures, the files they stand for...), and
+        /// Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+        /// drag first goes to the drop targets of the window and only leaves it
+        /// with the pointer. NULL: the tiles stay in the application (default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtile_view_set_drag_out_callback(uint tile_view, RTileEventCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_selection_changed_callback(uint tile_view, RTileEventCallback callback, IntPtr user_data);

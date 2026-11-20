@@ -621,6 +621,18 @@ R_DROP_MOVE = RDropPhase.R_DROP_MOVE
 R_DROP_LEAVE = RDropPhase.R_DROP_LEAVE
 R_DROP_DROPPED = RDropPhase.R_DROP_DROPPED
 
+class RDragOperation(enum.IntFlag):
+    """What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done."""
+    R_DRAG_OPERATION_NONE = 0
+    R_DRAG_OPERATION_COPY = 1
+    R_DRAG_OPERATION_MOVE = 2
+    R_DRAG_OPERATION_LINK = 4
+
+R_DRAG_OPERATION_NONE = RDragOperation.R_DRAG_OPERATION_NONE
+R_DRAG_OPERATION_COPY = RDragOperation.R_DRAG_OPERATION_COPY
+R_DRAG_OPERATION_MOVE = RDragOperation.R_DRAG_OPERATION_MOVE
+R_DRAG_OPERATION_LINK = RDragOperation.R_DRAG_OPERATION_LINK
+
 class RTouchMode(enum.IntEnum):
     """What a finger does on a widget (Rwidget_set_touch_mode)."""
     R_TOUCH_MODE_AUTO = 0x0480
@@ -1792,6 +1804,35 @@ class RFrameStats(ctypes.Structure):
     ]
 
 
+class RDataItem(ctypes.Structure):
+    """One format of something given to the other applications: put on
+    the clipboard (Rclipboard_set_data) or dragged out of a window
+    (Rdrag_begin_external). The program that receives it takes the format
+    it prefers.
+    
+    `mime` names the format. Raven gives these their native names on each
+    system (and converts them), so that every program understands them:
+    
+      text/plain      UTF-8 text
+      text/html       HTML (UTF-8)
+      image/png       a PNG file (Rimage_encode_png); on Windows it is also
+                      given as a bitmap (CF_DIBV5), on macOS also as TIFF
+      text/uri-list   files, as file:// URLs, one per line: the file
+                      manager copies or moves them, the other programs
+                      open them
+      text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+      application/json, text/csv, image/svg+xml
+    
+    Any other name is a format of the application ("application/x-myapp-node"):
+    passed as it is, and read back by the programs that know it (other
+    instances of the application)."""
+    _fields_ = [
+        ("mime", ctypes.c_char_p),
+        ("data", ctypes.c_void_p),
+        ("size", ctypes.c_size_t),
+    ]
+
+
 class RInsets(ctypes.Structure):
     """Distances from the edges of a window, in logical units."""
     _fields_ = [
@@ -2246,6 +2287,14 @@ RDropCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(R
 def _adapt_RDropCallback(function):
     def call(target, event, user_data):
         return function(target, event.contents if event else None, user_data) or 0
+    return call
+
+RDragFinishedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDragFinishedCallback(function):
+    def call(source, operation, user_data):
+        function(source, _e(RDragOperation, operation), user_data)
     return call
 
 RBackCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_void_p)
@@ -3565,8 +3614,8 @@ def Rclipboard_set_html(text, html):
     """Copies one content in two formats: `html` for the programs that
     paste formatting (word processors, chat, mail) and `text` for the
     others (editors, terminals). Each program takes the format it prefers.
-    Where the window system has no clipboard formats (Win32 and macOS for
-    now), or `html` is NULL, it is Rclipboard_set_text(text)."""
+    Where the window system has no clipboard formats, or `html` is NULL,
+    it is Rclipboard_set_text(text)."""
     _lib.Rclipboard_set_html(_s(text), _s(html))
 
 
@@ -3577,6 +3626,83 @@ _lib.Rclipboard_get_text.restype = ctypes.c_char_p
 def Rclipboard_get_text():
     """Returns: The clipboard text, or "" when empty. Valid until the next call."""
     return _r(_lib.Rclipboard_get_text())
+
+
+_lib.Rclipboard_set_data.argtypes = [ctypes.POINTER(RDataItem), ctypes.c_int]
+_lib.Rclipboard_set_data.restype = ctypes.c_int
+
+
+def Rclipboard_set_data(items, count):
+    """Replaces what the clipboard holds with one content in several
+    formats (RDataItem): each program pastes the one it prefers.
+    Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+    some could not be (a window system that only takes text: X11 and
+    Wayland for now, where the text/plain item, if any, still is)."""
+    return _lib.Rclipboard_set_data(_p(items), count)
+
+
+_lib.Rclipboard_has_data.argtypes = [ctypes.c_char_p]
+_lib.Rclipboard_has_data.restype = ctypes.c_int
+
+
+def Rclipboard_has_data(mime):
+    """Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it."""
+    return _lib.Rclipboard_has_data(_s(mime))
+
+
+_lib.Rclipboard_get_data.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rclipboard_get_data.restype = ctypes.c_void_p
+
+
+def Rclipboard_get_data(mime):
+    """What the clipboard holds in one format, converted from the
+    native one when needed (a bitmap given as image/png...).
+    Returns: The bytes, followed by a '\\0' that `size` does not count, to
+    release with Rmemory_free; NULL when the clipboard does not hold it."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rclipboard_get_data(_s(mime), ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
+
+
+_lib.Rclipboard_set_image.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rclipboard_set_image.restype = ctypes.c_int
+
+
+def Rclipboard_set_image(rgba, width, height, stride):
+    """Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+    bytes apart (0: width * 4). It goes on the clipboard as image/png
+    (and as the bitmaps of the system), so that image editors, documents
+    and mail paste it.
+    Returns: R_FALSE when it could not be put there."""
+    return _lib.Rclipboard_set_image(rgba, width, height, stride)
+
+
+_lib.Rclipboard_has_image.argtypes = []
+_lib.Rclipboard_has_image.restype = ctypes.c_int
+
+
+def Rclipboard_has_image():
+    """Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read."""
+    return _lib.Rclipboard_has_image()
+
+
+_lib.Rclipboard_get_image.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rclipboard_get_image.restype = ctypes.c_void_p
+
+
+def Rclipboard_get_image():
+    """The picture on the clipboard (copied from any program: PNG,
+    TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+    Returns: The pixels, to release with Rpixels_free; NULL when there is
+    none (or no decoder: RAVEN_WITH_STB_IMAGE off)."""
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    result = _lib.Rclipboard_get_image(ctypes.byref(width_), ctypes.byref(height_))
+    return (result, width_.value, height_.value)
 
 
 _lib.Rerror_get_last.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_int)]
@@ -4390,6 +4516,18 @@ def Rwindow_inject_drop(window, x, y, paths, text):
     return _lib.Rwindow_inject_drop(window, x, y, paths_array, len(paths_), _s(text))
 
 
+_lib.Rwindow_inject_drag_end.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_inject_drag_end.restype = ctypes.c_int
+
+
+def Rwindow_inject_drag_end(window, operation):
+    """The end of the drag out of the window that the window system
+    holds (Rdrag_begin_external), as it reports it: `operation` is what the
+    target did (an RDragOperation). Returns R_FALSE when no such drag is in
+    progress."""
+    return _lib.Rwindow_inject_drag_end(window, int(operation))
+
+
 _lib.Rwindow_inject_back.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_inject_back.restype = ctypes.c_int
 
@@ -4621,6 +4759,70 @@ _lib.Rdrag_cancel.restype = None
 def Rdrag_cancel(window):
     """Ends the drag in progress without dropping (the target receives R_DROP_LEAVE)."""
     _lib.Rdrag_cancel(window)
+
+
+_lib.Rdrag_begin_external.argtypes = [ctypes.c_uint32, ctypes.POINTER(RDataItem), ctypes.c_int, ctypes.c_uint32, RDragFinishedCallback, ctypes.c_void_p]
+_lib.Rdrag_begin_external.restype = ctypes.c_int
+
+
+def Rdrag_begin_external(source, items, count, operations, callback, user_data=None):
+    """Lets the user drag data out of the window, to another
+    application: a picture into a document, files into the file manager,
+    text into an editor. `items` is one content in several formats
+    (RDataItem, copied): the target takes the one it prefers.
+    `operations` is a bitmask of RDragOperation the target may do (0:
+    R_DRAG_OPERATION_COPY).
+    
+    Call it as Rdrag_begin, while the mouse button is held (from a mouse
+    move once the pointer has moved a few units). The window system then
+    takes the drag at the next move of the pointer: it shows the picture
+    that follows the pointer (Rdrag_set_image) and the cursor that tells
+    what a drop there does; the button released, `callback` (may be NULL)
+    is told what the target did.
+    
+    Called while a drag inside the application (Rdrag_begin) is in progress
+    in the window of `source`, it gives that drag the data for outside:
+    the drag stays inside the window, to its drop targets, and becomes a
+    drag of the window system only when the pointer leaves the window.
+    Brought back over a window of the application, it still comes to the
+    drop targets with the type and data given to Rdrag_begin.
+    
+    Implemented on macOS and Windows; elsewhere it returns R_FALSE
+    (Rdrag_external_supported).
+    Returns: R_FALSE when the widget is not in a window or the window
+    system cannot drag out of its windows."""
+    return _lib.Rdrag_begin_external(source, _p(items), count, operations, _callback(RDragFinishedCallback, _adapt_RDragFinishedCallback, callback), user_data)
+
+
+_lib.Rdrag_set_image.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rdrag_set_image.restype = None
+
+
+def Rdrag_set_image(rgba, width, height):
+    """The picture that follows the pointer during the drag given by
+    Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+    copied), held by the pointer at its center. Call it right after
+    Rdrag_begin_external. Without it the system chooses: the picture
+    dragged, the icons of the files, or a generic one."""
+    _lib.Rdrag_set_image(rgba, width, height)
+
+
+_lib.Rdrag_external_supported.argtypes = []
+_lib.Rdrag_external_supported.restype = ctypes.c_int
+
+
+def Rdrag_external_supported():
+    """R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external)."""
+    return _lib.Rdrag_external_supported()
+
+
+_lib.Rdrag_external_is_active.argtypes = []
+_lib.Rdrag_external_is_active.restype = ctypes.c_int
+
+
+def Rdrag_external_is_active():
+    """R_TRUE from Rdrag_begin_external until its callback was called."""
+    return _lib.Rdrag_external_is_active()
 
 
 _lib.Rwindow_register_shortcut.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32, ctypes.c_char_p]
@@ -8255,6 +8457,21 @@ _lib.Rtile_view_set_drag_data_callback.restype = None
 
 def Rtile_view_set_drag_data_callback(tile_view, callback, user_data=None):
     _lib.Rtile_view_set_drag_data_callback(tile_view, _callback(RTileDragDataCallback, _adapt_RTileDragDataCallback, callback), user_data)
+
+
+_lib.Rtile_view_set_drag_out_callback.argtypes = [ctypes.c_uint32, RTileEventCallback, ctypes.c_void_p]
+_lib.Rtile_view_set_drag_out_callback.restype = None
+
+
+def Rtile_view_set_drag_out_callback(tile_view, callback, user_data=None):
+    """Tiles can be dragged out of the window, to other applications:
+    when the user starts dragging the selected tiles (`index` is the one
+    under the pointer), the callback gives their data by calling
+    Rdrag_begin_external (the pictures, the files they stand for...), and
+    Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+    drag first goes to the drop targets of the window and only leaves it
+    with the pointer. NULL: the tiles stay in the application (default)."""
+    _lib.Rtile_view_set_drag_out_callback(tile_view, _callback(RTileEventCallback, _adapt_RTileEventCallback, callback), user_data)
 
 
 _lib.Rtile_view_set_selection_changed_callback.argtypes = [ctypes.c_uint32, RTileEventCallback, ctypes.c_void_p]

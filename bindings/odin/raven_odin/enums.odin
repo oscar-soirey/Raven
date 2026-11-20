@@ -346,6 +346,18 @@ Drop_Phase :: enum i32 {
 	Dropped = 0x00E3,
 }
 
+// What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
+Drag_Operation :: enum u32 {
+	// The target made a copy: the source keeps its data.
+	Copy = 0,
+	// The target took the data: the source removes it (a file the file manager moved...).
+	Move = 1,
+	// The target made a link, an alias or a shortcut to it.
+	Link = 2,
+}
+Drag_Operations :: bit_set[Drag_Operation; u32]
+// R_DRAG_OPERATION_NONE (0 in C) is {}
+
 // What a finger does on a widget (Rwidget_set_touch_mode).
 Touch_Mode :: enum i32 {
 	// The finger scrolls what scrolls under it, and is a mouse elsewhere (default).

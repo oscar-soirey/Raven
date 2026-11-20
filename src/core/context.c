@@ -6,6 +6,7 @@
 #include "context.h"
 #include "heap.h"
 #include "fs_watch.h"
+#include "transfer.h"
 #include "../widgets/common.h"
 #include "../render/renderer.h"
 
@@ -588,7 +589,16 @@ void Rclipboard_set_text(const char* text) {
 
 void Rclipboard_set_html(const char* text, const char* html) {
 	RVN_API_GUARD_VOID();
-	if (html && g_rvn.platform->clipboard_set_html) {
+	if (html && g_rvn.platform->clipboard_set_data) {
+		RDataItem items[2];
+		items[0].mime = "text/plain";
+		items[0].data = text ? text : "";
+		items[0].size = strlen((const char*)items[0].data);
+		items[1].mime = "text/html";
+		items[1].data = html;
+		items[1].size = strlen(html);
+		g_rvn.platform->clipboard_set_data(items, 2);
+	} else if (html && g_rvn.platform->clipboard_set_html) {
 		g_rvn.platform->clipboard_set_html(text ? text : "", html);
 	} else {
 		g_rvn.platform->clipboard_set(text ? text : "");
@@ -600,6 +610,137 @@ const char* Rclipboard_get_text(void) {
 	rvn_free(g_rvn.clipboard);
 	g_rvn.clipboard = g_rvn.platform->clipboard_get();
 	return g_rvn.clipboard ? g_rvn.clipboard : "";
+}
+
+static int rvn_data_check(const RDataItem* items, int count, const char* function) {
+	int i;
+	if (count < 0 || (count > 0 && !items)) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "%s: no items", function);
+		return R_FALSE;
+	}
+	for (i = 0; i < count; i++) {
+		if (!items[i].mime || !items[i].mime[0] || (!items[i].data && items[i].size)) {
+			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "%s: item %d has no MIME type or no data", function, i);
+			return R_FALSE;
+		}
+	}
+	return R_TRUE;
+}
+
+int Rclipboard_set_data(const RDataItem* items, int count) {
+	const RDataItem* text;
+	const RDataItem* html;
+	char* plain;
+	int i, all = R_TRUE;
+	RVN_API_GUARD(R_FALSE);
+	if (!rvn_data_check(items, count, __func__)) return R_FALSE;
+	if (g_rvn.platform->clipboard_set_data) return g_rvn.platform->clipboard_set_data(items, count) ? R_TRUE : R_FALSE;
+	/* a window system that only takes text (and HTML) */
+	text = rvn_data_find(items, count, "text/plain");
+	html = g_rvn.platform->clipboard_set_html ? rvn_data_find(items, count, "text/html") : NULL;
+	if (!text) return R_FALSE;
+	for (i = 0; i < count; i++) {
+		if (&items[i] != text && &items[i] != html) all = R_FALSE;
+	}
+	plain = rvn_bytes_dup(text->data, text->size);
+	if (html) {
+		char* markup = rvn_bytes_dup(html->data, html->size);
+		g_rvn.platform->clipboard_set_html(plain, markup);
+		rvn_free(markup);
+	} else {
+		g_rvn.platform->clipboard_set(plain);
+	}
+	rvn_free(plain);
+	return all;
+}
+
+int Rclipboard_has_data(const char* mime) {
+	char* text;
+	int has;
+	RVN_API_GUARD(R_FALSE);
+	if (!mime || !mime[0]) return R_FALSE;
+	if (g_rvn.platform->clipboard_has_data) return g_rvn.platform->clipboard_has_data(mime) ? R_TRUE : R_FALSE;
+	if (!rvn_mime_is(mime, "text/plain")) return R_FALSE;
+	text = g_rvn.platform->clipboard_get();
+	has = text && text[0];
+	rvn_free(text);
+	return has ? R_TRUE : R_FALSE;
+}
+
+char* Rclipboard_get_data(const char* mime, size_t* size) {
+	char* data;
+	size_t length = 0;
+	if (size) *size = 0;
+	RVN_API_GUARD(NULL);
+	if (!mime || !mime[0]) return NULL;
+	if (g_rvn.platform->clipboard_get_data) {
+		data = g_rvn.platform->clipboard_get_data(mime, &length);
+	} else if (rvn_mime_is(mime, "text/plain")) {
+		data = g_rvn.platform->clipboard_get();
+		length = data ? strlen(data) : 0;
+		if (data && !length) {
+			rvn_free(data);
+			data = NULL;
+		}
+	} else {
+		data = NULL;
+	}
+	if (data && size) *size = length;
+	return data;
+}
+
+int Rclipboard_set_image(const uint8_t* rgba, int width, int height, int stride) {
+	RDataItem item;
+	uint8_t* png;
+	uint8_t* packed = NULL;
+	size_t size = 0;
+	int done;
+	RVN_API_GUARD(R_FALSE);
+	if (!rgba || width <= 0 || height <= 0 || (stride != 0 && stride < width * 4)) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rclipboard_set_image: invalid pixels (%dx%d, stride %d)", width, height, stride);
+		return R_FALSE;
+	}
+	if (!g_rvn.platform->clipboard_set_data) return R_FALSE;
+	/* (the PNG writer takes rows one after the other) */
+	if (stride != 0 && stride != width * 4) {
+		int y;
+		packed = (uint8_t*)rvn_alloc((size_t)width * (size_t)height * 4u);
+		for (y = 0; y < height; y++) {
+			memcpy(packed + (size_t)y * (size_t)width * 4u, rgba + (size_t)y * (size_t)stride, (size_t)width * 4u);
+		}
+	}
+	png = Rimage_encode_png(packed ? packed : rgba, width, height, &size);
+	rvn_free(packed);
+	if (!png) return R_FALSE;
+	item.mime = "image/png";
+	item.data = png;
+	item.size = size;
+	done = g_rvn.platform->clipboard_set_data(&item, 1);
+	Rpixels_free(png);
+	return done ? R_TRUE : R_FALSE;
+}
+
+int Rclipboard_has_image(void) {
+	RVN_API_GUARD(R_FALSE);
+	return Rclipboard_has_data("image/png") || Rclipboard_has_data("image/jpeg");
+}
+
+uint8_t* Rclipboard_get_image(int* width, int* height) {
+	static const char* const formats[] = { "image/png", "image/jpeg", "image/bmp" };
+	size_t i;
+	if (width) *width = 0;
+	if (height) *height = 0;
+	RVN_API_GUARD(NULL);
+	for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+		size_t size = 0;
+		char* data = Rclipboard_get_data(formats[i], &size);
+		uint8_t* pixels;
+		if (!data) continue;
+		pixels = Rimage_decode(data, size, width, height);
+		rvn_free(data);
+		if (pixels) return pixels;
+	}
+	return NULL;
 }
 
 /* ---------------------------------------------------------------------------

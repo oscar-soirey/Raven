@@ -355,6 +355,25 @@ typedef struct RDropEvent {
  */
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
 
+/** What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done. */
+typedef enum RDragOperation{
+	/** Nothing was taken: dropped where nothing accepted it, or cancelled. */
+	R_DRAG_OPERATION_NONE = 0,
+	/** The target made a copy: the source keeps its data. */
+	R_DRAG_OPERATION_COPY = (1 << 0),
+	/** The target took the data: the source removes it (a file the file manager moved...). */
+	R_DRAG_OPERATION_MOVE = (1 << 1),
+	/** The target made a link, an alias or a shortcut to it. */
+	R_DRAG_OPERATION_LINK = (1 << 2)
+}RDragOperation;
+
+/**
+ * @brief The end of a drag out of the window (Rdrag_begin_external):
+ * `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+ * took it. Called once per drag, whatever ended it.
+ */
+typedef void (*RDragFinishedCallback)(Rid source, RDragOperation operation, void* user_data);
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -681,6 +700,13 @@ extern "C" {
 	RAVEN_API int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 	/** @brief Drops files and / or text at a position. Returns R_TRUE when a target took them. */
 	RAVEN_API int Rwindow_inject_drop(Rid window, float x, float y, const char* const* paths, int path_count, const char* text);
+	/**
+	 * @brief The end of the drag out of the window that the window system
+	 * holds (Rdrag_begin_external), as it reports it: `operation` is what the
+	 * target did (an RDragOperation). Returns R_FALSE when no such drag is in
+	 * progress.
+	 */
+	RAVEN_API int Rwindow_inject_drag_end(Rid window, RDragOperation operation);
 	/** @brief Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. */
 	RAVEN_API int Rwindow_inject_back(Rid window);
 
@@ -778,6 +804,50 @@ extern "C" {
 	RAVEN_API const char* Rdrag_get_data(Rid window);
 	/** @brief Ends the drag in progress without dropping (the target receives R_DROP_LEAVE). */
 	RAVEN_API void Rdrag_cancel(Rid window);
+
+	/* ---- dragging out of the window, to other applications ---- */
+
+	/**
+	 * @brief Lets the user drag data out of the window, to another
+	 * application: a picture into a document, files into the file manager,
+	 * text into an editor. `items` is one content in several formats
+	 * (RDataItem, copied): the target takes the one it prefers.
+	 * `operations` is a bitmask of RDragOperation the target may do (0:
+	 * R_DRAG_OPERATION_COPY).
+	 *
+	 * Call it as Rdrag_begin, while the mouse button is held (from a mouse
+	 * move once the pointer has moved a few units). The window system then
+	 * takes the drag at the next move of the pointer: it shows the picture
+	 * that follows the pointer (Rdrag_set_image) and the cursor that tells
+	 * what a drop there does; the button released, `callback` (may be NULL)
+	 * is told what the target did.
+	 *
+	 * Called while a drag inside the application (Rdrag_begin) is in progress
+	 * in the window of `source`, it gives that drag the data for outside:
+	 * the drag stays inside the window, to its drop targets, and becomes a
+	 * drag of the window system only when the pointer leaves the window.
+	 * Brought back over a window of the application, it still comes to the
+	 * drop targets with the type and data given to Rdrag_begin.
+	 *
+	 * Implemented on macOS and Windows; elsewhere it returns R_FALSE
+	 * (Rdrag_external_supported).
+	 * @return R_FALSE when the widget is not in a window or the window
+	 * system cannot drag out of its windows.
+	 */
+	RAVEN_API int Rdrag_begin_external(Rid source, const RDataItem* items, int count, Ruint operations,
+		RDragFinishedCallback callback, void* user_data);
+	/**
+	 * @brief The picture that follows the pointer during the drag given by
+	 * Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+	 * copied), held by the pointer at its center. Call it right after
+	 * Rdrag_begin_external. Without it the system chooses: the picture
+	 * dragged, the icons of the files, or a generic one.
+	 */
+	RAVEN_API void Rdrag_set_image(const uint8_t* rgba, int width, int height);
+	/** @brief R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external). */
+	RAVEN_API int Rdrag_external_supported(void);
+	/** @brief R_TRUE from Rdrag_begin_external until its callback was called. */
+	RAVEN_API int Rdrag_external_is_active(void);
 
 	RAVEN_API void Rwindow_register_shortcut(Rid window, RKey key, Ruint modifiers, const char* action);
 	RAVEN_API void Rwindow_unregister_shortcut(Rid window, RKey key, Ruint modifiers);
