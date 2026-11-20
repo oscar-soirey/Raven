@@ -731,6 +731,8 @@ Widget_Type :: enum i32 {
 	Map_View = 0x0235,
 	// Pages shown one at a time and swiped (a page view), with dots and arrows.
 	Carousel = 0x0236,
+	// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+	System_Web_View = 0x0237,
 }
 
 H_Align :: enum i32 {
@@ -1006,6 +1008,20 @@ Chart_Kind :: enum i32 {
 	Heatmap = 0x0593,
 	// A small line of values without axes, to sit in a tile or a cell of a table.
 	Sparkline = 0x0594,
+}
+
+// What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+System_Web_View_Event :: enum i32 {
+	// The view shows another address (Rsystem_web_view_get_url).
+	Navigated = 0x0B90,
+	// The title of the page changed (Rsystem_web_view_get_title).
+	Title = 0x0B91,
+	// A page starts loading.
+	Loading = 0x0B92,
+	// The page and what it refers to are loaded.
+	Loaded = 0x0B93,
+	// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+	Failed = 0x0B94,
 }
 
 // Shorthands of Rtext_editor_set_language for two languages.

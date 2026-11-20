@@ -1105,6 +1105,10 @@ public final class R {
      * Pages shown one at a time and swiped (a page view), with dots and arrows.
      */
     public static final int R_WIDGET_CAROUSEL = 0x0236;
+    /**
+     * A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+     */
+    public static final int R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1448,6 +1452,28 @@ public final class R {
      * A small line of values without axes, to sit in a tile or a cell of a table.
      */
     public static final int R_CHART_SPARKLINE = 0x0594;
+
+    // RSystemWebViewEvent: What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+    /**
+     * The view shows another address (Rsystem_web_view_get_url).
+     */
+    public static final int R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90;
+    /**
+     * The title of the page changed (Rsystem_web_view_get_title).
+     */
+    public static final int R_SYSTEM_WEB_VIEW_TITLE = 0x0B91;
+    /**
+     * A page starts loading.
+     */
+    public static final int R_SYSTEM_WEB_VIEW_LOADING = 0x0B92;
+    /**
+     * The page and what it refers to are loaded.
+     */
+    public static final int R_SYSTEM_WEB_VIEW_LOADED = 0x0B93;
+    /**
+     * The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+     */
+    public static final int R_SYSTEM_WEB_VIEW_FAILED = 0x0B94;
 
     // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
     public static final int R_SYNTAX_NONE = 0x0340;
@@ -5814,6 +5840,68 @@ public final class R {
 
     private static MemorySegment upcall(RMapViewCallback f) {
         return stub(f, RMapViewCallback.class, "RMapViewCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, JAVA_DOUBLE, ADDRESS));
+    }
+
+    /**
+     * Receives the result of a script: `result` is its value written
+     * as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+     * script failed, `error` then telling why.
+     */
+    @FunctionalInterface
+    public interface RSystemWebViewResultCallback {
+        void invoke(int view, String result, String error, MemorySegment user_data);
+    }
+
+    private static void RSystemWebViewResultCallback$raw(RSystemWebViewResultCallback f, int view, MemorySegment result, MemorySegment error, MemorySegment user_data) {
+        try {
+            f.invoke(view, text(result), text(error), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RSystemWebViewResultCallback f) {
+        return stub(f, RSystemWebViewResultCallback.class, "RSystemWebViewResultCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Receives what the page sends with `window.raven.postMessage(value)`.
+     */
+    @FunctionalInterface
+    public interface RSystemWebViewMessageCallback {
+        void invoke(int view, String message, MemorySegment user_data);
+    }
+
+    private static void RSystemWebViewMessageCallback$raw(RSystemWebViewMessageCallback f, int view, MemorySegment message, MemorySegment user_data) {
+        try {
+            f.invoke(view, text(message), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RSystemWebViewMessageCallback f) {
+        return stub(f, RSystemWebViewMessageCallback.class, "RSystemWebViewMessageCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    @FunctionalInterface
+    public interface RSystemWebViewEventCallback {
+        void invoke(int view, int event, MemorySegment user_data);
+    }
+
+    private static void RSystemWebViewEventCallback$raw(RSystemWebViewEventCallback f, int view, int event, MemorySegment user_data) {
+        try {
+            f.invoke(view, event, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RSystemWebViewEventCallback f) {
+        return stub(f, RSystemWebViewEventCallback.class, "RSystemWebViewEventCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -19600,6 +19688,309 @@ public final class R {
         try {
             MemorySegment $r = (MemorySegment) $h.invokeExact(map);
             return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_is_supported$;
+
+    /**
+     * Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+     */
+    public static int Rsystem_web_view_is_supported() {
+        MethodHandle $h = Rsystem_web_view_is_supported$;
+        if ($h == null) Rsystem_web_view_is_supported$ = $h = find("Rsystem_web_view_is_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_create$;
+
+    public static int Rsystem_web_view_create() {
+        MethodHandle $h = Rsystem_web_view_create$;
+        if ($h == null) Rsystem_web_view_create$ = $h = find("Rsystem_web_view_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_load_url$;
+
+    /**
+     * Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+     */
+    public static void Rsystem_web_view_load_url(int view, String url) {
+        MethodHandle $h = Rsystem_web_view_load_url$;
+        if ($h == null) Rsystem_web_view_load_url$ = $h = find("Rsystem_web_view_load_url", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment url$ = url == null ? MemorySegment.NULL : utf8($a, url);
+            $h.invokeExact(view, url$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_load_file$;
+
+    /**
+     * Shows a file of the computer (an .html file, and what it refers to in its folder).
+     */
+    public static void Rsystem_web_view_load_file(int view, String path) {
+        MethodHandle $h = Rsystem_web_view_load_file$;
+        if ($h == null) Rsystem_web_view_load_file$ = $h = find("Rsystem_web_view_load_file", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            $h.invokeExact(view, path$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_load_html$;
+
+    /**
+     * Shows HTML given as text.
+     * base_url Where the relative addresses of the text are looked
+     * for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+     */
+    public static void Rsystem_web_view_load_html(int view, String html, String base_url) {
+        MethodHandle $h = Rsystem_web_view_load_html$;
+        if ($h == null) Rsystem_web_view_load_html$ = $h = find("Rsystem_web_view_load_html", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment html$ = html == null ? MemorySegment.NULL : utf8($a, html);
+            MemorySegment base_url$ = base_url == null ? MemorySegment.NULL : utf8($a, base_url);
+            $h.invokeExact(view, html$, base_url$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_reload$;
+
+    public static void Rsystem_web_view_reload(int view) {
+        MethodHandle $h = Rsystem_web_view_reload$;
+        if ($h == null) Rsystem_web_view_reload$ = $h = find("Rsystem_web_view_reload", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_stop$;
+
+    public static void Rsystem_web_view_stop(int view) {
+        MethodHandle $h = Rsystem_web_view_stop$;
+        if ($h == null) Rsystem_web_view_stop$ = $h = find("Rsystem_web_view_stop", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_go_back$;
+
+    public static void Rsystem_web_view_go_back(int view) {
+        MethodHandle $h = Rsystem_web_view_go_back$;
+        if ($h == null) Rsystem_web_view_go_back$ = $h = find("Rsystem_web_view_go_back", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_go_forward$;
+
+    public static void Rsystem_web_view_go_forward(int view) {
+        MethodHandle $h = Rsystem_web_view_go_forward$;
+        if ($h == null) Rsystem_web_view_go_forward$ = $h = find("Rsystem_web_view_go_forward", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_can_go_back$;
+
+    public static int Rsystem_web_view_can_go_back(int view) {
+        MethodHandle $h = Rsystem_web_view_can_go_back$;
+        if ($h == null) Rsystem_web_view_can_go_back$ = $h = find("Rsystem_web_view_can_go_back", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_can_go_forward$;
+
+    public static int Rsystem_web_view_can_go_forward(int view) {
+        MethodHandle $h = Rsystem_web_view_can_go_forward$;
+        if ($h == null) Rsystem_web_view_can_go_forward$ = $h = find("Rsystem_web_view_can_go_forward", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_get_url$;
+
+    /**
+     * Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+     */
+    public static String Rsystem_web_view_get_url(int view) {
+        MethodHandle $h = Rsystem_web_view_get_url$;
+        if ($h == null) Rsystem_web_view_get_url$ = $h = find("Rsystem_web_view_get_url", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_get_title$;
+
+    /**
+     * Returns: The title of the page, "" when it has none. Valid until it changes.
+     */
+    public static String Rsystem_web_view_get_title(int view) {
+        MethodHandle $h = Rsystem_web_view_get_title$;
+        if ($h == null) Rsystem_web_view_get_title$ = $h = find("Rsystem_web_view_get_title", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_is_loading$;
+
+    public static int Rsystem_web_view_is_loading(int view) {
+        MethodHandle $h = Rsystem_web_view_is_loading$;
+        if ($h == null) Rsystem_web_view_is_loading$ = $h = find("Rsystem_web_view_is_loading", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_get_error$;
+
+    /**
+     * Returns: Why the last page could not be shown, or "" when all is well.
+     */
+    public static String Rsystem_web_view_get_error(int view) {
+        MethodHandle $h = Rsystem_web_view_get_error$;
+        if ($h == null) Rsystem_web_view_get_error$ = $h = find("Rsystem_web_view_get_error", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsystem_web_view_run_javascript$;
+
+    /**
+     * Runs JavaScript in the page; the value of its last statement is
+     * the result. If it is a promise, the result is what the promise
+     * resolves to. The callback (may be NULL) always comes later, never
+     * during this call.
+     */
+    public static void Rsystem_web_view_run_javascript(int view, String script, RSystemWebViewResultCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rsystem_web_view_run_javascript$;
+        if ($h == null) Rsystem_web_view_run_javascript$ = $h = find("Rsystem_web_view_run_javascript", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment script$ = script == null ? MemorySegment.NULL : utf8($a, script);
+            $h.invokeExact(view, script$, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Runs JavaScript in the page; the value of its last statement is
+     * the result. If it is a promise, the result is what the promise
+     * resolves to. The callback (may be NULL) always comes later, never
+     * during this call.
+     */
+    public static void Rsystem_web_view_run_javascript(int view, String script, RSystemWebViewResultCallback callback) {
+        Rsystem_web_view_run_javascript(view, script, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rsystem_web_view_set_message_callback$;
+
+    public static void Rsystem_web_view_set_message_callback(int view, RSystemWebViewMessageCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rsystem_web_view_set_message_callback$;
+        if ($h == null) Rsystem_web_view_set_message_callback$ = $h = find("Rsystem_web_view_set_message_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rsystem_web_view_set_message_callback(int view, RSystemWebViewMessageCallback callback) {
+        Rsystem_web_view_set_message_callback(view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rsystem_web_view_set_event_callback$;
+
+    /**
+     * Called when something happens in the page. The action of the
+     * widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+     * time the address changes.
+     */
+    public static void Rsystem_web_view_set_event_callback(int view, RSystemWebViewEventCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rsystem_web_view_set_event_callback$;
+        if ($h == null) Rsystem_web_view_set_event_callback$ = $h = find("Rsystem_web_view_set_event_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when something happens in the page. The action of the
+     * widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+     * time the address changes.
+     */
+    public static void Rsystem_web_view_set_event_callback(int view, RSystemWebViewEventCallback callback) {
+        Rsystem_web_view_set_event_callback(view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rsystem_web_view_get_native_handle$;
+
+    /**
+     * The view of the system, to go further than these functions:
+     * a WKWebView* on macOS and iOS. NULL where unsupported.
+     */
+    public static MemorySegment Rsystem_web_view_get_native_handle(int view) {
+        MethodHandle $h = Rsystem_web_view_get_native_handle$;
+        if ($h == null) Rsystem_web_view_get_native_handle$ = $h = find("Rsystem_web_view_get_native_handle", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }

@@ -1192,6 +1192,9 @@ pattern R_WIDGET_MAP_VIEW = RWidgetType 565
 -- | Pages shown one at a time and swiped (a page view), with dots and arrows.
 pattern R_WIDGET_CAROUSEL :: RWidgetType
 pattern R_WIDGET_CAROUSEL = RWidgetType 566
+-- | A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+pattern R_WIDGET_SYSTEM_WEB_VIEW :: RWidgetType
+pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1598,6 +1601,26 @@ pattern R_CHART_HEATMAP = RChartKind 1427
 -- | A small line of values without axes, to sit in a tile or a cell of a table.
 pattern R_CHART_SPARKLINE :: RChartKind
 pattern R_CHART_SPARKLINE = RChartKind 1428
+
+-- | What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+newtype RSystemWebViewEvent = RSystemWebViewEvent CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The view shows another address (Rsystem_web_view_get_url).
+pattern R_SYSTEM_WEB_VIEW_NAVIGATED :: RSystemWebViewEvent
+pattern R_SYSTEM_WEB_VIEW_NAVIGATED = RSystemWebViewEvent 2960
+-- | The title of the page changed (Rsystem_web_view_get_title).
+pattern R_SYSTEM_WEB_VIEW_TITLE :: RSystemWebViewEvent
+pattern R_SYSTEM_WEB_VIEW_TITLE = RSystemWebViewEvent 2961
+-- | A page starts loading.
+pattern R_SYSTEM_WEB_VIEW_LOADING :: RSystemWebViewEvent
+pattern R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent 2962
+-- | The page and what it refers to are loaded.
+pattern R_SYSTEM_WEB_VIEW_LOADED :: RSystemWebViewEvent
+pattern R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent 2963
+-- | The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+pattern R_SYSTEM_WEB_VIEW_FAILED :: RSystemWebViewEvent
+pattern R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent 2964
 
 -- | Shorthands of Rtext_editor_set_language for two languages.
 newtype RSyntax = RSyntax CInt
@@ -2604,6 +2627,28 @@ type RMapViewCallback = FunPtr (Rid -> CDouble -> CDouble -> CDouble -> Ptr () -
 -- | Makes a 'RMapViewCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRMapViewCallback :: (Rid -> CDouble -> CDouble -> CDouble -> Ptr () -> IO ()) -> IO RMapViewCallback
+
+-- | Receives the result of a script: `result` is its value written
+-- as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+-- script failed, `error` then telling why.
+type RSystemWebViewResultCallback = FunPtr (Rid -> CString -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RSystemWebViewResultCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRSystemWebViewResultCallback :: (Rid -> CString -> CString -> Ptr () -> IO ()) -> IO RSystemWebViewResultCallback
+
+-- | Receives what the page sends with `window.raven.postMessage(value)`.
+type RSystemWebViewMessageCallback = FunPtr (Rid -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RSystemWebViewMessageCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRSystemWebViewMessageCallback :: (Rid -> CString -> Ptr () -> IO ()) -> IO RSystemWebViewMessageCallback
+
+type RSystemWebViewEventCallback = FunPtr (Rid -> RSystemWebViewEvent -> Ptr () -> IO ())
+
+-- | Makes a 'RSystemWebViewEventCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRSystemWebViewEventCallback :: (Rid -> RSystemWebViewEvent -> Ptr () -> IO ()) -> IO RSystemWebViewEventCallback
 
 -- | Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 type RTextEditorZoomCallback = FunPtr (Rid -> CFloat -> Ptr () -> IO ())
@@ -6918,6 +6963,62 @@ foreign import ccall safe "Rmap_view_set_view_changed_callback" rmap_view_set_vi
 foreign import ccall safe "Rmap_view_set_attribution" rmap_view_set_attribution :: Rid -> CString -> IO ()
 
 foreign import ccall safe "Rmap_view_get_attribution" rmap_view_get_attribution :: Rid -> IO CString
+
+-- | Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+foreign import ccall safe "Rsystem_web_view_is_supported" rsystem_web_view_is_supported :: IO CInt
+
+foreign import ccall safe "Rsystem_web_view_create" rsystem_web_view_create :: IO Rid
+
+-- | Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+foreign import ccall safe "Rsystem_web_view_load_url" rsystem_web_view_load_url :: Rid -> CString -> IO ()
+
+-- | Shows a file of the computer (an .html file, and what it refers to in its folder).
+foreign import ccall safe "Rsystem_web_view_load_file" rsystem_web_view_load_file :: Rid -> CString -> IO ()
+
+-- | Shows HTML given as text.
+-- base_url Where the relative addresses of the text are looked
+-- for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+foreign import ccall safe "Rsystem_web_view_load_html" rsystem_web_view_load_html :: Rid -> CString -> CString -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_reload" rsystem_web_view_reload :: Rid -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_stop" rsystem_web_view_stop :: Rid -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_go_back" rsystem_web_view_go_back :: Rid -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_go_forward" rsystem_web_view_go_forward :: Rid -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_can_go_back" rsystem_web_view_can_go_back :: Rid -> IO CInt
+
+foreign import ccall safe "Rsystem_web_view_can_go_forward" rsystem_web_view_can_go_forward :: Rid -> IO CInt
+
+-- | Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+foreign import ccall safe "Rsystem_web_view_get_url" rsystem_web_view_get_url :: Rid -> IO CString
+
+-- | Returns: The title of the page, "" when it has none. Valid until it changes.
+foreign import ccall safe "Rsystem_web_view_get_title" rsystem_web_view_get_title :: Rid -> IO CString
+
+foreign import ccall safe "Rsystem_web_view_is_loading" rsystem_web_view_is_loading :: Rid -> IO CInt
+
+-- | Returns: Why the last page could not be shown, or "" when all is well.
+foreign import ccall safe "Rsystem_web_view_get_error" rsystem_web_view_get_error :: Rid -> IO CString
+
+-- | Runs JavaScript in the page; the value of its last statement is
+-- the result. If it is a promise, the result is what the promise
+-- resolves to. The callback (may be NULL) always comes later, never
+-- during this call.
+foreign import ccall safe "Rsystem_web_view_run_javascript" rsystem_web_view_run_javascript :: Rid -> CString -> RSystemWebViewResultCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rsystem_web_view_set_message_callback" rsystem_web_view_set_message_callback :: Rid -> RSystemWebViewMessageCallback -> Ptr () -> IO ()
+
+-- | Called when something happens in the page. The action of the
+-- widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+-- time the address changes.
+foreign import ccall safe "Rsystem_web_view_set_event_callback" rsystem_web_view_set_event_callback :: Rid -> RSystemWebViewEventCallback -> Ptr () -> IO ()
+
+-- | The view of the system, to go further than these functions:
+-- a WKWebView* on macOS and iOS. NULL where unsupported.
+foreign import ccall safe "Rsystem_web_view_get_native_handle" rsystem_web_view_get_native_handle :: Rid -> IO (Ptr ())
 
 foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid
 

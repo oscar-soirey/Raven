@@ -242,8 +242,9 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   text editor, and labels whose text the mouse **selects and copies** as on a
   web page (`Selectable="true"`). Interface and theme files are **loaded again while the
   application runs** when they are saved.
-- **Web pages** (`raven_web.h`, built into the same library) shown by driving
-  a browser already installed.
+- **Web pages** shown by the web engine of the system in a view embedded in
+  the window (`SystemWebView`: WKWebView on macOS and iOS), or (`raven_web.h`,
+  built into the same library) by driving a browser already installed.
 - **Every language.** Translations in **CSV tables**, read with `Rtr("key")`
   in C or `Text="@key"` in XML, with plurals, arguments and numbers in the
   conventions of each language. **Right-to-left** layouts that mirror
@@ -668,6 +669,7 @@ The build trees are in `build\dist\`.
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
+| `examples/web_view` | a page shown by the web engine of the system (`SystemWebView`, WKWebView on macOS): an address bar, the history, a color picker of Raven that drives the CSS of the page, scripts that answer, messages from the page |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
 | `examples/viewport_vulkan` | a Vulkan scene in the UI, twice: offscreen image wrapped as a texture, and drawn in the render pass of Raven. Needs the Vulkan library |
@@ -1607,6 +1609,29 @@ capture as a PNG file.
 
 ### Web pages
 
+The web engine of the system, in a view embedded in the window and kept over
+a widget: WKWebView on macOS (and iOS). WebKit is opened when the first view
+is made; a program that shows no page does not load it.
+
+```c
+Rid view = Rsystem_web_view_create();                       /* <SystemWebView Url="https://..."/> */
+Rsystem_web_view_load_url(view, "https://example.org");     /* or _load_file, _load_html(html, base_url) */
+Rsystem_web_view_set_message_callback(view, on_message, NULL);  /* window.raven.postMessage(value) in the page */
+Rsystem_web_view_run_javascript(view, "document.title", on_result, NULL);  /* the result as JSON, later */
+```
+
+The page follows the widget (its place, its size, its visibility, the part a
+`ScrollBox` lets be seen) and takes the mouse and the keyboard as a browser
+does. As with a native child window, Raven cannot draw over it: a popup or a
+menu that crosses it goes under it. `Rsystem_web_view_is_supported()` tells
+whether pages are shown: on Windows, Linux, Android and in the browser it is
+false for now, and the widget shows a message in place of the page, so the
+same program and the same XML run everywhere.
+
+![A SystemWebView on macOS](docs/images/system_web_view.png)
+
+On any system, `raven_web` shows pages through a browser that is installed:
+
 ```c
 #include <raven_web.h>                      /* part of the Raven library (raven::web is kept as an alias) */
 Rweb_register_xml();                        /* <WebView Url="https://..."/> */
@@ -1913,8 +1938,9 @@ What Raven does not do yet, by area. Contributions are welcome.
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it.
-- Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
-  installed Chromium-based browser instead.
+- Embedding the system web view on Windows (WebView2), Linux (WebKitGTK) and
+  Android: `SystemWebView` shows pages on macOS and iOS only; elsewhere
+  `raven_web` drives an installed Chromium-based browser instead.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
   On both, a window fills the screen: its size, position and title are left
   to the system. There are no native child windows, no tray icon, menu bar

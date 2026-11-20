@@ -817,7 +817,9 @@ void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree) {
 	uint32_t i;
 	for (i = window->native_viewport_count; i > 0; i--) {
 		rvn_widget_t* viewport = window->native_viewports[i - 1];
-		if (rvn_widget_is_inside(viewport, subtree)) rvn_viewport_native_release(viewport, window);
+		if (!rvn_widget_is_inside(viewport, subtree)) continue;
+		if (viewport->cls->type == R_WIDGET_SYSTEM_WEB_VIEW) rvn_system_web_view_native_release(viewport, window);
+		else rvn_viewport_native_release(viewport, window);
 	}
 }
 
@@ -1196,9 +1198,11 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	if (window->visible && rvn_frame_pacing()) g_rvn.platform->window_frame_begin(window->platform);
 	rvn_renderer_submit_frame(frame);
 
-	/* native child windows follow the viewports that were just painted, the others hide */
+	/* native child windows follow the viewports (and the web views) that were just painted, the others hide */
 	for (i = 0; i < window->native_viewport_count; i++) {
-		rvn_viewport_native_sync(window->native_viewports[i], window->frame_index - 1);
+		rvn_widget_t* native = window->native_viewports[i];
+		if (native->cls->type == R_WIDGET_SYSTEM_WEB_VIEW) rvn_system_web_view_native_sync(native, window->frame_index - 1);
+		else rvn_viewport_native_sync(native, window->frame_index - 1);
 	}
 }
 

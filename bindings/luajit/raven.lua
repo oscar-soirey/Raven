@@ -484,6 +484,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CHART = 564,
 	R_WIDGET_MAP_VIEW = 565,
 	R_WIDGET_CAROUSEL = 566,
+	R_WIDGET_SYSTEM_WEB_VIEW = 567,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -645,6 +646,13 @@ typedef enum RChartKind {
 	R_CHART_HEATMAP = 1427,
 	R_CHART_SPARKLINE = 1428,
 } RChartKind;
+typedef enum RSystemWebViewEvent {
+	R_SYSTEM_WEB_VIEW_NAVIGATED = 2960,
+	R_SYSTEM_WEB_VIEW_TITLE = 2961,
+	R_SYSTEM_WEB_VIEW_LOADING = 2962,
+	R_SYSTEM_WEB_VIEW_LOADED = 2963,
+	R_SYSTEM_WEB_VIEW_FAILED = 2964,
+} RSystemWebViewEvent;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -944,6 +952,9 @@ typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_
 typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
 typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
 typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
+typedef void (*RSystemWebViewResultCallback)(Rid view, const char* result, const char* error, void* user_data);
+typedef void (*RSystemWebViewMessageCallback)(Rid view, const char* message, void* user_data);
+typedef void (*RSystemWebViewEventCallback)(Rid view, RSystemWebViewEvent event, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -2116,6 +2127,25 @@ void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback,
 void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
 void Rmap_view_set_attribution(Rid map, const char* text);
 const char* Rmap_view_get_attribution(Rid map);
+int Rsystem_web_view_is_supported(void);
+Rid Rsystem_web_view_create(void);
+void Rsystem_web_view_load_url(Rid view, const char* url);
+void Rsystem_web_view_load_file(Rid view, const char* path);
+void Rsystem_web_view_load_html(Rid view, const char* html, const char* base_url);
+void Rsystem_web_view_reload(Rid view);
+void Rsystem_web_view_stop(Rid view);
+void Rsystem_web_view_go_back(Rid view);
+void Rsystem_web_view_go_forward(Rid view);
+int Rsystem_web_view_can_go_back(Rid view);
+int Rsystem_web_view_can_go_forward(Rid view);
+const char* Rsystem_web_view_get_url(Rid view);
+const char* Rsystem_web_view_get_title(Rid view);
+int Rsystem_web_view_is_loading(Rid view);
+const char* Rsystem_web_view_get_error(Rid view);
+void Rsystem_web_view_run_javascript(Rid view, const char* script, RSystemWebViewResultCallback callback, void* user_data);
+void Rsystem_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallback callback, void* user_data);
+void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
+void* Rsystem_web_view_get_native_handle(Rid view);
 Rid Rpdf_document_create(void);
 void Rpdf_document_delete(Rid document);
 void Rpdf_document_set_title(Rid document, const char* title);

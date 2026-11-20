@@ -663,8 +663,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CHART: 564,
 	R_WIDGET_MAP_VIEW: 565,
 	R_WIDGET_CAROUSEL: 566,
+	R_WIDGET_SYSTEM_WEB_VIEW: 567,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -877,6 +878,15 @@ export const RChartKind = _enum({
 	R_CHART_SPARKLINE: 1428,
 });
 export const { R_CHART_PIE, R_CHART_DONUT, R_CHART_GAUGE, R_CHART_HEATMAP, R_CHART_SPARKLINE } = RChartKind;
+
+export const RSystemWebViewEvent = _enum({
+	R_SYSTEM_WEB_VIEW_NAVIGATED: 2960,
+	R_SYSTEM_WEB_VIEW_TITLE: 2961,
+	R_SYSTEM_WEB_VIEW_LOADING: 2962,
+	R_SYSTEM_WEB_VIEW_LOADED: 2963,
+	R_SYSTEM_WEB_VIEW_FAILED: 2964,
+});
+export const { R_SYSTEM_WEB_VIEW_NAVIGATED, R_SYSTEM_WEB_VIEW_TITLE, R_SYSTEM_WEB_VIEW_LOADING, R_SYSTEM_WEB_VIEW_LOADED, R_SYSTEM_WEB_VIEW_FAILED } = RSystemWebViewEvent;
 
 export const RSyntax = _enum({
 	R_SYNTAX_NONE: 832,
@@ -4243,6 +4253,25 @@ export const Rmap_view_set_marker_clicked_callback = _lib.Rmap_view_set_marker_c
 export const Rmap_view_set_view_changed_callback = _lib.Rmap_view_set_view_changed_callback;
 export const Rmap_view_set_attribution = _lib.Rmap_view_set_attribution;
 export const Rmap_view_get_attribution = _lib.Rmap_view_get_attribution;
+export const Rsystem_web_view_is_supported = _lib.Rsystem_web_view_is_supported;
+export const Rsystem_web_view_create = _lib.Rsystem_web_view_create;
+export const Rsystem_web_view_load_url = _lib.Rsystem_web_view_load_url;
+export const Rsystem_web_view_load_file = _lib.Rsystem_web_view_load_file;
+export const Rsystem_web_view_load_html = _lib.Rsystem_web_view_load_html;
+export const Rsystem_web_view_reload = _lib.Rsystem_web_view_reload;
+export const Rsystem_web_view_stop = _lib.Rsystem_web_view_stop;
+export const Rsystem_web_view_go_back = _lib.Rsystem_web_view_go_back;
+export const Rsystem_web_view_go_forward = _lib.Rsystem_web_view_go_forward;
+export const Rsystem_web_view_can_go_back = _lib.Rsystem_web_view_can_go_back;
+export const Rsystem_web_view_can_go_forward = _lib.Rsystem_web_view_can_go_forward;
+export const Rsystem_web_view_get_url = _lib.Rsystem_web_view_get_url;
+export const Rsystem_web_view_get_title = _lib.Rsystem_web_view_get_title;
+export const Rsystem_web_view_is_loading = _lib.Rsystem_web_view_is_loading;
+export const Rsystem_web_view_get_error = _lib.Rsystem_web_view_get_error;
+export const Rsystem_web_view_run_javascript = _lib.Rsystem_web_view_run_javascript;
+export const Rsystem_web_view_set_message_callback = _lib.Rsystem_web_view_set_message_callback;
+export const Rsystem_web_view_set_event_callback = _lib.Rsystem_web_view_set_event_callback;
+export const Rsystem_web_view_get_native_handle = _lib.Rsystem_web_view_get_native_handle;
 export const Rpdf_document_create = _lib.Rpdf_document_create;
 export const Rpdf_document_delete = _lib.Rpdf_document_delete;
 export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;

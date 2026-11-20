@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - web_view
+
+  <SystemWebView> shows a page with the web engine of the system (WKWebView
+  on macOS), in a view of its own kept over the widget. Where the system has
+  none Raven can embed, it says so in its place; the rest of the window is the
+  same.
+-->
+<Window Title="Raven - system web view" Width="1120" Height="720" MinWidth="720" MinHeight="460">
+	<VBox>
+		<HBox Spacing="8" Slot.Padding="10,8,10,8">
+			<Button Name="back" Text="Back" Style="Flat" OnClicked="web.back"/>
+			<Button Name="forward" Text="Forward" Style="Flat" OnClicked="web.forward"/>
+			<Button Text="Reload" Style="Flat" OnClicked="web.reload"/>
+			<Button Text="Home" Style="Flat" OnClicked="web.home"/>
+			<TextInput Name="address" Placeholder="Address: https://..." OnCommitted="web.go" Slot.Fill="1"/>
+		</HBox>
+		<Separator/>
+		<HBox Slot.Fill="1">
+			<SystemWebView Name="page" Source="pages/welcome.html" OnChanged="web.navigated" Slot.Fill="1"/>
+			<Separator Orientation="Vertical"/>
+			<VBox Width="290" Spacing="10" Slot.Padding="14">
+				<Label Name="title" Text="" TextSize="17" Wrap="true"/>
+				<Label Name="status" Text="" Opacity="0.6" Wrap="true"/>
+				<Separator/>
+				<Label Text="From Raven to the page" Opacity="0.6"/>
+				<Label Markdown="true" Wrap="true">This color picker is a widget of Raven. It sets a **CSS variable** of the page with `Rsystem_web_view_run_javascript`.</Label>
+				<ColorPicker Name="tint" Color="#7C5CFF" Alpha="false" Compact="true" OnChanged="web.tint"/>
+				<Button Text="Ask the page for its size" OnClicked="web.ask"/>
+				<Separator/>
+				<Label Text="From the page to Raven" Opacity="0.6"/>
+				<Label Name="log" Wrap="true" Markdown="true">*Nothing yet: press a button of the page.*</Label>
+			</VBox>
+		</HBox>
+	</VBox>
+</Window>

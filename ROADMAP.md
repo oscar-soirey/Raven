@@ -123,7 +123,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   formats of the application on the clipboard.
 - [ ] The same on X11 and Wayland; files made on demand when dropped (file promises).
 - [ ] Glass over a native child window.
-- [ ] Embedding the system web view (WebView2, WebKitGTK).
+- [x] Embedding the system web view: `SystemWebView`, WKWebView on macOS
+  (and iOS), WebKit opened at run time.
+- [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
+  (`android.webkit.WebView`).
 
 ### Rendering
 

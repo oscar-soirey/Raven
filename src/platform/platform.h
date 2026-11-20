@@ -28,8 +28,51 @@ typedef struct rvn_ptray_t rvn_ptray_t;
 /** A native window. Each platform defines its own structure. */
 typedef struct rvn_pwindow_t rvn_pwindow_t;
 
-/** A request of a service of the device (file_open, camera_take_photo...): see below. */
-typedef struct rvn_service_request_t rvn_service_request_t;
+/** A web view of the system (web_view_create). Each platform defines its own structure. */
+typedef struct rvn_pweb_view_t rvn_pweb_view_t;
+
+/** What a web view of the system tells the core (rvn_web_view_event). */
+typedef enum rvn_pweb_event_type_t {
+	/** It shows another address: `text`. */
+	RVN_PWEB_URL,
+	/** The title of the page: `text` ("" none). */
+	RVN_PWEB_TITLE,
+	/** A page starts loading. */
+	RVN_PWEB_LOADING,
+	/** The page is loaded. */
+	RVN_PWEB_LOADED,
+	/** The page could not be loaded, or the engine stopped: `error`. */
+	RVN_PWEB_FAILED,
+	/** The page called window.raven.postMessage: `text`. */
+	RVN_PWEB_MESSAGE,
+	/** A script of web_view_run_javascript ended: `request`, and `text` (its value as JSON) or `error`. */
+	RVN_PWEB_RESULT
+} rvn_pweb_event_type_t;
+
+typedef struct rvn_pweb_event_t {
+	rvn_pweb_event_type_t type;
+	/** The `user` given to web_view_create. */
+	void* user;
+	const char* text;
+	const char* error;
+	uint64_t request;
+} rvn_pweb_event_t;
+
+/** The navigation commands of a web view of the system. */
+typedef enum rvn_pweb_command_t {
+	RVN_PWEB_BACK,
+	RVN_PWEB_FORWARD,
+	RVN_PWEB_RELOAD,
+	RVN_PWEB_STOP
+} rvn_pweb_command_t;
+
+/**
+ * The platform tells the core what happens in a web view of the system
+ * (implemented in widgets/system_web_view.c). UI thread, from the loop of
+ * events of the platform (pump) or from the run loop of the system; never
+ * during a call of the core into the web view.
+ */
+void rvn_web_view_event(const rvn_pweb_event_t* event);
 
 typedef enum rvn_pevent_type_t {
 	/** The user asked to close the window. */
@@ -137,13 +180,7 @@ typedef enum rvn_pevent_type_t {
 	 * platform sends the keys the input method takes neither as
 	 * RVN_PEVENT_KEY nor as RVN_PEVENT_TEXT.
 	 */
-	RVN_PEVENT_COMPOSITION,
-	/**
-	 * The drag out of the window (drag_begin) ended: `operation` is what the
-	 * target did (RDragOperation, 0 when nothing took it). `user` may be NULL
-	 * (the window is gone): the core keeps the drag itself.
-	 */
-	RVN_PEVENT_DRAG_END
+	RVN_PEVENT_COMPOSITION
 } rvn_pevent_type_t;
 
 /**
@@ -244,8 +281,6 @@ typedef struct rvn_pevent_t {
 	/** RVN_PEVENT_COMPOSITION: the text being composed and its selection (bytes). */
 	const char* composition;
 	int composition_start, composition_end;
-	/** RVN_PEVENT_DRAG_END: an RDragOperation. */
-	int operation;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -398,32 +433,6 @@ typedef struct rvn_platform_t {
 	void  (*clipboard_set_html)(const char* text, const char* html);
 	/** Returns a rvn_alloc'ed string, or NULL. */
 	char* (*clipboard_get)(void);
-	/*
-	 * ---- formats on the clipboard, and drags out of the windows (all optional, NULL: text only, no drags) ----
-	 *
-	 * The formats are named by MIME types (RDataItem); the platform gives
-	 * them their native names and converts them (core/transfer.c has the
-	 * conversions shared by the platforms).
-	 */
-	/** Replaces the clipboard with these formats. Returns R_FALSE when some could not be put there. */
-	int   (*clipboard_set_data)(const RDataItem* items, int count);
-	/** R_TRUE when the clipboard holds `mime`, or a native format the platform converts to it. */
-	int   (*clipboard_has_data)(const char* mime);
-	/** The bytes of `mime` (rvn_alloc'ed, followed by a '\0' not counted in `size`), or NULL. */
-	char* (*clipboard_get_data)(const char* mime, size_t* size);
-	/**
-	 * Hands a drag out of `window` to the window system, while a mouse
-	 * button is held: called by the core from a mouse move of the window.
-	 * `operations` is the RDragOperation bitmask allowed (never 0), `rgba`
-	 * (`width` x `height`, may be NULL) the picture that follows the
-	 * pointer. Returns R_FALSE when it could not start. Once started, the
-	 * window gets no more mouse button events for this press: the core
-	 * forgets the buttons held. The end is told with RVN_PEVENT_DRAG_END,
-	 * exactly once, possibly before drag_begin returns (a system whose drag
-	 * is a modal loop, Win32).
-	 */
-	int   (*drag_begin)(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
-		const uint8_t* rgba, int width, int height);
 
 	/**
 	 * Optional (may be NULL). Called repeatedly while the UI thread is blocked
@@ -524,158 +533,40 @@ typedef struct rvn_platform_t {
 	void  (*window_set_back_wanted)(rvn_pwindow_t* window, int wanted);
 
 	/*
-	 * ---- services of the device (optional, NULL when the platform has none; raven_device.h) ----
+	 * ---- the web view of the system (optional, all NULL when there is none) ----
 	 *
-	 * Called on the UI thread, and each returns at once. A request that shows
-	 * a screen of the system (permission_request, file_*, folder_select,
-	 * camera_take_photo, photo_pick, share) is answered later by ONE call to
-	 * rvn_permission_answer or rvn_service_complete, from any thread (a
-	 * completion block of UIKit, the Java main thread of Android, a worker):
-	 * the core hands the answer to the application at its next frame and
-	 * wakes it. An answer may also come before the entry returns. The core
-	 * sends one such screen at a time (else R_DEVICE_BUSY) and asks for the
-	 * permission a service needs before it calls the service. A request
-	 * still open at shutdown is forgotten by the core: an answer after it is
-	 * ignored. Files given back must be readable by path (see
-	 * rvn_service_complete). What iOS and Android use for each entry, and
-	 * how their answers come back: docs/device-services.md.
+	 * A view of the web engine of the system (WKWebView), kept over a
+	 * SystemWebView widget as a native child window is. What happens in it
+	 * comes back through rvn_web_view_event.
 	 */
 
+	/** R_TRUE when web_view_create can make a view (the engine could be loaded). */
+	int   (*web_view_supported)(void);
+	/** A new view, in no window yet. NULL when it cannot be made. */
+	rvn_pweb_view_t* (*web_view_create)(void* user);
+	/** Takes the view out of its window and frees it; nothing comes back from it after. */
+	void  (*web_view_destroy)(rvn_pweb_view_t* view);
+	/** Puts the view in a window, or takes it out (NULL). It stays hidden until web_view_set_rect shows it. */
+	void  (*web_view_set_parent)(rvn_pweb_view_t* view, rvn_pwindow_t* parent);
 	/**
-	 * The RPermissionStatus of an RPermission, without asking the user. Must
-	 * not block more than a moment: a status the system only gives
-	 * asynchronously (iOS notifications) is kept by the platform, fetched at
-	 * init and again at each R_APP_WILL_RESUME (R_PERMISSION_NOT_ASKED until
-	 * known). A permission the platform cannot ask for: R_PERMISSION_UNSUPPORTED.
-	 * When NULL, the core answers R_PERMISSION_GRANTED for notifications where
-	 * `notify` exists, R_PERMISSION_UNSUPPORTED for the others.
+	 * Places the view: `rect` the whole page, `clip` the part of it that is
+	 * seen (x, y, width, height in pixels of the client area of the parent,
+	 * `scale` pixels per logical unit), or hides it.
 	 */
-	int   (*permission_status)(int permission);
-	/**
-	 * Shows the question of the system for an RPermission (the core calls it
-	 * only when the status is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED,
-	 * once until it is answered). Answer with rvn_permission_answer.
-	 */
-	void  (*permission_request)(int permission);
-	/** The page of the application in the Settings of the system. R_FALSE when it could not be opened. */
-	int   (*permission_open_settings)(void);
-
-	/**
-	 * The document picker: one file to read (several when request->multiple),
-	 * of the kinds of request->filters. Answer with rvn_service_complete:
-	 * R_DEVICE_DONE with the files, as paths the core can read (copies in the
-	 * cache of the application), or R_DEVICE_CANCELLED.
-	 */
-	void  (*file_open)(const rvn_service_request_t* request);
-	/**
-	 * Saves request->data / size (or copies the file request->path, when
-	 * data is NULL) where the user chooses, proposing request->file_name.
-	 * Answer R_DEVICE_DONE with one file: its name (path NULL when the place
-	 * is not a path the application can write to again).
-	 */
-	void  (*file_save)(const rvn_service_request_t* request);
-	/** A folder (R_DEVICE_DONE with its path). NULL on iOS and Android for now. */
-	void  (*folder_select)(const rvn_service_request_t* request);
-	/** R_TRUE when the device has a camera camera_take_photo can show now. */
-	int   (*camera_available)(void);
-	/**
-	 * The camera of the system, for one photo. The core has asked for
-	 * R_PERMISSION_CAMERA first (when permission_status does not answer
-	 * R_PERMISSION_UNSUPPORTED). Answer R_DEVICE_DONE with one JPEG file in
-	 * the cache, upright, with its width and height.
-	 */
-	void  (*camera_take_photo)(const rvn_service_request_t* request);
-	/** The photo picker of the system: up to request->max_count photos (0: no limit), as files Raven decodes (JPEG, PNG). */
-	void  (*photo_pick)(const rvn_service_request_t* request);
-	/** The share sheet: request->text and / or the file request->path (request->mime_type), pointing at request->anchor. */
-	void  (*share)(const rvn_service_request_t* request);
-	/**
-	 * Opens a URL with the application the system has for it (Ropen_url;
-	 * without this entry the core runs `open` / `xdg-open` on desktops).
-	 * Returns at once; R_FALSE when the system could not be asked.
-	 */
-	int   (*open_url)(const char* url);
-	/** R_TRUE when haptics can be played. */
-	int   (*haptic_supported)(void);
-	/** Plays an RHaptic (light / medium / heavy, selection, success / warning / error). R_TRUE when handed to the system. */
-	int   (*haptic)(int haptic);
-	/**
-	 * Downloads an http:// or https:// URL, following redirections, into an
-	 * rvn_alloc'ed buffer (*data, *size): images from a URL. Used instead of
-	 * the `curl` of desktops. BLOCKS until done: called on worker threads of
-	 * the core, several at a time, never on purpose on the UI thread
-	 * (thread-safe; Android: the thread must be attached to the JavaVM).
-	 * Limit: 32 MiB and about 20 seconds. On failure: R_FALSE, and *error
-	 * may be an rvn_alloc'ed text saying why (HTTP 404, blocked by App
-	 * Transport Security...), reported by the core.
-	 */
-	int   (*download)(const char* url, uint8_t** data, size_t* size, char** error);
-	/**
-	 * R_TRUE when the clipboard holds text, without reading it (iOS:
-	 * hasStrings, which shows no paste prompt). NULL: the core reads the
-	 * clipboard to know.
-	 */
-	int   (*clipboard_has_text)(void);
+	void  (*web_view_set_rect)(rvn_pweb_view_t* view, const int rect[4], const int clip[4], float scale, int visible);
+	void  (*web_view_load_url)(rvn_pweb_view_t* view, const char* url);
+	/** `base_url` may be NULL. */
+	void  (*web_view_load_html)(rvn_pweb_view_t* view, const char* html, const char* base_url);
+	void  (*web_view_command)(rvn_pweb_view_t* view, rvn_pweb_command_t command);
+	/** R_TRUE when RVN_PWEB_BACK / RVN_PWEB_FORWARD would go somewhere. */
+	int   (*web_view_can)(rvn_pweb_view_t* view, rvn_pweb_command_t command);
+	/** Runs a script; its end comes back as RVN_PWEB_RESULT with `request`, later. */
+	void  (*web_view_run_javascript)(rvn_pweb_view_t* view, const char* script, uint64_t request);
+	/** Gives the keyboard to the page, or takes it back to the window. */
+	void  (*web_view_focus)(rvn_pweb_view_t* view, int focused);
+	/** The view of the system (WKWebView*). */
+	void* (*web_view_native)(rvn_pweb_view_t* view);
 } rvn_platform_t;
-
-/**
- * A request of a service of the device to the platform (rvn_platform_t::file_open...).
- * Valid during the call only: the platform copies what it keeps. Fields that
- * do not concern the entry called are zero.
- */
-struct rvn_service_request_t {
-	/** Given back to rvn_service_complete. Never 0. */
-	uint32_t id;
-	/** The window the screen of the system is shown over; NULL: the platform's first window. */
-	rvn_pwindow_t* window;
-	/** What it points at on a tablet (share sheet, iPad popovers): x, y, width, height in pixels of the window; width 0: the middle of the window. */
-	float anchor[4];
-	/* file_open, file_save, folder_select */
-	const char* title;
-	const RFileFilter* filters;
-	int filter_count;
-	int multiple;
-	/* file_save */
-	const char* file_name;
-	const char* default_extension;
-	const void* data;
-	size_t size;
-	/* file_save (when data is NULL), share: a file, by a path the core can read */
-	const char* path;
-	/* photo_pick */
-	int max_count;
-	/* share */
-	const char* text;
-	const char* mime_type;
-	const char* share_title;
-};
-
-/**
- * The answer to permission_request: an RPermissionStatus. Also a status the
- * platform learned by itself (notify asked for notifications). Any thread.
- */
-void rvn_permission_answer(int permission, int status);
-/**
- * The end of a request (rvn_service_request_t::id): an RDeviceResult and the
- * files it gave (copied by the core, during the call). Each RPickedFile::path
- * must be readable with fopen; size 0 is read from the file. `error` (or
- * NULL) says what failed, reported as a warning. Any thread, once per request.
- */
-void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int count, const char* error);
-/**
- * The extensions request->filters name, lowercase, without the dot ("png",
- * "jpg"): for the platform to turn into its own types (UTType, MIME). count 0
- * (and NULL) when every file may be chosen ("*", or no filter). Free with
- * rvn_service_extensions_free.
- */
-char** rvn_service_extensions(const rvn_service_request_t* request, int* count);
-void rvn_service_extensions_free(char** extensions, int count);
-
-/* (core: Rinit, Rshutdown) */
-void rvn_services_init(void);
-void rvn_services_shutdown(void);
-/** Downloads a URL with the platform's `download`, else as desktops do (core/fs.c); reports failures. Any thread. */
-int  rvn_service_download(const char* url, uint8_t** data, size_t* size);
 
 #if defined(RAVEN_PLATFORM_EMSCRIPTEN)
 const rvn_platform_t* rvn_platform_emscripten(void);

@@ -428,6 +428,13 @@ static const rvn_schema_attribute_t g_menu_item[] = {
 	B("Separator", "A line instead of an item."),
 	A("OnClicked", "Action fired by the item."),
 };
+static const rvn_schema_attribute_t g_system_web_view[] = {
+	T("Url", "Address of the page shown (\"https://...\", \"file:///...\")."),
+	F("Source", "A page of the computer (an .html file), found next to the document."),
+	T("Html", "HTML shown as the page."),
+	T("BaseUrl", "Where the relative addresses of Html are looked for."),
+	A("OnChanged", "Action fired when the view shows another address."),
+};
 static const rvn_schema_attribute_t g_viewport[] = {
 	C("Stretch", STRETCH, "How the picture fills its place."),
 	B("FlipY", "Turns the picture upside down (some renderers draw that way)."),
@@ -598,6 +605,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Menu", g_menu, "A menu: MenuItem, Separator and Menu elements."),
 	TAG("MenuItem", g_menu_item, "An item of a menu."),
 	TAG("Viewport", g_viewport, "A place the application draws in with its own renderer."),
+	TAG("SystemWebView", g_system_web_view, "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
 	TAG("HeaderBar", g_header_bar, "The title bar of a window with a custom header; holds any widgets."),

@@ -1770,6 +1770,39 @@
 			"accepted": []
 		},
 		{
+			"name": "SystemWebView",
+			"description": "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Url",
+					"kind": "text",
+					"description": "Address of the page shown (\"https://...\", \"file:///...\")."
+				},
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "A page of the computer (an .html file), found next to the document."
+				},
+				{
+					"name": "Html",
+					"kind": "text",
+					"description": "HTML shown as the page."
+				},
+				{
+					"name": "BaseUrl",
+					"kind": "text",
+					"description": "Where the relative addresses of Html are looked for."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the view shows another address."
+				}
+			],
+			"accepted": []
+		},
+		{
 			"name": "Custom",
 			"description": "A widget painted and measured by the application.",
 			"children": "many",

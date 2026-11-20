@@ -361,6 +361,7 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Plot", "<Plot Height=\"220\" Title=\"Plot\" XLabel=\"x\" YLabel=\"y\"><Series Name=\"Line\" Y=\"1 3 2 5 4 6\"/>"
 		"<Scatter Name=\"Points\" Points=\"0,2 1,1.5 2,3.5 3,3 4,5.5 5,5\" Marker=\"Diamond\"/></Plot>" },
 	{ "PdfView", "<PdfView Height=\"260\" Fit=\"Width\"/>" },
+	{ "SystemWebView", "<SystemWebView Height=\"220\" Html=\"&lt;h1&gt;Hello&lt;/h1&gt;&lt;p&gt;A page shown by the web engine of the system.&lt;/p&gt;\"/>" },
 	{ "MapView", "<MapView Height=\"260\" Latitude=\"48.85\" Longitude=\"2.35\" Zoom=\"4\"><Marker Latitude=\"48.85\" Longitude=\"2.35\" Label=\"Paris\"/></MapView>" },
 	{ "Series", "<Series Name=\"Series\" Y=\"1 2 3\"/>" },
 	{ "DragLine", "<DragLine Axis=\"X\" Value=\"1\" Label=\"x\"/>" },

@@ -738,6 +738,8 @@ R_WIDGET_CHART :: 0x0234
 R_WIDGET_MAP_VIEW :: 0x0235
 // Pages shown one at a time and swiped (a page view), with dots and arrows.
 R_WIDGET_CAROUSEL :: 0x0236
+// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+R_WIDGET_SYSTEM_WEB_VIEW :: 0x0237
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -984,6 +986,19 @@ R_CHART_GAUGE :: 0x0592
 R_CHART_HEATMAP :: 0x0593
 // A small line of values without axes, to sit in a tile or a cell of a table.
 R_CHART_SPARKLINE :: 0x0594
+
+// What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+RSystemWebViewEvent :: i32
+// The view shows another address (Rsystem_web_view_get_url).
+R_SYSTEM_WEB_VIEW_NAVIGATED :: 0x0B90
+// The title of the page changed (Rsystem_web_view_get_title).
+R_SYSTEM_WEB_VIEW_TITLE :: 0x0B91
+// A page starts loading.
+R_SYSTEM_WEB_VIEW_LOADING :: 0x0B92
+// The page and what it refers to are loaded.
+R_SYSTEM_WEB_VIEW_LOADED :: 0x0B93
+// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+R_SYSTEM_WEB_VIEW_FAILED :: 0x0B94
 
 // Shorthands of Rtext_editor_set_language for two languages.
 RSyntax :: i32
@@ -1466,6 +1481,13 @@ RMapMarkerCallback :: #type proc "c" (map_: Rid, marker: i32, user_data: rawptr)
 // end of an animated zoom), with its new center and zoom. This also fires
 // the action of the widget.
 RMapViewCallback :: #type proc "c" (map_: Rid, latitude: f64, longitude: f64, zoom: f64, user_data: rawptr)
+// Receives the result of a script: `result` is its value written
+// as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+// script failed, `error` then telling why.
+RSystemWebViewResultCallback :: #type proc "c" (view: Rid, result: cstring, error: cstring, user_data: rawptr)
+// Receives what the page sends with `window.raven.postMessage(value)`.
+RSystemWebViewMessageCallback :: #type proc "c" (view: Rid, message: cstring, user_data: rawptr)
+RSystemWebViewEventCallback :: #type proc "c" (view: Rid, event: RSystemWebViewEvent, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -3999,6 +4021,43 @@ foreign lib {
 	// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
 	Rmap_view_set_attribution :: proc(map_: Rid, text: cstring) ---
 	Rmap_view_get_attribution :: proc(map_: Rid) -> cstring ---
+	// Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+	Rsystem_web_view_is_supported :: proc() -> i32 ---
+	Rsystem_web_view_create :: proc() -> Rid ---
+	// Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+	Rsystem_web_view_load_url :: proc(view: Rid, url: cstring) ---
+	// Shows a file of the computer (an .html file, and what it refers to in its folder).
+	Rsystem_web_view_load_file :: proc(view: Rid, path: cstring) ---
+	// Shows HTML given as text.
+	// base_url Where the relative addresses of the text are looked
+	// for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+	Rsystem_web_view_load_html :: proc(view: Rid, html: cstring, base_url: cstring) ---
+	Rsystem_web_view_reload :: proc(view: Rid) ---
+	Rsystem_web_view_stop :: proc(view: Rid) ---
+	Rsystem_web_view_go_back :: proc(view: Rid) ---
+	Rsystem_web_view_go_forward :: proc(view: Rid) ---
+	Rsystem_web_view_can_go_back :: proc(view: Rid) -> i32 ---
+	Rsystem_web_view_can_go_forward :: proc(view: Rid) -> i32 ---
+	// Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+	Rsystem_web_view_get_url :: proc(view: Rid) -> cstring ---
+	// Returns: The title of the page, "" when it has none. Valid until it changes.
+	Rsystem_web_view_get_title :: proc(view: Rid) -> cstring ---
+	Rsystem_web_view_is_loading :: proc(view: Rid) -> i32 ---
+	// Returns: Why the last page could not be shown, or "" when all is well.
+	Rsystem_web_view_get_error :: proc(view: Rid) -> cstring ---
+	// Runs JavaScript in the page; the value of its last statement is
+	// the result. If it is a promise, the result is what the promise
+	// resolves to. The callback (may be NULL) always comes later, never
+	// during this call.
+	Rsystem_web_view_run_javascript :: proc(view: Rid, script: cstring, callback: RSystemWebViewResultCallback, user_data: rawptr) ---
+	Rsystem_web_view_set_message_callback :: proc(view: Rid, callback: RSystemWebViewMessageCallback, user_data: rawptr) ---
+	// Called when something happens in the page. The action of the
+	// widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+	// time the address changes.
+	Rsystem_web_view_set_event_callback :: proc(view: Rid, callback: RSystemWebViewEventCallback, user_data: rawptr) ---
+	// The view of the system, to go further than these functions:
+	// a WKWebView* on macOS and iOS. NULL where unsupported.
+	Rsystem_web_view_get_native_handle :: proc(view: Rid) -> rawptr ---
 	Rpdf_document_create :: proc() -> Rid ---
 	Rpdf_document_delete :: proc(document: Rid) ---
 	// The information of the document, shown by readers (the title in their window).

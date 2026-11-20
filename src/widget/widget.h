@@ -907,7 +907,7 @@ struct rvn_window_t {
 	uint32_t shortcut_count;
 	uint32_t shortcut_cap;
 
-	/* viewports of this window that own a native child window */
+	/* viewports of this window that own a native child window, and SystemWebViews whose view is in it */
 	rvn_widget_t** native_viewports;
 	uint32_t native_viewport_count;
 	uint32_t native_viewport_cap;
@@ -1113,6 +1113,9 @@ void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */
 void rvn_viewport_native_release(rvn_widget_t* widget, rvn_window_t* window);
 void rvn_viewport_native_sync(rvn_widget_t* widget, uint64_t frame);
+/* The same for the view of a SystemWebView (widgets/system_web_view.c), kept in the same list of the window. */
+void rvn_system_web_view_native_release(rvn_widget_t* widget, rvn_window_t* window);
+void rvn_system_web_view_native_sync(rvn_widget_t* widget, uint64_t frame);
 
 /** Enabled menu item bound to a shortcut anywhere below `root`, or NULL. Implemented in widgets/menu.c. */
 rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modifiers);

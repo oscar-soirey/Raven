@@ -770,6 +770,8 @@ const RWidgetType R_WIDGET_CHART = 0x0234;
 const RWidgetType R_WIDGET_MAP_VIEW = 0x0235;
 <* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
+<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+const RWidgetType R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1028,6 +1030,19 @@ const RChartKind R_CHART_GAUGE = 0x0592;
 const RChartKind R_CHART_HEATMAP = 0x0593;
 <* A small line of values without axes, to sit in a tile or a cell of a table. *>
 const RChartKind R_CHART_SPARKLINE = 0x0594;
+
+<* What happens in a SystemWebView (Rsystem_web_view_set_event_callback). *>
+alias RSystemWebViewEvent = CInt;
+<* The view shows another address (Rsystem_web_view_get_url). *>
+const RSystemWebViewEvent R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90;
+<* The title of the page changed (Rsystem_web_view_get_title). *>
+const RSystemWebViewEvent R_SYSTEM_WEB_VIEW_TITLE = 0x0B91;
+<* A page starts loading. *>
+const RSystemWebViewEvent R_SYSTEM_WEB_VIEW_LOADING = 0x0B92;
+<* The page and what it refers to are loaded. *>
+const RSystemWebViewEvent R_SYSTEM_WEB_VIEW_LOADED = 0x0B93;
+<* The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error). *>
+const RSystemWebViewEvent R_SYSTEM_WEB_VIEW_FAILED = 0x0B94;
 
 <* Shorthands of Rtext_editor_set_language for two languages. *>
 alias RSyntax = CInt;
@@ -1611,6 +1626,15 @@ alias RMapMarkerCallback = fn void(Rid map, CInt marker, void* user_data);
  the action of the widget.
 *>
 alias RMapViewCallback = fn void(Rid map, double latitude, double longitude, double zoom, void* user_data);
+<*
+ Receives the result of a script: `result` is its value written
+ as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+ script failed, `error` then telling why.
+*>
+alias RSystemWebViewResultCallback = fn void(Rid view, char* result, char* error, void* user_data);
+<* Receives what the page sends with `window.raven.postMessage(value)`. *>
+alias RSystemWebViewMessageCallback = fn void(Rid view, char* message, void* user_data);
+alias RSystemWebViewEventCallback = fn void(Rid view, RSystemWebViewEvent event, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data);
 <*
@@ -5563,6 +5587,66 @@ extern fn void r_map_view_set_view_changed_callback(Rid map, RMapViewCallback ca
 extern fn void r_map_view_set_attribution(Rid map, char* text) @cname("Rmap_view_set_attribution");
 
 extern fn char* r_map_view_get_attribution(Rid map) @cname("Rmap_view_get_attribution");
+
+<* Returns R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system). *>
+extern fn CInt r_system_web_view_is_supported() @cname("Rsystem_web_view_is_supported");
+
+extern fn Rid r_system_web_view_create() @cname("Rsystem_web_view_create");
+
+<* Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder. *>
+extern fn void r_system_web_view_load_url(Rid view, char* url) @cname("Rsystem_web_view_load_url");
+
+<* Shows a file of the computer (an .html file, and what it refers to in its folder). *>
+extern fn void r_system_web_view_load_file(Rid view, char* path) @cname("Rsystem_web_view_load_file");
+
+<* Shows HTML given as text. *>
+extern fn void r_system_web_view_load_html(Rid view, char* html, char* base_url) @cname("Rsystem_web_view_load_html");
+
+extern fn void r_system_web_view_reload(Rid view) @cname("Rsystem_web_view_reload");
+
+extern fn void r_system_web_view_stop(Rid view) @cname("Rsystem_web_view_stop");
+
+extern fn void r_system_web_view_go_back(Rid view) @cname("Rsystem_web_view_go_back");
+
+extern fn void r_system_web_view_go_forward(Rid view) @cname("Rsystem_web_view_go_forward");
+
+extern fn CInt r_system_web_view_can_go_back(Rid view) @cname("Rsystem_web_view_can_go_back");
+
+extern fn CInt r_system_web_view_can_go_forward(Rid view) @cname("Rsystem_web_view_can_go_forward");
+
+<* Returns The address of the page shown (the one asked for, where unsupported). Valid until it changes. *>
+extern fn char* r_system_web_view_get_url(Rid view) @cname("Rsystem_web_view_get_url");
+
+<* Returns The title of the page, "" when it has none. Valid until it changes. *>
+extern fn char* r_system_web_view_get_title(Rid view) @cname("Rsystem_web_view_get_title");
+
+extern fn CInt r_system_web_view_is_loading(Rid view) @cname("Rsystem_web_view_is_loading");
+
+<* Returns Why the last page could not be shown, or "" when all is well. *>
+extern fn char* r_system_web_view_get_error(Rid view) @cname("Rsystem_web_view_get_error");
+
+<*
+ Runs JavaScript in the page; the value of its last statement is
+ the result. If it is a promise, the result is what the promise
+ resolves to. The callback (may be NULL) always comes later, never
+ during this call.
+*>
+extern fn void r_system_web_view_run_javascript(Rid view, char* script, RSystemWebViewResultCallback callback, void* user_data) @cname("Rsystem_web_view_run_javascript");
+
+extern fn void r_system_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallback callback, void* user_data) @cname("Rsystem_web_view_set_message_callback");
+
+<*
+ Called when something happens in the page. The action of the
+ widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+ time the address changes.
+*>
+extern fn void r_system_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data) @cname("Rsystem_web_view_set_event_callback");
+
+<*
+ The view of the system, to go further than these functions:
+ a WKWebView* on macOS and iOS. NULL where unsupported.
+*>
+extern fn void* r_system_web_view_get_native_handle(Rid view) @cname("Rsystem_web_view_get_native_handle");
 
 extern fn Rid r_pdf_document_create() @cname("Rpdf_document_create");
 
