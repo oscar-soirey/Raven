@@ -5,6 +5,28 @@
     android:versionName="0.1">
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
+
+    <!-- Device services (raven_device.h, Device tab of the showcase); see ../README.md -->
+    <!-- images from https:// (Rtexture_create_from_url_async): no question at run time -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Rcamera_take_photo: once declared, the camera must be granted (Raven asks first) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Rnotification_show on Android 13+ (asked at run time) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- R_PERMISSION_LOCATION (asked at run time): Android 12+ wants COARSE beside FINE, and the
+         user may allow the approximate location only (limited) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Rhaptic_play through the Vibrator -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- (CAMERA alone would make a camera required to install the app) -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Android 11+ shows the app only these other apps: a camera app to take the photo -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
     <application android:label="Raven Showcase" android:hasCode="true" android:debuggable="true"
         android:theme="@android:style/Theme.DeviceDefault.DayNight">
         <activity android:name="android.app.NativeActivity"
@@ -17,5 +39,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Raven's helper: asks for permissions and receives the answers of pickers and the camera
+             (NativeActivity gets neither); transparent, closed as soon as it has the answer -->
+        <activity android:name="raven.android.RavenRequestActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode|smallestScreenSize" />
+        <!-- Raven's files for other apps (content:// URIs: a shared file, the camera's output);
+             authority: the package name + ".raven.files" -->
+        <provider android:name="raven.android.RavenFileProvider"
+            android:authorities="dev.raven.hello.raven.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

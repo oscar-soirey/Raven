@@ -2,7 +2,11 @@
  * Raven mobile showcase: the UI shared by the iOS and the Android app.
  * assets/showcase.xml holds the layout; this file fills and wires it.
  *
- * Tabs (bottom bar): List (1,000 rows + a detail page), Controls, Glass, Form.
+ * Tabs (bottom bar): List (1,000 rows + a detail page), Controls, Glass, Form,
+ * Device (permissions, camera, pickers, haptics, links, sharing, clipboard,
+ * an image from the network: raven_device.h; every answer comes later, in a
+ * callback, and says "not supported here" where the platform has no such
+ * service).
  * "Back" = the Back button, Escape, a swipe from the left edge, or the system's
  * Back (Android: Rwindow_set_back_callback; the app tells Raven when it has
  * somewhere to go back to, so that at the root the system leaves the app).
@@ -21,11 +25,15 @@
 #endif
 
 #define ROW_COUNT 1000
+#define TAB_COUNT 5
+/* a small, stable public image (Raven's logo, 37 KB); Android needs INTERNET in its manifest */
+#define NET_IMAGE_URL "https://raw.githubusercontent.com/oscar-soirey/Raven/main/docs/images/logo-black.png"
+#define RAVEN_PAGE_URL "https://github.com/oscar-soirey/Raven"
 
 static struct {
 	Rid window, root, pages, listnav, list, detail, list_page;
 	Rid detail_title, detail_subtitle, detail_body, detail_swatch;
-	Rid tabs[4];
+	Rid tabs[TAB_COUNT];
 	Rid counter_label, slider_value, progress, progress_value, dialog_result;
 	Rid blur_value, frame_stats, blurs[4];
 	Rid name, email, phone, city, note, form_state, keyboard_state;
@@ -43,6 +51,11 @@ static struct {
 	/* the last lifecycle events, oldest first, and how many low-memory warnings came */
 	RAppEvent events[4];
 	int event_count, low_memory;
+	/* device tab */
+	Rid dev_status, perm_camera, perm_notify, perm_location, photo_info, photo_view, file_info, file_view, clip_info, net_info, net_view;
+	Rid share_button, net_timer;
+	Rid photo_texture, file_texture, net_texture;
+	char photo_path[1024];
 } sc;
 
 void showcase_log(const char* format, ...) {
@@ -241,6 +254,7 @@ static const char* app_event_name(RAppEvent event) {
 }
 
 static void set_tab_timers(void);
+static void show_permissions(void);
 
 /* The application went to the background or came back (Rset_app_event_callback). */
 static void on_app_event(RAppEvent event, void* user_data) {
@@ -264,6 +278,8 @@ static void on_app_event(RAppEvent event, void* user_data) {
 	Rlabel_set_text(sc.lifecycle, text);
 	/* the timers that only move what is drawn stop in the background */
 	if (event == R_APP_DID_PAUSE || event == R_APP_WILL_RESUME) set_tab_timers();
+	/* (the user may have changed a permission in the Settings meanwhile) */
+	if (event == R_APP_DID_RESUME) show_permissions();
 }
 
 /* ---------------------------------------------------------------- tabs */
@@ -308,8 +324,9 @@ static void set_tab(int tab) {
 	int i;
 	sc.tab = tab;
 	Rswitcher_set_index(sc.pages, tab);
-	for (i = 0; i < 4; i++) Rbutton_set_style(sc.tabs[i], i == tab ? R_BUTTON_PRIMARY : R_BUTTON_FLAT);
+	for (i = 0; i < TAB_COUNT; i++) Rbutton_set_style(sc.tabs[i], i == tab ? R_BUTTON_PRIMARY : R_BUTTON_FLAT);
 	set_tab_timers();
+	if (tab == 4) show_permissions();
 	update_back();
 	showcase_log("tab %d", tab);
 }
@@ -479,6 +496,298 @@ static void on_keyboard(Rid window, int visible, float height, void* user_data) 
 	showcase_log("%s", text);
 }
 
+/* ---------------------------------------------------------------- device */
+
+static Rid find(const char* name);
+
+static void dev_status(const char* format, ...) {
+	char text[300];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	Rlabel_set_text(sc.dev_status, text);
+	showcase_log("device: %s", text);
+}
+
+static const char* result_name(RDeviceResult result) {
+	switch (result) {
+	case R_DEVICE_DONE: return "done";
+	case R_DEVICE_CANCELLED: return "cancelled";
+	case R_DEVICE_DENIED: return "refused (permission)";
+	case R_DEVICE_UNSUPPORTED: return "not supported here (yet)";
+	case R_DEVICE_BUSY: return "busy: another screen of the system is open";
+	case R_DEVICE_FAILED: return "failed (see the log)";
+	default: return "?";
+	}
+}
+
+static void show_permissions(void) {
+	char text[128];
+	if (!sc.perm_camera) return;
+	snprintf(text, sizeof(text), "Camera: %s%s", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_CAMERA)),
+		Rcamera_is_available() ? "" : " (no camera here)");
+	Rlabel_set_text(sc.perm_camera, text);
+	snprintf(text, sizeof(text), "Notifications: %s", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_NOTIFICATIONS)));
+	Rlabel_set_text(sc.perm_notify, text);
+	snprintf(text, sizeof(text), "Location: %s", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_LOCATION)));
+	Rlabel_set_text(sc.perm_location, text);
+}
+
+static void on_permission_answer(RPermission permission, RPermissionStatus status, void* user_data) {
+	(void)user_data;
+	dev_status("%s: %s", Rpermission_to_string(permission), Rpermission_status_to_string(status));
+	show_permissions();
+}
+
+static void on_ask(Rid button, void* user_data) {
+	RPermission permission = (RPermission)(intptr_t)user_data;
+	(void)button;
+	dev_status("asking for %s...", Rpermission_to_string(permission));
+	Rpermission_request(permission, on_permission_answer, NULL);
+}
+
+/* Notifications the system could not show (refused, none here) come back as a toast. */
+static void on_notification_fallback(const char* title, const char* body, RNotificationUrgency urgency, void* user_data) {
+	char text[200];
+	(void)urgency; (void)user_data;
+	snprintf(text, sizeof(text), "%s: %s (shown here: the system did not)", title, body);
+	Rtoast_show(sc.toast, text, 3.0);
+}
+
+static void on_notify(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	if (Rnotification_show("Raven Showcase", "Hello from the Device tab", R_NOTIFICATION_NORMAL)) dev_status("notification handed to the system");
+	else dev_status("the system took no notification");
+}
+
+static void on_settings(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	if (!Rpermission_open_settings()) dev_status("Settings: no page of the app to open here");
+}
+
+static int is_image(const RPickedFile* file) {
+	static const char* const extensions[] = { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tga", ".svg", ".webp" };
+	const char* name = file->name && *file->name ? file->name : file->path;
+	size_t length = name ? strlen(name) : 0, i;
+	if (file->mime_type && strncmp(file->mime_type, "image/", 6) == 0 && strcmp(file->mime_type, "image/heic") != 0) return 1;
+	for (i = 0; name && i < sizeof(extensions) / sizeof(extensions[0]); i++) {
+		size_t n = strlen(extensions[i]), k;
+		int same = length > n;
+		for (k = 0; same && k < n; k++) same = (name[length - n + k] | 0x20) == extensions[i][k];
+		if (same) return 1;
+	}
+	return 0;
+}
+
+/* Shows a file Raven can read in an Image (decoded on a worker thread), replacing what it showed. */
+static void show_image(Rid view, Rid* texture, const char* path) {
+	if (*texture) Rtexture_destroy(*texture);
+	*texture = path ? Rtexture_create_from_file_async(path) : 0;
+	Rimage_set_texture(view, *texture ? *texture : R_INVALID_ID);
+	Rwidget_set_visibility(view, *texture ? R_VISIBLE : R_COLLAPSED);
+}
+
+static void on_photo(RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	char text[300];
+	if (result != R_DEVICE_DONE || count < 1 || !files[0].path) {
+		dev_status("%s: %s", (const char*)user_data, result_name(result));
+		return;
+	}
+	snprintf(text, sizeof(text), "%s: %s, %.1f KB%s", (const char*)user_data, files[0].name,
+		(double)files[0].size / 1024.0, files[0].width > 0 ? "" : " (size in pixels not told)");
+	if (files[0].width > 0) {
+		size_t used = strlen(text);
+		snprintf(text + used, sizeof(text) - used, ", %d x %d", files[0].width, files[0].height);
+	}
+	Rlabel_set_text(sc.photo_info, text);
+	snprintf(sc.photo_path, sizeof(sc.photo_path), "%s", files[0].path);
+	show_image(sc.photo_view, &sc.photo_texture, files[0].path);
+	dev_status("%s: done", (const char*)user_data);
+}
+
+static void on_take_photo(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	dev_status("camera...");
+	Rcamera_take_photo(on_photo, (void*)"camera");
+}
+
+static void on_pick_photo(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	dev_status("photo library...");
+	Rphoto_pick(1, on_photo, (void*)"photo");
+}
+
+static void on_file(RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	char text[400];
+	(void)user_data;
+	if (result != R_DEVICE_DONE || count < 1) {
+		dev_status("pick a file: %s", result_name(result));
+		return;
+	}
+	snprintf(text, sizeof(text), "%s: %llu bytes%s%s", files[0].name, (unsigned long long)files[0].size,
+		files[0].mime_type ? ", " : "", files[0].mime_type ? files[0].mime_type : "");
+	if (!is_image(&files[0]) && files[0].path && files[0].size > 0 && files[0].size < 65536) {
+		/* (a small text: its first line) */
+		size_t size = 0, used = strlen(text), n;
+		char* content = Rfile_read(files[0].path, &size);
+		if (content) {
+			n = strcspn(content, "\r\n");
+			if (n > 60) n = 60;
+			snprintf(text + used, sizeof(text) - used, "\nFirst line: %.*s", (int)n, content);
+			Rmemory_free(content);
+		}
+	}
+	Rlabel_set_text(sc.file_info, text);
+	show_image(sc.file_view, &sc.file_texture, is_image(&files[0]) ? files[0].path : NULL);
+	dev_status("pick a file: done");
+}
+
+static void on_open_file(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	dev_status("file picker...");
+	Rfile_open_async(NULL, on_file, NULL);
+}
+
+static void on_saved(RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	(void)user_data;
+	if (result == R_DEVICE_DONE && count > 0)
+		dev_status("saved as %s%s%s", files[0].name, files[0].path ? " in " : "", files[0].path ? files[0].path : "");
+	else
+		dev_status("save: %s", result_name(result));
+}
+
+static void on_save_file(Rid button, void* user_data) {
+	static const RFileFilter filter = { "Text", "*.txt" };
+	RFileDialogDesc desc;
+	char text[160];
+	(void)button; (void)user_data;
+	memset(&desc, 0, sizeof(desc));
+	desc.file_name = "raven-showcase.txt";
+	desc.filters = &filter;
+	desc.filter_count = 1;
+	desc.default_extension = "txt";
+	snprintf(text, sizeof(text), "Saved by the Raven showcase, %.0f seconds after it started.\n", Rget_time());
+	dev_status("save...");
+	Rfile_save_async(&desc, text, strlen(text), on_saved, NULL);
+}
+
+static const struct { const char* name; const char* label; RHaptic haptic; } g_haptics[] = {
+	{ "haptic_light", "light", R_HAPTIC_LIGHT }, { "haptic_medium", "medium", R_HAPTIC_MEDIUM },
+	{ "haptic_heavy", "heavy", R_HAPTIC_HEAVY }, { "haptic_selection", "selection", R_HAPTIC_SELECTION },
+	{ "haptic_success", "success", R_HAPTIC_SUCCESS }, { "haptic_warning", "warning", R_HAPTIC_WARNING },
+	{ "haptic_error", "error", R_HAPTIC_ERROR }
+};
+
+static void on_haptic(Rid button, void* user_data) {
+	int index = (int)(intptr_t)user_data;
+	(void)button;
+	if (Rhaptic_play(g_haptics[index].haptic)) dev_status("haptic: %s", g_haptics[index].label);
+	else dev_status("haptic: none on this device (yet)");
+}
+
+static void on_open_url(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	dev_status(Ropen_url(RAVEN_PAGE_URL) ? "opening %s" : "could not open %s", RAVEN_PAGE_URL);
+}
+
+static void on_shared(RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	(void)files; (void)count; (void)user_data;
+	dev_status("share: %s", result_name(result));
+}
+
+static void on_share(Rid button, void* user_data) {
+	RShareDesc share;
+	(void)user_data;
+	memset(&share, 0, sizeof(share));
+	share.text = "Raven, a GUI library in C: " RAVEN_PAGE_URL;
+	/* (the last photo too, when there is one) */
+	share.path = sc.photo_path[0] ? sc.photo_path : NULL;
+	share.title = "Share from Raven";
+	share.anchor = button;
+	dev_status("share...");
+	Rshare_show(&share, on_shared, NULL);
+}
+
+static void on_copy(Rid button, void* user_data) {
+	char text[96];
+	(void)button; (void)user_data;
+	snprintf(text, sizeof(text), "Copied from the Raven showcase at %.1f s", Rget_time());
+	Rclipboard_set_text(text);
+	Rlabel_set_text(sc.clip_info, "Clipboard: copied. Paste it here, or in another app.");
+	dev_status("copied");
+}
+
+/* A paste of the user: the moment to read the clipboard (iOS shows no question then... or asks once). */
+static void on_paste(Rid button, void* user_data) {
+	char text[200];
+	(void)button; (void)user_data;
+	if (!Rclipboard_has_text()) {
+		Rlabel_set_text(sc.clip_info, "Clipboard: no text in it.");
+		return;
+	}
+	snprintf(text, sizeof(text), "Clipboard: \"%.120s\"", Rclipboard_get_text());
+	Rlabel_set_text(sc.clip_info, text);
+	dev_status("pasted");
+}
+
+static void on_net_timer(Rid timer, void* user_data) {
+	char text[200];
+	int width = 0, height = 0;
+	(void)user_data;
+	if (!sc.net_texture || !Rtexture_is_ready(sc.net_texture)) return;
+	Rtimer_destroy(timer);
+	sc.net_timer = 0;
+	Rtexture_get_size(sc.net_texture, &width, &height);
+	if (width > 0) snprintf(text, sizeof(text), "Loaded %d x %d from %s", width, height, NET_IMAGE_URL);
+	else snprintf(text, sizeof(text), "Could not be downloaded (no network, or not supported here yet: see the log).");
+	Rlabel_set_text(sc.net_info, text);
+	Rwidget_set_visibility(sc.net_view, width > 0 ? R_VISIBLE : R_COLLAPSED);
+	dev_status("network image: %s", width > 0 ? "loaded" : "failed");
+}
+
+static void on_load_url(Rid button, void* user_data) {
+	(void)button; (void)user_data;
+	if (sc.net_texture) Rtexture_destroy(sc.net_texture);
+	sc.net_texture = Rtexture_create_from_url_async(NET_IMAGE_URL);
+	Rimage_set_texture(sc.net_view, sc.net_texture);
+	Rlabel_set_text(sc.net_info, "Downloading...");
+	if (!sc.net_timer) sc.net_timer = Rtimer_create(0.1, R_TRUE, on_net_timer, NULL);
+}
+
+static void device_create(void) {
+	size_t i;
+	sc.dev_status = find("dev_status");
+	sc.perm_camera = find("perm_camera");
+	sc.perm_notify = find("perm_notify");
+	sc.perm_location = find("perm_location");
+	sc.photo_info = find("photo_info");
+	sc.photo_view = find("photo_view");
+	sc.file_info = find("file_info");
+	sc.file_view = find("file_view");
+	sc.clip_info = find("clip_info");
+	sc.net_info = find("net_info");
+	sc.net_view = find("net_view");
+	Rbutton_set_clicked_callback(find("ask_camera"), on_ask, (void*)(intptr_t)R_PERMISSION_CAMERA);
+	Rbutton_set_clicked_callback(find("ask_notify"), on_ask, (void*)(intptr_t)R_PERMISSION_NOTIFICATIONS);
+	Rbutton_set_clicked_callback(find("ask_location"), on_ask, (void*)(intptr_t)R_PERMISSION_LOCATION);
+	Rbutton_set_clicked_callback(find("notify"), on_notify, NULL);
+	Rbutton_set_clicked_callback(find("settings"), on_settings, NULL);
+	Rnotification_set_fallback(on_notification_fallback, NULL);
+	Rbutton_set_clicked_callback(find("take_photo"), on_take_photo, NULL);
+	Rbutton_set_clicked_callback(find("pick_photo"), on_pick_photo, NULL);
+	Rbutton_set_clicked_callback(find("open_file"), on_open_file, NULL);
+	Rbutton_set_clicked_callback(find("save_file"), on_save_file, NULL);
+	for (i = 0; i < sizeof(g_haptics) / sizeof(g_haptics[0]); i++)
+		Rbutton_set_clicked_callback(find(g_haptics[i].name), on_haptic, (void*)(intptr_t)i);
+	Rbutton_set_clicked_callback(find("open_url"), on_open_url, NULL);
+	Rbutton_set_clicked_callback(find("share"), on_share, NULL);
+	Rbutton_set_clicked_callback(find("copy"), on_copy, NULL);
+	Rbutton_set_clicked_callback(find("paste"), on_paste, NULL);
+	Rbutton_set_clicked_callback(find("load_url"), on_load_url, NULL);
+	show_permissions();
+}
+
 /* ---------------------------------------------------------------- create */
 
 static Rid find(const char* name) {
@@ -553,7 +862,7 @@ Rid showcase_create(void) {
 	Rwidget_set_touch_callback(sc.detail, on_detail_touch, NULL);
 
 	/* tab bar */
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < TAB_COUNT; i++) {
 		snprintf(name, sizeof(name), "tab%d", i);
 		sc.tabs[i] = find(name);
 		Rbutton_set_clicked_callback(sc.tabs[i], on_tab, (void*)(intptr_t)i);
@@ -589,6 +898,9 @@ Rid showcase_create(void) {
 	Rtext_input_set_committed_callback(sc.city, on_committed, NULL);
 	Rtext_input_set_committed_callback(sc.note, on_committed, NULL);
 	Rwindow_set_keyboard_callback(sc.window, on_keyboard, NULL);
+
+	/* device */
+	device_create();
 
 	/* back: the system's (Android), and Escape */
 	Rwindow_set_back_callback(sc.window, on_system_back, NULL);

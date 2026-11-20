@@ -487,7 +487,7 @@ Rid rvn_xml_texture(const char* path) {
 		}
 		break;
 	}
-	texture = remote ? rvn_texture_create_from_url_async(full) : Rtexture_create_from_file(full);
+	texture = remote ? Rtexture_create_from_url_async(full) : Rtexture_create_from_file(full);
 	if (texture == R_INVALID_ID) {
 		rvn_free(full);
 		return R_INVALID_ID;

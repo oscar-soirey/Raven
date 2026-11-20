@@ -209,6 +209,7 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	rvn_renderer_set_wait_service(g_rvn.platform->wait_service);
 
 	g_rvn.initialized = R_TRUE;
+	rvn_services_init();
 	rvn_paint_init();
 	rvn_themes_init();
 	rvn_theme_apply(R_THEME_DARK);
@@ -249,6 +250,8 @@ void Rshutdown(void) {
 #endif
     /* Stop native filesystem notifications before draining posted UI tasks. */
 	rvn_fs_watch_stop();
+	/* the answers of the system still coming are dropped: no callback of the application while everything goes */
+	rvn_services_shutdown();
 	/* windows first: this deletes every widget that is shown */
 	/* (the inspectors first: they are windows that follow other windows) */
 	rvn_inspector_shutdown();

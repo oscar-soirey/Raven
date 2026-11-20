@@ -25,6 +25,7 @@
 #   ui_test          a test of an interface: widgets driven by name, a golden image
 #   viewport_vulkan  a Vulkan scene shown in the UI (offscreen image + in-pass draw)
 #   viewport_opengl  an OpenGL scene shown in a native child window
+#   mobile           the iOS / Android showcase in a desktop window, with its Device tab
 
 function(raven_add_example name)
 	add_executable(raven_${name} ${ARGN} common/example.h)
@@ -90,6 +91,12 @@ if(NOT EMSCRIPTEN)
 	raven_add_example(ui_test ui_test/main.c ui_test/login.xml)
 	add_test(NAME example_ui_test COMMAND raven_ui_test)
 	set_tests_properties(example_ui_test PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# The UI of the iOS and Android showcase in a desktop window (examples/mobile/README.md).
+if(NOT EMSCRIPTEN)
+	raven_add_example(mobile mobile/desktop/main.c mobile/shared/showcase.c mobile/shared/showcase.h)
+	target_include_directories(raven_mobile PRIVATE mobile/shared)
 endif()
 
 # Web pages in the interface: needs the optional library (RAVEN_BUILD_WEB).

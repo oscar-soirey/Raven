@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The manifest of Raven's AAR: no activity, no permission, no resource (the app declares
+     its NativeActivity and, if it wants, the Vulkan feature). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="raven.android"
+    android:versionName="@VERSION@">
+    <uses-sdk android:minSdkVersion="@MIN_SDK@" />
+</manifest>

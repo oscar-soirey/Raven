@@ -7,7 +7,7 @@
   font is copied there by the build scripts, from tools/designer/fonts).
 
   Layout: an Overlay holding the pages and a bottom tab bar (TabView only puts
-  its tabs at the top, so the bar is four buttons driving a Switcher), and a
+  its tabs at the top, so the bar is five buttons driving a Switcher), and a
   Toast over everything.
 -->
 <Overlay Name="root">
@@ -128,15 +128,83 @@
 					<Label Name="form_state" Text="" Wrap="true" Opacity="0.6"/>
 				</VBox>
 			</ScrollBox>
+
+			<!-- 4: Device: the services of the device (raven_device.h); each answer comes later, in a callback -->
+			<ScrollBox>
+				<VBox Spacing="10" Slot.Padding="16,8,16,16">
+					<Label Text="Device" Font="fonts/BricolageGrotesque-Bold-subset.ttf" TextSize="28"/>
+					<Label Name="dev_status" Text="Each button asks the system; its answer shows here." Wrap="true" Opacity="0.7"/>
+
+					<Label Text="Permissions" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<HBox Spacing="8">
+						<Label Name="perm_camera" Text="Camera: ?" Slot.Fill="1" Slot.VAlign="Center"/>
+						<Button Name="ask_camera" Text="Ask"/>
+					</HBox>
+					<HBox Spacing="8">
+						<Label Name="perm_notify" Text="Notifications: ?" Slot.Fill="1" Slot.VAlign="Center"/>
+						<Button Name="ask_notify" Text="Ask"/>
+					</HBox>
+					<HBox Spacing="8">
+						<Label Name="perm_location" Text="Location: ?" Slot.Fill="1" Slot.VAlign="Center"/>
+						<Button Name="ask_location" Text="Ask"/>
+					</HBox>
+					<WrapBox Spacing="8">
+						<Button Name="notify" Text="Notify me"/>
+						<Button Name="settings" Text="Settings"/>
+					</WrapBox>
+
+					<Label Text="Camera and photos" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<WrapBox Spacing="8">
+						<Button Name="take_photo" Text="Take a photo" Style="Primary"/>
+						<Button Name="pick_photo" Text="Pick a photo"/>
+					</WrapBox>
+					<Label Name="photo_info" Text="No photo yet." Wrap="true" Opacity="0.7"/>
+					<Image Name="photo_view" Stretch="Fit" Height="200" Visibility="Collapsed"/>
+
+					<Label Text="Files" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<WrapBox Spacing="8">
+						<Button Name="open_file" Text="Pick a file"/>
+						<Button Name="save_file" Text="Save a text file"/>
+					</WrapBox>
+					<Label Name="file_info" Text="No file yet." Wrap="true" Opacity="0.7"/>
+					<Image Name="file_view" Stretch="Fit" Height="160" Visibility="Collapsed"/>
+
+					<Label Text="Haptics" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<WrapBox Spacing="8">
+						<Button Name="haptic_light" Text="Light"/>
+						<Button Name="haptic_medium" Text="Medium"/>
+						<Button Name="haptic_heavy" Text="Heavy"/>
+						<Button Name="haptic_selection" Text="Selection"/>
+						<Button Name="haptic_success" Text="Success"/>
+						<Button Name="haptic_warning" Text="Warning"/>
+						<Button Name="haptic_error" Text="Error"/>
+					</WrapBox>
+
+					<Label Text="Links, sharing, clipboard" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<WrapBox Spacing="8">
+						<Button Name="open_url" Text="Open Raven's page"/>
+						<Button Name="share" Text="Share"/>
+						<Button Name="copy" Text="Copy"/>
+						<Button Name="paste" Text="Paste"/>
+					</WrapBox>
+					<Label Name="clip_info" Text="Clipboard: not read yet (reading it on a paste, as iOS asks)." Wrap="true" Opacity="0.7"/>
+
+					<Label Text="Network" TextSize="18" Slot.Padding="0,8,0,0"/>
+					<Button Name="load_url" Text="Load an image from https://" Slot.HAlign="Left"/>
+					<Label Name="net_info" Text="Not loaded yet." Wrap="true" Opacity="0.7"/>
+					<Image Name="net_view" Stretch="Fit" Height="96" Visibility="Collapsed"/>
+				</VBox>
+			</ScrollBox>
 		</Switcher>
 
 		<Separator/>
 		<!-- bottom tab bar -->
-		<UniformGrid Name="tabbar" Columns="4" Slot.Padding="8,6,8,6">
+		<UniformGrid Name="tabbar" Columns="5" Slot.Padding="4,6,4,6">
 			<Button Name="tab0" Text="List" Style="Flat"/>
 			<Button Name="tab1" Text="Controls" Style="Flat"/>
 			<Button Name="tab2" Text="Glass" Style="Flat"/>
 			<Button Name="tab3" Text="Form" Style="Flat"/>
+			<Button Name="tab4" Text="Device" Style="Flat"/>
 		</UniformGrid>
 	</VBox>
 

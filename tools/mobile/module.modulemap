@@ -1,0 +1,23 @@
+// The module of Raven.xcframework (tools/mobile/build-xcframework.sh): `import Raven` in
+// Swift, `@import Raven;` in Objective-C, or `#include <Raven.h>` as usual.
+module Raven {
+    header "Raven.h"
+    export *
+    // (the system frameworks libraven.a uses, linked for the modules that import it;
+    // `#include <Raven.h>` without modules links them by hand)
+    link framework "Foundation"
+    link framework "CoreFoundation"
+    link framework "UIKit"
+    link framework "QuartzCore"
+    link framework "Metal"
+    link framework "CoreText"
+    link framework "CoreGraphics"
+    link framework "AVFoundation"
+    link framework "Photos"
+    link framework "PhotosUI"
+    link framework "UniformTypeIdentifiers"
+    link framework "UserNotifications"
+    link framework "CoreLocation"
+    link framework "ImageIO"
+    link "objc"
+}

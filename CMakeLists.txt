@@ -121,6 +121,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_text_editor.h
 	include/raven/raven_shell.h
 	include/raven/raven_dialogs.h
+	include/raven/raven_device.h
 	include/raven/raven_viewport.h
 	include/raven/raven_draw.h
 	include/raven/raven_xml.h
@@ -168,6 +169,7 @@ set(RAVEN_PLATFORM_SOURCES
 	src/platform/preedit.c
 	src/platform/preedit.h
 	src/platform/notify.c
+	src/platform/services.c
 	src/platform/taskbar.c
 	src/platform/tray.c
 	src/platform/platform.h
@@ -400,8 +402,8 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 	if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		message(FATAL_ERROR "Raven: the uikit platform is only available on iOS (CMAKE_SYSTEM_NAME=iOS)")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m)
-	set_source_files_properties(src/platform/uikit/uikit_platform.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m)
+	set_source_files_properties(src/platform/uikit/uikit_platform.m src/platform/uikit/uikit_services.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_UIKIT)
 	find_library(RAVEN_UIKIT_FRAMEWORK UIKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
@@ -415,6 +417,15 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 	endif()
 	list(APPEND RAVEN_LIBRARIES ${RAVEN_UIKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK}
 		${RAVEN_CORETEXT_FRAMEWORK} ${RAVEN_COREGRAPHICS_FRAMEWORK})
+	# the services of the device (uikit_services.m): permissions, notifications, the pickers,
+	# the camera, photos (ImageIO turns HEIC into JPEG)
+	foreach(framework AVFoundation Photos PhotosUI UniformTypeIdentifiers UserNotifications ImageIO CoreLocation)
+		find_library(RAVEN_${framework}_FRAMEWORK ${framework})
+		if(NOT RAVEN_${framework}_FRAMEWORK)
+			message(FATAL_ERROR "Raven: UIKit builds require the ${framework} framework (the services of the device)")
+		endif()
+		list(APPEND RAVEN_LIBRARIES ${RAVEN_${framework}_FRAMEWORK})
+	endforeach()
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "emscripten")
     if(NOT EMSCRIPTEN)
         message(FATAL_ERROR "The emscripten platform requires the Emscripten toolchain")
@@ -601,6 +612,8 @@ endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "android")
 	# SYSTEM: the NDK's header is not held to Raven's warnings (app_dummy() has no prototype, -Wstrict-prototypes)
 	target_include_directories(raven SYSTEM PRIVATE ${RAVEN_ANDROID_GLUE_DIR})
+	# 16 KB pages, the Java part (raven_java) and the AAR (raven_aar)
+	include(RavenAndroid)
 endif()
 if(RAVEN_BACKEND_VULKAN)
 	target_include_directories(raven PRIVATE ${RAVEN_VULKAN_INCLUDE_DIR})

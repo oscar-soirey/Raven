@@ -1108,10 +1108,15 @@ def plan_function(api, f):
     return items, signature, outs
 
 
+# Functions whose callback is called once, later, on the UI thread, like Rtask_post (raven_device.h).
+ANSWERED_ONCE = ("Rpermission_request", "Rfile_open_async", "Rfile_save_async", "Rfile_export_async",
+                 "Rfile_select_folder_async", "Rcamera_take_photo", "Rphoto_pick", "Rshare_show")
+
+
 def callback_rule(api, f):
     """Who keeps the callback of a function, and until when. A new shape of setter must be added here."""
     n = f.name
-    if n in ("Rtask_post", "Rtask_run_async"):
+    if n in ("Rtask_post", "Rtask_run_async") or n in ANSWERED_ONCE:
         return "task"
     if n == "Rerror_set_callback":
         return "error"
@@ -1440,7 +1445,7 @@ def emit_callback_binding(api, f, callback_items, native_index, exprs, decls, re
         after.append("\t}")
         after.append("}")
     elif rule == "task":
-        if f.name == "Rtask_post":
+        if f.name == "Rtask_post" or f.name in ANSWERED_ONCE:
             after.append("if (cb_) {")
             after.append("\tcb_->once = 1;")
             after.append("\trn_tasks_add(cb_);")

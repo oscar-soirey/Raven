@@ -4,7 +4,8 @@
  * window and reads no OS event queue. A window is a size and a scale; the
  * application injects its input through the same events a native platform
  * sends, and Raven asks the application for the cursor, the clipboard and
- * wake-ups.
+ * wake-ups, and for the services of the device it offers (each entry of the
+ * table is there only when the application gave its callback).
  */
 
 #include "../platform.h"
@@ -253,8 +254,77 @@ static int rvn_host_system_dark(void) {
 	return g_host.dark;
 }
 
+/* ---- services of the device: forwarded to the callbacks of the application ---- */
+
+static int rvn_host_permission_status(int permission) {
+	return (int)g_host_desc.desc.permission_status((RPermission)permission, g_host_desc.desc.user_data);
+}
+
+static void rvn_host_permission_request(int permission) {
+	g_host_desc.desc.permission_request((RPermission)permission, g_host_desc.desc.user_data);
+}
+
+static void rvn_host_service(const rvn_service_request_t* request, RHostService service) {
+	RHostServiceRequest host;
+	memset(&host, 0, sizeof(host));
+	host.id = request->id;
+	host.service = service;
+	host.window = request->window ? request->window->id : R_INVALID_ID;
+	host.anchor_x = request->anchor[0];
+	host.anchor_y = request->anchor[1];
+	host.anchor_width = request->anchor[2];
+	host.anchor_height = request->anchor[3];
+	host.title = request->title;
+	host.filters = request->filters;
+	host.filter_count = request->filter_count;
+	host.flags = request->multiple ? (Ruint)R_FILE_DIALOG_MULTIPLE : 0u;
+	host.file_name = request->file_name;
+	host.default_extension = request->default_extension;
+	host.data = request->data;
+	host.size = request->size;
+	host.path = request->path;
+	host.max_count = request->max_count;
+	host.text = request->text;
+	host.mime_type = request->mime_type;
+	host.share_title = request->share_title;
+	g_host_desc.desc.service_request(&host, g_host_desc.desc.user_data);
+}
+
+static void rvn_host_file_open(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_OPEN_FILES); }
+static void rvn_host_file_save(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_SAVE_FILE); }
+static void rvn_host_folder_select(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_SELECT_FOLDER); }
+static void rvn_host_camera_take_photo(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_TAKE_PHOTO); }
+static void rvn_host_photo_pick(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_PICK_PHOTOS); }
+static void rvn_host_share(const rvn_service_request_t* request) { rvn_host_service(request, R_HOST_SERVICE_SHARE); }
+
+static int rvn_host_camera_available(void) {
+	return g_host_desc.desc.has_camera ? R_TRUE : R_FALSE;
+}
+
+static int rvn_host_open_url(const char* url) {
+	return g_host_desc.desc.open_url(url, g_host_desc.desc.user_data) ? R_TRUE : R_FALSE;
+}
+
+static int rvn_host_haptic(int haptic) {
+	return g_host_desc.desc.haptic((RHaptic)haptic, g_host_desc.desc.user_data) ? R_TRUE : R_FALSE;
+}
+
+/* Worker threads. */
+static int rvn_host_download(const char* url, uint8_t** data, size_t* size, char** error) {
+	size_t length = 0;
+	void* content = g_host_desc.desc.download(url, &length, g_host_desc.desc.user_data);
+	if (!content) {
+		*error = rvn_strdup("the application's download failed");
+		return R_FALSE;
+	}
+	/* (Rmemory_alloc is rvn_alloc: the core frees it with rvn_free) */
+	*data = (uint8_t*)content;
+	*size = length;
+	return R_TRUE;
+}
+
 const rvn_platform_t* rvn_platform_host(void) {
-	static const rvn_platform_t platform = {
+	static rvn_platform_t platform = {
 		.name = "host",
 		.system = R_WINDOW_SYSTEM_NONE,
 		.init = rvn_host_init,
@@ -288,6 +358,21 @@ const rvn_platform_t* rvn_platform_host(void) {
 		.system_dark = rvn_host_system_dark,
 		.window_get_keyboard_height = rvn_host_window_get_keyboard_height
 	};
+	/* the services the application offers (Rhost_platform_register comes before Rinit, which asks for this table) */
+	const RHostPlatformDesc* desc = &g_host_desc.desc;
+	int services = desc->service_request != NULL;
+	platform.permission_status = desc->permission_status ? rvn_host_permission_status : NULL;
+	platform.permission_request = desc->permission_request ? rvn_host_permission_request : NULL;
+	platform.file_open = services ? rvn_host_file_open : NULL;
+	platform.file_save = services ? rvn_host_file_save : NULL;
+	platform.folder_select = services ? rvn_host_folder_select : NULL;
+	platform.camera_take_photo = services ? rvn_host_camera_take_photo : NULL;
+	platform.camera_available = services ? rvn_host_camera_available : NULL;
+	platform.photo_pick = services ? rvn_host_photo_pick : NULL;
+	platform.share = services ? rvn_host_share : NULL;
+	platform.open_url = desc->open_url ? rvn_host_open_url : NULL;
+	platform.haptic = desc->haptic ? rvn_host_haptic : NULL;
+	platform.download = desc->download ? rvn_host_download : NULL;
 	return &platform;
 }
 
@@ -467,6 +552,23 @@ void Rhost_inject_focus(Rid id, int focused) {
 	event.type = RVN_PEVENT_FOCUS;
 	event.focused = focused ? R_TRUE : R_FALSE;
 	rvn_host_send(window, &event);
+}
+
+void Rhost_permission_answer(RPermission permission, RPermissionStatus status) {
+	if ((int)permission < (int)R_PERMISSION_CAMERA || (int)permission > (int)R_PERMISSION_LOCATION ||
+		(int)status < (int)R_PERMISSION_UNSUPPORTED || (int)status > (int)R_PERMISSION_BLOCKED) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rhost_permission_answer: not an RPermission and an RPermissionStatus");
+		return;
+	}
+	rvn_permission_answer((int)permission, (int)status);
+}
+
+void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count) {
+	if ((int)result < (int)R_DEVICE_DONE || (int)result > (int)R_DEVICE_FAILED) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rhost_service_complete: %d is not an RDeviceResult", (int)result);
+		return;
+	}
+	rvn_service_complete((uint32_t)request, (int)result, files, count, NULL);
 }
 
 void Rhost_inject_close(Rid id) {

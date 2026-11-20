@@ -589,7 +589,9 @@ extern "C" {
 	/**
 	 * @brief Opens an address with the program the user has for it: a web
 	 * page in the browser, a mailto: in the mail program, a file in its
-	 * application. Returns at once.
+	 * application. Returns at once. On iOS and Android the system opens it
+	 * (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+	 * and Raven must be initialized and this be called on the UI thread.
 	 * @return R_FALSE when the OS could not be asked (nothing tells whether
 	 * a program then really opened it).
 	 */
@@ -606,8 +608,20 @@ extern "C" {
 	 */
 	RAVEN_API void Rclipboard_set_html(const char* text, const char* html);
 
-	/** @return The clipboard text, or "" when empty. Valid until the next call. */
+	/**
+	 * @return The clipboard text, or "" when empty. Valid until the next call.
+	 * On iOS a read that does not follow a paste of the user (the Paste of a
+	 * menu, a button, Command-V) shows the system's question "Allow Paste?",
+	 * and on Android 12+ the system says that the application pasted: read it
+	 * when the user pastes, not to look at it. Android lets only the
+	 * application in front read it.
+	 */
 	RAVEN_API const char* Rclipboard_get_text(void);
+	/**
+	 * @return R_TRUE when the clipboard holds text, without reading it (no
+	 * question of the system on iOS): to enable a Paste button.
+	 */
+	RAVEN_API int Rclipboard_has_text(void);
 
 	/**
 	 * @brief One format of something given to the other applications: put on

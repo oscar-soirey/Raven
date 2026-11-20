@@ -166,6 +166,8 @@ typedef struct rvn_texture_job_t {
 	int svg;
 	/** Drawing an SVG again at another scale (rvn_textures_update_svg), not making the texture. */
 	int redraw;
+	/** The URL could not be downloaded (already reported). */
+	int not_downloaded;
 } rvn_texture_job_t;
 
 /* UI thread: the decoded pixels become the texture, unless it was deleted meanwhile. */
@@ -189,7 +191,7 @@ static void rvn_texture_job_finish(void* arg) {
 		rvn_invalidate_all_windows();
 	} else if (texture) {
 		rvn_atomic_store(&texture->ready, 1);
-		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "asynchronous texture: cannot decode %s",
+		if (!job->not_downloaded) rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "asynchronous texture: cannot decode %s",
 			job->path ? job->path : "the image");
 	}
 	rvn_free(job->pixels);
@@ -204,9 +206,12 @@ static void rvn_texture_job_run(void* arg) {
 		if (rvn_is_http_url(job->path)) {
 			size_t downloaded_size = 0;
 			uint8_t* downloaded = NULL;
-			if (rvn_fs_download_url(job->path, &downloaded, &downloaded_size)) {
+			/* (the platform's download on iOS and Android; a failure is reported there) */
+			if (rvn_service_download(job->path, &downloaded, &downloaded_size)) {
 				job->data = downloaded;
 				job->size = downloaded_size;
+			} else {
+				job->not_downloaded = R_TRUE;
 			}
 		} else job->data = (uint8_t*)rvn_read_file(job->path, &job->size);
 	}
@@ -383,7 +388,7 @@ Rid Rtexture_create_async(const char* data, size_t data_size) {
 }
 
 
-Rid rvn_texture_create_from_url_async(const char* url) {
+Rid Rtexture_create_from_url_async(const char* url) {
 	RVN_API_GUARD(R_INVALID_ID);
 	if (!url || !rvn_is_http_url(url)) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtexture_create_from_url_async: URL must use http:// or https://");

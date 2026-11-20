@@ -15,7 +15,9 @@
  * return when it is chosen. They show the dialog of the operating system
  * (Windows: the Explorer dialog; Linux: the one of the desktop, through
  * zenity or kdialog) and, where there is none, the file browser of Raven in a
- * dialog. R_FILE_DIALOG_RAVEN always uses the latter.
+ * dialog. R_FILE_DIALOG_RAVEN always uses the latter. They do not exist on
+ * iOS and Android (they return NULL): Rfile_open_async and the other
+ * asynchronous forms of raven_device.h work everywhere.
  *
  * The file browser is also a widget, R_WIDGET_FILE_BROWSER, to put in any
  * layout: a side panel showing a project folder, a custom "open" page...
