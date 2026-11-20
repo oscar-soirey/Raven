@@ -2068,6 +2068,25 @@ namespace Raven
         R_XML_LIST = 0x03C8,
     }
 
+    /// <summary>
+    /// How the hours of a time are shown.
+    /// </summary>
+    public enum RClock : int
+    {
+        /// <summary>
+        /// As the locale does (Rlocale_uses_12_hour_clock).
+        /// </summary>
+        R_CLOCK_AUTO = 0x0C30,
+        /// <summary>
+        /// 1 to 12, with AM and PM.
+        /// </summary>
+        R_CLOCK_12_HOUR = 0x0C31,
+        /// <summary>
+        /// 0 to 23.
+        /// </summary>
+        R_CLOCK_24_HOUR = 0x0C32,
+    }
+
     public enum RColorFilter : int
     {
         R_COLOR_FILTER_NONE = 0x0740,
@@ -7642,6 +7661,28 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rdate_picker_set_changed_callback(uint date_picker, RDateChangedCallback callback, IntPtr user_data);
 
+        /// <summary>
+        /// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_time_zone(uint date_picker, [MarshalAs(Utf8.Str)] string zone);
+
+        [DllImport(Lib, EntryPoint = "Rdate_picker_get_time_zone", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rdate_picker_get_time_zone_(uint date_picker);
+        public static string Rdate_picker_get_time_zone(uint date_picker) { return Text(Rdate_picker_get_time_zone_(date_picker)); }
+
+        /// <summary>
+        /// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_instant(uint date_picker, double utc);
+
+        /// <summary>
+        /// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rdate_picker_get_instant(uint date_picker);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtime_picker_set_time(uint time_picker, int hour, int minute, int second);
 
@@ -7659,6 +7700,66 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtime_picker_set_changed_callback(uint time_picker, RTimeChangedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_clock(uint time_picker, RClock clock);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RClock Rtime_picker_get_clock(uint time_picker);
+
+        /// <summary>
+        /// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtime_picker_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtime_picker_get_text_(uint time_picker);
+        public static string Rtime_picker_get_text(uint time_picker) { return Text(Rtime_picker_get_text_(time_picker)); }
+
+        /// <summary>
+        /// The time zone of the time ("America/New_York", see
+        /// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+        /// unknown zone is refused. TimeZone="..." in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_time_zone(uint time_picker, [MarshalAs(Utf8.Str)] string zone);
+
+        /// <summary>
+        /// The zone set, "" for none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtime_picker_get_time_zone", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtime_picker_get_time_zone_(uint time_picker);
+        public static string Rtime_picker_get_time_zone(uint time_picker) { return Text(Rtime_picker_get_time_zone_(time_picker)); }
+
+        /// <summary>
+        /// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_time_zone_visible(uint time_picker, int visible);
+
+        /// <summary>
+        /// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_date(uint time_picker, int year, int month, int day);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_get_date(uint time_picker, out int year, out int month, out int day);
+
+        /// <summary>
+        /// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_instant(uint time_picker, double utc);
+
+        /// <summary>
+        /// The instant the day and the time are in the zone. A time the
+        /// clocks skipped is moved forward, a time they repeated is the first
+        /// (see Rtimezone_from_local).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rtime_picker_get_instant(uint time_picker);
 
         /// <summary>
         /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
@@ -12038,6 +12139,117 @@ namespace Raven
         [DllImport(Lib, EntryPoint = "Rlocale_format_number", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rlocale_format_number_(double value, int decimals);
         public static string Rlocale_format_number(double value, int decimals) { return Text(Rlocale_format_number_(value, decimals)); }
+
+        /// <summary>
+        /// Forces the clock of every time shown (a setting of the
+        /// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+        /// to follow the locale. A TimePicker can still choose its own (Clock="24").
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rlocale_set_clock(RClock clock);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RClock Rlocale_get_clock();
+
+        /// <summary>
+        /// R_TRUE when times are shown on 12 hours with AM and PM. With
+        /// Rlocale_set_clock, what it forces; else, when the application chose a
+        /// language (Rlocale_set_language), the usage of that language (from CLDR:
+        /// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+        /// others 24); else the setting of the user on the system (Windows, macOS,
+        /// the LC_TIME of Linux), or the usage of the language of the system.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rlocale_uses_12_hour_clock();
+
+        /// <summary>
+        /// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rlocale_get_day_period", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rlocale_get_day_period_(int pm);
+        public static string Rlocale_get_day_period(int pm) { return Text(Rlocale_get_day_period_(pm)); }
+
+        /// <summary>
+        /// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rlocale_format_time", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rlocale_format_time_(int hour, int minute, int second, int show_seconds);
+        public static string Rlocale_format_time(int hour, int minute, int second, int show_seconds) { return Text(Rlocale_format_time_(hour, minute, second, show_seconds)); }
+
+        /// <summary>
+        /// The zone of the system ("Europe/Paris"): the TZ variable, the
+        /// link /etc/localtime, else what the system says; "UTC" when it says
+        /// nothing. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtimezone_get_system", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtimezone_get_system_();
+        public static string Rtimezone_get_system() { return Text(Rtimezone_get_system_()); }
+
+        /// <summary>
+        /// The folder of the tz database (the files "Europe/Paris"...), or
+        /// the packed tzdata file of Android, to read instead of the system's: for
+        /// a database shipped with the application, or tests. It is then the only
+        /// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+        /// read so far.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtimezone_set_directory([MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// R_TRUE when the zone is known. Every function takes a name of
+        /// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+        /// NULL / "" for the zone of the system.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimezone_is_valid([MarshalAs(Utf8.Str)] string zone);
+
+        /// <summary>
+        /// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimezone_to_local([MarshalAs(Utf8.Str)] string zone, double utc, out int year, out int month, out int day, out int hour, out int minute, out int second);
+
+        /// <summary>
+        /// The instant a date and time of a zone is. When the clocks go
+        /// forward, the times they skip do not exist: such a time is moved forward
+        /// by the length of the gap (02:30 becomes 03:30). When they go back, the
+        /// times of the hour repeated happen twice: the first is taken (still in
+        /// summer time). Rtimezone_count_local tells these cases apart.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rtimezone_from_local([MarshalAs(Utf8.Str)] string zone, int year, int month, int day, int hour, int minute, int second);
+
+        /// <summary>
+        /// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimezone_count_local([MarshalAs(Utf8.Str)] string zone, int year, int month, int day, int hour, int minute, int second);
+
+        /// <summary>
+        /// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimezone_get_offset([MarshalAs(Utf8.Str)] string zone, double utc);
+
+        /// <summary>
+        /// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimezone_is_daylight_saving([MarshalAs(Utf8.Str)] string zone, double utc);
+
+        /// <summary>
+        /// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtimezone_get_abbreviation", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtimezone_get_abbreviation_([MarshalAs(Utf8.Str)] string zone, double utc);
+        public static string Rtimezone_get_abbreviation(string zone, double utc) { return Text(Rtimezone_get_abbreviation_(zone, utc)); }
+
+        /// <summary>
+        /// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtimezone_get_label", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtimezone_get_label_([MarshalAs(Utf8.Str)] string zone, double utc);
+        public static string Rtimezone_get_label(string zone, double utc) { return Text(Rtimezone_get_label_(zone, utc)); }
 
         /// <summary>
         /// Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.

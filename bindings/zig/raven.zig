@@ -1248,6 +1248,15 @@ pub const R_XML_NUMBERS: RXmlValueType = 0x03C7;
 /// Texts separated by '|': "One|Two|Three".
 pub const R_XML_LIST: RXmlValueType = 0x03C8;
 
+/// How the hours of a time are shown.
+pub const RClock = c_int;
+/// As the locale does (Rlocale_uses_12_hour_clock).
+pub const R_CLOCK_AUTO: RClock = 0x0C30;
+/// 1 to 12, with AM and PM.
+pub const R_CLOCK_12_HOUR: RClock = 0x0C31;
+/// 0 to 23.
+pub const R_CLOCK_24_HOUR: RClock = 0x0C32;
+
 pub const RColorFilter = c_int;
 pub const R_COLOR_FILTER_NONE: RColorFilter = 0x0740;
 /// Corrections: the colors that cannot be told apart are moved to colors that can.
@@ -3756,12 +3765,41 @@ pub extern fn Rdate_picker_get_text(date_picker: Rid) ?[*:0]const u8;
 pub extern fn Rdate_picker_set_open(date_picker: Rid, open: c_int) void;
 pub extern fn Rdate_picker_is_open(date_picker: Rid) c_int;
 pub extern fn Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback, user_data: ?*anyopaque) void;
+/// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+pub extern fn Rdate_picker_set_time_zone(date_picker: Rid, zone: ?[*:0]const u8) void;
+pub extern fn Rdate_picker_get_time_zone(date_picker: Rid) ?[*:0]const u8;
+/// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+pub extern fn Rdate_picker_set_instant(date_picker: Rid, utc: f64) void;
+/// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+pub extern fn Rdate_picker_get_instant(date_picker: Rid) f64;
 pub extern fn Rtime_picker_set_time(time_picker: Rid, hour: c_int, minute: c_int, second: c_int) void;
 pub extern fn Rtime_picker_get_time(time_picker: Rid, hour: ?*c_int, minute: ?*c_int, second: ?*c_int) void;
 pub extern fn Rtime_picker_set_seconds_visible(time_picker: Rid, visible: c_int) void;
 /// Step of the minutes for the arrows and the wheel (default 1).
 pub extern fn Rtime_picker_set_minute_step(time_picker: Rid, step: c_int) void;
 pub extern fn Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback, user_data: ?*anyopaque) void;
+/// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+pub extern fn Rtime_picker_set_clock(time_picker: Rid, clock: RClock) void;
+pub extern fn Rtime_picker_get_clock(time_picker: Rid) RClock;
+/// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+pub extern fn Rtime_picker_get_text(time_picker: Rid) ?[*:0]const u8;
+/// The time zone of the time ("America/New_York", see
+/// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+/// unknown zone is refused. TimeZone="..." in XML.
+pub extern fn Rtime_picker_set_time_zone(time_picker: Rid, zone: ?[*:0]const u8) void;
+/// The zone set, "" for none.
+pub extern fn Rtime_picker_get_time_zone(time_picker: Rid) ?[*:0]const u8;
+/// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+pub extern fn Rtime_picker_set_time_zone_visible(time_picker: Rid, visible: c_int) void;
+/// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+pub extern fn Rtime_picker_set_date(time_picker: Rid, year: c_int, month: c_int, day: c_int) void;
+pub extern fn Rtime_picker_get_date(time_picker: Rid, year: ?*c_int, month: ?*c_int, day: ?*c_int) void;
+/// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+pub extern fn Rtime_picker_set_instant(time_picker: Rid, utc: f64) void;
+/// The instant the day and the time are in the zone. A time the
+/// clocks skipped is moved forward, a time they repeated is the first
+/// (see Rtimezone_from_local).
+pub extern fn Rtime_picker_get_instant(time_picker: Rid) f64;
 /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 pub extern fn Rtoast_show(toast: Rid, text: ?[*:0]const u8, seconds: f64) void;
 /// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
@@ -5413,6 +5451,54 @@ pub extern fn Rtr_plural(key: ?[*:0]const u8, count: c_int) ?[*:0]const u8;
 pub extern fn Rwidget_set_text_key(widget: Rid, attribute: ?[*:0]const u8, key: ?[*:0]const u8) void;
 /// A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
 pub extern fn Rlocale_format_number(value: f64, decimals: c_int) ?[*:0]const u8;
+/// Forces the clock of every time shown (a setting of the
+/// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+/// to follow the locale. A TimePicker can still choose its own (Clock="24").
+pub extern fn Rlocale_set_clock(clock: RClock) void;
+pub extern fn Rlocale_get_clock() RClock;
+/// R_TRUE when times are shown on 12 hours with AM and PM. With
+/// Rlocale_set_clock, what it forces; else, when the application chose a
+/// language (Rlocale_set_language), the usage of that language (from CLDR:
+/// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+/// others 24); else the setting of the user on the system (Windows, macOS,
+/// the LC_TIME of Linux), or the usage of the language of the system.
+pub extern fn Rlocale_uses_12_hour_clock() c_int;
+/// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+pub extern fn Rlocale_get_day_period(pm: c_int) ?[*:0]const u8;
+/// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+pub extern fn Rlocale_format_time(hour: c_int, minute: c_int, second: c_int, show_seconds: c_int) ?[*:0]const u8;
+/// The zone of the system ("Europe/Paris"): the TZ variable, the
+/// link /etc/localtime, else what the system says; "UTC" when it says
+/// nothing. Valid until the next call.
+pub extern fn Rtimezone_get_system() ?[*:0]const u8;
+/// The folder of the tz database (the files "Europe/Paris"...), or
+/// the packed tzdata file of Android, to read instead of the system's: for
+/// a database shipped with the application, or tests. It is then the only
+/// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+/// read so far.
+pub extern fn Rtimezone_set_directory(path: ?[*:0]const u8) void;
+/// R_TRUE when the zone is known. Every function takes a name of
+/// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+/// NULL / "" for the zone of the system.
+pub extern fn Rtimezone_is_valid(zone: ?[*:0]const u8) c_int;
+/// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+pub extern fn Rtimezone_to_local(zone: ?[*:0]const u8, utc: f64, year: ?*c_int, month: ?*c_int, day: ?*c_int, hour: ?*c_int, minute: ?*c_int, second: ?*c_int) c_int;
+/// The instant a date and time of a zone is. When the clocks go
+/// forward, the times they skip do not exist: such a time is moved forward
+/// by the length of the gap (02:30 becomes 03:30). When they go back, the
+/// times of the hour repeated happen twice: the first is taken (still in
+/// summer time). Rtimezone_count_local tells these cases apart.
+pub extern fn Rtimezone_from_local(zone: ?[*:0]const u8, year: c_int, month: c_int, day: c_int, hour: c_int, minute: c_int, second: c_int) f64;
+/// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+pub extern fn Rtimezone_count_local(zone: ?[*:0]const u8, year: c_int, month: c_int, day: c_int, hour: c_int, minute: c_int, second: c_int) c_int;
+/// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+pub extern fn Rtimezone_get_offset(zone: ?[*:0]const u8, utc: f64) c_int;
+/// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+pub extern fn Rtimezone_is_daylight_saving(zone: ?[*:0]const u8, utc: f64) c_int;
+/// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+pub extern fn Rtimezone_get_abbreviation(zone: ?[*:0]const u8, utc: f64) ?[*:0]const u8;
+/// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+pub extern fn Rtimezone_get_label(zone: ?[*:0]const u8, utc: f64) ?[*:0]const u8;
 /// Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 pub extern fn Raccessibility_set_text_scale(scale: f32) void;
 pub extern fn Raccessibility_get_text_scale() f32;

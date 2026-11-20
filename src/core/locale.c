@@ -18,6 +18,10 @@
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
+#elif !defined(__ANDROID__) && !defined(__EMSCRIPTEN__)
+#include <langinfo.h>
+#include <locale.h>
+#define RVN_LOCALE_LANGINFO 1
 #endif
 
 #define RVN_LOCALE_RING 16
@@ -65,6 +69,14 @@ static struct {
 
 	RLocaleChangedCallback callback;
 	void* callback_user;
+
+	/** Rlocale_set_clock (0: R_CLOCK_AUTO). */
+	RClock clock;
+	/** What the system says (rvn_locale_detect_clock): 12, 24 or 0 when it does not say; its AM and PM. */
+	int system_clock_read;
+	int system_clock;
+	int system_period_first;
+	char system_am[32], system_pm[32];
 } g_locale = { 0 };
 
 /* ---------------------------------------------------------------------------
@@ -317,6 +329,17 @@ int rvn_locale_attribute(rvn_widget_t* widget, const char* name, const char* val
 	return R_FALSE;
 }
 
+/* The widgets that write times and dates: the clock, AM and PM, the names may have changed. */
+static void rvn_locale_refresh_times(void) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.widgets.used; i++) {
+		rvn_widget_t* widget = (rvn_widget_t*)rvn_pool_at(&g_rvn.widgets, i);
+		if (widget && !(widget->flags & RVN_WF_DEAD) && widget->cls &&
+			(widget->cls->type == R_WIDGET_TIME_PICKER || widget->cls->type == R_WIDGET_DATE_PICKER))
+			rvn_widget_invalidate_layout(widget);
+	}
+}
+
 static void rvn_locale_refresh(void) {
 	uint32_t i = 0;
 	while (i < g_locale.binding_count) {
@@ -330,6 +353,7 @@ static void rvn_locale_refresh(void) {
 		i++;
 	}
 	rvn_direction_refresh();
+	rvn_locale_refresh_times();
 	if (g_locale.callback) g_locale.callback(g_locale.language ? g_locale.language : "", g_locale.callback_user);
 }
 
@@ -482,6 +506,285 @@ static void rvn_locale_detect_system(void) {
 #endif
 	if (!raw[0]) strcpy(raw, "en");
 	rvn_locale_normalize(raw, g_locale.system, sizeof(g_locale.system));
+}
+
+/* ---------------------------------------------------------------------------
+ *  The clock: 12 or 24 hours, AM and PM
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Where the 12-hour clock is the usual one. From the time data of CLDR
+ * (common/supplemental/supplementalData.xml, <timeData>: the regions whose
+ * _preferred hour format is "h"), for the most used of them; a code with a
+ * region is decided by its region. A code without one is decided by its
+ * language: those whose most likely region (CLDR likelySubtags) is one of
+ * these. Everywhere else, and for the exceptions below, 24 hours.
+ */
+static const char* const g_clock_12_regions[] = {
+	"US", "CA", "AU", "NZ", "IN", "PK", "BD", "PH", "MY", "SG", "KR", "TW", "HK", "MO",
+	"EG", "SA", "AE", "JO", "KW", "QA", "BH", "OM", "IQ", "SY", "LB", "YE", "LY", "SD", "PS",
+	"CO", "PR", "GU", "AS", "VI", "MP", "UM"
+};
+static const char* const g_clock_12_languages[] = {
+	"en", "hi", "ar", "ko", "ur", "bn", "fil", "tl", "ms", "ta", "te", "mr", "gu", "kn", "ml", "pa", "or"
+};
+/* Codes of a 12-hour region that use 24 hours all the same (CLDR: fr_CA is "H"). */
+static const char* const g_clock_24_codes[] = { "fr-CA" };
+
+/*
+ * AM and PM of a language (CLDR, the abbreviated day periods of the format
+ * context); `first`: written before the time ("오후 3:00"). The keys
+ * Raven.AM and Raven.PM of the tables replace them.
+ */
+typedef struct rvn_day_periods_t {
+	const char* language;
+	const char* am;
+	const char* pm;
+	int first;
+} rvn_day_periods_t;
+
+static const rvn_day_periods_t g_day_periods[] = {
+	{ "ko", "\xEC\x98\xA4\xEC\xA0\x84", "\xEC\x98\xA4\xED\x9B\x84", 1 },     /* 오전 오후 */
+	{ "zh", "\xE4\xB8\x8A\xE5\x8D\x88", "\xE4\xB8\x8B\xE5\x8D\x88", 1 },     /* 上午 下午 */
+	{ "ja", "\xE5\x8D\x88\xE5\x89\x8D", "\xE5\x8D\x88\xE5\xBE\x8C", 1 },     /* 午前 午後 */
+	{ "ar", "\xD8\xB5", "\xD9\x85", 0 },                                       /* ص م */
+	{ "hi", "am", "pm", 0 },
+	{ "es", "a.\xC2\xA0m.", "p.\xC2\xA0m.", 0 },
+	{ "el", "\xCF\x80.\xCE\xBC.", "\xCE\xBC.\xCE\xBC.", 0 },                   /* π.μ. μ.μ. */
+};
+
+/* The part of a code after its language: "Hant" (a script, 4 letters) or "TW" (a region, 2 letters). */
+static int rvn_locale_code_has(const char* code, const char* part) {
+	const char* c = code;
+	size_t n = strlen(part);
+	while ((c = strpbrk(c, "-_")) != NULL) {
+		c++;
+		if (rvn_strnicmp(c, part, n) == 0 && (c[n] == 0 || c[n] == '-' || c[n] == '_')) return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+/* The region of a code ("en-US" -> "US", "zh-Hant-TW" -> "TW"), or "". */
+static void rvn_locale_code_region(const char* code, char region[3]) {
+	const char* c = code;
+	region[0] = 0;
+	while ((c = strpbrk(c, "-_")) != NULL) {
+		size_t n;
+		c++;
+		n = strcspn(c, "-_");
+		if (n == 2) {
+			region[0] = (char)(c[0] >= 'a' && c[0] <= 'z' ? c[0] - 32 : c[0]);
+			region[1] = (char)(c[1] >= 'a' && c[1] <= 'z' ? c[1] - 32 : c[1]);
+			region[2] = 0;
+			return;
+		}
+	}
+}
+
+/* 12 or 24: the clock of a language code, from the tables above. */
+int rvn_locale_code_clock(const char* code) {
+	char region[3];
+	size_t i;
+	if (!code || !code[0]) return 24;
+	for (i = 0; i < RVN_COUNT_OF(g_clock_24_codes); i++)
+		if (rvn_stricmp(code, g_clock_24_codes[i]) == 0) return 24;
+	rvn_locale_code_region(code, region);
+	if (region[0]) {
+		for (i = 0; i < RVN_COUNT_OF(g_clock_12_regions); i++)
+			if (strcmp(region, g_clock_12_regions[i]) == 0) return 12;
+		return 24;
+	}
+	/* Chinese: 24 hours in Simplified (China), 12 in Traditional (Taiwan, Hong Kong) */
+	if (rvn_locale_base_is(code, "zh")) return rvn_locale_code_has(code, "Hant") ? 12 : 24;
+	for (i = 0; i < RVN_COUNT_OF(g_clock_12_languages); i++)
+		if (rvn_locale_base_is(code, g_clock_12_languages[i])) return 12;
+	return 24;
+}
+
+/*
+ * The clock of a time pattern of the system: a CLDR or Windows pattern
+ * ("h:mm a", "HH:mm:ss", "tt h:mm:ss") or a strftime one ("%I:%M:%S %p",
+ * "%r", "%H:%M:%S"). Returns 12, 24, or 0 when the pattern has no hour;
+ * *period_first is R_TRUE when AM/PM comes before the hour.
+ */
+int rvn_locale_pattern_clock(const char* pattern, int* period_first) {
+	int clock = 0, hour_at = -1, period_at = -1, at = 0;
+	const char* c;
+	if (period_first) *period_first = R_FALSE;
+	if (!pattern) return 0;
+	if (strchr(pattern, '%')) {
+		for (c = pattern; *c; c++, at++) {
+			if (*c != '%' || !c[1]) continue;
+			c++;
+			/* (flags and modifiers of glibc and POSIX: %-I, %OI, %EH...) */
+			while (*c && strchr("-_0^#EO", *c)) c++;
+			if (!*c) break;
+			if (*c == 'I' || *c == 'l') clock = 12, hour_at = hour_at < 0 ? at : hour_at;
+			else if (*c == 'H' || *c == 'k' || *c == 'R' || *c == 'T') clock = clock ? clock : 24, hour_at = hour_at < 0 ? at : hour_at;
+			else if (*c == 'r') clock = 12, hour_at = hour_at < 0 ? at : hour_at, period_at = period_at < 0 ? at + 1 : period_at;
+			else if (*c == 'p' || *c == 'P') period_at = period_at < 0 ? at : period_at;
+		}
+	} else {
+		int quoted = R_FALSE;
+		for (c = pattern; *c; c++, at++) {
+			if (*c == '\'') {
+				quoted = !quoted;
+				continue;
+			}
+			if (quoted) continue;
+			if (*c == 'h' || *c == 'K') clock = 12, hour_at = hour_at < 0 ? at : hour_at;
+			else if (*c == 'H' || *c == 'k') clock = clock ? clock : 24, hour_at = hour_at < 0 ? at : hour_at;
+			else if (*c == 'a' || *c == 't' || *c == 'b' || *c == 'B') period_at = period_at < 0 ? at : period_at;
+		}
+	}
+	if (period_first && clock == 12 && period_at >= 0 && hour_at >= 0) *period_first = period_at < hour_at;
+	return clock;
+}
+
+static void rvn_locale_copy_marker(char* out, size_t size, const char* text) {
+	size_t n = text ? strlen(text) : 0;
+	/* (trimmed: some systems pad them) */
+	while (n && (text[n - 1] == ' ')) n--;
+	while (n && text[0] == ' ') text++, n--;
+	if (n >= size) n = size - 1;
+	if (n) memcpy(out, text, n);
+	out[n] = 0;
+}
+
+/* What the system of the user says: the clock of its short time format, its AM and PM. Read once. */
+static void rvn_locale_detect_clock(void) {
+	char pattern[128] = { 0 }, am[64] = { 0 }, pm[64] = { 0 };
+	if (g_locale.system_clock_read) return;
+	g_locale.system_clock_read = R_TRUE;
+#if defined(_WIN32)
+	{
+		wchar_t wide[128];
+		if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SSHORTTIME, wide, (int)RVN_COUNT_OF(wide)) > 0 ||
+			GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STIMEFORMAT, wide, (int)RVN_COUNT_OF(wide)) > 0)
+			WideCharToMultiByte(CP_UTF8, 0, wide, -1, pattern, (int)sizeof(pattern), NULL, NULL);
+		if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_S1159, wide, (int)RVN_COUNT_OF(wide)) > 0)
+			WideCharToMultiByte(CP_UTF8, 0, wide, -1, am, (int)sizeof(am), NULL, NULL);
+		if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_S2359, wide, (int)RVN_COUNT_OF(wide)) > 0)
+			WideCharToMultiByte(CP_UTF8, 0, wide, -1, pm, (int)sizeof(pm), NULL, NULL);
+	}
+#elif defined(__APPLE__)
+	{
+		/* (the short time style follows the 24-hour setting of the user, which the locale alone does not) */
+		CFLocaleRef locale = CFLocaleCopyCurrent();
+		CFDateFormatterRef formatter = locale ? CFDateFormatterCreate(NULL, locale, kCFDateFormatterNoStyle, kCFDateFormatterShortStyle) : NULL;
+		if (formatter) {
+			CFStringRef format = CFDateFormatterGetFormat(formatter);
+			CFTypeRef symbol;
+			if (format) CFStringGetCString(format, pattern, (CFIndex)sizeof(pattern), kCFStringEncodingUTF8);
+			symbol = CFDateFormatterCopyProperty(formatter, kCFDateFormatterAMSymbol);
+			if (symbol) {
+				if (CFGetTypeID(symbol) == CFStringGetTypeID()) CFStringGetCString((CFStringRef)symbol, am, (CFIndex)sizeof(am), kCFStringEncodingUTF8);
+				CFRelease(symbol);
+			}
+			symbol = CFDateFormatterCopyProperty(formatter, kCFDateFormatterPMSymbol);
+			if (symbol) {
+				if (CFGetTypeID(symbol) == CFStringGetTypeID()) CFStringGetCString((CFStringRef)symbol, pm, (CFIndex)sizeof(pm), kCFStringEncodingUTF8);
+				CFRelease(symbol);
+			}
+			CFRelease(formatter);
+		}
+		if (locale) CFRelease(locale);
+	}
+#elif defined(RVN_LOCALE_LANGINFO)
+	{
+		/* The LC_TIME of the environment, without changing the locale of the program (setlocale). */
+		static const char* const variables[] = { "LC_ALL", "LC_TIME", "LANG" };
+		const char* name = NULL;
+		size_t i;
+		for (i = 0; i < RVN_COUNT_OF(variables) && !name; i++) {
+			const char* value = getenv(variables[i]);
+			if (value && value[0]) name = value;
+		}
+		/* (no locale, or the C one: the system says nothing, the language decides) */
+		if (name && strcmp(name, "C") != 0 && strcmp(name, "POSIX") != 0 && strncmp(name, "C.", 2) != 0) {
+			locale_t locale = newlocale(LC_TIME_MASK, "", (locale_t)0);
+			if (locale) {
+				snprintf(pattern, sizeof(pattern), "%s", nl_langinfo_l(T_FMT, locale));
+				snprintf(am, sizeof(am), "%s", nl_langinfo_l(AM_STR, locale));
+				snprintf(pm, sizeof(pm), "%s", nl_langinfo_l(PM_STR, locale));
+				freelocale(locale);
+			}
+		}
+	}
+#endif
+	g_locale.system_clock = rvn_locale_pattern_clock(pattern, &g_locale.system_period_first);
+	rvn_locale_copy_marker(g_locale.system_am, sizeof(g_locale.system_am), am);
+	rvn_locale_copy_marker(g_locale.system_pm, sizeof(g_locale.system_pm), pm);
+}
+
+/*
+ * 12 or 24. Rlocale_set_clock first; then the language the application chose
+ * (its conventions, from the table above); without one, the setting of the
+ * user on the system, or the table for the language of the system.
+ */
+int rvn_locale_clock(void) {
+	if (g_locale.clock == R_CLOCK_12_HOUR) return 12;
+	if (g_locale.clock == R_CLOCK_24_HOUR) return 24;
+	if (g_locale.language) return rvn_locale_code_clock(g_locale.language);
+	rvn_locale_detect_clock();
+	if (g_locale.system_clock) return g_locale.system_clock;
+	if (!g_locale.system[0]) rvn_locale_detect_system();
+	return rvn_locale_code_clock(g_locale.system);
+}
+
+static const rvn_day_periods_t* rvn_locale_day_periods_of(const char* code) {
+	size_t i;
+	if (!code) return NULL;
+	for (i = 0; i < RVN_COUNT_OF(g_day_periods); i++)
+		if (rvn_locale_base_is(code, g_day_periods[i].language)) return &g_day_periods[i];
+	return NULL;
+}
+
+/* AM (pm = R_FALSE) or PM: the key Raven.AM / Raven.PM, else the language, else the system. Never NULL. */
+const char* rvn_locale_day_period(int pm) {
+	const char* key = pm ? "Raven.PM" : "Raven.AM";
+	const rvn_day_periods_t* periods;
+	if (rvn_locale_lookup(key)) return rvn_locale_lookup(key);
+	if (g_locale.language) {
+		periods = rvn_locale_day_periods_of(g_locale.language);
+		return periods ? (pm ? periods->pm : periods->am) : (pm ? "PM" : "AM");
+	}
+	rvn_locale_detect_clock();
+	if (g_locale.system_am[0] && g_locale.system_pm[0]) return pm ? g_locale.system_pm : g_locale.system_am;
+	if (!g_locale.system[0]) rvn_locale_detect_system();
+	periods = rvn_locale_day_periods_of(g_locale.system);
+	return periods ? (pm ? periods->pm : periods->am) : (pm ? "PM" : "AM");
+}
+
+/* R_TRUE when AM/PM is written before the time. */
+int rvn_locale_day_period_first(void) {
+	const rvn_day_periods_t* periods;
+	if (g_locale.language) {
+		periods = rvn_locale_day_periods_of(g_locale.language);
+		return periods && periods->first;
+	}
+	rvn_locale_detect_clock();
+	if (g_locale.system_clock == 12) return g_locale.system_period_first;
+	if (!g_locale.system[0]) rvn_locale_detect_system();
+	periods = rvn_locale_day_periods_of(g_locale.system);
+	return periods && periods->first;
+}
+
+/* A time in the conventions of the locale ("3:05 PM", "15:05"); clock 12 or 24, 0 for the locale's. */
+void rvn_locale_time_text(int hour, int minute, int second, int show_seconds, int clock, char* out, size_t size) {
+	char digits[32];
+	if (clock != 12 && clock != 24) clock = rvn_locale_clock();
+	hour = ((hour % 24) + 24) % 24;
+	if (clock == 12) {
+		int twelve = hour % 12 ? hour % 12 : 12;
+		if (show_seconds) snprintf(digits, sizeof(digits), "%d:%02d:%02d", twelve, minute, second);
+		else snprintf(digits, sizeof(digits), "%d:%02d", twelve, minute);
+		if (rvn_locale_day_period_first()) snprintf(out, size, "%s %s", rvn_locale_day_period(hour >= 12), digits);
+		else snprintf(out, size, "%s %s", digits, rvn_locale_day_period(hour >= 12));
+		return;
+	}
+	if (show_seconds) snprintf(out, size, "%02d:%02d:%02d", hour, minute, second);
+	else snprintf(out, size, "%02d:%02d", hour, minute);
 }
 
 int rvn_locale_code_is_rtl(const char* code) {
@@ -846,4 +1149,40 @@ void Rwidget_set_text_key(Rid id, const char* attribute, const char* key) {
 const char* Rlocale_format_number(double value, int decimals) {
 	RVN_API_GUARD("");
 	return rvn_locale_keep(rvn_locale_number(value, decimals));
+}
+
+void Rlocale_set_clock(RClock clock) {
+	RVN_API_GUARD_VOID();
+	if (clock != R_CLOCK_AUTO && clock != R_CLOCK_12_HOUR && clock != R_CLOCK_24_HOUR) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rlocale_set_clock: R_CLOCK_AUTO, _12_HOUR or _24_HOUR");
+		return;
+	}
+	g_locale.clock = clock == R_CLOCK_AUTO ? (RClock)0 : clock;
+	rvn_locale_refresh_times();
+}
+
+RClock Rlocale_get_clock(void) {
+	RVN_API_GUARD(R_CLOCK_AUTO);
+	return g_locale.clock ? g_locale.clock : R_CLOCK_AUTO;
+}
+
+int Rlocale_uses_12_hour_clock(void) {
+	RVN_API_GUARD(R_FALSE);
+	return rvn_locale_clock() == 12;
+}
+
+const char* Rlocale_get_day_period(int pm) {
+	RVN_API_GUARD("");
+	return rvn_locale_day_period(pm);
+}
+
+const char* Rlocale_format_time(int hour, int minute, int second, int show_seconds) {
+	char text[96];
+	RVN_API_GUARD("");
+	if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rlocale_format_time: invalid time %02d:%02d:%02d", hour, minute, second);
+		return "";
+	}
+	rvn_locale_time_text(hour, minute, second, show_seconds, 0, text, sizeof(text));
+	return rvn_locale_keep(rvn_strdup(text));
 }

@@ -246,8 +246,9 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   the window (`SystemWebView`: WKWebView on macOS and iOS), or (`raven_web.h`,
   built into the same library) by driving a browser already installed.
 - **Every language.** Translations in **CSV tables**, read with `Rtr("key")`
-  in C or `Text="@key"` in XML, with plurals, arguments and numbers in the
-  conventions of each language. **Right-to-left** layouts that mirror
+  in C or `Text="@key"` in XML, with plurals, arguments, numbers and times
+  (12 or 24 hours) in the conventions of each language, and the **time
+  zones** of the tz database. **Right-to-left** layouts that mirror
   themselves, bidirectional text, Arabic shaping, **emoji** in color and
   the fonts of the system for the scripts the bundled font lacks.
 - **Touch, pens and trackpads, with nothing to do.** On Windows, X11, Wayland
@@ -1446,7 +1447,7 @@ per page (its `Slot.Title`, else "Page 2 of 5").
 </Table>
 <HBox Spacing="8">
     <DatePicker Date="Today" FirstDayOfWeek="Monday"/>
-    <TimePicker Time="09:30" MinuteStep="15"/>
+    <TimePicker Time="15:30" MinuteStep="15" TimeZone="America/New_York" ShowTimeZone="true"/>
     <Rating Value="4" AllowHalf="true"/>
 </HBox>
 <Breadcrumb Items="Home|Documents|Report"/>
@@ -1454,7 +1455,15 @@ per page (its `Slot.Title`, else "Page 2 of 5").
 ```
 
 A table virtualizes its rows as a list does (`Rtable_set_virtual_rows`); its
-columns are resized by their edges and sorted by their headers. A `Toast`, put
+columns are resized by their edges and sorted by their headers. A
+`TimePicker` shows the clock of the locale: 1 to 12 with AM and PM where it
+is the usage (en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW...), 0 to 23
+elsewhere, or what `Clock="12"` / `Clock="24"` says; A and P, or the arrows
+on the AM/PM part, switch it, and its values stay on 24 hours. With a
+`TimeZone`, it is a time of a day in that zone: `Rtime_picker_get_instant`
+gives the instant, and `ShowTimeZone` writes the zone after it ("EST",
+"CET"). A `DatePicker` gives the first instant of its day in its zone
+(`Rdate_picker_get_instant`). A `Toast`, put
 in an `Overlay`, shows a short message for a few seconds (`Rtoast_show`), with
 an optional button ("Undo"). Messages that come while one is shown replace it,
 wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
@@ -1546,6 +1555,7 @@ const char* args[] = { "Ada" };
 Rlabel_set_text(hello, Rtr_format("greeting", args, 1));
 Rlabel_set_text(count, Rtr_plural("files", 3));          /* "3 fichiers" */
 Rlabel_set_text(size, Rlocale_format_number(1234.5, 1)); /* "1 234,5" */
+Rlabel_set_text(time, Rlocale_format_time(15, 5, 0, R_FALSE)); /* "3:05 PM" in en-US, "15:05" in fr */
 ```
 
 ```xml
@@ -1556,7 +1566,31 @@ Rlabel_set_text(size, Rlocale_format_number(1234.5, 1)); /* "1 234,5" */
 A text that starts with `@` is a key: the widget follows the language when it
 changes. One column per language, any number of tables, plurals with the
 CLDR rules, and the tables are read again when they are saved (live reload).
-`raven_locale.h` has the rest.
+Times are written on 12 hours with AM and PM where the language does so (the
+time data of CLDR), or as the user set the system when the application chose
+no language; `Rlocale_set_clock` forces one, and the keys `Raven.AM` and
+`Raven.PM` translate AM and PM. `raven_locale.h` has the rest.
+
+**Time zones** come from the tz database of the system, read directly: the
+files of `/usr/share/zoneinfo` (Linux, macOS, iOS, BSD, with the rule of
+their footer for the years after their last change), the `tzdata` file of
+Android, the ICU of Windows 10 (version 1903 and later), `Intl` in a browser.
+No library is added.
+
+```c
+double now = (double)time(NULL);
+int y, mo, d, h, mi, s;
+Rtimezone_to_local("Europe/Paris", now, &y, &mo, &d, &h, &mi, &s);
+double t = Rtimezone_from_local("America/New_York", 2026, 3, 8, 2, 30, 0); /* skipped: 03:30 EDT */
+Rlabel_set_text(zone, Rtimezone_get_label("Europe/Paris", now));        /* "CET, UTC+1" */
+```
+
+A local time the clocks skip (spring forward) is moved forward by the length
+of the gap; one they repeat (fall back) is taken the first time, still on
+summer time; `Rtimezone_count_local` says which (0, 1 or 2 instants).
+`Rtimezone_get_system` names the zone of the system, and
+`Rtimezone_set_directory` reads a database shipped with the application
+instead.
 
 ### Right to left, scripts and emoji
 

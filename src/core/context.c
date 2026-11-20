@@ -283,6 +283,7 @@ void Rshutdown(void) {
 	rvn_tray_shutdown();
 	rvn_notify_shutdown();
 	rvn_locale_shutdown();
+	rvn_timezone_shutdown();
 	rvn_a11y_shutdown();
 	rvn_themes_shutdown();
 	rvn_look_shutdown();

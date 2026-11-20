@@ -81,6 +81,8 @@ int  rvn_date_days_in_month(int year, int month);
 int  rvn_date_valid(int year, int month, int day);
 int  rvn_date_weekday(int year, int month, int day);
 void rvn_date_today(int* year, int* month, int* day);
+/** "YYYY-MM-DD"; R_FALSE when it is not a valid date. */
+int  rvn_date_parse(const char* text, int* year, int* month, int* day);
 /** The name of a month or of a day: the locale's (keys Raven.Month1.., Raven.Day0..) or English. */
 const char* rvn_date_month_name(int month);
 const char* rvn_date_day_name(int weekday);

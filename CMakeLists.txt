@@ -139,6 +139,7 @@ set(RAVEN_CORE_SOURCES
 	src/core/base.h
 	src/core/context.c
 	src/core/locale.c
+	src/core/timezone.c
 	src/core/accessibility.c
 	src/core/accessibility_touch.c
 	src/core/context.h

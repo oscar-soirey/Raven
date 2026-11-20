@@ -1258,6 +1258,15 @@ R_XML_NUMBERS :: 0x03C7
 // Texts separated by '|': "One|Two|Three".
 R_XML_LIST :: 0x03C8
 
+// How the hours of a time are shown.
+RClock :: i32
+// As the locale does (Rlocale_uses_12_hour_clock).
+R_CLOCK_AUTO :: 0x0C30
+// 1 to 12, with AM and PM.
+R_CLOCK_12_HOUR :: 0x0C31
+// 0 to 23.
+R_CLOCK_24_HOUR :: 0x0C32
+
 RColorFilter :: i32
 R_COLOR_FILTER_NONE :: 0x0740
 // Corrections: the colors that cannot be told apart are moved to colors that can.
@@ -3768,12 +3777,41 @@ foreign lib {
 	Rdate_picker_set_open :: proc(date_picker: Rid, open: i32) ---
 	Rdate_picker_is_open :: proc(date_picker: Rid) -> i32 ---
 	Rdate_picker_set_changed_callback :: proc(date_picker: Rid, callback: RDateChangedCallback, user_data: rawptr) ---
+	// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+	Rdate_picker_set_time_zone :: proc(date_picker: Rid, zone: cstring) ---
+	Rdate_picker_get_time_zone :: proc(date_picker: Rid) -> cstring ---
+	// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+	Rdate_picker_set_instant :: proc(date_picker: Rid, utc: f64) ---
+	// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+	Rdate_picker_get_instant :: proc(date_picker: Rid) -> f64 ---
 	Rtime_picker_set_time :: proc(time_picker: Rid, hour: i32, minute: i32, second: i32) ---
 	Rtime_picker_get_time :: proc(time_picker: Rid, hour: ^i32, minute: ^i32, second: ^i32) ---
 	Rtime_picker_set_seconds_visible :: proc(time_picker: Rid, visible: i32) ---
 	// Step of the minutes for the arrows and the wheel (default 1).
 	Rtime_picker_set_minute_step :: proc(time_picker: Rid, step: i32) ---
 	Rtime_picker_set_changed_callback :: proc(time_picker: Rid, callback: RTimeChangedCallback, user_data: rawptr) ---
+	// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+	Rtime_picker_set_clock :: proc(time_picker: Rid, clock: RClock) ---
+	Rtime_picker_get_clock :: proc(time_picker: Rid) -> RClock ---
+	// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+	Rtime_picker_get_text :: proc(time_picker: Rid) -> cstring ---
+	// The time zone of the time ("America/New_York", see
+	// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+	// unknown zone is refused. TimeZone="..." in XML.
+	Rtime_picker_set_time_zone :: proc(time_picker: Rid, zone: cstring) ---
+	// The zone set, "" for none.
+	Rtime_picker_get_time_zone :: proc(time_picker: Rid) -> cstring ---
+	// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+	Rtime_picker_set_time_zone_visible :: proc(time_picker: Rid, visible: i32) ---
+	// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+	Rtime_picker_set_date :: proc(time_picker: Rid, year: i32, month: i32, day: i32) ---
+	Rtime_picker_get_date :: proc(time_picker: Rid, year: ^i32, month: ^i32, day: ^i32) ---
+	// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+	Rtime_picker_set_instant :: proc(time_picker: Rid, utc: f64) ---
+	// The instant the day and the time are in the zone. A time the
+	// clocks skipped is moved forward, a time they repeated is the first
+	// (see Rtimezone_from_local).
+	Rtime_picker_get_instant :: proc(time_picker: Rid) -> f64 ---
 	// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 	Rtoast_show :: proc(toast: Rid, text: cstring, seconds: f64) ---
 	// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
@@ -5425,6 +5463,54 @@ foreign lib {
 	Rwidget_set_text_key :: proc(widget: Rid, attribute: cstring, key: cstring) ---
 	// A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
 	Rlocale_format_number :: proc(value: f64, decimals: i32) -> cstring ---
+	// Forces the clock of every time shown (a setting of the
+	// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+	// to follow the locale. A TimePicker can still choose its own (Clock="24").
+	Rlocale_set_clock :: proc(clock: RClock) ---
+	Rlocale_get_clock :: proc() -> RClock ---
+	// R_TRUE when times are shown on 12 hours with AM and PM. With
+	// Rlocale_set_clock, what it forces; else, when the application chose a
+	// language (Rlocale_set_language), the usage of that language (from CLDR:
+	// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+	// others 24); else the setting of the user on the system (Windows, macOS,
+	// the LC_TIME of Linux), or the usage of the language of the system.
+	Rlocale_uses_12_hour_clock :: proc() -> i32 ---
+	// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+	Rlocale_get_day_period :: proc(pm: i32) -> cstring ---
+	// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+	Rlocale_format_time :: proc(hour: i32, minute: i32, second: i32, show_seconds: i32) -> cstring ---
+	// The zone of the system ("Europe/Paris"): the TZ variable, the
+	// link /etc/localtime, else what the system says; "UTC" when it says
+	// nothing. Valid until the next call.
+	Rtimezone_get_system :: proc() -> cstring ---
+	// The folder of the tz database (the files "Europe/Paris"...), or
+	// the packed tzdata file of Android, to read instead of the system's: for
+	// a database shipped with the application, or tests. It is then the only
+	// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+	// read so far.
+	Rtimezone_set_directory :: proc(path: cstring) ---
+	// R_TRUE when the zone is known. Every function takes a name of
+	// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+	// NULL / "" for the zone of the system.
+	Rtimezone_is_valid :: proc(zone: cstring) -> i32 ---
+	// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+	Rtimezone_to_local :: proc(zone: cstring, utc: f64, year: ^i32, month: ^i32, day: ^i32, hour: ^i32, minute: ^i32, second: ^i32) -> i32 ---
+	// The instant a date and time of a zone is. When the clocks go
+	// forward, the times they skip do not exist: such a time is moved forward
+	// by the length of the gap (02:30 becomes 03:30). When they go back, the
+	// times of the hour repeated happen twice: the first is taken (still in
+	// summer time). Rtimezone_count_local tells these cases apart.
+	Rtimezone_from_local :: proc(zone: cstring, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> f64 ---
+	// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+	Rtimezone_count_local :: proc(zone: cstring, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> i32 ---
+	// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+	Rtimezone_get_offset :: proc(zone: cstring, utc: f64) -> i32 ---
+	// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+	Rtimezone_is_daylight_saving :: proc(zone: cstring, utc: f64) -> i32 ---
+	// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+	Rtimezone_get_abbreviation :: proc(zone: cstring, utc: f64) -> cstring ---
+	// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+	Rtimezone_get_label :: proc(zone: cstring, utc: f64) -> cstring ---
 	// Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 	Raccessibility_set_text_scale :: proc(scale: f32) ---
 	Raccessibility_get_text_scale :: proc() -> f32 ---

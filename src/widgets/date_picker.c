@@ -174,7 +174,7 @@ static void rvn_date_format(const char* format, int year, int month, int day, ch
 }
 
 /* "2026-11-03" */
-static int rvn_date_parse(const char* text, int* year, int* month, int* day) {
+int rvn_date_parse(const char* text, int* year, int* month, int* day) {
 	int y = 0, m = 0, d = 0;
 	if (sscanf(text, "%d-%d-%d", &y, &m, &d) != 3 || !rvn_date_valid(y, m, d)) return R_FALSE;
 	*year = y;
@@ -194,6 +194,8 @@ typedef struct rvn_date_picker_t {
 	int min_key, max_key;
 	int first_weekday;
 	char* format;
+	/** The time zone of the instants (NULL: the system's). */
+	char* zone;
 	rvn_widget_t* calendar;
 	RDateChangedCallback callback;
 	void* user_data;
@@ -480,6 +482,7 @@ static void rvn_date_picker_destroy(rvn_widget_t* widget) {
 	rvn_date_picker_t* picker = (rvn_date_picker_t*)widget;
 	if (picker->calendar) rvn_widget_destroy(picker->calendar);
 	rvn_free(picker->format);
+	rvn_free(picker->zone);
 }
 
 static int rvn_date_picker_is_open(const rvn_widget_t* widget) {
@@ -614,6 +617,13 @@ static int rvn_date_picker_event(rvn_widget_t* widget, const REvent* event) {
 	}
 }
 
+static int rvn_date_picker_set_zone(rvn_widget_t* widget, const char* zone) {
+	int fields[6];
+	if (zone && zone[0] && !rvn_timezone_local(zone, 0.0, fields)) return R_FALSE;
+	rvn_str_set(&((rvn_date_picker_t*)widget)->zone, zone && zone[0] ? zone : NULL);
+	return R_TRUE;
+}
+
 static int rvn_date_picker_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
 	rvn_date_picker_t* picker = (rvn_date_picker_t*)widget;
 	int year, month, day, number;
@@ -647,6 +657,7 @@ static int rvn_date_picker_set_attribute(rvn_widget_t* widget, const char* name,
 		rvn_widget_invalidate_layout(widget);
 		return R_TRUE;
 	}
+	if (RVN_ATTR("TimeZone")) return rvn_date_picker_set_zone(widget, value);
 	return R_FALSE;
 }
 
@@ -733,4 +744,39 @@ void Rdate_picker_set_changed_callback(Rid id, RDateChangedCallback callback, vo
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_DATE_PICKER);
 	((rvn_date_picker_t*)widget)->callback = callback;
 	((rvn_date_picker_t*)widget)->user_data = user_data;
+}
+
+void Rdate_picker_set_time_zone(Rid id, const char* zone) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_DATE_PICKER);
+	if (!rvn_date_picker_set_zone(widget, zone))
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdate_picker_set_time_zone: unknown time zone \"%s\"", zone);
+}
+
+const char* Rdate_picker_get_time_zone(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_DATE_PICKER, "");
+	return ((rvn_date_picker_t*)widget)->zone ? ((rvn_date_picker_t*)widget)->zone : "";
+}
+
+void Rdate_picker_set_instant(Rid id, double utc) {
+	int fields[6];
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_DATE_PICKER);
+	if (!rvn_timezone_local(((rvn_date_picker_t*)widget)->zone, utc, fields) || !rvn_date_valid(fields[0], fields[1], fields[2])) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdate_picker_set_instant: invalid instant or time zone");
+		return;
+	}
+	rvn_date_picker_set(widget, fields[0], fields[1], fields[2], R_FALSE);
+}
+
+double Rdate_picker_get_instant(Rid id) {
+	rvn_date_picker_t* picker;
+	int fields[6];
+	double utc = 0.0;
+	RVN_WIDGET(widget, id, R_WIDGET_DATE_PICKER, 0.0);
+	picker = (rvn_date_picker_t*)widget;
+	fields[0] = picker->year;
+	fields[1] = picker->month;
+	fields[2] = picker->day;
+	fields[3] = fields[4] = fields[5] = 0;
+	if (rvn_timezone_instant(picker->zone, fields, &utc) < 0) return 0.0;
+	return utc;
 }

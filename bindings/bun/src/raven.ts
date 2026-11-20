@@ -788,11 +788,25 @@ const _symbols = {
 	Rdate_picker_set_open: { args: ["u32", "i32"], returns: "void" },
 	Rdate_picker_is_open: { args: ["u32"], returns: "i32" },
 	Rdate_picker_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdate_picker_set_time_zone: { args: ["u32", "ptr"], returns: "void" },
+	Rdate_picker_get_time_zone: { args: ["u32"], returns: "cstring" },
+	Rdate_picker_set_instant: { args: ["u32", "f64"], returns: "void" },
+	Rdate_picker_get_instant: { args: ["u32"], returns: "f64" },
 	Rtime_picker_set_time: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rtime_picker_get_time: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtime_picker_set_seconds_visible: { args: ["u32", "i32"], returns: "void" },
 	Rtime_picker_set_minute_step: { args: ["u32", "i32"], returns: "void" },
 	Rtime_picker_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtime_picker_set_clock: { args: ["u32", "i32"], returns: "void" },
+	Rtime_picker_get_clock: { args: ["u32"], returns: "i32" },
+	Rtime_picker_get_text: { args: ["u32"], returns: "cstring" },
+	Rtime_picker_set_time_zone: { args: ["u32", "ptr"], returns: "void" },
+	Rtime_picker_get_time_zone: { args: ["u32"], returns: "cstring" },
+	Rtime_picker_set_time_zone_visible: { args: ["u32", "i32"], returns: "void" },
+	Rtime_picker_set_date: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rtime_picker_get_date: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtime_picker_set_instant: { args: ["u32", "f64"], returns: "void" },
+	Rtime_picker_get_instant: { args: ["u32"], returns: "f64" },
 	Rtoast_show: { args: ["u32", "ptr", "f64"], returns: "void" },
 	Rtoast_show_kind: { args: ["u32", "ptr", "i32", "f64"], returns: "void" },
 	Rtoast_hide: { args: ["u32"], returns: "void" },
@@ -1553,6 +1567,21 @@ const _symbols = {
 	Rtr_plural: { args: ["ptr", "i32"], returns: "cstring" },
 	Rwidget_set_text_key: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rlocale_format_number: { args: ["f64", "i32"], returns: "cstring" },
+	Rlocale_set_clock: { args: ["i32"], returns: "void" },
+	Rlocale_get_clock: { args: [], returns: "i32" },
+	Rlocale_uses_12_hour_clock: { args: [], returns: "i32" },
+	Rlocale_get_day_period: { args: ["i32"], returns: "cstring" },
+	Rlocale_format_time: { args: ["i32", "i32", "i32", "i32"], returns: "cstring" },
+	Rtimezone_get_system: { args: [], returns: "cstring" },
+	Rtimezone_set_directory: { args: ["ptr"], returns: "void" },
+	Rtimezone_is_valid: { args: ["ptr"], returns: "i32" },
+	Rtimezone_to_local: { args: ["ptr", "f64", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rtimezone_from_local: { args: ["ptr", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "f64" },
+	Rtimezone_count_local: { args: ["ptr", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "i32" },
+	Rtimezone_get_offset: { args: ["ptr", "f64"], returns: "i32" },
+	Rtimezone_is_daylight_saving: { args: ["ptr", "f64"], returns: "i32" },
+	Rtimezone_get_abbreviation: { args: ["ptr", "f64"], returns: "cstring" },
+	Rtimezone_get_label: { args: ["ptr", "f64"], returns: "cstring" },
 	Raccessibility_set_text_scale: { args: ["f32"], returns: "void" },
 	Raccessibility_get_text_scale: { args: [], returns: "f32" },
 	Raccessibility_set_high_contrast: { args: ["i32"], returns: "void" },
@@ -3694,6 +3723,20 @@ export const R_XML_ACTION = RXmlValueType.R_XML_ACTION;
 export const R_XML_FILE = RXmlValueType.R_XML_FILE;
 export const R_XML_NUMBERS = RXmlValueType.R_XML_NUMBERS;
 export const R_XML_LIST = RXmlValueType.R_XML_LIST;
+
+/** How the hours of a time are shown. */
+export enum RClock {
+	/** As the locale does (Rlocale_uses_12_hour_clock). */
+	R_CLOCK_AUTO = 0x0C30,
+	/** 1 to 12, with AM and PM. */
+	R_CLOCK_12_HOUR = 0x0C31,
+	/** 0 to 23. */
+	R_CLOCK_24_HOUR = 0x0C32,
+}
+
+export const R_CLOCK_AUTO = RClock.R_CLOCK_AUTO;
+export const R_CLOCK_12_HOUR = RClock.R_CLOCK_12_HOUR;
+export const R_CLOCK_24_HOUR = RClock.R_CLOCK_24_HOUR;
 
 export enum RColorFilter {
 	R_COLOR_FILTER_NONE = 0x0740,
@@ -11914,6 +11957,25 @@ export function Rdate_picker_set_changed_callback(date_picker: Rid, callback: RD
 	_lib.Rdate_picker_set_changed_callback(date_picker, _adapt_RDateChangedCallback(callback), user_data);
 }
 
+/** The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML. */
+export function Rdate_picker_set_time_zone(date_picker: Rid, zone: string | null): void {
+	_lib.Rdate_picker_set_time_zone(date_picker, _s(zone));
+}
+
+export function Rdate_picker_get_time_zone(date_picker: Rid): string | null {
+	return _lib.Rdate_picker_get_time_zone(date_picker);
+}
+
+/** Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker. */
+export function Rdate_picker_set_instant(date_picker: Rid, utc: number): void {
+	_lib.Rdate_picker_set_instant(date_picker, utc);
+}
+
+/** The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). */
+export function Rdate_picker_get_instant(date_picker: Rid): number {
+	return _lib.Rdate_picker_get_instant(date_picker);
+}
+
 export function Rtime_picker_set_time(time_picker: Rid, hour: number, minute: number, second: number): void {
 	_lib.Rtime_picker_set_time(time_picker, hour, minute, second);
 }
@@ -11937,6 +11999,66 @@ export function Rtime_picker_set_minute_step(time_picker: Rid, step: number): vo
 
 export function Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtime_picker_set_changed_callback(time_picker, _adapt_RTimeChangedCallback(callback), user_data);
+}
+
+/** 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML. */
+export function Rtime_picker_set_clock(time_picker: Rid, clock: RClock): void {
+	_lib.Rtime_picker_set_clock(time_picker, clock);
+}
+
+export function Rtime_picker_get_clock(time_picker: Rid): RClock {
+	return _lib.Rtime_picker_get_clock(time_picker) as RClock;
+}
+
+/** The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call). */
+export function Rtime_picker_get_text(time_picker: Rid): string | null {
+	return _lib.Rtime_picker_get_text(time_picker);
+}
+
+/**
+ * The time zone of the time ("America/New_York", see
+ * Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+ * unknown zone is refused. TimeZone="..." in XML.
+ */
+export function Rtime_picker_set_time_zone(time_picker: Rid, zone: string | null): void {
+	_lib.Rtime_picker_set_time_zone(time_picker, _s(zone));
+}
+
+/** The zone set, "" for none. */
+export function Rtime_picker_get_time_zone(time_picker: Rid): string | null {
+	return _lib.Rtime_picker_get_time_zone(time_picker);
+}
+
+/** Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML. */
+export function Rtime_picker_set_time_zone_visible(time_picker: Rid, visible: number): void {
+	_lib.Rtime_picker_set_time_zone_visible(time_picker, visible);
+}
+
+/** The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML. */
+export function Rtime_picker_set_date(time_picker: Rid, year: number, month: number, day: number): void {
+	_lib.Rtime_picker_set_date(time_picker, year, month, day);
+}
+
+export function Rtime_picker_get_date(time_picker: Rid): [year: number, month: number, day: number] {
+	const year_ = new Int32Array(1);
+	const month_ = new Int32Array(1);
+	const day_ = new Int32Array(1);
+	_lib.Rtime_picker_get_date(time_picker, year_, month_, day_);
+	return [year_[0]!, month_[0]!, day_[0]!];
+}
+
+/** Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time. */
+export function Rtime_picker_set_instant(time_picker: Rid, utc: number): void {
+	_lib.Rtime_picker_set_instant(time_picker, utc);
+}
+
+/**
+ * The instant the day and the time are in the zone. A time the
+ * clocks skipped is moved forward, a time they repeated is the first
+ * (see Rtimezone_from_local).
+ */
+export function Rtime_picker_get_instant(time_picker: Rid): number {
+	return _lib.Rtime_picker_get_instant(time_picker);
 }
 
 /** Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now. */
@@ -16304,6 +16426,118 @@ export function Rwidget_set_text_key(widget: Rid, attribute: string | null, key:
 /** A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French). */
 export function Rlocale_format_number(value: number, decimals: number): string | null {
 	return _lib.Rlocale_format_number(value, decimals);
+}
+
+/**
+ * Forces the clock of every time shown (a setting of the
+ * application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+ * to follow the locale. A TimePicker can still choose its own (Clock="24").
+ */
+export function Rlocale_set_clock(clock: RClock): void {
+	_lib.Rlocale_set_clock(clock);
+}
+
+export function Rlocale_get_clock(): RClock {
+	return _lib.Rlocale_get_clock() as RClock;
+}
+
+/**
+ * R_TRUE when times are shown on 12 hours with AM and PM. With
+ * Rlocale_set_clock, what it forces; else, when the application chose a
+ * language (Rlocale_set_language), the usage of that language (from CLDR:
+ * en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+ * others 24); else the setting of the user on the system (Windows, macOS,
+ * the LC_TIME of Linux), or the usage of the language of the system.
+ */
+export function Rlocale_uses_12_hour_clock(): number {
+	return _lib.Rlocale_uses_12_hour_clock();
+}
+
+/** "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL. */
+export function Rlocale_get_day_period(pm: number): string | null {
+	return _lib.Rlocale_get_day_period(pm);
+}
+
+/** A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05". */
+export function Rlocale_format_time(hour: number, minute: number, second: number, show_seconds: number): string | null {
+	return _lib.Rlocale_format_time(hour, minute, second, show_seconds);
+}
+
+/**
+ * The zone of the system ("Europe/Paris"): the TZ variable, the
+ * link /etc/localtime, else what the system says; "UTC" when it says
+ * nothing. Valid until the next call.
+ */
+export function Rtimezone_get_system(): string | null {
+	return _lib.Rtimezone_get_system();
+}
+
+/**
+ * The folder of the tz database (the files "Europe/Paris"...), or
+ * the packed tzdata file of Android, to read instead of the system's: for
+ * a database shipped with the application, or tests. It is then the only
+ * one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+ * read so far.
+ */
+export function Rtimezone_set_directory(path: string | null): void {
+	_lib.Rtimezone_set_directory(_s(path));
+}
+
+/**
+ * R_TRUE when the zone is known. Every function takes a name of
+ * the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+ * NULL / "" for the zone of the system.
+ */
+export function Rtimezone_is_valid(zone: string | null): number {
+	return _lib.Rtimezone_is_valid(_s(zone));
+}
+
+/** The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone. */
+export function Rtimezone_to_local(zone: string | null, utc: number): [result: number, year: number, month: number, day: number, hour: number, minute: number, second: number] {
+	const year_ = new Int32Array(1);
+	const month_ = new Int32Array(1);
+	const day_ = new Int32Array(1);
+	const hour_ = new Int32Array(1);
+	const minute_ = new Int32Array(1);
+	const second_ = new Int32Array(1);
+	const result_ = _lib.Rtimezone_to_local(_s(zone), utc, year_, month_, day_, hour_, minute_, second_);
+	return [result_, year_[0]!, month_[0]!, day_[0]!, hour_[0]!, minute_[0]!, second_[0]!];
+}
+
+/**
+ * The instant a date and time of a zone is. When the clocks go
+ * forward, the times they skip do not exist: such a time is moved forward
+ * by the length of the gap (02:30 becomes 03:30). When they go back, the
+ * times of the hour repeated happen twice: the first is taken (still in
+ * summer time). Rtimezone_count_local tells these cases apart.
+ */
+export function Rtimezone_from_local(zone: string | null, year: number, month: number, day: number, hour: number, minute: number, second: number): number {
+	return _lib.Rtimezone_from_local(_s(zone), year, month, day, hour, minute, second);
+}
+
+/** How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back). */
+export function Rtimezone_count_local(zone: string | null, year: number, month: number, day: number, hour: number, minute: number, second: number): number {
+	return _lib.Rtimezone_count_local(_s(zone), year, month, day, hour, minute, second);
+}
+
+/** Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer). */
+export function Rtimezone_get_offset(zone: string | null, utc: number): number {
+	return _lib.Rtimezone_get_offset(_s(zone), utc);
+}
+
+/** R_TRUE when the zone is on summer (daylight saving) time at the instant. */
+export function Rtimezone_is_daylight_saving(zone: string | null, utc: number): number {
+	return _lib.Rtimezone_is_daylight_saving(_s(zone), utc);
+}
+
+/** The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name). */
+export function Rtimezone_get_abbreviation(zone: string | null, utc: number): string | null {
+	return _lib.Rtimezone_get_abbreviation(_s(zone), utc);
+}
+
+/** The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name. */
+export function Rtimezone_get_label(zone: string | null, utc: number): string | null {
+	return _lib.Rtimezone_get_label(_s(zone), utc);
 }
 
 /** Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text. */

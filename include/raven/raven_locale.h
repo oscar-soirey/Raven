@@ -35,7 +35,19 @@
  *
  * The functions are for the UI thread. The strings they return stay valid
  * until the tables or the language change (Rtr), or for the next 16 calls
- * (Rtr_format, Rtr_plural, Rlocale_format_number).
+ * (Rtr_format, Rtr_plural, Rlocale_format_number, Rlocale_format_time,
+ * Rtimezone_get_abbreviation, Rtimezone_get_label).
+ *
+ * Times of the day are written on 12 hours with AM and PM where the language
+ * does so (en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW...), on 24 hours
+ * elsewhere: see Rlocale_uses_12_hour_clock. The keys Raven.AM and Raven.PM
+ * of the tables replace the AM and PM of the language.
+ *
+ * Time zones are those of the tz database ("Europe/Paris",
+ * "America/New_York"), read from the system: the files of
+ * /usr/share/zoneinfo (Linux, macOS, iOS, BSD), the tzdata file of Android,
+ * the ICU of Windows 10 (version 1903 and later), Intl in a browser. An
+ * instant is a number of seconds since 1970-01-01 00:00 UTC, as time() gives.
  */
 
 #ifndef RAVEN_LOCALE_H
@@ -115,6 +127,82 @@ extern "C" {
 
 	/** @brief A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French). */
 	RAVEN_API const char* Rlocale_format_number(double value, int decimals);
+
+	/* ---- the clock ---- */
+
+	/** @brief How the hours of a time are shown. */
+	typedef enum RClock{
+		/** As the locale does (Rlocale_uses_12_hour_clock). */
+		R_CLOCK_AUTO = 0x0C30,
+		/** 1 to 12, with AM and PM. */
+		R_CLOCK_12_HOUR,
+		/** 0 to 23. */
+		R_CLOCK_24_HOUR
+	}RClock;
+
+	/**
+	 * @brief Forces the clock of every time shown (a setting of the
+	 * application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+	 * to follow the locale. A TimePicker can still choose its own (Clock="24").
+	 */
+	RAVEN_API void Rlocale_set_clock(RClock clock);
+	RAVEN_API RClock Rlocale_get_clock(void);
+	/**
+	 * @brief R_TRUE when times are shown on 12 hours with AM and PM. With
+	 * Rlocale_set_clock, what it forces; else, when the application chose a
+	 * language (Rlocale_set_language), the usage of that language (from CLDR:
+	 * en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+	 * others 24); else the setting of the user on the system (Windows, macOS,
+	 * the LC_TIME of Linux), or the usage of the language of the system.
+	 */
+	RAVEN_API int Rlocale_uses_12_hour_clock(void);
+	/** @brief "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL. */
+	RAVEN_API const char* Rlocale_get_day_period(int pm);
+	/** @brief A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05". */
+	RAVEN_API const char* Rlocale_format_time(int hour, int minute, int second, int show_seconds);
+
+	/* ---- time zones ---- */
+
+	/**
+	 * @brief The zone of the system ("Europe/Paris"): the TZ variable, the
+	 * link /etc/localtime, else what the system says; "UTC" when it says
+	 * nothing. Valid until the next call.
+	 */
+	RAVEN_API const char* Rtimezone_get_system(void);
+	/**
+	 * @brief The folder of the tz database (the files "Europe/Paris"...), or
+	 * the packed tzdata file of Android, to read instead of the system's: for
+	 * a database shipped with the application, or tests. It is then the only
+	 * one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+	 * read so far.
+	 */
+	RAVEN_API void Rtimezone_set_directory(const char* path);
+	/**
+	 * @brief R_TRUE when the zone is known. Every function takes a name of
+	 * the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+	 * NULL / "" for the zone of the system.
+	 */
+	RAVEN_API int Rtimezone_is_valid(const char* zone);
+	/** @brief The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone. */
+	RAVEN_API int Rtimezone_to_local(const char* zone, double utc, int* year, int* month, int* day, int* hour, int* minute, int* second);
+	/**
+	 * @brief The instant a date and time of a zone is. When the clocks go
+	 * forward, the times they skip do not exist: such a time is moved forward
+	 * by the length of the gap (02:30 becomes 03:30). When they go back, the
+	 * times of the hour repeated happen twice: the first is taken (still in
+	 * summer time). Rtimezone_count_local tells these cases apart.
+	 */
+	RAVEN_API double Rtimezone_from_local(const char* zone, int year, int month, int day, int hour, int minute, int second);
+	/** @brief How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back). */
+	RAVEN_API int Rtimezone_count_local(const char* zone, int year, int month, int day, int hour, int minute, int second);
+	/** @brief Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer). */
+	RAVEN_API int Rtimezone_get_offset(const char* zone, double utc);
+	/** @brief R_TRUE when the zone is on summer (daylight saving) time at the instant. */
+	RAVEN_API int Rtimezone_is_daylight_saving(const char* zone, double utc);
+	/** @brief The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name). */
+	RAVEN_API const char* Rtimezone_get_abbreviation(const char* zone, double utc);
+	/** @brief The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name. */
+	RAVEN_API const char* Rtimezone_get_label(const char* zone, double utc);
 
 #ifdef __cplusplus
 }

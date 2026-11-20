@@ -1062,6 +1062,22 @@ int rvn_locale_attribute(rvn_widget_t* widget, const char* name, const char* val
 int rvn_locale_rtl(void);
 int rvn_locale_code_is_rtl(const char* code);
 void rvn_locale_shutdown(void);
+/* (core/locale.c: the clock) 12 or 24 for the locale now; for a language code; for a time pattern of a system (0: no hour in it). */
+int rvn_locale_clock(void);
+int rvn_locale_code_clock(const char* code);
+int rvn_locale_pattern_clock(const char* pattern, int* period_first);
+/** AM or PM of the locale (never NULL), and whether it is written before the time. */
+const char* rvn_locale_day_period(int pm);
+int rvn_locale_day_period_first(void);
+/** A time as the locale writes it; clock 12 or 24, 0 for the locale's. */
+void rvn_locale_time_text(int hour, int minute, int second, int show_seconds, int clock, char* out, size_t size);
+/* (core/timezone.c) fields: year, month, day, hour, minute, second. NULL or "" zone: the system's. */
+int rvn_timezone_local(const char* zone, double utc, int* fields);
+/** The instant of local fields (see Rtimezone_from_local); returns how many instants have them (0, 1, 2), -1 for an unknown zone. */
+int rvn_timezone_instant(const char* zone, const int* fields, double* utc);
+/** "CET", or "UTC+3" when the abbreviation is not a name; "" for an unknown zone. */
+void rvn_timezone_short_label(const char* zone, double utc, char* out, size_t size);
+void rvn_timezone_shutdown(void);
 
 /* ---- core/accessibility.c ---- */
 float rvn_a11y_text_scale(void);

@@ -318,7 +318,7 @@ static void on_time(Rid picker, int hour, int minute, int second, void* user_dat
 }
 
 static void test_time_picker(void) {
-	Rid root = content("<VBox><TimePicker Name=\"t\" Time=\"09:30\" MinuteStep=\"15\"/></VBox>");
+	Rid root = content("<VBox><TimePicker Name=\"t\" Time=\"09:30\" MinuteStep=\"15\" Clock=\"24\"/></VBox>");
 	Rid picker = Rwidget_find(root, "t");
 	int hour = 0, minute = 0, second = 0;
 	Rtime_picker_get_time(picker, &hour, &minute, &second);

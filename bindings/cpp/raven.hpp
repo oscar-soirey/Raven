@@ -3517,6 +3517,17 @@ inline void date_picker_set_changed_callback(Rid date_picker, std::function<void
 	Rdate_picker_set_changed_callback(date_picker, [](Rid date_picker, int year, int month, int day, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(date_picker, year, month, day); }, detail::keep(date_picker, 72, std::move(callback)));
 }
 
+/// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+inline void date_picker_set_time_zone(Rid date_picker, const char* zone) { Rdate_picker_set_time_zone(date_picker, zone); }
+
+inline const char* date_picker_get_time_zone(Rid date_picker) { return Rdate_picker_get_time_zone(date_picker); }
+
+/// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+inline void date_picker_set_instant(Rid date_picker, double utc) { Rdate_picker_set_instant(date_picker, utc); }
+
+/// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+inline double date_picker_get_instant(Rid date_picker) { return Rdate_picker_get_instant(date_picker); }
+
 inline void time_picker_set_time(Rid time_picker, int hour, int minute, int second) { Rtime_picker_set_time(time_picker, hour, minute, second); }
 
 inline void time_picker_get_time(Rid time_picker, int* hour, int* minute, int* second) { Rtime_picker_get_time(time_picker, hour, minute, second); }
@@ -3530,6 +3541,38 @@ inline void time_picker_set_changed_callback(Rid time_picker, RTimeChangedCallba
 inline void time_picker_set_changed_callback(Rid time_picker, std::function<void(Rid, int, int, int)> callback) {
 	Rtime_picker_set_changed_callback(time_picker, [](Rid time_picker, int hour, int minute, int second, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(time_picker, hour, minute, second); }, detail::keep(time_picker, 73, std::move(callback)));
 }
+
+/// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+inline void time_picker_set_clock(Rid time_picker, RClock clock) { Rtime_picker_set_clock(time_picker, clock); }
+
+inline RClock time_picker_get_clock(Rid time_picker) { return Rtime_picker_get_clock(time_picker); }
+
+/// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+inline const char* time_picker_get_text(Rid time_picker) { return Rtime_picker_get_text(time_picker); }
+
+/// The time zone of the time ("America/New_York", see
+/// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+/// unknown zone is refused. TimeZone="..." in XML.
+inline void time_picker_set_time_zone(Rid time_picker, const char* zone) { Rtime_picker_set_time_zone(time_picker, zone); }
+
+/// The zone set, "" for none.
+inline const char* time_picker_get_time_zone(Rid time_picker) { return Rtime_picker_get_time_zone(time_picker); }
+
+/// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+inline void time_picker_set_time_zone_visible(Rid time_picker, int visible) { Rtime_picker_set_time_zone_visible(time_picker, visible); }
+
+/// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+inline void time_picker_set_date(Rid time_picker, int year, int month, int day) { Rtime_picker_set_date(time_picker, year, month, day); }
+
+inline void time_picker_get_date(Rid time_picker, int* year, int* month, int* day) { Rtime_picker_get_date(time_picker, year, month, day); }
+
+/// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+inline void time_picker_set_instant(Rid time_picker, double utc) { Rtime_picker_set_instant(time_picker, utc); }
+
+/// The instant the day and the time are in the zone. A time the
+/// clocks skipped is moved forward, a time they repeated is the first
+/// (see Rtimezone_from_local).
+inline double time_picker_get_instant(Rid time_picker) { return Rtime_picker_get_instant(time_picker); }
 
 /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 inline void toast_show(Rid toast, const char* text, double seconds) { Rtoast_show(toast, text, seconds); }
@@ -5287,6 +5330,69 @@ inline const char* tr_plural(const char* key, int count) { return Rtr_plural(key
 
 /// A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
 inline const char* locale_format_number(double value, int decimals) { return Rlocale_format_number(value, decimals); }
+
+/// Forces the clock of every time shown (a setting of the
+/// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+/// to follow the locale. A TimePicker can still choose its own (Clock="24").
+inline void locale_set_clock(RClock clock) { Rlocale_set_clock(clock); }
+
+inline RClock locale_get_clock() { return Rlocale_get_clock(); }
+
+/// R_TRUE when times are shown on 12 hours with AM and PM. With
+/// Rlocale_set_clock, what it forces; else, when the application chose a
+/// language (Rlocale_set_language), the usage of that language (from CLDR:
+/// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+/// others 24); else the setting of the user on the system (Windows, macOS,
+/// the LC_TIME of Linux), or the usage of the language of the system.
+inline int locale_uses_12_hour_clock() { return Rlocale_uses_12_hour_clock(); }
+
+/// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+inline const char* locale_get_day_period(int pm) { return Rlocale_get_day_period(pm); }
+
+/// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+inline const char* locale_format_time(int hour, int minute, int second, int show_seconds) { return Rlocale_format_time(hour, minute, second, show_seconds); }
+
+/// The zone of the system ("Europe/Paris"): the TZ variable, the
+/// link /etc/localtime, else what the system says; "UTC" when it says
+/// nothing. Valid until the next call.
+inline const char* timezone_get_system() { return Rtimezone_get_system(); }
+
+/// The folder of the tz database (the files "Europe/Paris"...), or
+/// the packed tzdata file of Android, to read instead of the system's: for
+/// a database shipped with the application, or tests. It is then the only
+/// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+/// read so far.
+inline void timezone_set_directory(const char* path) { Rtimezone_set_directory(path); }
+
+/// R_TRUE when the zone is known. Every function takes a name of
+/// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+/// NULL / "" for the zone of the system.
+inline int timezone_is_valid(const char* zone) { return Rtimezone_is_valid(zone); }
+
+/// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+inline int timezone_to_local(const char* zone, double utc, int* year, int* month, int* day, int* hour, int* minute, int* second) { return Rtimezone_to_local(zone, utc, year, month, day, hour, minute, second); }
+
+/// The instant a date and time of a zone is. When the clocks go
+/// forward, the times they skip do not exist: such a time is moved forward
+/// by the length of the gap (02:30 becomes 03:30). When they go back, the
+/// times of the hour repeated happen twice: the first is taken (still in
+/// summer time). Rtimezone_count_local tells these cases apart.
+inline double timezone_from_local(const char* zone, int year, int month, int day, int hour, int minute, int second) { return Rtimezone_from_local(zone, year, month, day, hour, minute, second); }
+
+/// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+inline int timezone_count_local(const char* zone, int year, int month, int day, int hour, int minute, int second) { return Rtimezone_count_local(zone, year, month, day, hour, minute, second); }
+
+/// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+inline int timezone_get_offset(const char* zone, double utc) { return Rtimezone_get_offset(zone, utc); }
+
+/// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+inline int timezone_is_daylight_saving(const char* zone, double utc) { return Rtimezone_is_daylight_saving(zone, utc); }
+
+/// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+inline const char* timezone_get_abbreviation(const char* zone, double utc) { return Rtimezone_get_abbreviation(zone, utc); }
+
+/// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+inline const char* timezone_get_label(const char* zone, double utc) { return Rtimezone_get_label(zone, utc); }
 
 /// Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 inline void accessibility_set_text_scale(float scale) { Raccessibility_set_text_scale(scale); }
