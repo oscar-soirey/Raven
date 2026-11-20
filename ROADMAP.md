@@ -93,6 +93,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Text editor: multiple cursors, search and replace, code folding, a
   language server client.
 - [ ] Full OpenType shaping (Indic scripts, kerning).
+- [x] **Spell checking** in `TextInput` and `TextEditor` (`SpellCheck="true"`,
+  `Rspell_*`): the checker of the system (NSSpellChecker, the spell checker
+  of Windows, Enchant / Hunspell), wavy underlines, a menu of corrections.
+- [ ] Spell checking on iOS (`UITextChecker`), Android
+  (`TextServicesManager`) and the web; reporting misspellings to screen readers.
 
 ### Widgets
 

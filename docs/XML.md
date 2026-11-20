@@ -302,7 +302,7 @@ panel uses the attributes that make sense for it.
 | `Slider` | `Min`, `Max`, `Value`, `Step`, `Orientation` |
 | `ProgressBar` | `Value` (0..1) |
 | `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals`, `Buttons` (step buttons in the looks of Raven too) |
-| `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
+| `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength`, `SpellCheck` (`true`: misspelled words underlined, corrections on a right click; off by default), `SpellLanguage` (`en_US`, `fr`...; none: the language of the application) |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
@@ -313,7 +313,7 @@ panel uses the attributes that make sense for it.
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
-| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
+| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place), `SpellCheck`, `SpellLanguage` (as on `TextInput`; only the lines shown are checked) |
 | `FileBrowser` | `Directory`, `Mode` (`Open`, `Save`, `Folder`), `Filter` (`*.png;*.jpg`), `FileName`, `DefaultExtension`, `ShowHidden`, `Multiple`, `Controls` (`false` hides the name, the filter and the buttons), `Places` (`false` hides the list of places) |
 
 A `MenuItem` shortcut works without any `<Shortcut>` element: the window

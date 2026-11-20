@@ -547,6 +547,11 @@
 				"name": "Color.Code",
 				"kind": "color",
 				"description": ""
+			},
+			{
+				"name": "Color.Spelling",
+				"kind": "color",
+				"description": ""
 			}
 		],
 		"Metrics": [
@@ -1449,6 +1454,16 @@
 					"description": "The return key of the on-screen keyboard."
 				},
 				{
+					"name": "SpellCheck",
+					"kind": "bool",
+					"description": "Underlines the misspelled words, with corrections on a right click (off by default)."
+				},
+				{
+					"name": "SpellLanguage",
+					"kind": "text",
+					"description": "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -1846,6 +1861,16 @@
 					"name": "Markdown",
 					"kind": "bool",
 					"description": "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."
+				},
+				{
+					"name": "SpellCheck",
+					"kind": "bool",
+					"description": "Underlines the misspelled words, with corrections on a right click (off by default)."
+				},
+				{
+					"name": "SpellLanguage",
+					"kind": "text",
+					"description": "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."
 				},
 				{
 					"name": "OnChanged",
@@ -2321,6 +2346,11 @@
 					"name": "Columns",
 					"kind": "list",
 					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",

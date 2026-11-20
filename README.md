@@ -458,7 +458,7 @@ as it changes, and alive.
   material, motion, accent, font, wallpaper; *Generate the palette* works out
   every color from the accent (tint and depth adjustable), *Surprise me* tries
   another one.
-- **Colors**, **Sizes**, **Code**: the 36 color roles, the metrics, the glass
+- **Colors**, **Sizes**, **Code**: the 37 color roles, the metrics, the glass
   multipliers and the syntax colors, each showing what the look gives until it
   is set, with a button to go back to it.
 - **Styles**: the `<Style>` rules as text, with ready-made ones to add.
@@ -1451,6 +1451,40 @@ under the caret.
 `Rwindow_inject_composition` and `Rwindow_get_text_composition` drive and read
 the composition (tests, a host that has its own input method).
 
+### Spell checking
+
+```xml
+<TextInput SpellCheck="true" Placeholder="Subject"/>
+<TextEditor SpellCheck="true" SpellLanguage="fr" Wrap="true"/>
+```
+
+A `TextInput` or a `TextEditor` with `SpellCheck="true"`
+(`Rtext_input_set_spell_check`, `Rtext_editor_set_spell_check`) underlines
+the misspelled words with a wavy line of the theme's `Spelling` color, but not
+the word being typed at the caret. A right click on one opens a menu with up
+to five corrections, *Ignore Spelling* (for the session) and *Add to
+Dictionary*; the keys `Raven.SpellIgnore`, `Raven.SpellLearn` and
+`Raven.SpellNoGuesses` translate it. A `TextEditor` checks only the lines it
+shows, and a line again only when it changes, a few milliseconds of them per
+frame: typing in a text of 50,000 lines checks one line.
+
+Spell checking is off by default: existing forms and code editors look as
+before, and a field that holds names, codes or passwords is not covered in
+red. Turn it on where people write prose.
+
+| Platform | Checker |
+|---|---|
+| macOS | `NSSpellChecker` (the languages and the dictionary of the user in the settings of the system) |
+| Windows 8 and later | the spell checker of Windows (`ISpellCheckerFactory`) |
+| Linux, BSD | Enchant 2 (`libenchant-2.so.2`), else Hunspell (`libhunspell`) with the dictionaries in `/usr/share/hunspell`, `/usr/share/myspell` or `$DICPATH`; both loaded at run time |
+| iOS, Android, web | none: `Rspell_is_supported` is `R_FALSE` and nothing is underlined |
+
+The language is the widget's (`SpellLanguage`), else `Rspell_set_language`,
+else the language of the locale (`Rlocale_get_language`), else the system's;
+`"fr"` finds `fr_FR`. `Rspell_check`, `Rspell_suggest`, `Rspell_learn`,
+`Rspell_ignore` and `Rspell_get_language_count` / `_at` use the same checker
+from code.
+
 ### Accessibility
 
 ```c
@@ -1869,6 +1903,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
+- Spell checking on iOS, Android and the web, and misspelled words reported
+  to screen readers.
 - In the text editor: multiple cursors, search and replace, code folding, a
   language server client.
 
