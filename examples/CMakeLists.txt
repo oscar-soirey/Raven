@@ -19,6 +19,7 @@
 #   map              a MapView whose tiles it draws itself (offline), markers, flights; or tiles from files
 #   carousel         pages swiped one at a time: an onboarding with dots, arrows, loop and autoplay
 #   transfer         pictures and formats on the clipboard, swatches dragged out to other applications
+#   web_view         a page shown by the web engine of the system (WKWebView), scripts and messages
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -85,6 +86,11 @@ raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml
 	music/ui/nowplaying.xml music/ui/player.xml music/ui/island.xml
 	music/themes/nocturne.xml music/themes/aurora.xml music/themes/daylight.xml music/themes/styles.xml)
+
+# A page shown by the web engine of the system (a message where the system has none Raven embeds).
+if(NOT EMSCRIPTEN)
+	raven_add_example(web_view web_view/main.c web_view/web_view.xml web_view/pages/welcome.html)
+endif()
 
 # A test of an interface (raven_testing.h), run by ctest too.
 if(NOT EMSCRIPTEN)

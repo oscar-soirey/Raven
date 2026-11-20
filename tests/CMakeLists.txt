@@ -4,7 +4,7 @@
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
 #   test_chart, test_carousel, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
-#   test_testing
+#   test_testing, test_device
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -77,6 +77,8 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_accessibility)
 endif()
 raven_add_test(test_host_platform)
+# permissions, pickers, camera, share, haptics, downloads: a phone played by the host platform, then a desktop
+raven_add_test(test_device)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).
 	add_executable(test_cocoa_input test_cocoa_input.m test.h)
