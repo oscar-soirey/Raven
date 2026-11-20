@@ -123,11 +123,20 @@ int Rinit(RBackend backend) {
 	return Rinit_ex(&desc);
 }
 
+/* A run driven by the environment without a GPU that works (a Linux machine without a Vulkan driver): the tree still can be read. */
+static int rvn_init_null_fallback(const RBackendVTable** backend, RBackendInitInfo* info, int threaded) {
+	fprintf(stderr, "raven: the %s backend cannot start: the run goes on with the null backend (the tree, no pictures)\n", (*backend)->name);
+	*backend = rvn_backend_null();
+	g_rvn.backend = R_BACKEND_NULL;
+	info->vsync = rvn_present_vsync();
+	return rvn_renderer_init(*backend, info, threaded);
+}
+
 int Rinit_ex(const RInitDesc* user_desc) {
 	RInitDesc desc;
 	RBackendInitInfo info;
 	const RBackendVTable* backend;
-	int workers, threaded;
+	int workers, threaded, driven;
 
 	if (g_rvn.initialized) {
 		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_WARNING, "Rinit: already initialized");
@@ -135,6 +144,8 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	}
 	memset(&desc, 0, sizeof(desc));
 	if (user_desc) desc = *user_desc;
+	/* RAVEN_HEADLESS, RAVEN_SCRIPT...: the application is driven from outside (widget/headless.c) */
+	driven = rvn_headless_configure(&desc);
 	if (desc.backend == R_BACKEND_DEFAULT) {
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
         desc.backend = R_BACKEND_WEBGL;
@@ -153,6 +164,11 @@ int Rinit_ex(const RInitDesc* user_desc) {
 #endif
 
 	backend = rvn_select_backend(desc.backend);
+	if (!backend && driven && desc.backend != R_BACKEND_NULL && rvn_headless_allows_null_fallback()) {
+		fprintf(stderr, "raven: no GPU backend: the run goes on with the null backend (the tree, no pictures)\n");
+		desc.backend = R_BACKEND_NULL;
+		backend = rvn_select_backend(desc.backend);
+	}
 	if (!backend) return R_FALSE;
 
 	memset(&g_rvn, 0, sizeof(g_rvn));
@@ -202,7 +218,8 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	info.vsync = rvn_present_vsync();
 	info.window_system = g_rvn.platform->system;
 	info.native_display = g_rvn.platform->native_display();
-	if (!rvn_renderer_init(backend, &info, threaded)) {
+	if (!rvn_renderer_init(backend, &info, threaded) &&
+		!(driven && desc.backend != R_BACKEND_NULL && rvn_headless_allows_null_fallback() && rvn_init_null_fallback(&backend, &info, threaded))) {
 		rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Rinit: cannot initialize the %s backend", backend->name);
 		goto fail_renderer;
 	}
@@ -216,6 +233,7 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	rvn_fonts_init();
 	g_rvn.theme.font = g_rvn.default_font;
 	g_rvn.last_update_time = rvn_clock_seconds();
+	if (driven) rvn_headless_start();
 	return R_TRUE;
 
 fail_renderer:
@@ -243,7 +261,11 @@ void rvn_web_images_shutdown(void);
 #endif
 void Rshutdown(void) {
 	uint32_t i;
+	int headless_exit;
 	if (!rvn_api_check(__func__)) return;
+
+	/* a run driven by the environment ends here when the application ends first: its pictures and its tree, while the windows are there */
+	headless_exit = rvn_headless_shutdown();
 
 	#if defined(__EMSCRIPTEN__)
     rvn_web_images_shutdown();
@@ -322,6 +344,12 @@ void Rshutdown(void) {
 	memset(&g_rvn, 0, sizeof(g_rvn));
 	/* nothing is allocated any more: the regions of the heap return to the OS */
 	rvn_heap_trim();
+	/* a script that failed fails the process, whatever main returns after */
+	if (headless_exit != 0) {
+		fflush(stdout);
+		fflush(stderr);
+		exit(headless_exit);
+	}
 }
 
 int Ris_initialized(void) {
@@ -855,7 +883,7 @@ void Rwait_events(double timeout_seconds) {
 	RVN_API_GUARD_VOID();
 
 	/* do not sleep when there is already something to do */
-	if (rvn_tasks_pending() || rvn_atomic_load(&g_rvn.redraw_all) || rvn_atomic_load(&g_rvn.quit_requested)) {
+	if (rvn_tasks_pending() || rvn_atomic_load(&g_rvn.redraw_all) || rvn_atomic_load(&g_rvn.quit_requested) || rvn_headless_busy()) {
 		timeout_seconds = 0.0;
 	}
 	for (i = 0; i < g_rvn.windows.used && timeout_seconds != 0.0; i++) {
@@ -904,6 +932,8 @@ void rvn_update(void) {
 	}
 	rvn_dispatch_end();
 	g_rvn.in_update = R_FALSE;
+	/* the next steps of a script (widget/headless.c) */
+	rvn_headless_frame();
 }
 
 int rvn_frame_pacing(void) {

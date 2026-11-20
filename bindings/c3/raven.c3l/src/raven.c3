@@ -9102,6 +9102,49 @@ fn bool test_expect_golden(Id target, ZString golden_path, GoldenOptions* option
 alias test_compare_pixels = c::r_test_compare_pixels;
 
 <*
+ The widgets as JSON, what a test, a script or an agent reads of
+ the interface. Each widget gives its "type" (its XML tag), "name" and
+ "path" (for Rtest_find) when it has a name, its accessibility "role",
+ its "text" (Rtest_get_text), "label" and "value" when they differ,
+ "bounds" [x, y, width, height] in logical units of its window,
+ "shown", "enabled", and when they apply "focused", "checked",
+ "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+ list ("items") and its "children", in the order of the layout.
+ Returns The JSON text, valid until the next call. "" on error.
+*>
+fn ZString test_dump_tree(Id target) @inline => (ZString)c::r_test_dump_tree((c::Rid)target);
+
+<* Rtest_dump_tree written to a file ("-": the standard output). *>
+fn CInt test_save_tree(Id target, ZString path) @inline => c::r_test_save_tree((c::Rid)target, (char*)path);
+
+<*
+ Captures a window, or the rectangle of a widget, into a PNG
+ file. The null backend draws nothing: its picture is the clear color.
+*>
+fn CInt test_save_png(Id target, ZString path) @inline => c::r_test_save_png((c::Rid)target, (char*)path);
+
+<*
+ Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+ "Driving any application headlessly" in README.md):
+
+     click form/user
+     type "ada"
+     key Enter
+     expect status text "Welcome, ada"
+     snap after-login
+
+ The frames are produced by the function (Rdraw_frame) until the script
+ ends. A widget is named by its name or path, by "text:Sign in" (the
+ first one shown that reads it), or a point of the window by "@x,y".
+ Returns R_TRUE when every step was done and every check was true;
+ R_FALSE otherwise, with the reason in Rtest_get_script_error.
+*>
+fn bool test_run_script(ZString script, ZString source_name) @inline => c::r_test_run_script((char*)script, (char*)source_name) != 0;
+
+<* Returns Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed. *>
+fn ZString test_get_script_error() @inline => (ZString)c::r_test_get_script_error();
+
+<*
  By default Raven creates its own VkInstance and VkDevice. To make Raven render
  with the device of the application (or of HRL), create the instance and the
  device with the extensions returned below, then pass them here.

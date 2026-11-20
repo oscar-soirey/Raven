@@ -1676,6 +1676,11 @@ const _symbols = {
 	Rtest_is_checked: { args: ["u32"], returns: "i32" },
 	Rtest_expect_golden: { args: ["u32", "ptr", "ptr", "ptr"], returns: "i32" },
 	Rtest_compare_pixels: { args: ["ptr", "ptr", "i32", "i32", "i32", "ptr", "ptr"], returns: "i32" },
+	Rtest_dump_tree: { args: ["u32"], returns: "cstring" },
+	Rtest_save_tree: { args: ["u32", "ptr"], returns: "i32" },
+	Rtest_save_png: { args: ["u32", "ptr"], returns: "i32" },
+	Rtest_run_script: { args: ["ptr", "ptr"], returns: "i32" },
+	Rtest_get_script_error: { args: [], returns: "cstring" },
 } as const;
 
 /** Opens the library: RAVEN_LIBRARY, then beside this file, then where the system looks. */
@@ -17213,6 +17218,64 @@ export function Rtest_compare_pixels(actual: RPointer, expected: RPointer, width
 	const max_channel_difference_ = new Int32Array(1);
 	const result_ = _lib.Rtest_compare_pixels(actual, expected, width, height, channel_tolerance, max_channel_difference_, diff_rgba);
 	return [result_, max_channel_difference_[0]!];
+}
+
+/**
+ * The widgets as JSON, what a test, a script or an agent reads of
+ * the interface. Each widget gives its "type" (its XML tag), "name" and
+ * "path" (for Rtest_find) when it has a name, its accessibility "role",
+ * its "text" (Rtest_get_text), "label" and "value" when they differ,
+ * "bounds" [x, y, width, height] in logical units of its window,
+ * "shown", "enabled", and when they apply "focused", "checked",
+ * "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+ * list ("items") and its "children", in the order of the layout.
+ * target A window or a widget; R_INVALID_ID for every window of
+ * the application: {"raven": version, "backend": tag, "windows": [...]},
+ * each with its "title", "size", "scale", "content", "popups".
+ * Returns: The JSON text, valid until the next call. "" on error.
+ */
+export function Rtest_dump_tree(target: Rid): string | null {
+	return _lib.Rtest_dump_tree(target);
+}
+
+/** Rtest_dump_tree written to a file ("-": the standard output). */
+export function Rtest_save_tree(target: Rid, path: string | null): number {
+	return _lib.Rtest_save_tree(target, _s(path));
+}
+
+/**
+ * Captures a window, or the rectangle of a widget, into a PNG
+ * file. The null backend draws nothing: its picture is the clear color.
+ */
+export function Rtest_save_png(target: Rid, path: string | null): number {
+	return _lib.Rtest_save_png(target, _s(path));
+}
+
+/**
+ * Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+ * "Driving any application headlessly" in README.md):
+ *
+ *     click form/user
+ *     type "ada"
+ *     key Enter
+ *     expect status text "Welcome, ada"
+ *     snap after-login
+ *
+ * The frames are produced by the function (Rdraw_frame) until the script
+ * ends. A widget is named by its name or path, by "text:Sign in" (the
+ * first one shown that reads it), or a point of the window by "@x,y".
+ * script The text of the script.
+ * source_name The name its messages give it ("login.script"); may be NULL.
+ * Returns: R_TRUE when every step was done and every check was true;
+ * R_FALSE otherwise, with the reason in Rtest_get_script_error.
+ */
+export function Rtest_run_script(script: string | null, source_name: string | null): number {
+	return _lib.Rtest_run_script(_s(script), _s(source_name));
+}
+
+/** Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed. */
+export function Rtest_get_script_error(): string | null {
+	return _lib.Rtest_get_script_error();
 }
 
 /**

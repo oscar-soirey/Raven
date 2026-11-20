@@ -5817,4 +5817,41 @@ extern "C" {
     /// Returns: The number of pixels farther apart than `channel_tolerance`;
     /// -1 when an image is missing.
     pub fn Rtest_compare_pixels(actual: *const u8, expected: *const u8, width: c_int, height: c_int, channel_tolerance: c_int, max_channel_difference: *mut c_int, diff_rgba: *mut u8) -> c_int;
+    /// The widgets as JSON, what a test, a script or an agent reads of
+    /// the interface. Each widget gives its "type" (its XML tag), "name" and
+    /// "path" (for Rtest_find) when it has a name, its accessibility "role",
+    /// its "text" (Rtest_get_text), "label" and "value" when they differ,
+    /// "bounds" [x, y, width, height] in logical units of its window,
+    /// "shown", "enabled", and when they apply "focused", "checked",
+    /// "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+    /// list ("items") and its "children", in the order of the layout.
+    /// target A window or a widget; R_INVALID_ID for every window of
+    /// the application: {"raven": version, "backend": tag, "windows": [...]},
+    /// each with its "title", "size", "scale", "content", "popups".
+    /// Returns: The JSON text, valid until the next call. "" on error.
+    pub fn Rtest_dump_tree(target: Rid) -> *const c_char;
+    /// Rtest_dump_tree written to a file ("-": the standard output).
+    pub fn Rtest_save_tree(target: Rid, path: *const c_char) -> c_int;
+    /// Captures a window, or the rectangle of a widget, into a PNG
+    /// file. The null backend draws nothing: its picture is the clear color.
+    pub fn Rtest_save_png(target: Rid, path: *const c_char) -> c_int;
+    /// Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+    /// "Driving any application headlessly" in README.md):
+    ///
+    ///     click form/user
+    ///     type "ada"
+    ///     key Enter
+    ///     expect status text "Welcome, ada"
+    ///     snap after-login
+    ///
+    /// The frames are produced by the function (Rdraw_frame) until the script
+    /// ends. A widget is named by its name or path, by "text:Sign in" (the
+    /// first one shown that reads it), or a point of the window by "@x,y".
+    /// script The text of the script.
+    /// source_name The name its messages give it ("login.script"); may be NULL.
+    /// Returns: R_TRUE when every step was done and every check was true;
+    /// R_FALSE otherwise, with the reason in Rtest_get_script_error.
+    pub fn Rtest_run_script(script: *const c_char, source_name: *const c_char) -> c_int;
+    /// Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.
+    pub fn Rtest_get_script_error() -> *const c_char;
 }

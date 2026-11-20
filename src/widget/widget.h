@@ -1199,6 +1199,29 @@ void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
 int  rvn_inspector_pick_move(rvn_window_t* window, float x, float y);
 int  rvn_inspector_pick_button(rvn_window_t* window, int pressed);
 void rvn_inspector_shutdown(void);
+
+/* ---- widget/testing.c and widget/headless.c (raven_testing.h, RAVEN_HEADLESS) ---- */
+/** The pixels of a window, or of the rectangle of a widget in its window (Rpixels_free); NULL (and an error naming `function`) when it cannot be captured. */
+uint8_t* rvn_test_capture(Rid id, const char* function, int* width, int* height);
+/** Writes RGBA8 pixels as a PNG file, making the folders above it. */
+int rvn_test_write_png(const char* path, const uint8_t* rgba, int width, int height);
+/**
+ * Reads the RAVEN_HEADLESS... environment variables before Rinit_ex starts
+ * anything: no window system when asked, the backend, the scale. R_TRUE
+ * when the run is driven by them.
+ */
+int  rvn_headless_configure(RInitDesc* desc);
+/** Rinit_ex could not start the backend asked for: R_TRUE when the run may go on with the null backend. */
+int  rvn_headless_allows_null_fallback(void);
+/** Rinit_ex succeeded: the run starts being driven at the next frame. */
+void rvn_headless_start(void);
+/** Once a frame, at the end of rvn_update: the next steps of the run. */
+void rvn_headless_frame(void);
+/** R_TRUE while a run is driven: Rwait_events must not sleep. */
+int  rvn_headless_busy(void);
+/** Rshutdown: frees what the runs held. Returns the exit code of a failed run driven by the environment, else 0. */
+int  rvn_headless_shutdown(void);
+
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

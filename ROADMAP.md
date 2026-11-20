@@ -69,6 +69,11 @@ is a plan, not a promise: issues and pull requests can change the order.
   click, drag, wheel, keys, text, tap, swipe), frames until nothing moves,
   golden PNG images with a tolerance, `.actual.png` / `.diff.png` on a
   mismatch, `RAVEN_UPDATE_GOLDENS=1` to write them; a PNG writer of its own.
+- [x] **Any application driven headlessly** (`RAVEN_HEADLESS`,
+  `RAVEN_SCRIPT`, `RAVEN_SNAP`, `RAVEN_TREE`, `RAVEN_FILM`), without a change
+  of its code: the tree of the windows as JSON, scripts of steps with checks
+  and an exit code, PNG pictures and films; `Rtest_dump_tree`,
+  `Rtest_run_script` for the tests.
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
