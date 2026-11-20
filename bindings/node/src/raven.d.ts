@@ -907,6 +907,8 @@ export enum RColorRole {
 	R_COLOR_LINK = 0x0122,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE = 0x0123,
+	/** Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). */
+	R_COLOR_SPELLING = 0x0124,
 }
 export const R_COLOR_WINDOW: RColorRole.R_COLOR_WINDOW;
 export const R_COLOR_PANEL: RColorRole.R_COLOR_PANEL;
@@ -944,6 +946,7 @@ export const R_COLOR_WARNING: RColorRole.R_COLOR_WARNING;
 export const R_COLOR_DANGER: RColorRole.R_COLOR_DANGER;
 export const R_COLOR_LINK: RColorRole.R_COLOR_LINK;
 export const R_COLOR_CODE: RColorRole.R_COLOR_CODE;
+export const R_COLOR_SPELLING: RColorRole.R_COLOR_SPELLING;
 
 /** Sizes, in logical units. */
 export enum RMetric {
@@ -5217,6 +5220,58 @@ export function Rtext_input_set_changed_callback(text_input: Rid, callback: RTex
 /** Called when Enter is pressed. This also fires the action of the widget. */
 export function Rtext_input_set_committed_callback(text_input: Rid, callback: RTextChangedCallback | Pointer | null, user_data?: RPointer): void;
 
+/**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING). Off by
+ * default. A password is never checked.
+ */
+export function Rtext_input_set_spell_check(text_input: Rid, enabled: number): void;
+
+export function Rtext_input_get_spell_check(text_input: Rid): number;
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_input_set_spell_language(text_input: Rid, language: string | null): void;
+
+/** R_TRUE when the system has a spell checker that Raven can use. */
+export function Rspell_is_supported(): number;
+
+/** The languages the checker has dictionaries for. */
+export function Rspell_get_language_count(): number;
+
+export function Rspell_get_language_at(index: number): string | null;
+
+/**
+ * The language used when a widget or a call gives none. NULL
+ * follows the locale again.
+ * Returns: R_FALSE when the checker has no dictionary for it (the default
+ * of the system is then used).
+ */
+export function Rspell_set_language(language: string | null): number;
+
+/** The code of the language used by default, as the checker names it; "" when there is no checker. */
+export function Rspell_get_language(): string | null;
+
+/**
+ * Checks a text. `language` NULL: the default.
+ * Returns: The number of misspelled words, read with Rspell_get_misspelling.
+ */
+export function Rspell_check(text: string | null, language: string | null): number;
+
+/** A misspelled word found by the last Rspell_check: bytes [start, end) of its text. */
+export function Rspell_get_misspelling(index: number): [result: number, start: number, end: number];
+
+/** Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion. */
+export function Rspell_suggest(word: string | null, language: string | null): number;
+
+/** A correction found by the last Rspell_suggest; valid until the next call. */
+export function Rspell_get_suggestion(index: number): string | null;
+
+/** Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). */
+export function Rspell_learn(word: string | null, language: string | null): void;
+
+/** The word is no longer a misspelling, in every language, until the application quits. */
+export function Rspell_ignore(word: string | null): void;
+
 export function Rspin_box_set_range(spin_box: Rid, minimum: number, maximum: number): void;
 
 export function Rspin_box_set_value(spin_box: Rid, value: number): void;
@@ -6486,6 +6541,19 @@ export function Rtext_editor_get_language(editor: Rid): string | null;
 export function Rtext_editor_set_markdown(editor: Rid, enabled: number): void;
 
 export function Rtext_editor_get_markdown(editor: Rid): number;
+
+/**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING in
+ * raven_controls.h). Only the lines shown are checked, again when they
+ * change. Off by default: it is meant for prose, not for code.
+ */
+export function Rtext_editor_set_spell_check(editor: Rid, enabled: number): void;
+
+export function Rtext_editor_get_spell_check(editor: Rid): number;
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_editor_set_spell_language(editor: Rid, language: string | null): void;
 
 /**
  * What the language of the editor makes of the character at a

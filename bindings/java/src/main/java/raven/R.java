@@ -841,6 +841,10 @@ public final class R {
      * Background of code in formatted text.
      */
     public static final int R_COLOR_CODE = 0x0123;
+    /**
+     * Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+     */
+    public static final int R_COLOR_SPELLING = 0x0124;
 
     // RMetric: Sizes, in logical units.
     public static final int R_METRIC_FONT_SIZE = 0x0140;
@@ -13441,6 +13445,239 @@ public final class R {
         Rtext_input_set_committed_callback(text_input, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rtext_input_set_spell_check$;
+
+    /**
+     * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+     * a right click on one offers corrections (see SPELL CHECKING). Off by
+     * default. A password is never checked.
+     */
+    public static void Rtext_input_set_spell_check(int text_input, int enabled) {
+        MethodHandle $h = Rtext_input_set_spell_check$;
+        if ($h == null) Rtext_input_set_spell_check$ = $h = find("Rtext_input_set_spell_check", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(text_input, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_get_spell_check$;
+
+    public static int Rtext_input_get_spell_check(int text_input) {
+        MethodHandle $h = Rtext_input_get_spell_check$;
+        if ($h == null) Rtext_input_get_spell_check$ = $h = find("Rtext_input_get_spell_check", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(text_input);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_set_spell_language$;
+
+    /**
+     * Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+     */
+    public static void Rtext_input_set_spell_language(int text_input, String language) {
+        MethodHandle $h = Rtext_input_set_spell_language$;
+        if ($h == null) Rtext_input_set_spell_language$ = $h = find("Rtext_input_set_spell_language", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            $h.invokeExact(text_input, language$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_is_supported$;
+
+    /**
+     * R_TRUE when the system has a spell checker that Raven can use.
+     */
+    public static int Rspell_is_supported() {
+        MethodHandle $h = Rspell_is_supported$;
+        if ($h == null) Rspell_is_supported$ = $h = find("Rspell_is_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_get_language_count$;
+
+    /**
+     * The languages the checker has dictionaries for.
+     */
+    public static int Rspell_get_language_count() {
+        MethodHandle $h = Rspell_get_language_count$;
+        if ($h == null) Rspell_get_language_count$ = $h = find("Rspell_get_language_count", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_get_language_at$;
+
+    public static String Rspell_get_language_at(int index) {
+        MethodHandle $h = Rspell_get_language_at$;
+        if ($h == null) Rspell_get_language_at$ = $h = find("Rspell_get_language_at", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(index);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_set_language$;
+
+    /**
+     * The language used when a widget or a call gives none. NULL
+     * follows the locale again.
+     * Returns: R_FALSE when the checker has no dictionary for it (the default
+     * of the system is then used).
+     */
+    public static int Rspell_set_language(String language) {
+        MethodHandle $h = Rspell_set_language$;
+        if ($h == null) Rspell_set_language$ = $h = find("Rspell_set_language", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            int $r = (int) $h.invokeExact(language$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_get_language$;
+
+    /**
+     * The code of the language used by default, as the checker names it; "" when there is no checker.
+     */
+    public static String Rspell_get_language() {
+        MethodHandle $h = Rspell_get_language$;
+        if ($h == null) Rspell_get_language$ = $h = find("Rspell_get_language", FunctionDescriptor.of(ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact();
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_check$;
+
+    /**
+     * Checks a text. `language` NULL: the default.
+     * Returns: The number of misspelled words, read with Rspell_get_misspelling.
+     */
+    public static int Rspell_check(String text, String language) {
+        MethodHandle $h = Rspell_check$;
+        if ($h == null) Rspell_check$ = $h = find("Rspell_check", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            int $r = (int) $h.invokeExact(text$, language$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_get_misspelling$;
+
+    /**
+     * A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+     */
+    public static int Rspell_get_misspelling(int index, int[] start, int[] end) {
+        MethodHandle $h = Rspell_get_misspelling$;
+        if ($h == null) Rspell_get_misspelling$ = $h = find("Rspell_get_misspelling", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment start$ = start == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment end$ = end == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(index, start$, end$);
+            if (start != null && start.length > 0) start[0] = start$.get(JAVA_INT, 0);
+            if (end != null && end.length > 0) end[0] = end$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_suggest$;
+
+    /**
+     * Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+     */
+    public static int Rspell_suggest(String word, String language) {
+        MethodHandle $h = Rspell_suggest$;
+        if ($h == null) Rspell_suggest$ = $h = find("Rspell_suggest", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment word$ = word == null ? MemorySegment.NULL : utf8($a, word);
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            int $r = (int) $h.invokeExact(word$, language$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_get_suggestion$;
+
+    /**
+     * A correction found by the last Rspell_suggest; valid until the next call.
+     */
+    public static String Rspell_get_suggestion(int index) {
+        MethodHandle $h = Rspell_get_suggestion$;
+        if ($h == null) Rspell_get_suggestion$ = $h = find("Rspell_get_suggestion", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(index);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_learn$;
+
+    /**
+     * Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+     */
+    public static void Rspell_learn(String word, String language) {
+        MethodHandle $h = Rspell_learn$;
+        if ($h == null) Rspell_learn$ = $h = find("Rspell_learn", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment word$ = word == null ? MemorySegment.NULL : utf8($a, word);
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            $h.invokeExact(word$, language$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspell_ignore$;
+
+    /**
+     * The word is no longer a misspelling, in every language, until the application quits.
+     */
+    public static void Rspell_ignore(String word) {
+        MethodHandle $h = Rspell_ignore$;
+        if ($h == null) Rspell_ignore$ = $h = find("Rspell_ignore", FunctionDescriptor.ofVoid(ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment word$ = word == null ? MemorySegment.NULL : utf8($a, word);
+            $h.invokeExact(word$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rspin_box_set_range$;
 
     public static void Rspin_box_set_range(int spin_box, double minimum, double maximum) {
@@ -19896,6 +20133,53 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact(editor);
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_spell_check$;
+
+    /**
+     * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+     * a right click on one offers corrections (see SPELL CHECKING in
+     * raven_controls.h). Only the lines shown are checked, again when they
+     * change. Off by default: it is meant for prose, not for code.
+     */
+    public static void Rtext_editor_set_spell_check(int editor, int enabled) {
+        MethodHandle $h = Rtext_editor_set_spell_check$;
+        if ($h == null) Rtext_editor_set_spell_check$ = $h = find("Rtext_editor_set_spell_check", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_spell_check$;
+
+    public static int Rtext_editor_get_spell_check(int editor) {
+        MethodHandle $h = Rtext_editor_get_spell_check$;
+        if ($h == null) Rtext_editor_get_spell_check$ = $h = find("Rtext_editor_get_spell_check", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_spell_language$;
+
+    /**
+     * Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+     */
+    public static void Rtext_editor_set_spell_language(int editor, String language) {
+        MethodHandle $h = Rtext_editor_set_spell_language$;
+        if ($h == null) Rtext_editor_set_spell_language$ = $h = find("Rtext_editor_set_spell_language", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            $h.invokeExact(editor, language$);
         } catch (Throwable $t) {
             throw fail($t);
         }

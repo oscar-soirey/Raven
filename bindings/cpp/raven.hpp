@@ -724,6 +724,16 @@ public:
 	void set_committed_callback(std::function<void(Rid, const char*)> callback) const {
 		Rtext_input_set_committed_callback(id_, [](Rid text_input, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(Rid, const char*)>*>(kept_))(text_input, text); }, detail::keep(id_, 13, std::move(callback)));
 	}
+
+	/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	/// a right click on one offers corrections (see SPELL CHECKING). Off by
+	/// default. A password is never checked.
+	void set_spell_check(int enabled) const { Rtext_input_set_spell_check(id_, enabled); }
+
+	int get_spell_check() const { return Rtext_input_get_spell_check(id_); }
+
+	/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+	void set_spell_language(const char* language) const { Rtext_input_set_spell_language(id_, language); }
 };
 
 class SpinBox : public Widget {
@@ -1358,6 +1368,17 @@ public:
 	void set_markdown(int enabled) const { Rtext_editor_set_markdown(id_, enabled); }
 
 	int get_markdown() const { return Rtext_editor_get_markdown(id_); }
+
+	/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	/// a right click on one offers corrections (see SPELL CHECKING in
+	/// raven_controls.h). Only the lines shown are checked, again when they
+	/// change. Off by default: it is meant for prose, not for code.
+	void set_spell_check(int enabled) const { Rtext_editor_set_spell_check(id_, enabled); }
+
+	int get_spell_check() const { return Rtext_editor_get_spell_check(id_); }
+
+	/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+	void set_spell_language(const char* language) const { Rtext_editor_set_spell_language(id_, language); }
 
 	/// What the language of the editor makes of the character at a
 	/// position: the colors come from it. R_TOKEN_TEXT without a language.
@@ -3073,6 +3094,42 @@ inline void set_layout_direction(RDirection direction) { Rset_layout_direction(d
 
 /// The direction the windows use now: R_DIRECTION_LTR or _RTL.
 inline RDirection get_layout_direction() { return Rget_layout_direction(); }
+
+/// R_TRUE when the system has a spell checker that Raven can use.
+inline int spell_is_supported() { return Rspell_is_supported(); }
+
+/// The languages the checker has dictionaries for.
+inline int spell_get_language_count() { return Rspell_get_language_count(); }
+
+inline const char* spell_get_language_at(int index) { return Rspell_get_language_at(index); }
+
+/// The language used when a widget or a call gives none. NULL
+/// follows the locale again.
+/// Returns: R_FALSE when the checker has no dictionary for it (the default
+/// of the system is then used).
+inline int spell_set_language(const char* language) { return Rspell_set_language(language); }
+
+/// The code of the language used by default, as the checker names it; "" when there is no checker.
+inline const char* spell_get_language() { return Rspell_get_language(); }
+
+/// Checks a text. `language` NULL: the default.
+/// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+inline int spell_check(const char* text, const char* language) { return Rspell_check(text, language); }
+
+/// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+inline int spell_get_misspelling(int index, int* start, int* end) { return Rspell_get_misspelling(index, start, end); }
+
+/// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+inline int spell_suggest(const char* word, const char* language) { return Rspell_suggest(word, language); }
+
+/// A correction found by the last Rspell_suggest; valid until the next call.
+inline const char* spell_get_suggestion(int index) { return Rspell_get_suggestion(index); }
+
+/// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+inline void spell_learn(const char* word, const char* language) { Rspell_learn(word, language); }
+
+/// The word is no longer a misspelling, in every language, until the application quits.
+inline void spell_ignore(const char* word) { Rspell_ignore(word); }
 
 /// Gives the tiles: `count` of them, described by `callback`. The selection is cleared.
 inline void tile_view_set_items(Rid tile_view, int count, RTileItemCallback callback, void* user_data) { Rtile_view_set_items(tile_view, count, callback, user_data); }

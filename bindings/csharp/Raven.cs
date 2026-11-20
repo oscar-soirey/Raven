@@ -821,6 +821,10 @@ namespace Raven
         /// Background of code in formatted text.
         /// </summary>
         R_COLOR_CODE = 0x0123,
+        /// <summary>
+        /// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+        /// </summary>
+        R_COLOR_SPELLING = 0x0124,
     }
 
     /// <summary>
@@ -6348,6 +6352,93 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_input_set_committed_callback(uint text_input, RTextChangedCallback callback, IntPtr user_data);
 
+        /// <summary>
+        /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+        /// a right click on one offers corrections (see SPELL CHECKING). Off by
+        /// default. A password is never checked.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_input_set_spell_check(uint text_input, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_input_get_spell_check(uint text_input);
+
+        /// <summary>
+        /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_input_set_spell_language(uint text_input, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// R_TRUE when the system has a spell checker that Raven can use.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_is_supported();
+
+        /// <summary>
+        /// The languages the checker has dictionaries for.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_get_language_count();
+
+        [DllImport(Lib, EntryPoint = "Rspell_get_language_at", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rspell_get_language_at_(int index);
+        public static string Rspell_get_language_at(int index) { return Text(Rspell_get_language_at_(index)); }
+
+        /// <summary>
+        /// The language used when a widget or a call gives none. NULL
+        /// follows the locale again.
+        /// Returns: R_FALSE when the checker has no dictionary for it (the default
+        /// of the system is then used).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_set_language([MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// The code of the language used by default, as the checker names it; "" when there is no checker.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rspell_get_language", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rspell_get_language_();
+        public static string Rspell_get_language() { return Text(Rspell_get_language_()); }
+
+        /// <summary>
+        /// Checks a text. `language` NULL: the default.
+        /// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_check([MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_get_misspelling(int index, out int start, out int end);
+
+        /// <summary>
+        /// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspell_suggest([MarshalAs(Utf8.Str)] string word, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// A correction found by the last Rspell_suggest; valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rspell_get_suggestion", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rspell_get_suggestion_(int index);
+        public static string Rspell_get_suggestion(int index) { return Text(Rspell_get_suggestion_(index)); }
+
+        /// <summary>
+        /// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rspell_learn([MarshalAs(Utf8.Str)] string word, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// The word is no longer a misspelling, in every language, until the application quits.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rspell_ignore([MarshalAs(Utf8.Str)] string word);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rspin_box_set_range(uint spin_box, double minimum, double maximum);
 
@@ -8494,6 +8585,24 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtext_editor_get_markdown(uint editor);
+
+        /// <summary>
+        /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+        /// a right click on one offers corrections (see SPELL CHECKING in
+        /// raven_controls.h). Only the lines shown are checked, again when they
+        /// change. Off by default: it is meant for prose, not for code.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_spell_check(uint editor, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_spell_check(uint editor);
+
+        /// <summary>
+        /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_spell_language(uint editor, [MarshalAs(Utf8.Str)] string language);
 
         /// <summary>
         /// What the language of the editor makes of the character at a

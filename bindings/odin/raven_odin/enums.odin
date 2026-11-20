@@ -567,6 +567,8 @@ Color_Role :: enum i32 {
 	Link = 0x0122,
 	// Background of code in formatted text.
 	Code = 0x0123,
+	// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+	Spelling = 0x0124,
 }
 
 // Sizes, in logical units.

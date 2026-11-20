@@ -14,7 +14,7 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
+// 1051 of the 1405 functions of the C API are here, 32 are written by hand (the other files of this
 // folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
@@ -713,6 +713,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +788,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +804,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -2251,6 +2275,86 @@ text_input_get_return_key :: proc(text_input: Widget) -> Return_Key {
 	return Return_Key(raw.Rtext_input_get_return_key(raw.Rid(text_input)))
 }
 
+// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+// a right click on one offers corrections (see SPELL CHECKING). Off by
+// default. A password is never checked.
+text_input_set_spell_check :: proc(text_input: Widget, enabled: bool) {
+	raw.Rtext_input_set_spell_check(raw.Rid(text_input), (1 if enabled else 0))
+}
+
+text_input_get_spell_check :: proc(text_input: Widget) -> bool {
+	return raw.Rtext_input_get_spell_check(raw.Rid(text_input)) != 0
+}
+
+// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+text_input_set_spell_language :: proc(text_input: Widget, language: cstring) {
+	raw.Rtext_input_set_spell_language(raw.Rid(text_input), language)
+}
+
+// R_TRUE when the system has a spell checker that Raven can use.
+spell_is_supported :: proc() -> bool {
+	return raw.Rspell_is_supported() != 0
+}
+
+// The languages the checker has dictionaries for.
+spell_get_language_count :: proc() -> i32 {
+	return raw.Rspell_get_language_count()
+}
+
+spell_get_language_at :: proc(index: i32) -> string {
+	return string(raw.Rspell_get_language_at(index))
+}
+
+// The language used when a widget or a call gives none. NULL
+// follows the locale again.
+// Returns: R_FALSE when the checker has no dictionary for it (the default
+// of the system is then used).
+spell_set_language :: proc(language: cstring) -> bool {
+	return raw.Rspell_set_language(language) != 0
+}
+
+// The code of the language used by default, as the checker names it; "" when there is no checker.
+spell_get_language :: proc() -> string {
+	return string(raw.Rspell_get_language())
+}
+
+// Checks a text. `language` NULL: the default.
+// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+spell_check :: proc(text: cstring, language: cstring) -> i32 {
+	return raw.Rspell_check(text, language)
+}
+
+// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+spell_get_misspelling :: proc(index: i32) -> (result: i32, start: i32, end: i32) {
+	result = raw.Rspell_get_misspelling(index, &start, &end)
+	return
+}
+
+// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+spell_suggest :: proc(word: string, language: string) -> i32 {
+	buffer_word: [cstring_buffer_size]u8
+	buffer_language: [cstring_buffer_size]u8
+	return raw.Rspell_suggest(to_cstring(word, &buffer_word), to_cstring(language, &buffer_language))
+}
+
+// A correction found by the last Rspell_suggest; valid until the next call.
+spell_get_suggestion :: proc(index: i32) -> string {
+	return string(raw.Rspell_get_suggestion(index))
+}
+
+// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+spell_learn :: proc(word: string, language: string) {
+	buffer_word: [cstring_buffer_size]u8
+	buffer_language: [cstring_buffer_size]u8
+	raw.Rspell_learn(to_cstring(word, &buffer_word), to_cstring(language, &buffer_language))
+}
+
+// The word is no longer a misspelling, in every language, until the application quits.
+spell_ignore :: proc(word: string) {
+	buffer_word: [cstring_buffer_size]u8
+	raw.Rspell_ignore(to_cstring(word, &buffer_word))
+}
+
 spin_box_set_range :: proc(spin_box: Widget, minimum: f64, maximum: f64) {
 	raw.Rspin_box_set_range(raw.Rid(spin_box), minimum, maximum)
 }
@@ -3603,6 +3707,23 @@ text_editor_set_markdown :: proc(editor: Widget, enabled: bool) {
 
 text_editor_get_markdown :: proc(editor: Widget) -> bool {
 	return raw.Rtext_editor_get_markdown(raw.Rid(editor)) != 0
+}
+
+// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+// a right click on one offers corrections (see SPELL CHECKING in
+// raven_controls.h). Only the lines shown are checked, again when they
+// change. Off by default: it is meant for prose, not for code.
+text_editor_set_spell_check :: proc(editor: Widget, enabled: bool) {
+	raw.Rtext_editor_set_spell_check(raw.Rid(editor), (1 if enabled else 0))
+}
+
+text_editor_get_spell_check :: proc(editor: Widget) -> bool {
+	return raw.Rtext_editor_get_spell_check(raw.Rid(editor)) != 0
+}
+
+// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+text_editor_set_spell_language :: proc(editor: Widget, language: cstring) {
+	raw.Rtext_editor_set_spell_language(raw.Rid(editor), language)
 }
 
 // What the language of the editor makes of the character at a
@@ -5897,6 +6018,15 @@ host_inject_key :: proc(window: Window, key: Key, pressed: bool, modifiers: u32,
 // One typed Unicode code point.
 host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
+}
+
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
 }
 
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.

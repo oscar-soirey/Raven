@@ -587,6 +587,7 @@ const (
 	R_COLOR_DANGER           RColorRole = 0x0121
 	R_COLOR_LINK             RColorRole = 0x0122
 	R_COLOR_CODE             RColorRole = 0x0123
+	R_COLOR_SPELLING         RColorRole = 0x0124
 )
 
 // RMetric: Sizes, in logical units.
@@ -3408,6 +3409,103 @@ func TextInputGetReturnKey(text_input ID) RReturnKey {
 	return RReturnKey(C.Rtext_input_get_return_key(C.Rid(text_input)))
 }
 
+// TextInputSetSpellCheck: Underlines the misspelled words with a wavy line (R_COLOR_SPELLING); a right click
+// on one offers corrections (see SPELL CHECKING). Off by default. A password is never checked.
+func TextInputSetSpellCheck(text_input ID, enabled int) {
+	C.Rtext_input_set_spell_check(C.Rid(text_input), C.int(enabled))
+}
+
+func TextInputGetSpellCheck(text_input ID) int {
+	return int(C.Rtext_input_get_spell_check(C.Rid(text_input)))
+}
+
+// TextInputSetSpellLanguage: Language of the spell checking ("en_US", "fr"...). NULL: the default
+// (Rspell_set_language).
+func TextInputSetSpellLanguage(text_input ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rtext_input_set_spell_language(C.Rid(text_input), language_)
+}
+
+// SpellIsSupported: R_TRUE when the system has a spell checker that Raven can use.
+func SpellIsSupported() int {
+	return int(C.Rspell_is_supported())
+}
+
+// SpellGetLanguageCount: The languages the checker has dictionaries for.
+func SpellGetLanguageCount() int {
+	return int(C.Rspell_get_language_count())
+}
+
+func SpellGetLanguageAt(index int) string {
+	return C.GoString(C.Rspell_get_language_at(C.int(index)))
+}
+
+// SpellSetLanguage: The language used when a widget or a call gives none. NULL follows the locale again.
+// Returns: R_FALSE when the checker has no dictionary for it (the default of the system is then used).
+func SpellSetLanguage(language string) int {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_set_language(language_))
+}
+
+// SpellGetLanguage: The code of the language used by default, as the checker names it; "" when there is no
+// checker.
+func SpellGetLanguage() string {
+	return C.GoString(C.Rspell_get_language())
+}
+
+// SpellCheck: Checks a text. `language` NULL: the default. Returns: The number of misspelled words, read with
+// Rspell_get_misspelling.
+func SpellCheck(text string, language string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_check(text_, language_))
+}
+
+// SpellGetMisspelling: A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+func SpellGetMisspelling(index int) (result int, start int, end int) {
+	var start_ C.int
+	var end_ C.int
+	result = int(C.Rspell_get_misspelling(C.int(index), &start_, &end_))
+	start = int(start_)
+	end = int(end_)
+	return
+}
+
+// SpellSuggest: Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+func SpellSuggest(word string, language string) int {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	return int(C.Rspell_suggest(word_, language_))
+}
+
+// SpellGetSuggestion: A correction found by the last Rspell_suggest; valid until the next call.
+func SpellGetSuggestion(index int) string {
+	return C.GoString(C.Rspell_get_suggestion(C.int(index)))
+}
+
+// SpellLearn: Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the
+// session).
+func SpellLearn(word string, language string) {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rspell_learn(word_, language_)
+}
+
+// SpellIgnore: The word is no longer a misspelling, in every language, until the application quits.
+func SpellIgnore(word string) {
+	word_ := C.CString(word)
+	defer C.free(unsafe.Pointer(word_))
+	C.Rspell_ignore(word_)
+}
+
 func SpinBoxSetRange(spin_box ID, minimum float64, maximum float64) {
 	C.Rspin_box_set_range(C.Rid(spin_box), C.double(minimum), C.double(maximum))
 }
@@ -5482,6 +5580,25 @@ func TextEditorSetMarkdown(editor ID, enabled int) {
 
 func TextEditorGetMarkdown(editor ID) int {
 	return int(C.Rtext_editor_get_markdown(C.Rid(editor)))
+}
+
+// TextEditorSetSpellCheck: Underlines the misspelled words with a wavy line (R_COLOR_SPELLING); a right click
+// on one offers corrections (see SPELL CHECKING in raven_controls.h). Only the lines shown are checked, again
+// when they change. Off by default: it is meant for prose, not for code.
+func TextEditorSetSpellCheck(editor ID, enabled int) {
+	C.Rtext_editor_set_spell_check(C.Rid(editor), C.int(enabled))
+}
+
+func TextEditorGetSpellCheck(editor ID) int {
+	return int(C.Rtext_editor_get_spell_check(C.Rid(editor)))
+}
+
+// TextEditorSetSpellLanguage: Language of the spell checking ("en_US", "fr"...). NULL: the default
+// (Rspell_set_language).
+func TextEditorSetSpellLanguage(editor ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rtext_editor_set_spell_language(C.Rid(editor), language_)
 }
 
 // TextEditorGetToken: What the language of the editor makes of the character at a position: the colors come

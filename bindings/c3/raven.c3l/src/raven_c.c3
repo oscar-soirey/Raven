@@ -607,6 +607,8 @@ const RColorRole R_COLOR_DANGER = 0x0121;
 const RColorRole R_COLOR_LINK = 0x0122;
 <* Background of code in formatted text. *>
 const RColorRole R_COLOR_CODE = 0x0123;
+<* Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). *>
+const RColorRole R_COLOR_SPELLING = 0x0124;
 
 <* Sizes, in logical units. *>
 alias RMetric = CInt;
@@ -4304,6 +4306,58 @@ extern fn void r_text_input_set_changed_callback(Rid text_input, RTextChangedCal
 <* Called when Enter is pressed. This also fires the action of the widget. *>
 extern fn void r_text_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data) @cname("Rtext_input_set_committed_callback");
 
+<*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING). Off by
+ default. A password is never checked.
+*>
+extern fn void r_text_input_set_spell_check(Rid text_input, CInt enabled) @cname("Rtext_input_set_spell_check");
+
+extern fn CInt r_text_input_get_spell_check(Rid text_input) @cname("Rtext_input_get_spell_check");
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+extern fn void r_text_input_set_spell_language(Rid text_input, char* language) @cname("Rtext_input_set_spell_language");
+
+<* R_TRUE when the system has a spell checker that Raven can use. *>
+extern fn CInt r_spell_is_supported() @cname("Rspell_is_supported");
+
+<* The languages the checker has dictionaries for. *>
+extern fn CInt r_spell_get_language_count() @cname("Rspell_get_language_count");
+
+extern fn char* r_spell_get_language_at(CInt index) @cname("Rspell_get_language_at");
+
+<*
+ The language used when a widget or a call gives none. NULL
+ follows the locale again.
+ Returns R_FALSE when the checker has no dictionary for it (the default
+ of the system is then used).
+*>
+extern fn CInt r_spell_set_language(char* language) @cname("Rspell_set_language");
+
+<* The code of the language used by default, as the checker names it; "" when there is no checker. *>
+extern fn char* r_spell_get_language() @cname("Rspell_get_language");
+
+<*
+ Checks a text. `language` NULL: the default.
+ Returns The number of misspelled words, read with Rspell_get_misspelling.
+*>
+extern fn CInt r_spell_check(char* text, char* language) @cname("Rspell_check");
+
+<* A misspelled word found by the last Rspell_check: bytes [start, end) of its text. *>
+extern fn CInt r_spell_get_misspelling(CInt index, CInt* start, CInt* end) @cname("Rspell_get_misspelling");
+
+<* Returns The number of corrections for a word (best first), read with Rspell_get_suggestion. *>
+extern fn CInt r_spell_suggest(char* word, char* language) @cname("Rspell_suggest");
+
+<* A correction found by the last Rspell_suggest; valid until the next call. *>
+extern fn char* r_spell_get_suggestion(CInt index) @cname("Rspell_get_suggestion");
+
+<* Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). *>
+extern fn void r_spell_learn(char* word, char* language) @cname("Rspell_learn");
+
+<* The word is no longer a misspelling, in every language, until the application quits. *>
+extern fn void r_spell_ignore(char* word) @cname("Rspell_ignore");
+
 extern fn void r_spin_box_set_range(Rid spin_box, double minimum, double maximum) @cname("Rspin_box_set_range");
 
 extern fn void r_spin_box_set_value(Rid spin_box, double value) @cname("Rspin_box_set_value");
@@ -5555,6 +5609,19 @@ extern fn char* r_text_editor_get_language(Rid editor) @cname("Rtext_editor_get_
 extern fn void r_text_editor_set_markdown(Rid editor, CInt enabled) @cname("Rtext_editor_set_markdown");
 
 extern fn CInt r_text_editor_get_markdown(Rid editor) @cname("Rtext_editor_get_markdown");
+
+<*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING in
+ raven_controls.h). Only the lines shown are checked, again when they
+ change. Off by default: it is meant for prose, not for code.
+*>
+extern fn void r_text_editor_set_spell_check(Rid editor, CInt enabled) @cname("Rtext_editor_set_spell_check");
+
+extern fn CInt r_text_editor_get_spell_check(Rid editor) @cname("Rtext_editor_get_spell_check");
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+extern fn void r_text_editor_set_spell_language(Rid editor, char* language) @cname("Rtext_editor_set_spell_language");
 
 <*
  What the language of the editor makes of the character at a

@@ -579,6 +579,8 @@ R_COLOR_DANGER :: 0x0121
 R_COLOR_LINK :: 0x0122
 // Background of code in formatted text.
 R_COLOR_CODE :: 0x0123
+// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+R_COLOR_SPELLING :: 0x0124
 
 // Sizes, in logical units.
 RMetric :: i32
@@ -3214,6 +3216,38 @@ foreign lib {
 	Rtext_input_set_changed_callback :: proc(text_input: Rid, callback: RTextChangedCallback, user_data: rawptr) ---
 	// Called when Enter is pressed. This also fires the action of the widget.
 	Rtext_input_set_committed_callback :: proc(text_input: Rid, callback: RTextChangedCallback, user_data: rawptr) ---
+	// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	// a right click on one offers corrections (see SPELL CHECKING). Off by
+	// default. A password is never checked.
+	Rtext_input_set_spell_check :: proc(text_input: Rid, enabled: i32) ---
+	Rtext_input_get_spell_check :: proc(text_input: Rid) -> i32 ---
+	// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+	Rtext_input_set_spell_language :: proc(text_input: Rid, language: cstring) ---
+	// R_TRUE when the system has a spell checker that Raven can use.
+	Rspell_is_supported :: proc() -> i32 ---
+	// The languages the checker has dictionaries for.
+	Rspell_get_language_count :: proc() -> i32 ---
+	Rspell_get_language_at :: proc(index: i32) -> cstring ---
+	// The language used when a widget or a call gives none. NULL
+	// follows the locale again.
+	// Returns: R_FALSE when the checker has no dictionary for it (the default
+	// of the system is then used).
+	Rspell_set_language :: proc(language: cstring) -> i32 ---
+	// The code of the language used by default, as the checker names it; "" when there is no checker.
+	Rspell_get_language :: proc() -> cstring ---
+	// Checks a text. `language` NULL: the default.
+	// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+	Rspell_check :: proc(text: cstring, language: cstring) -> i32 ---
+	// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+	Rspell_get_misspelling :: proc(index: i32, start: ^i32, end: ^i32) -> i32 ---
+	// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+	Rspell_suggest :: proc(word: cstring, language: cstring) -> i32 ---
+	// A correction found by the last Rspell_suggest; valid until the next call.
+	Rspell_get_suggestion :: proc(index: i32) -> cstring ---
+	// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+	Rspell_learn :: proc(word: cstring, language: cstring) ---
+	// The word is no longer a misspelling, in every language, until the application quits.
+	Rspell_ignore :: proc(word: cstring) ---
 	Rspin_box_set_range :: proc(spin_box: Rid, minimum: f64, maximum: f64) ---
 	Rspin_box_set_value :: proc(spin_box: Rid, value: f64) ---
 	Rspin_box_get_value :: proc(spin_box: Rid) -> f64 ---
@@ -3969,6 +4003,14 @@ foreign lib {
 	// formatted. R_FALSE removes the language.
 	Rtext_editor_set_markdown :: proc(editor: Rid, enabled: i32) ---
 	Rtext_editor_get_markdown :: proc(editor: Rid) -> i32 ---
+	// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	// a right click on one offers corrections (see SPELL CHECKING in
+	// raven_controls.h). Only the lines shown are checked, again when they
+	// change. Off by default: it is meant for prose, not for code.
+	Rtext_editor_set_spell_check :: proc(editor: Rid, enabled: i32) ---
+	Rtext_editor_get_spell_check :: proc(editor: Rid) -> i32 ---
+	// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+	Rtext_editor_set_spell_language :: proc(editor: Rid, language: cstring) ---
 	// What the language of the editor makes of the character at a
 	// position: the colors come from it. R_TOKEN_TEXT without a language.
 	Rtext_editor_get_token :: proc(editor: Rid, line: i32, column: i32) -> RToken ---

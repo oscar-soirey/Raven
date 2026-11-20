@@ -553,6 +553,8 @@ pub const R_COLOR_DANGER: RColorRole = 0x0121;
 pub const R_COLOR_LINK: RColorRole = 0x0122;
 /// Background of code in formatted text.
 pub const R_COLOR_CODE: RColorRole = 0x0123;
+/// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+pub const R_COLOR_SPELLING: RColorRole = 0x0124;
 
 /// Sizes, in logical units.
 pub type RMetric = c_int;
@@ -3245,6 +3247,38 @@ extern "C" {
     pub fn Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: *mut c_void);
     /// Called when Enter is pressed. This also fires the action of the widget.
     pub fn Rtext_input_set_committed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: *mut c_void);
+    /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    /// a right click on one offers corrections (see SPELL CHECKING). Off by
+    /// default. A password is never checked.
+    pub fn Rtext_input_set_spell_check(text_input: Rid, enabled: c_int);
+    pub fn Rtext_input_get_spell_check(text_input: Rid) -> c_int;
+    /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+    pub fn Rtext_input_set_spell_language(text_input: Rid, language: *const c_char);
+    /// R_TRUE when the system has a spell checker that Raven can use.
+    pub fn Rspell_is_supported() -> c_int;
+    /// The languages the checker has dictionaries for.
+    pub fn Rspell_get_language_count() -> c_int;
+    pub fn Rspell_get_language_at(index: c_int) -> *const c_char;
+    /// The language used when a widget or a call gives none. NULL
+    /// follows the locale again.
+    /// Returns: R_FALSE when the checker has no dictionary for it (the default
+    /// of the system is then used).
+    pub fn Rspell_set_language(language: *const c_char) -> c_int;
+    /// The code of the language used by default, as the checker names it; "" when there is no checker.
+    pub fn Rspell_get_language() -> *const c_char;
+    /// Checks a text. `language` NULL: the default.
+    /// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+    pub fn Rspell_check(text: *const c_char, language: *const c_char) -> c_int;
+    /// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+    pub fn Rspell_get_misspelling(index: c_int, start: *mut c_int, end: *mut c_int) -> c_int;
+    /// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+    pub fn Rspell_suggest(word: *const c_char, language: *const c_char) -> c_int;
+    /// A correction found by the last Rspell_suggest; valid until the next call.
+    pub fn Rspell_get_suggestion(index: c_int) -> *const c_char;
+    /// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+    pub fn Rspell_learn(word: *const c_char, language: *const c_char);
+    /// The word is no longer a misspelling, in every language, until the application quits.
+    pub fn Rspell_ignore(word: *const c_char);
     pub fn Rspin_box_set_range(spin_box: Rid, minimum: f64, maximum: f64);
     pub fn Rspin_box_set_value(spin_box: Rid, value: f64);
     pub fn Rspin_box_get_value(spin_box: Rid) -> f64;
@@ -4000,6 +4034,14 @@ extern "C" {
     /// formatted. R_FALSE removes the language.
     pub fn Rtext_editor_set_markdown(editor: Rid, enabled: c_int);
     pub fn Rtext_editor_get_markdown(editor: Rid) -> c_int;
+    /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    /// a right click on one offers corrections (see SPELL CHECKING in
+    /// raven_controls.h). Only the lines shown are checked, again when they
+    /// change. Off by default: it is meant for prose, not for code.
+    pub fn Rtext_editor_set_spell_check(editor: Rid, enabled: c_int);
+    pub fn Rtext_editor_get_spell_check(editor: Rid) -> c_int;
+    /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+    pub fn Rtext_editor_set_spell_language(editor: Rid, language: *const c_char);
     /// What the language of the editor makes of the character at a
     /// position: the colors come from it. R_TOKEN_TEXT without a language.
     pub fn Rtext_editor_get_token(editor: Rid, line: c_int, column: c_int) -> RToken;

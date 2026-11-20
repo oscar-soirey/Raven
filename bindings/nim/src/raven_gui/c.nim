@@ -1460,6 +1460,8 @@ const
     ## Links of formatted text.
   R_COLOR_CODE*: RColorRole = 0x0123
     ## Background of code in formatted text.
+  R_COLOR_SPELLING*: RColorRole = 0x0124
+    ## Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
 
   # RMetric
   R_METRIC_FONT_SIZE*: RMetric = 0x0140
@@ -3228,6 +3230,38 @@ proc Rtext_input_set_changed_callback*(text_input: Rid, callback: RTextChangedCa
   ## Called on every edit.
 proc Rtext_input_set_committed_callback*(text_input: Rid, callback: RTextChangedCallback, user_data: pointer) {.rapi.}
   ## Called when Enter is pressed. This also fires the action of the widget.
+proc Rtext_input_set_spell_check*(text_input: Rid, enabled: cint) {.rapi.}
+  ## Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+  ## a right click on one offers corrections (see SPELL CHECKING). Off by
+  ## default. A password is never checked.
+proc Rtext_input_get_spell_check*(text_input: Rid): cint {.rapi.}
+proc Rtext_input_set_spell_language*(text_input: Rid, language: cstring) {.rapi.}
+  ## Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+proc Rspell_is_supported*(): cint {.rapi.}
+  ## R_TRUE when the system has a spell checker that Raven can use.
+proc Rspell_get_language_count*(): cint {.rapi.}
+  ## The languages the checker has dictionaries for.
+proc Rspell_get_language_at*(index: cint): cstring {.rapi.}
+proc Rspell_set_language*(language: cstring): cint {.rapi.}
+  ## The language used when a widget or a call gives none. NULL
+  ## follows the locale again.
+  ## Returns: R_FALSE when the checker has no dictionary for it (the default
+  ## of the system is then used).
+proc Rspell_get_language*(): cstring {.rapi.}
+  ## The code of the language used by default, as the checker names it; "" when there is no checker.
+proc Rspell_check*(text: cstring, language: cstring): cint {.rapi.}
+  ## Checks a text. `language` NULL: the default.
+  ## Returns: The number of misspelled words, read with Rspell_get_misspelling.
+proc Rspell_get_misspelling*(index: cint, start: ptr cint, `end`: ptr cint): cint {.rapi.}
+  ## A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+proc Rspell_suggest*(word: cstring, language: cstring): cint {.rapi.}
+  ## Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+proc Rspell_get_suggestion*(index: cint): cstring {.rapi.}
+  ## A correction found by the last Rspell_suggest; valid until the next call.
+proc Rspell_learn*(word: cstring, language: cstring) {.rapi.}
+  ## Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+proc Rspell_ignore*(word: cstring) {.rapi.}
+  ## The word is no longer a misspelling, in every language, until the application quits.
 proc Rspin_box_set_range*(spin_box: Rid, minimum: cdouble, maximum: cdouble) {.rapi.}
 proc Rspin_box_set_value*(spin_box: Rid, value: cdouble) {.rapi.}
 proc Rspin_box_get_value*(spin_box: Rid): cdouble {.rapi.}
@@ -3983,6 +4017,14 @@ proc Rtext_editor_set_markdown*(editor: Rid, enabled: cint) {.rapi.}
   ## their colors. A label with Rlabel_set_markdown shows the same text
   ## formatted. R_FALSE removes the language.
 proc Rtext_editor_get_markdown*(editor: Rid): cint {.rapi.}
+proc Rtext_editor_set_spell_check*(editor: Rid, enabled: cint) {.rapi.}
+  ## Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+  ## a right click on one offers corrections (see SPELL CHECKING in
+  ## raven_controls.h). Only the lines shown are checked, again when they
+  ## change. Off by default: it is meant for prose, not for code.
+proc Rtext_editor_get_spell_check*(editor: Rid): cint {.rapi.}
+proc Rtext_editor_set_spell_language*(editor: Rid, language: cstring) {.rapi.}
+  ## Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
 proc Rtext_editor_get_token*(editor: Rid, line: cint, column: cint): RToken {.rapi.}
   ## What the language of the editor makes of the character at a
   ## position: the colors come from it. R_TOKEN_TEXT without a language.

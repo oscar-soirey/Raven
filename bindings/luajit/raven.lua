@@ -388,6 +388,7 @@ typedef enum RColorRole {
 	R_COLOR_DANGER = 289,
 	R_COLOR_LINK = 290,
 	R_COLOR_CODE = 291,
+	R_COLOR_SPELLING = 292,
 } RColorRole;
 typedef enum RMetric {
 	R_METRIC_FONT_SIZE = 320,
@@ -1707,6 +1708,20 @@ void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
 RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
+void Rtext_input_set_spell_check(Rid text_input, int enabled);
+int Rtext_input_get_spell_check(Rid text_input);
+void Rtext_input_set_spell_language(Rid text_input, const char* language);
+int Rspell_is_supported(void);
+int Rspell_get_language_count(void);
+const char* Rspell_get_language_at(int index);
+int Rspell_set_language(const char* language);
+const char* Rspell_get_language(void);
+int Rspell_check(const char* text, const char* language);
+int Rspell_get_misspelling(int index, int* start, int* end);
+int Rspell_suggest(const char* word, const char* language);
+const char* Rspell_get_suggestion(int index);
+void Rspell_learn(const char* word, const char* language);
+void Rspell_ignore(const char* word);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
 void Rspin_box_set_value(Rid spin_box, double value);
 double Rspin_box_get_value(Rid spin_box);
@@ -2138,6 +2153,9 @@ void Rtext_editor_set_language(Rid editor, const char* name);
 const char* Rtext_editor_get_language(Rid editor);
 void Rtext_editor_set_markdown(Rid editor, int enabled);
 int Rtext_editor_get_markdown(Rid editor);
+void Rtext_editor_set_spell_check(Rid editor, int enabled);
+int Rtext_editor_get_spell_check(Rid editor);
+void Rtext_editor_set_spell_language(Rid editor, const char* language);
 RToken Rtext_editor_get_token(Rid editor, int line, int column);
 void Rtext_editor_set_completion(Rid editor, int enabled);
 void Rtext_editor_show_completions(Rid editor);

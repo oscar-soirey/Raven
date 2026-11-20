@@ -646,6 +646,8 @@ enum : RColorRole
     R_COLOR_LINK = 0x0122,
     /// Background of code in formatted text.
     R_COLOR_CODE = 0x0123,
+    /// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+    R_COLOR_SPELLING = 0x0124,
 }
 
 /// Sizes, in logical units.
@@ -3471,6 +3473,38 @@ RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 /// Called when Enter is pressed. This also fires the action of the widget.
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
+/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+/// a right click on one offers corrections (see SPELL CHECKING). Off by
+/// default. A password is never checked.
+void Rtext_input_set_spell_check(Rid text_input, int enabled);
+int Rtext_input_get_spell_check(Rid text_input);
+/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+void Rtext_input_set_spell_language(Rid text_input, const(char)* language);
+/// R_TRUE when the system has a spell checker that Raven can use.
+int Rspell_is_supported();
+/// The languages the checker has dictionaries for.
+int Rspell_get_language_count();
+const(char)* Rspell_get_language_at(int index);
+/// The language used when a widget or a call gives none. NULL
+/// follows the locale again.
+/// Returns: R_FALSE when the checker has no dictionary for it (the default
+/// of the system is then used).
+int Rspell_set_language(const(char)* language);
+/// The code of the language used by default, as the checker names it; "" when there is no checker.
+const(char)* Rspell_get_language();
+/// Checks a text. `language` NULL: the default.
+/// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+int Rspell_check(const(char)* text, const(char)* language);
+/// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+int Rspell_get_misspelling(int index, int* start, int* end);
+/// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+int Rspell_suggest(const(char)* word, const(char)* language);
+/// A correction found by the last Rspell_suggest; valid until the next call.
+const(char)* Rspell_get_suggestion(int index);
+/// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+void Rspell_learn(const(char)* word, const(char)* language);
+/// The word is no longer a misspelling, in every language, until the application quits.
+void Rspell_ignore(const(char)* word);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
 void Rspin_box_set_value(Rid spin_box, double value);
 double Rspin_box_get_value(Rid spin_box);
@@ -4226,6 +4260,14 @@ const(char)* Rtext_editor_get_language(Rid editor);
 /// formatted. R_FALSE removes the language.
 void Rtext_editor_set_markdown(Rid editor, int enabled);
 int Rtext_editor_get_markdown(Rid editor);
+/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+/// a right click on one offers corrections (see SPELL CHECKING in
+/// raven_controls.h). Only the lines shown are checked, again when they
+/// change. Off by default: it is meant for prose, not for code.
+void Rtext_editor_set_spell_check(Rid editor, int enabled);
+int Rtext_editor_get_spell_check(Rid editor);
+/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+void Rtext_editor_set_spell_language(Rid editor, const(char)* language);
 /// What the language of the editor makes of the character at a
 /// position: the colors come from it. R_TOKEN_TEXT without a language.
 RToken Rtext_editor_get_token(Rid editor, int line, int column);

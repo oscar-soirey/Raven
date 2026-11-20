@@ -599,6 +599,20 @@ const _symbols = {
 	Rtext_input_get_return_key: { args: ["u32"], returns: "i32" },
 	Rtext_input_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_input_set_committed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_input_set_spell_check: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_spell_check: { args: ["u32"], returns: "i32" },
+	Rtext_input_set_spell_language: { args: ["u32", "ptr"], returns: "void" },
+	Rspell_is_supported: { args: [], returns: "i32" },
+	Rspell_get_language_count: { args: [], returns: "i32" },
+	Rspell_get_language_at: { args: ["i32"], returns: "cstring" },
+	Rspell_set_language: { args: ["ptr"], returns: "i32" },
+	Rspell_get_language: { args: [], returns: "cstring" },
+	Rspell_check: { args: ["ptr", "ptr"], returns: "i32" },
+	Rspell_get_misspelling: { args: ["i32", "ptr", "ptr"], returns: "i32" },
+	Rspell_suggest: { args: ["ptr", "ptr"], returns: "i32" },
+	Rspell_get_suggestion: { args: ["i32"], returns: "cstring" },
+	Rspell_learn: { args: ["ptr", "ptr"], returns: "void" },
+	Rspell_ignore: { args: ["ptr"], returns: "void" },
 	Rspin_box_set_range: { args: ["u32", "f64", "f64"], returns: "void" },
 	Rspin_box_set_value: { args: ["u32", "f64"], returns: "void" },
 	Rspin_box_get_value: { args: ["u32"], returns: "f64" },
@@ -1030,6 +1044,9 @@ const _symbols = {
 	Rtext_editor_get_language: { args: ["u32"], returns: "cstring" },
 	Rtext_editor_set_markdown: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_get_markdown: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_spell_check: { args: ["u32", "i32"], returns: "void" },
+	Rtext_editor_get_spell_check: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_spell_language: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_token: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rtext_editor_set_completion: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_show_completions: { args: ["u32"], returns: "void" },
@@ -2454,6 +2471,8 @@ export enum RColorRole {
 	R_COLOR_LINK = 0x0122,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE = 0x0123,
+	/** Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). */
+	R_COLOR_SPELLING = 0x0124,
 }
 
 export const R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW;
@@ -2492,6 +2511,7 @@ export const R_COLOR_WARNING = RColorRole.R_COLOR_WARNING;
 export const R_COLOR_DANGER = RColorRole.R_COLOR_DANGER;
 export const R_COLOR_LINK = RColorRole.R_COLOR_LINK;
 export const R_COLOR_CODE = RColorRole.R_COLOR_CODE;
+export const R_COLOR_SPELLING = RColorRole.R_COLOR_SPELLING;
 
 /** Sizes, in logical units. */
 export enum RMetric {
@@ -10371,6 +10391,89 @@ export function Rtext_input_set_committed_callback(text_input: Rid, callback: RT
 	_lib.Rtext_input_set_committed_callback(text_input, _adapt_RTextChangedCallback(callback), user_data);
 }
 
+/**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING). Off by
+ * default. A password is never checked.
+ */
+export function Rtext_input_set_spell_check(text_input: Rid, enabled: number): void {
+	_lib.Rtext_input_set_spell_check(text_input, enabled);
+}
+
+export function Rtext_input_get_spell_check(text_input: Rid): number {
+	return _lib.Rtext_input_get_spell_check(text_input);
+}
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_input_set_spell_language(text_input: Rid, language: string | null): void {
+	_lib.Rtext_input_set_spell_language(text_input, _s(language));
+}
+
+/** R_TRUE when the system has a spell checker that Raven can use. */
+export function Rspell_is_supported(): number {
+	return _lib.Rspell_is_supported();
+}
+
+/** The languages the checker has dictionaries for. */
+export function Rspell_get_language_count(): number {
+	return _lib.Rspell_get_language_count();
+}
+
+export function Rspell_get_language_at(index: number): string | null {
+	return _lib.Rspell_get_language_at(index);
+}
+
+/**
+ * The language used when a widget or a call gives none. NULL
+ * follows the locale again.
+ * Returns: R_FALSE when the checker has no dictionary for it (the default
+ * of the system is then used).
+ */
+export function Rspell_set_language(language: string | null): number {
+	return _lib.Rspell_set_language(_s(language));
+}
+
+/** The code of the language used by default, as the checker names it; "" when there is no checker. */
+export function Rspell_get_language(): string | null {
+	return _lib.Rspell_get_language();
+}
+
+/**
+ * Checks a text. `language` NULL: the default.
+ * Returns: The number of misspelled words, read with Rspell_get_misspelling.
+ */
+export function Rspell_check(text: string | null, language: string | null): number {
+	return _lib.Rspell_check(_s(text), _s(language));
+}
+
+/** A misspelled word found by the last Rspell_check: bytes [start, end) of its text. */
+export function Rspell_get_misspelling(index: number): [result: number, start: number, end: number] {
+	const start_ = new Int32Array(1);
+	const end_ = new Int32Array(1);
+	const result_ = _lib.Rspell_get_misspelling(index, start_, end_);
+	return [result_, start_[0]!, end_[0]!];
+}
+
+/** Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion. */
+export function Rspell_suggest(word: string | null, language: string | null): number {
+	return _lib.Rspell_suggest(_s(word), _s(language));
+}
+
+/** A correction found by the last Rspell_suggest; valid until the next call. */
+export function Rspell_get_suggestion(index: number): string | null {
+	return _lib.Rspell_get_suggestion(index);
+}
+
+/** Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). */
+export function Rspell_learn(word: string | null, language: string | null): void {
+	_lib.Rspell_learn(_s(word), _s(language));
+}
+
+/** The word is no longer a misspelling, in every language, until the application quits. */
+export function Rspell_ignore(word: string | null): void {
+	_lib.Rspell_ignore(_s(word));
+}
+
 export function Rspin_box_set_range(spin_box: Rid, minimum: number, maximum: number): void {
 	_lib.Rspin_box_set_range(spin_box, minimum, maximum);
 }
@@ -12565,6 +12668,25 @@ export function Rtext_editor_set_markdown(editor: Rid, enabled: number): void {
 
 export function Rtext_editor_get_markdown(editor: Rid): number {
 	return _lib.Rtext_editor_get_markdown(editor);
+}
+
+/**
+ * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ * a right click on one offers corrections (see SPELL CHECKING in
+ * raven_controls.h). Only the lines shown are checked, again when they
+ * change. Off by default: it is meant for prose, not for code.
+ */
+export function Rtext_editor_set_spell_check(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_spell_check(editor, enabled);
+}
+
+export function Rtext_editor_get_spell_check(editor: Rid): number {
+	return _lib.Rtext_editor_get_spell_check(editor);
+}
+
+/** Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+export function Rtext_editor_set_spell_language(editor: Rid, language: string | null): void {
+	_lib.Rtext_editor_set_spell_language(editor, _s(language));
 }
 
 /**

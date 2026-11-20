@@ -557,8 +557,9 @@ export const RColorRole = _enum({
 	R_COLOR_DANGER: 289,
 	R_COLOR_LINK: 290,
 	R_COLOR_CODE: 291,
+	R_COLOR_SPELLING: 292,
 });
-export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE } = RColorRole;
+export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE, R_COLOR_SPELLING } = RColorRole;
 
 export const RMetric = _enum({
 	R_METRIC_FONT_SIZE: 320,
@@ -3793,6 +3794,20 @@ export const Rtext_input_set_return_key = _lib.Rtext_input_set_return_key;
 export const Rtext_input_get_return_key = _lib.Rtext_input_get_return_key;
 export const Rtext_input_set_changed_callback = _lib.Rtext_input_set_changed_callback;
 export const Rtext_input_set_committed_callback = _lib.Rtext_input_set_committed_callback;
+export const Rtext_input_set_spell_check = _lib.Rtext_input_set_spell_check;
+export const Rtext_input_get_spell_check = _lib.Rtext_input_get_spell_check;
+export const Rtext_input_set_spell_language = _lib.Rtext_input_set_spell_language;
+export const Rspell_is_supported = _lib.Rspell_is_supported;
+export const Rspell_get_language_count = _lib.Rspell_get_language_count;
+export const Rspell_get_language_at = _lib.Rspell_get_language_at;
+export const Rspell_set_language = _lib.Rspell_set_language;
+export const Rspell_get_language = _lib.Rspell_get_language;
+export const Rspell_check = _lib.Rspell_check;
+export const Rspell_get_misspelling = _lib.Rspell_get_misspelling;
+export const Rspell_suggest = _lib.Rspell_suggest;
+export const Rspell_get_suggestion = _lib.Rspell_get_suggestion;
+export const Rspell_learn = _lib.Rspell_learn;
+export const Rspell_ignore = _lib.Rspell_ignore;
 export const Rspin_box_set_range = _lib.Rspin_box_set_range;
 export const Rspin_box_set_value = _lib.Rspin_box_set_value;
 export const Rspin_box_get_value = _lib.Rspin_box_get_value;
@@ -4244,6 +4259,9 @@ export const Rtext_editor_set_language = _lib.Rtext_editor_set_language;
 export const Rtext_editor_get_language = _lib.Rtext_editor_get_language;
 export const Rtext_editor_set_markdown = _lib.Rtext_editor_set_markdown;
 export const Rtext_editor_get_markdown = _lib.Rtext_editor_get_markdown;
+export const Rtext_editor_set_spell_check = _lib.Rtext_editor_set_spell_check;
+export const Rtext_editor_get_spell_check = _lib.Rtext_editor_get_spell_check;
+export const Rtext_editor_set_spell_language = _lib.Rtext_editor_set_spell_language;
 export const Rtext_editor_get_token = _lib.Rtext_editor_get_token;
 export const Rtext_editor_set_completion = _lib.Rtext_editor_set_completion;
 export const Rtext_editor_show_completions = _lib.Rtext_editor_show_completions;

@@ -749,6 +749,8 @@ constset ColorRole : CInt
 	LINK = 0x0122,
 	<* Background of code in formatted text. *>
 	CODE = 0x0123,
+	<* Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). *>
+	SPELLING = 0x0124,
 }
 
 <* Sizes, in logical units. *>
@@ -3461,6 +3463,18 @@ fn void TextInput.set_changed_callback(self, TextChangedCallback callback, void*
 <* Called when Enter is pressed. This also fires the action of the widget. *>
 fn void TextInput.set_committed_callback(self, TextChangedCallback callback, void* user_data) @inline => c::r_text_input_set_committed_callback((c::Rid)self, (c::RTextChangedCallback)callback, user_data);
 
+<*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING). Off by
+ default. A password is never checked.
+*>
+fn void TextInput.set_spell_check(self, bool enabled) @inline => c::r_text_input_set_spell_check((c::Rid)self, (CInt)enabled);
+
+fn CInt TextInput.get_spell_check(self) @inline => c::r_text_input_get_spell_check((c::Rid)self);
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+fn void TextInput.set_spell_language(self, ZString language) @inline => c::r_text_input_set_spell_language((c::Rid)self, (char*)language);
+
 // ---- SpinBox
 
 typedef SpinBox = inline Widget;
@@ -4005,6 +4019,19 @@ fn ZString TextEditor.get_language(self) @inline => (ZString)c::r_text_editor_ge
 fn void TextEditor.set_markdown(self, bool enabled) @inline => c::r_text_editor_set_markdown((c::Rid)self, (CInt)enabled);
 
 fn CInt TextEditor.get_markdown(self) @inline => c::r_text_editor_get_markdown((c::Rid)self);
+
+<*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING in
+ raven_controls.h). Only the lines shown are checked, again when they
+ change. Off by default: it is meant for prose, not for code.
+*>
+fn void TextEditor.set_spell_check(self, bool enabled) @inline => c::r_text_editor_set_spell_check((c::Rid)self, (CInt)enabled);
+
+fn CInt TextEditor.get_spell_check(self) @inline => c::r_text_editor_get_spell_check((c::Rid)self);
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+fn void TextEditor.set_spell_language(self, ZString language) @inline => c::r_text_editor_set_spell_language((c::Rid)self, (char*)language);
 
 <*
  What the language of the editor makes of the character at a
@@ -7513,6 +7540,46 @@ fn void set_layout_direction(Direction direction) @inline => c::r_set_layout_dir
 
 <* The direction the windows use now: R_DIRECTION_LTR or _RTL. *>
 fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direction();
+
+<* R_TRUE when the system has a spell checker that Raven can use. *>
+alias spell_is_supported = c::r_spell_is_supported;
+
+<* The languages the checker has dictionaries for. *>
+alias spell_get_language_count = c::r_spell_get_language_count;
+
+fn ZString spell_get_language_at(CInt index) @inline => (ZString)c::r_spell_get_language_at(index);
+
+<*
+ The language used when a widget or a call gives none. NULL
+ follows the locale again.
+ Returns R_FALSE when the checker has no dictionary for it (the default
+ of the system is then used).
+*>
+fn bool spell_set_language(ZString language) @inline => c::r_spell_set_language((char*)language) != 0;
+
+<* The code of the language used by default, as the checker names it; "" when there is no checker. *>
+fn ZString spell_get_language() @inline => (ZString)c::r_spell_get_language();
+
+<*
+ Checks a text. `language` NULL: the default.
+ Returns The number of misspelled words, read with Rspell_get_misspelling.
+*>
+fn CInt spell_check(ZString text, ZString language) @inline => c::r_spell_check((char*)text, (char*)language);
+
+<* A misspelled word found by the last Rspell_check: bytes [start, end) of its text. *>
+alias spell_get_misspelling = c::r_spell_get_misspelling;
+
+<* Returns The number of corrections for a word (best first), read with Rspell_get_suggestion. *>
+fn CInt spell_suggest(ZString word, ZString language) @inline => c::r_spell_suggest((char*)word, (char*)language);
+
+<* A correction found by the last Rspell_suggest; valid until the next call. *>
+fn ZString spell_get_suggestion(CInt index) @inline => (ZString)c::r_spell_get_suggestion(index);
+
+<* Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). *>
+fn void spell_learn(ZString word, ZString language) @inline => c::r_spell_learn((char*)word, (char*)language);
+
+<* The word is no longer a misspelling, in every language, until the application quits. *>
+fn void spell_ignore(ZString word) @inline => c::r_spell_ignore((char*)word);
 
 <* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
 alias pdf_is_available = c::r_pdf_is_available;

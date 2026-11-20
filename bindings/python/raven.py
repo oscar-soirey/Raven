@@ -811,6 +811,7 @@ class RColorRole(enum.IntEnum):
     R_COLOR_DANGER = 0x0121
     R_COLOR_LINK = 0x0122
     R_COLOR_CODE = 0x0123
+    R_COLOR_SPELLING = 0x0124
 
 R_COLOR_WINDOW = RColorRole.R_COLOR_WINDOW
 R_COLOR_PANEL = RColorRole.R_COLOR_PANEL
@@ -848,6 +849,7 @@ R_COLOR_WARNING = RColorRole.R_COLOR_WARNING
 R_COLOR_DANGER = RColorRole.R_COLOR_DANGER
 R_COLOR_LINK = RColorRole.R_COLOR_LINK
 R_COLOR_CODE = RColorRole.R_COLOR_CODE
+R_COLOR_SPELLING = RColorRole.R_COLOR_SPELLING
 
 class RMetric(enum.IntEnum):
     """Sizes, in logical units."""
@@ -7226,6 +7228,139 @@ def Rtext_input_set_committed_callback(text_input, callback, user_data=None):
     _lib.Rtext_input_set_committed_callback(text_input, _callback(RTextChangedCallback, _adapt_RTextChangedCallback, callback), user_data)
 
 
+_lib.Rtext_input_set_spell_check.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_input_set_spell_check.restype = None
+
+
+def Rtext_input_set_spell_check(text_input, enabled):
+    """Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    a right click on one offers corrections (see SPELL CHECKING). Off by
+    default. A password is never checked."""
+    _lib.Rtext_input_set_spell_check(text_input, enabled)
+
+
+_lib.Rtext_input_get_spell_check.argtypes = [ctypes.c_uint32]
+_lib.Rtext_input_get_spell_check.restype = ctypes.c_int
+
+
+def Rtext_input_get_spell_check(text_input):
+    return _lib.Rtext_input_get_spell_check(text_input)
+
+
+_lib.Rtext_input_set_spell_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_input_set_spell_language.restype = None
+
+
+def Rtext_input_set_spell_language(text_input, language):
+    """Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language)."""
+    _lib.Rtext_input_set_spell_language(text_input, _s(language))
+
+
+_lib.Rspell_is_supported.argtypes = []
+_lib.Rspell_is_supported.restype = ctypes.c_int
+
+
+def Rspell_is_supported():
+    """R_TRUE when the system has a spell checker that Raven can use."""
+    return _lib.Rspell_is_supported()
+
+
+_lib.Rspell_get_language_count.argtypes = []
+_lib.Rspell_get_language_count.restype = ctypes.c_int
+
+
+def Rspell_get_language_count():
+    """The languages the checker has dictionaries for."""
+    return _lib.Rspell_get_language_count()
+
+
+_lib.Rspell_get_language_at.argtypes = [ctypes.c_int]
+_lib.Rspell_get_language_at.restype = ctypes.c_char_p
+
+
+def Rspell_get_language_at(index):
+    return _r(_lib.Rspell_get_language_at(index))
+
+
+_lib.Rspell_set_language.argtypes = [ctypes.c_char_p]
+_lib.Rspell_set_language.restype = ctypes.c_int
+
+
+def Rspell_set_language(language):
+    """The language used when a widget or a call gives none. NULL
+    follows the locale again.
+    Returns: R_FALSE when the checker has no dictionary for it (the default
+    of the system is then used)."""
+    return _lib.Rspell_set_language(_s(language))
+
+
+_lib.Rspell_get_language.argtypes = []
+_lib.Rspell_get_language.restype = ctypes.c_char_p
+
+
+def Rspell_get_language():
+    """The code of the language used by default, as the checker names it; "" when there is no checker."""
+    return _r(_lib.Rspell_get_language())
+
+
+_lib.Rspell_check.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_check.restype = ctypes.c_int
+
+
+def Rspell_check(text, language):
+    """Checks a text. `language` NULL: the default.
+    Returns: The number of misspelled words, read with Rspell_get_misspelling."""
+    return _lib.Rspell_check(_s(text), _s(language))
+
+
+_lib.Rspell_get_misspelling.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rspell_get_misspelling.restype = ctypes.c_int
+
+
+def Rspell_get_misspelling(index):
+    """A misspelled word found by the last Rspell_check: bytes [start, end) of its text."""
+    start_ = ctypes.c_int()
+    end_ = ctypes.c_int()
+    result = _lib.Rspell_get_misspelling(index, ctypes.byref(start_), ctypes.byref(end_))
+    return (result, start_.value, end_.value)
+
+
+_lib.Rspell_suggest.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_suggest.restype = ctypes.c_int
+
+
+def Rspell_suggest(word, language):
+    """Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion."""
+    return _lib.Rspell_suggest(_s(word), _s(language))
+
+
+_lib.Rspell_get_suggestion.argtypes = [ctypes.c_int]
+_lib.Rspell_get_suggestion.restype = ctypes.c_char_p
+
+
+def Rspell_get_suggestion(index):
+    """A correction found by the last Rspell_suggest; valid until the next call."""
+    return _r(_lib.Rspell_get_suggestion(index))
+
+
+_lib.Rspell_learn.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rspell_learn.restype = None
+
+
+def Rspell_learn(word, language):
+    """Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session)."""
+    _lib.Rspell_learn(_s(word), _s(language))
+
+
+_lib.Rspell_ignore.argtypes = [ctypes.c_char_p]
+_lib.Rspell_ignore.restype = None
+
+
+def Rspell_ignore(word):
+    """The word is no longer a misspelling, in every language, until the application quits."""
+    _lib.Rspell_ignore(_s(word))
+
+
 _lib.Rspin_box_set_range.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double]
 _lib.Rspin_box_set_range.restype = None
 
@@ -11059,6 +11194,35 @@ _lib.Rtext_editor_get_markdown.restype = ctypes.c_int
 
 def Rtext_editor_get_markdown(editor):
     return _lib.Rtext_editor_get_markdown(editor)
+
+
+_lib.Rtext_editor_set_spell_check.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_spell_check.restype = None
+
+
+def Rtext_editor_set_spell_check(editor, enabled):
+    """Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    a right click on one offers corrections (see SPELL CHECKING in
+    raven_controls.h). Only the lines shown are checked, again when they
+    change. Off by default: it is meant for prose, not for code."""
+    _lib.Rtext_editor_set_spell_check(editor, enabled)
+
+
+_lib.Rtext_editor_get_spell_check.argtypes = [ctypes.c_uint32]
+_lib.Rtext_editor_get_spell_check.restype = ctypes.c_int
+
+
+def Rtext_editor_get_spell_check(editor):
+    return _lib.Rtext_editor_get_spell_check(editor)
+
+
+_lib.Rtext_editor_set_spell_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtext_editor_set_spell_language.restype = None
+
+
+def Rtext_editor_set_spell_language(editor, language):
+    """Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language)."""
+    _lib.Rtext_editor_set_spell_language(editor, _s(language))
 
 
 _lib.Rtext_editor_get_token.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
