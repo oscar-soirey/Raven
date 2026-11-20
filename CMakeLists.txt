@@ -144,6 +144,8 @@ set(RAVEN_CORE_SOURCES
 	src/core/accessibility_touch.c
 	src/core/context.h
 	src/core/deflate.c
+	src/core/diff.c
+	src/core/diff.h
 	src/core/error.c
 	src/core/file.c
 	src/core/handle.c
@@ -281,6 +283,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/chart.c
 	src/widgets/map_view.c
 	src/widgets/carousel.c
+	src/widgets/diff_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )

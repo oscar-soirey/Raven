@@ -273,7 +273,11 @@ const te_color_info g_te_colors[TE_COLOR_COUNT] = {
 	{ R_COLOR_TOOLTIP_TEXT, "TooltipText", "Popups", "Text of tooltips" },
 	{ R_COLOR_SUCCESS, "Success", "Status", "Things that went well" },
 	{ R_COLOR_WARNING, "Warning", "Status", "Things to look at" },
-	{ R_COLOR_DANGER, "Danger", "Status", "Errors, and buttons that destroy (Class=\"danger\")" }
+	{ R_COLOR_DANGER, "Danger", "Status", "Errors, and buttons that destroy (Class=\"danger\")" },
+	{ R_COLOR_DIFF_ADDED, "DiffAdded", "Changes", "Lines added in a diff view (see-through)" },
+	{ R_COLOR_DIFF_REMOVED, "DiffRemoved", "Changes", "Lines removed in a diff view (see-through)" },
+	{ R_COLOR_DIFF_ADDED_WORD, "DiffAddedWord", "Changes", "Words added inside a changed line" },
+	{ R_COLOR_DIFF_REMOVED_WORD, "DiffRemovedWord", "Changes", "Words removed inside a changed line" }
 };
 
 const te_metric_info g_te_metrics[TE_METRIC_COUNT] = {
@@ -870,6 +874,11 @@ void te_generate_palette(te_model* model, int dark, float tint, float contrast) 
 	set_hsl(model, R_COLOR_SUCCESS, 142.0f, 0.55f, dark ? 0.62f : 0.36f, 1.0f);
 	set_hsl(model, R_COLOR_WARNING, 38.0f, 0.92f, dark ? 0.62f : 0.42f, 1.0f);
 	set_hsl(model, R_COLOR_DANGER, 2.0f, 0.78f, dark ? 0.64f : 0.48f, 1.0f);
+	/* the lines of a diff: the status colors, see-through so that the surface shows */
+	set_hsl(model, R_COLOR_DIFF_ADDED, 135.0f, 0.60f, dark ? 0.45f : 0.38f, dark ? 0.18f : 0.12f);
+	set_hsl(model, R_COLOR_DIFF_REMOVED, 2.0f, 0.75f, dark ? 0.60f : 0.48f, dark ? 0.18f : 0.10f);
+	set_hsl(model, R_COLOR_DIFF_ADDED_WORD, 135.0f, 0.60f, dark ? 0.45f : 0.38f, dark ? 0.43f : 0.31f);
+	set_hsl(model, R_COLOR_DIFF_REMOVED_WORD, 2.0f, 0.75f, dark ? 0.60f : 0.48f, dark ? 0.43f : 0.27f);
 
 	/* what people read stays readable (WCAG 2: 4.5:1 for text, 3:1 for the parts of controls) */
 	ensure_contrast(model, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_INPUT, 3.0f, dark);
