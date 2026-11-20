@@ -4798,6 +4798,11 @@ export function Rtest_expect_golden(target, golden_path, options, result) {
 	return _lib.Rtest_expect_golden(target, golden_path, _p(options), _p(result));
 }
 export const Rtest_compare_pixels = _lib.Rtest_compare_pixels;
+export const Rtest_dump_tree = _lib.Rtest_dump_tree;
+export const Rtest_save_tree = _lib.Rtest_save_tree;
+export const Rtest_save_png = _lib.Rtest_save_png;
+export const Rtest_run_script = _lib.Rtest_run_script;
+export const Rtest_get_script_error = _lib.Rtest_get_script_error;
 
 /**
  * Runs the interface until the last window closes or Rquit is called, leaving

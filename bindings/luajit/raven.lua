@@ -2650,6 +2650,11 @@ int Rtest_is_shown(Rid widget);
 int Rtest_is_checked(Rid widget);
 int Rtest_expect_golden(Rid target, const char* golden_path, const RGoldenOptions* options, RGoldenResult* result);
 int Rtest_compare_pixels(const uint8_t* actual, const uint8_t* expected, int width, int height, int channel_tolerance, int* max_channel_difference, uint8_t* diff_rgba);
+const char* Rtest_dump_tree(Rid target);
+int Rtest_save_tree(Rid target, const char* path);
+int Rtest_save_png(Rid target, const char* path);
+int Rtest_run_script(const char* script, const char* source_name);
+const char* Rtest_get_script_error(void);
 ]]
 
 local library = ffi.load(os.getenv("RAVEN_LIBRARY") or "raven")

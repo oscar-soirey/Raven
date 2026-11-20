@@ -1418,6 +1418,11 @@ static struct {
 	int (*Rtest_is_checked)(Rid);
 	int (*Rtest_expect_golden)(Rid, const char*, const RGoldenOptions*, RGoldenResult*);
 	int (*Rtest_compare_pixels)(const uint8_t*, const uint8_t*, int, int, int, int*, uint8_t*);
+	const char* (*Rtest_dump_tree)(Rid);
+	int (*Rtest_save_tree)(Rid, const char*);
+	int (*Rtest_save_png)(Rid, const char*);
+	int (*Rtest_run_script)(const char*, const char*);
+	const char* (*Rtest_get_script_error)(void);
 } rn;
 
 static const struct {
@@ -2812,6 +2817,11 @@ static const struct {
 	{"Rtest_is_checked", offsetof(__typeof__(rn), Rtest_is_checked)},
 	{"Rtest_expect_golden", offsetof(__typeof__(rn), Rtest_expect_golden)},
 	{"Rtest_compare_pixels", offsetof(__typeof__(rn), Rtest_compare_pixels)},
+	{"Rtest_dump_tree", offsetof(__typeof__(rn), Rtest_dump_tree)},
+	{"Rtest_save_tree", offsetof(__typeof__(rn), Rtest_save_tree)},
+	{"Rtest_save_png", offsetof(__typeof__(rn), Rtest_save_png)},
+	{"Rtest_run_script", offsetof(__typeof__(rn), Rtest_run_script)},
+	{"Rtest_get_script_error", offsetof(__typeof__(rn), Rtest_get_script_error)},
 };
 
 /* ---- threads */
@@ -27984,6 +27994,82 @@ static napi_value rn_w_Rtest_compare_pixels(napi_env env, napi_callback_info inf
 	return result_;
 }
 
+static napi_value rn_w_Rtest_dump_tree(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rtest_dump_tree((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rtest_save_tree(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtest_save_tree((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_save_png(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtest_save_png((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_run_script(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	rn_str a1;
+	a0.heap = NULL;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtest_run_script(a0.p, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_get_script_error(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	result_ = rn_make_text(env, rn.Rtest_get_script_error());
+	return result_;
+}
+
 
 /* ---- what raven.js needs from the addon */
 
@@ -29505,6 +29591,11 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtest_is_checked", NULL, rn_w_Rtest_is_checked, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_expect_golden", NULL, rn_w_Rtest_expect_golden, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_compare_pixels", NULL, rn_w_Rtest_compare_pixels, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_dump_tree", NULL, rn_w_Rtest_dump_tree, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_save_tree", NULL, rn_w_Rtest_save_tree, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_save_png", NULL, rn_w_Rtest_save_png, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_run_script", NULL, rn_w_Rtest_run_script, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_get_script_error", NULL, rn_w_Rtest_get_script_error, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_open", NULL, rn_w__open, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_ptr", NULL, rn_w__ptr, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_text", NULL, rn_w__text, NULL, NULL, NULL, napi_enumerable, NULL},

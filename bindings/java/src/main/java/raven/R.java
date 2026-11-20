@@ -28230,4 +28230,115 @@ public final class R {
             throw fail($t);
         }
     }
+
+    private static MethodHandle Rtest_dump_tree$;
+
+    /**
+     * The widgets as JSON, what a test, a script or an agent reads of
+     * the interface. Each widget gives its "type" (its XML tag), "name" and
+     * "path" (for Rtest_find) when it has a name, its accessibility "role",
+     * its "text" (Rtest_get_text), "label" and "value" when they differ,
+     * "bounds" [x, y, width, height] in logical units of its window,
+     * "shown", "enabled", and when they apply "focused", "checked",
+     * "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+     * list ("items") and its "children", in the order of the layout.
+     * target A window or a widget; R_INVALID_ID for every window of
+     * the application: {"raven": version, "backend": tag, "windows": [...]},
+     * each with its "title", "size", "scale", "content", "popups".
+     * Returns: The JSON text, valid until the next call. "" on error.
+     */
+    public static String Rtest_dump_tree(int target) {
+        MethodHandle $h = Rtest_dump_tree$;
+        if ($h == null) Rtest_dump_tree$ = $h = find("Rtest_dump_tree", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(target);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_save_tree$;
+
+    /**
+     * Rtest_dump_tree written to a file ("-": the standard output).
+     */
+    public static int Rtest_save_tree(int target, String path) {
+        MethodHandle $h = Rtest_save_tree$;
+        if ($h == null) Rtest_save_tree$ = $h = find("Rtest_save_tree", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(target, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_save_png$;
+
+    /**
+     * Captures a window, or the rectangle of a widget, into a PNG
+     * file. The null backend draws nothing: its picture is the clear color.
+     */
+    public static int Rtest_save_png(int target, String path) {
+        MethodHandle $h = Rtest_save_png$;
+        if ($h == null) Rtest_save_png$ = $h = find("Rtest_save_png", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(target, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_run_script$;
+
+    /**
+     * Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+     * "Driving any application headlessly" in README.md):
+     *
+     *     click form/user
+     *     type "ada"
+     *     key Enter
+     *     expect status text "Welcome, ada"
+     *     snap after-login
+     *
+     * The frames are produced by the function (Rdraw_frame) until the script
+     * ends. A widget is named by its name or path, by "text:Sign in" (the
+     * first one shown that reads it), or a point of the window by "&#64;x,y".
+     * script The text of the script.
+     * source_name The name its messages give it ("login.script"); may be NULL.
+     * Returns: R_TRUE when every step was done and every check was true;
+     * R_FALSE otherwise, with the reason in Rtest_get_script_error.
+     */
+    public static int Rtest_run_script(String script, String source_name) {
+        MethodHandle $h = Rtest_run_script$;
+        if ($h == null) Rtest_run_script$ = $h = find("Rtest_run_script", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment script$ = script == null ? MemorySegment.NULL : utf8($a, script);
+            MemorySegment source_name$ = source_name == null ? MemorySegment.NULL : utf8($a, source_name);
+            int $r = (int) $h.invokeExact(script$, source_name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_get_script_error$;
+
+    /**
+     * Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.
+     */
+    public static String Rtest_get_script_error() {
+        MethodHandle $h = Rtest_get_script_error$;
+        if ($h == null) Rtest_get_script_error$ = $h = find("Rtest_get_script_error", FunctionDescriptor.of(ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact();
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
 }
