@@ -1826,6 +1826,8 @@ static JavaVM* g_dev_vm;
 /* A notification waiting for the answer about its permission (UI thread). */
 typedef struct rvn_android_note_t {
 	struct rvn_android_note_t* next;
+	char* app;
+	char* tag;
 	char* title;
 	char* body;
 	int urgency;
@@ -2060,6 +2062,8 @@ static void rvn_android_device_unload(void) {
 	}
 	while ((note = g_dev.notes) != NULL) {
 		g_dev.notes = note->next;
+		rvn_free(note->app);
+		rvn_free(note->tag);
 		rvn_free(note->title);
 		rvn_free(note->body);
 		rvn_free(note);
@@ -2127,6 +2131,19 @@ static int rvn_android_notify_now(const char* title, const char* body, int urgen
 	return shown ? R_TRUE : R_FALSE;
 }
 
+/* the fallback of the core for a notification that waited and could not be shown (no icon, no buttons on Android for now) */
+static void rvn_android_note_fallback(const rvn_android_note_t* note, const char* reason) {
+	rvn_notification_t notification;
+	memset(&notification, 0, sizeof(notification));
+	notification.app = note->app;
+	notification.tag = note->tag;
+	notification.title = note->title;
+	notification.body = note->body;
+	notification.urgency = note->urgency;
+	notification.icon = "";
+	rvn_notification_fallback(&notification, reason);
+}
+
 /* UI thread (a task): the answer about notifications came; the ones that waited for it go. */
 static void rvn_android_notes_flush(void* arg) {
 	rvn_android_note_t* note = g_dev.notes;
@@ -2136,9 +2153,11 @@ static void rvn_android_notes_flush(void* arg) {
 	g_dev.notes = NULL;
 	while (note) {
 		rvn_android_note_t* next = note->next;
-		if (!allowed) rvn_notification_fallback(note->title, note->body, note->urgency, "notifications were not allowed");
+		if (!allowed) rvn_android_note_fallback(note, "notifications were not allowed");
 		else if (!rvn_android_notify_now(note->title, note->body, note->urgency))
-			rvn_notification_fallback(note->title, note->body, note->urgency, "NotificationManager refused it");
+			rvn_android_note_fallback(note, "NotificationManager refused it");
+		rvn_free(note->app);
+		rvn_free(note->tag);
 		rvn_free(note->title);
 		rvn_free(note->body);
 		rvn_free(note);
@@ -2151,16 +2170,19 @@ static void rvn_android_notes_flush(void* arg) {
  * the question first, then shown or given to the fallback
  * (rvn_android_notes_flush); refused: R_FALSE, the core's fallback.
  */
-static int rvn_android_notify(const char* app, const char* title, const char* body, int urgency) {
+static int rvn_android_notify(const rvn_notification_t* notification) {
 	int status = rvn_android_permission_status(R_PERMISSION_NOTIFICATIONS);
-	RVN_UNUSED(app);
-	if (status == R_PERMISSION_GRANTED || status == R_PERMISSION_LIMITED) return rvn_android_notify_now(title, body, urgency);
+	/* (the title, else the name of the application, as the other platforms show it) */
+	const char* title = notification->title[0] ? notification->title : notification->app;
+	if (status == R_PERMISSION_GRANTED || status == R_PERMISSION_LIMITED) return rvn_android_notify_now(title, notification->body, notification->urgency);
 	if (status == R_PERMISSION_NOT_ASKED) {
 		rvn_android_note_t* note = (rvn_android_note_t*)rvn_calloc(sizeof(rvn_android_note_t));
 		rvn_android_note_t** last = &g_dev.notes;
-		note->title = rvn_strdup(title ? title : "");
-		note->body = rvn_strdup(body ? body : "");
-		note->urgency = urgency;
+		note->app = rvn_strdup(notification->app);
+		note->tag = rvn_strdup(notification->tag);
+		note->title = rvn_strdup(title);
+		note->body = rvn_strdup(notification->body);
+		note->urgency = notification->urgency;
 		while (*last) last = &(*last)->next;
 		*last = note;
 		rvn_android_permission_request(R_PERMISSION_NOTIFICATIONS);

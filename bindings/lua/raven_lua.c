@@ -141,6 +141,13 @@ typedef struct rl_table {
 	void (*Rclipboard_set_text)(const char*);
 	void (*Rclipboard_set_html)(const char*, const char*);
 	const char* (*Rclipboard_get_text)(void);
+	int (*Rclipboard_has_text)(void);
+	int (*Rclipboard_set_data)(const RDataItem*, int);
+	int (*Rclipboard_has_data)(const char*);
+	char* (*Rclipboard_get_data)(const char*, size_t*);
+	int (*Rclipboard_set_image)(const uint8_t*, int, int, int);
+	int (*Rclipboard_has_image)(void);
+	uint8_t* (*Rclipboard_get_image)(int*, int*);
 	RError (*Rerror_get_last)(const char**, RSeverity*);
 	const char* (*Rerror_to_string)(RError);
 	const char* (*Rseverity_to_string)(RSeverity);
@@ -222,6 +229,7 @@ typedef struct rl_table {
 	void (*Rwindow_inject_composition)(Rid, const char*, int, int);
 	int (*Rwindow_inject_drag)(Rid, float, float, int);
 	int (*Rwindow_inject_drop)(Rid, float, float, const char*const*, int, const char*);
+	int (*Rwindow_inject_drag_end)(Rid, RDragOperation);
 	int (*Rwindow_inject_back)(Rid);
 	int (*Rwindow_is_key_down)(Rid, RKey);
 	int (*Rwindow_is_mouse_button_down)(Rid, RMouseButton);
@@ -245,6 +253,10 @@ typedef struct rl_table {
 	const char* (*Rdrag_get_type)(Rid);
 	const char* (*Rdrag_get_data)(Rid);
 	void (*Rdrag_cancel)(Rid);
+	int (*Rdrag_begin_external)(Rid, const RDataItem*, int, Ruint, RDragFinishedCallback, void*);
+	void (*Rdrag_set_image)(const uint8_t*, int, int);
+	int (*Rdrag_external_supported)(void);
+	int (*Rdrag_external_is_active)(void);
 	void (*Rwindow_register_shortcut)(Rid, RKey, Ruint, const char*);
 	void (*Rwindow_unregister_shortcut)(Rid, RKey, Ruint);
 	void (*Rtouch_get_settings)(RTouchSettings*);
@@ -312,12 +324,16 @@ typedef struct rl_table {
 	Rid (*Rtexture_create)(const char*, size_t);
 	Rid (*Rtexture_create_async)(const char*, size_t);
 	Rid (*Rtexture_create_from_svg)(const char*, size_t, float);
+	int (*Rtexture_uses_current_color)(Rid);
 	float (*Rtexture_get_density)(Rid);
 	Rid (*Rtexture_create_from_file)(const char*);
 	Rid (*Rtexture_create_from_file_async)(const char*);
+	Rid (*Rtexture_create_from_url_async)(const char*);
 	Rid (*Rtexture_create_from_pixels)(const uint8_t*, int, int);
 	void (*Rtexture_update)(Rid, const uint8_t*, int, int);
 	uint8_t* (*Rimage_decode)(const void*, size_t, int*, int*);
+	int (*Rimage_decode_info)(const void*, size_t, int*, int*, int*, int*);
+	uint8_t* (*Rimage_decode_frame)(const void*, size_t, int, int*, int*, double*);
 	void (*Rpixels_free)(uint8_t*);
 	uint8_t* (*Rimage_encode_png)(const uint8_t*, int, int, size_t*);
 	int (*Rimage_save_png)(const char*, const uint8_t*, int, int);
@@ -327,6 +343,9 @@ typedef struct rl_table {
 	int (*Rtexture_is_valid)(Rid);
 	void (*Rtexture_get_size)(Rid, int*, int*);
 	void (*Rtexture_set_filter)(Rid, RFilterType);
+	Rid (*Ricon_get)(const char*);
+	int (*Ricon_get_count)(void);
+	const char* (*Ricon_get_name)(int);
 	Rid (*Rwidget_create)(RWidgetType);
 	void (*Rwidget_destroy)(Rid);
 	int (*Rwidget_is_valid)(Rid);
@@ -506,6 +525,19 @@ typedef struct rl_table {
 	void (*Rimage_set_stretch)(Rid, RStretch);
 	void (*Rimage_set_region)(Rid, float, float, float, float);
 	void (*Rimage_set_corner_radius)(Rid, float);
+	int (*Rimage_is_animated)(Rid);
+	int (*Rimage_get_frame_count)(Rid);
+	double (*Rimage_get_duration)(Rid);
+	double (*Rimage_get_frame_delay)(Rid, int);
+	void (*Rimage_play)(Rid);
+	void (*Rimage_pause)(Rid);
+	void (*Rimage_stop)(Rid);
+	int (*Rimage_is_playing)(Rid);
+	void (*Rimage_set_frame)(Rid, int);
+	int (*Rimage_get_frame)(Rid);
+	void (*Rimage_set_loop_count)(Rid, int);
+	int (*Rimage_get_loop_count)(Rid);
+	void (*Rimage_set_finished_callback)(Rid, RImageFinishedCallback, void*);
 	void (*Rtext_input_set_text)(Rid, const char*);
 	const char* (*Rtext_input_get_text)(Rid);
 	void (*Rtext_input_set_placeholder)(Rid, const char*);
@@ -521,6 +553,20 @@ typedef struct rl_table {
 	RReturnKey (*Rtext_input_get_return_key)(Rid);
 	void (*Rtext_input_set_changed_callback)(Rid, RTextChangedCallback, void*);
 	void (*Rtext_input_set_committed_callback)(Rid, RTextChangedCallback, void*);
+	void (*Rtext_input_set_spell_check)(Rid, int);
+	int (*Rtext_input_get_spell_check)(Rid);
+	void (*Rtext_input_set_spell_language)(Rid, const char*);
+	int (*Rspell_is_supported)(void);
+	int (*Rspell_get_language_count)(void);
+	const char* (*Rspell_get_language_at)(int);
+	int (*Rspell_set_language)(const char*);
+	const char* (*Rspell_get_language)(void);
+	int (*Rspell_check)(const char*, const char*);
+	int (*Rspell_get_misspelling)(int, int*, int*);
+	int (*Rspell_suggest)(const char*, const char*);
+	const char* (*Rspell_get_suggestion)(int);
+	void (*Rspell_learn)(const char*, const char*);
+	void (*Rspell_ignore)(const char*);
 	void (*Rspin_box_set_range)(Rid, double, double);
 	void (*Rspin_box_set_value)(Rid, double);
 	double (*Rspin_box_get_value)(Rid);
@@ -537,6 +583,15 @@ typedef struct rl_table {
 	void (*Rcombo_box_set_selected)(Rid, int);
 	int (*Rcombo_box_get_selected)(Rid);
 	void (*Rcombo_box_set_changed_callback)(Rid, RComboBoxChangedCallback, void*);
+	void (*Rcombo_box_set_editable)(Rid, int);
+	int (*Rcombo_box_is_editable)(Rid);
+	void (*Rcombo_box_set_searchable)(Rid, int);
+	int (*Rcombo_box_is_searchable)(Rid);
+	const char* (*Rcombo_box_get_text)(Rid);
+	void (*Rcombo_box_set_text)(Rid, const char*);
+	void (*Rcombo_box_set_text_changed_callback)(Rid, RComboBoxTextCallback, void*);
+	void (*Rcombo_box_set_open)(Rid, int);
+	int (*Rcombo_box_is_open)(Rid);
 	void (*Rseparator_set_orientation)(Rid, ROrientation);
 	int (*Rlist_view_add_item)(Rid, const char*);
 	void (*Rlist_view_set_item_text)(Rid, int, const char*);
@@ -628,6 +683,7 @@ typedef struct rl_table {
 	void (*Rtile_view_set_drop_highlight)(Rid, int);
 	void (*Rtile_view_set_drag_type)(Rid, const char*);
 	void (*Rtile_view_set_drag_data_callback)(Rid, RTileDragDataCallback, void*);
+	void (*Rtile_view_set_drag_out_callback)(Rid, RTileEventCallback, void*);
 	void (*Rtile_view_set_selection_changed_callback)(Rid, RTileEventCallback, void*);
 	void (*Rtile_view_set_activated_callback)(Rid, RTileEventCallback, void*);
 	void (*Rtile_view_set_context_callback)(Rid, RTileContextCallback, void*);
@@ -651,13 +707,20 @@ typedef struct rl_table {
 	void (*Rtable_set_cell_color_callback)(Rid, RTableCellColorCallback, void*);
 	void (*Rtable_set_cell_text_color)(Rid, int, int, float, float, float, float);
 	void (*Rtable_set_multi_select)(Rid, int);
+	void (*Rtable_set_selection_mode)(Rid, RTableSelectionMode);
+	RTableSelectionMode (*Rtable_get_selection_mode)(Rid);
 	void (*Rtable_set_row_selected)(Rid, int, int);
 	int (*Rtable_is_row_selected)(Rid, int);
+	void (*Rtable_select_range)(Rid, int, int, int);
+	void (*Rtable_select_all)(Rid);
 	void (*Rtable_clear_selection)(Rid);
 	int (*Rtable_get_selection_count)(Rid);
 	int (*Rtable_get_selection)(Rid, int);
+	int (*Rtable_get_selection_range_count)(Rid);
+	int (*Rtable_get_selection_range)(Rid, int, int*, int*);
 	void (*Rtable_set_selected)(Rid, int);
 	int (*Rtable_get_selected)(Rid);
+	int (*Rtable_get_current_row)(Rid);
 	void (*Rtable_scroll_to_row)(Rid, int);
 	void (*Rtable_sort)(Rid, int, int);
 	int (*Rtable_get_sort_column)(Rid);
@@ -668,6 +731,18 @@ typedef struct rl_table {
 	void (*Rtable_set_selection_changed_callback)(Rid, RTableEventCallback, void*);
 	void (*Rtable_set_activated_callback)(Rid, RTableEventCallback, void*);
 	void (*Rtable_set_sort_callback)(Rid, RTableSortCallback, void*);
+	void (*Rtable_set_column_editable)(Rid, int, int);
+	int (*Rtable_is_column_editable)(Rid, int);
+	void (*Rtable_set_cell_edited_callback)(Rid, RTableCellEditedCallback, void*);
+	int (*Rtable_edit_cell)(Rid, int, int);
+	int (*Rtable_is_editing)(Rid);
+	int (*Rtable_end_edit)(Rid, int);
+	void (*Rtable_set_frozen_columns)(Rid, int);
+	int (*Rtable_get_frozen_columns)(Rid);
+	void (*Rtable_set_column_kind)(Rid, int, RTableColumnKind);
+	RTableColumnKind (*Rtable_get_column_kind)(Rid, int);
+	int (*Rtable_is_cell_checked)(Rid, int, int);
+	void (*Rtable_set_cell_checked)(Rid, int, int, int);
 	void (*Rdate_picker_set_date)(Rid, int, int, int);
 	void (*Rdate_picker_get_date)(Rid, int*, int*, int*);
 	void (*Rdate_picker_set_range)(Rid, int, int, int, int, int, int);
@@ -677,11 +752,25 @@ typedef struct rl_table {
 	void (*Rdate_picker_set_open)(Rid, int);
 	int (*Rdate_picker_is_open)(Rid);
 	void (*Rdate_picker_set_changed_callback)(Rid, RDateChangedCallback, void*);
+	void (*Rdate_picker_set_time_zone)(Rid, const char*);
+	const char* (*Rdate_picker_get_time_zone)(Rid);
+	void (*Rdate_picker_set_instant)(Rid, double);
+	double (*Rdate_picker_get_instant)(Rid);
 	void (*Rtime_picker_set_time)(Rid, int, int, int);
 	void (*Rtime_picker_get_time)(Rid, int*, int*, int*);
 	void (*Rtime_picker_set_seconds_visible)(Rid, int);
 	void (*Rtime_picker_set_minute_step)(Rid, int);
 	void (*Rtime_picker_set_changed_callback)(Rid, RTimeChangedCallback, void*);
+	void (*Rtime_picker_set_clock)(Rid, RClock);
+	RClock (*Rtime_picker_get_clock)(Rid);
+	const char* (*Rtime_picker_get_text)(Rid);
+	void (*Rtime_picker_set_time_zone)(Rid, const char*);
+	const char* (*Rtime_picker_get_time_zone)(Rid);
+	void (*Rtime_picker_set_time_zone_visible)(Rid, int);
+	void (*Rtime_picker_set_date)(Rid, int, int, int);
+	void (*Rtime_picker_get_date)(Rid, int*, int*, int*);
+	void (*Rtime_picker_set_instant)(Rid, double);
+	double (*Rtime_picker_get_instant)(Rid);
 	void (*Rtoast_show)(Rid, const char*, double);
 	void (*Rtoast_show_kind)(Rid, const char*, RToastKind, double);
 	void (*Rtoast_hide)(Rid);
@@ -886,6 +975,25 @@ typedef struct rl_table {
 	void (*Rmap_view_set_view_changed_callback)(Rid, RMapViewCallback, void*);
 	void (*Rmap_view_set_attribution)(Rid, const char*);
 	const char* (*Rmap_view_get_attribution)(Rid);
+	int (*Rsystem_web_view_is_supported)(void);
+	Rid (*Rsystem_web_view_create)(void);
+	void (*Rsystem_web_view_load_url)(Rid, const char*);
+	void (*Rsystem_web_view_load_file)(Rid, const char*);
+	void (*Rsystem_web_view_load_html)(Rid, const char*, const char*);
+	void (*Rsystem_web_view_reload)(Rid);
+	void (*Rsystem_web_view_stop)(Rid);
+	void (*Rsystem_web_view_go_back)(Rid);
+	void (*Rsystem_web_view_go_forward)(Rid);
+	int (*Rsystem_web_view_can_go_back)(Rid);
+	int (*Rsystem_web_view_can_go_forward)(Rid);
+	const char* (*Rsystem_web_view_get_url)(Rid);
+	const char* (*Rsystem_web_view_get_title)(Rid);
+	int (*Rsystem_web_view_is_loading)(Rid);
+	const char* (*Rsystem_web_view_get_error)(Rid);
+	void (*Rsystem_web_view_run_javascript)(Rid, const char*, RSystemWebViewResultCallback, void*);
+	void (*Rsystem_web_view_set_message_callback)(Rid, RSystemWebViewMessageCallback, void*);
+	void (*Rsystem_web_view_set_event_callback)(Rid, RSystemWebViewEventCallback, void*);
+	void* (*Rsystem_web_view_get_native_handle)(Rid);
 	Rid (*Rpdf_document_create)(void);
 	void (*Rpdf_document_delete)(Rid);
 	void (*Rpdf_document_set_title)(Rid, const char*);
@@ -927,6 +1035,23 @@ typedef struct rl_table {
 	int (*Rtext_editor_get_selection)(Rid, int*, int*, int*, int*);
 	const char* (*Rtext_editor_get_selected_text)(Rid);
 	void (*Rtext_editor_scroll_to_line)(Rid, int);
+	void (*Rtext_editor_add_cursor)(Rid, int, int);
+	void (*Rtext_editor_add_selection)(Rid, int, int, int, int);
+	int (*Rtext_editor_get_cursor_count)(Rid);
+	int (*Rtext_editor_get_cursor_at)(Rid, int, int*, int*, int*, int*);
+	int (*Rtext_editor_get_main_cursor)(Rid);
+	void (*Rtext_editor_clear_cursors)(Rid);
+	int (*Rtext_editor_add_next_occurrence)(Rid);
+	int (*Rtext_editor_select_all_occurrences)(Rid);
+	int (*Rtext_editor_fold)(Rid, int);
+	int (*Rtext_editor_unfold)(Rid, int);
+	void (*Rtext_editor_fold_all)(Rid);
+	void (*Rtext_editor_unfold_all)(Rid);
+	int (*Rtext_editor_is_folded)(Rid, int);
+	int (*Rtext_editor_is_line_hidden)(Rid, int);
+	int (*Rtext_editor_get_fold_end)(Rid, int);
+	void (*Rtext_editor_set_folding)(Rid, int);
+	int (*Rtext_editor_get_folding)(Rid);
 	void (*Rtext_editor_undo)(Rid);
 	void (*Rtext_editor_redo)(Rid);
 	int (*Rtext_editor_can_undo)(Rid);
@@ -952,6 +1077,9 @@ typedef struct rl_table {
 	const char* (*Rtext_editor_get_language)(Rid);
 	void (*Rtext_editor_set_markdown)(Rid, int);
 	int (*Rtext_editor_get_markdown)(Rid);
+	void (*Rtext_editor_set_spell_check)(Rid, int);
+	int (*Rtext_editor_get_spell_check)(Rid);
+	void (*Rtext_editor_set_spell_language)(Rid, const char*);
 	RToken (*Rtext_editor_get_token)(Rid, int, int);
 	void (*Rtext_editor_set_completion)(Rid, int);
 	void (*Rtext_editor_show_completions)(Rid);
@@ -965,6 +1093,21 @@ typedef struct rl_table {
 	void (*Rtext_editor_clear_markers)(Rid);
 	int (*Rtext_editor_get_marker_count)(Rid);
 	void (*Rtext_editor_set_hover_callback)(Rid, RTextEditorHoverCallback, void*);
+	void (*Rtext_editor_set_search)(Rid, const char*, Ruint);
+	const char* (*Rtext_editor_get_search)(Rid);
+	Ruint (*Rtext_editor_get_search_flags)(Rid);
+	int (*Rtext_editor_find_next)(Rid);
+	int (*Rtext_editor_find_previous)(Rid);
+	int (*Rtext_editor_get_match_count)(Rid);
+	int (*Rtext_editor_get_match_index)(Rid);
+	int (*Rtext_editor_get_match)(Rid, int, int*, int*, int*);
+	int (*Rtext_editor_select_match)(Rid, int);
+	int (*Rtext_editor_replace)(Rid, const char*);
+	int (*Rtext_editor_replace_all)(Rid, const char*);
+	void (*Rtext_editor_show_find)(Rid, int);
+	void (*Rtext_editor_hide_find)(Rid);
+	int (*Rtext_editor_is_find_shown)(Rid);
+	void (*Rtext_editor_set_find_bar)(Rid, int);
 	void (*Rtheme_set_token_color)(RToken, float, float, float, float);
 	void (*Rtheme_get_token_color)(RToken, float*, float*, float*, float*);
 	void (*Rtheme_clear_token_colors)(void);
@@ -1228,6 +1371,38 @@ typedef struct rl_table {
 	void (*Rblock_editor_select)(Rid, int, int);
 	void (*Rblock_editor_get_view)(Rid, float*, float*, float*);
 	void (*Rblock_editor_set_view)(Rid, float, float, float);
+	char* (*Rdiff_unified)(const char*, const char*, const char*, const char*, int, uint32_t, size_t*);
+	int (*Rdiff_count_changes)(const char*, const char*, uint32_t);
+	Rid (*Rdiff_view_create)(void);
+	void (*Rdiff_view_set_texts)(Rid, const char*, const char*);
+	void (*Rdiff_view_set_names)(Rid, const char*, const char*);
+	int (*Rdiff_view_load_files)(Rid, const char*, const char*);
+	int (*Rdiff_view_set_patch)(Rid, const char*);
+	void (*Rdiff_view_set_mode)(Rid, RDiffViewMode);
+	RDiffViewMode (*Rdiff_view_get_mode)(Rid);
+	void (*Rdiff_view_set_context)(Rid, int);
+	int (*Rdiff_view_get_context)(Rid);
+	void (*Rdiff_view_set_flags)(Rid, uint32_t);
+	uint32_t (*Rdiff_view_get_flags)(Rid);
+	void (*Rdiff_view_set_word_diff)(Rid, int);
+	void (*Rdiff_view_set_line_numbers)(Rid, int);
+	void (*Rdiff_view_set_language)(Rid, const char*);
+	int (*Rdiff_view_get_change_count)(Rid);
+	int (*Rdiff_view_get_change)(Rid, int, int*, int*, int*, int*);
+	void (*Rdiff_view_go_to_change)(Rid, int);
+	int (*Rdiff_view_get_current_change)(Rid);
+	int (*Rdiff_view_next_change)(Rid);
+	int (*Rdiff_view_prev_change)(Rid);
+	int (*Rdiff_view_get_row_count)(Rid);
+	RDiffRowKind (*Rdiff_view_get_row)(Rid, int, int*, int*);
+	const char* (*Rdiff_view_get_row_text)(Rid, int, RDiffSide);
+	int (*Rdiff_view_expand)(Rid, int);
+	int (*Rdiff_view_get_first_visible_row)(Rid);
+	void (*Rdiff_view_scroll_to_row)(Rid, int);
+	void (*Rdiff_view_add_annotation)(Rid, RDiffSide, int, const char*);
+	void (*Rdiff_view_clear_annotations)(Rid);
+	const char* (*Rdiff_view_get_selected_text)(Rid);
+	void (*Rdiff_view_set_line_clicked_callback)(Rid, RDiffViewLineCallback, void*);
 	void (*Rdialog_open)(Rid, Rid, RDialogClosedCallback, void*);
 	void (*Rdialog_close)(Rid, int);
 	int (*Rdialog_run)(Rid, Rid);
@@ -1268,6 +1443,27 @@ typedef struct rl_table {
 	int (*Rnotification_is_supported)(void);
 	void (*Rnotification_set_fallback)(RNotificationFallback, void*);
 	void (*Rnotification_set_clicked_callback)(RNotificationClickedCallback, void*);
+	int (*Rnotification_show_desc)(const RNotificationDesc*);
+	void (*Rnotification_close)(const char*);
+	void (*Rnotification_set_callback)(RNotificationCallback, void*);
+	void (*Rnotification_set_bring_to_front)(int);
+	void (*Rnotification_set_fallback_toast)(Rid);
+	int (*Rnotification_supports)(RNotificationFeature);
+	RPermissionStatus (*Rpermission_get_status)(RPermission);
+	void (*Rpermission_request)(RPermission, RPermissionCallback, void*);
+	int (*Rpermission_open_settings)(void);
+	const char* (*Rpermission_to_string)(RPermission);
+	const char* (*Rpermission_status_to_string)(RPermissionStatus);
+	void (*Rfile_open_async)(const RFileDialogDesc*, RDeviceCallback, void*);
+	void (*Rfile_save_async)(const RFileDialogDesc*, const void*, size_t, RDeviceCallback, void*);
+	void (*Rfile_export_async)(const RFileDialogDesc*, const char*, RDeviceCallback, void*);
+	void (*Rfile_select_folder_async)(const RFileDialogDesc*, RDeviceCallback, void*);
+	int (*Rcamera_is_available)(void);
+	void (*Rcamera_take_photo)(RDeviceCallback, void*);
+	void (*Rphoto_pick)(int, RDeviceCallback, void*);
+	int (*Rhaptic_is_supported)(void);
+	int (*Rhaptic_play)(RHaptic);
+	void (*Rshare_show)(const RShareDesc*, RDeviceCallback, void*);
 	void (*Rviewport_set_texture)(Rid, Rid);
 	void (*Rviewport_set_stretch)(Rid, RStretch);
 	void (*Rviewport_set_flip_y)(Rid, int);
@@ -1402,6 +1598,21 @@ typedef struct rl_table {
 	const char* (*Rtr_plural)(const char*, int);
 	void (*Rwidget_set_text_key)(Rid, const char*, const char*);
 	const char* (*Rlocale_format_number)(double, int);
+	void (*Rlocale_set_clock)(RClock);
+	RClock (*Rlocale_get_clock)(void);
+	int (*Rlocale_uses_12_hour_clock)(void);
+	const char* (*Rlocale_get_day_period)(int);
+	const char* (*Rlocale_format_time)(int, int, int, int);
+	const char* (*Rtimezone_get_system)(void);
+	void (*Rtimezone_set_directory)(const char*);
+	int (*Rtimezone_is_valid)(const char*);
+	int (*Rtimezone_to_local)(const char*, double, int*, int*, int*, int*, int*, int*);
+	double (*Rtimezone_from_local)(const char*, int, int, int, int, int, int);
+	int (*Rtimezone_count_local)(const char*, int, int, int, int, int, int);
+	int (*Rtimezone_get_offset)(const char*, double);
+	int (*Rtimezone_is_daylight_saving)(const char*, double);
+	const char* (*Rtimezone_get_abbreviation)(const char*, double);
+	const char* (*Rtimezone_get_label)(const char*, double);
 	void (*Raccessibility_set_text_scale)(float);
 	float (*Raccessibility_get_text_scale)(void);
 	void (*Raccessibility_set_high_contrast)(int);
@@ -1439,6 +1650,8 @@ typedef struct rl_table {
 	void (*Rhost_inject_composition)(Rid, const char*, int, int);
 	void (*Rhost_inject_focus)(Rid, int);
 	void (*Rhost_inject_close)(Rid);
+	void (*Rhost_permission_answer)(RPermission, RPermissionStatus);
+	void (*Rhost_service_complete)(Ruint, RDeviceResult, const RPickedFile*, int);
 	void (*Rtest_set_deterministic)(int);
 	int (*Rtest_is_deterministic)(void);
 	const char* (*Rtest_get_platform_tag)(void);
@@ -1464,6 +1677,11 @@ typedef struct rl_table {
 	int (*Rtest_is_checked)(Rid);
 	int (*Rtest_expect_golden)(Rid, const char*, const RGoldenOptions*, RGoldenResult*);
 	int (*Rtest_compare_pixels)(const uint8_t*, const uint8_t*, int, int, int, int*, uint8_t*);
+	const char* (*Rtest_dump_tree)(Rid);
+	int (*Rtest_save_tree)(Rid, const char*);
+	int (*Rtest_save_png)(Rid, const char*);
+	int (*Rtest_run_script)(const char*, const char*);
+	const char* (*Rtest_get_script_error)(void);
 } rl_table;
 
 static rl_table rl;
@@ -1537,6 +1755,13 @@ static const struct {
 	{"Rclipboard_set_text", offsetof(rl_table, Rclipboard_set_text)},
 	{"Rclipboard_set_html", offsetof(rl_table, Rclipboard_set_html)},
 	{"Rclipboard_get_text", offsetof(rl_table, Rclipboard_get_text)},
+	{"Rclipboard_has_text", offsetof(rl_table, Rclipboard_has_text)},
+	{"Rclipboard_set_data", offsetof(rl_table, Rclipboard_set_data)},
+	{"Rclipboard_has_data", offsetof(rl_table, Rclipboard_has_data)},
+	{"Rclipboard_get_data", offsetof(rl_table, Rclipboard_get_data)},
+	{"Rclipboard_set_image", offsetof(rl_table, Rclipboard_set_image)},
+	{"Rclipboard_has_image", offsetof(rl_table, Rclipboard_has_image)},
+	{"Rclipboard_get_image", offsetof(rl_table, Rclipboard_get_image)},
 	{"Rerror_get_last", offsetof(rl_table, Rerror_get_last)},
 	{"Rerror_to_string", offsetof(rl_table, Rerror_to_string)},
 	{"Rseverity_to_string", offsetof(rl_table, Rseverity_to_string)},
@@ -1618,6 +1843,7 @@ static const struct {
 	{"Rwindow_inject_composition", offsetof(rl_table, Rwindow_inject_composition)},
 	{"Rwindow_inject_drag", offsetof(rl_table, Rwindow_inject_drag)},
 	{"Rwindow_inject_drop", offsetof(rl_table, Rwindow_inject_drop)},
+	{"Rwindow_inject_drag_end", offsetof(rl_table, Rwindow_inject_drag_end)},
 	{"Rwindow_inject_back", offsetof(rl_table, Rwindow_inject_back)},
 	{"Rwindow_is_key_down", offsetof(rl_table, Rwindow_is_key_down)},
 	{"Rwindow_is_mouse_button_down", offsetof(rl_table, Rwindow_is_mouse_button_down)},
@@ -1641,6 +1867,10 @@ static const struct {
 	{"Rdrag_get_type", offsetof(rl_table, Rdrag_get_type)},
 	{"Rdrag_get_data", offsetof(rl_table, Rdrag_get_data)},
 	{"Rdrag_cancel", offsetof(rl_table, Rdrag_cancel)},
+	{"Rdrag_begin_external", offsetof(rl_table, Rdrag_begin_external)},
+	{"Rdrag_set_image", offsetof(rl_table, Rdrag_set_image)},
+	{"Rdrag_external_supported", offsetof(rl_table, Rdrag_external_supported)},
+	{"Rdrag_external_is_active", offsetof(rl_table, Rdrag_external_is_active)},
 	{"Rwindow_register_shortcut", offsetof(rl_table, Rwindow_register_shortcut)},
 	{"Rwindow_unregister_shortcut", offsetof(rl_table, Rwindow_unregister_shortcut)},
 	{"Rtouch_get_settings", offsetof(rl_table, Rtouch_get_settings)},
@@ -1708,12 +1938,16 @@ static const struct {
 	{"Rtexture_create", offsetof(rl_table, Rtexture_create)},
 	{"Rtexture_create_async", offsetof(rl_table, Rtexture_create_async)},
 	{"Rtexture_create_from_svg", offsetof(rl_table, Rtexture_create_from_svg)},
+	{"Rtexture_uses_current_color", offsetof(rl_table, Rtexture_uses_current_color)},
 	{"Rtexture_get_density", offsetof(rl_table, Rtexture_get_density)},
 	{"Rtexture_create_from_file", offsetof(rl_table, Rtexture_create_from_file)},
 	{"Rtexture_create_from_file_async", offsetof(rl_table, Rtexture_create_from_file_async)},
+	{"Rtexture_create_from_url_async", offsetof(rl_table, Rtexture_create_from_url_async)},
 	{"Rtexture_create_from_pixels", offsetof(rl_table, Rtexture_create_from_pixels)},
 	{"Rtexture_update", offsetof(rl_table, Rtexture_update)},
 	{"Rimage_decode", offsetof(rl_table, Rimage_decode)},
+	{"Rimage_decode_info", offsetof(rl_table, Rimage_decode_info)},
+	{"Rimage_decode_frame", offsetof(rl_table, Rimage_decode_frame)},
 	{"Rpixels_free", offsetof(rl_table, Rpixels_free)},
 	{"Rimage_encode_png", offsetof(rl_table, Rimage_encode_png)},
 	{"Rimage_save_png", offsetof(rl_table, Rimage_save_png)},
@@ -1723,6 +1957,9 @@ static const struct {
 	{"Rtexture_is_valid", offsetof(rl_table, Rtexture_is_valid)},
 	{"Rtexture_get_size", offsetof(rl_table, Rtexture_get_size)},
 	{"Rtexture_set_filter", offsetof(rl_table, Rtexture_set_filter)},
+	{"Ricon_get", offsetof(rl_table, Ricon_get)},
+	{"Ricon_get_count", offsetof(rl_table, Ricon_get_count)},
+	{"Ricon_get_name", offsetof(rl_table, Ricon_get_name)},
 	{"Rwidget_create", offsetof(rl_table, Rwidget_create)},
 	{"Rwidget_destroy", offsetof(rl_table, Rwidget_destroy)},
 	{"Rwidget_is_valid", offsetof(rl_table, Rwidget_is_valid)},
@@ -1902,6 +2139,19 @@ static const struct {
 	{"Rimage_set_stretch", offsetof(rl_table, Rimage_set_stretch)},
 	{"Rimage_set_region", offsetof(rl_table, Rimage_set_region)},
 	{"Rimage_set_corner_radius", offsetof(rl_table, Rimage_set_corner_radius)},
+	{"Rimage_is_animated", offsetof(rl_table, Rimage_is_animated)},
+	{"Rimage_get_frame_count", offsetof(rl_table, Rimage_get_frame_count)},
+	{"Rimage_get_duration", offsetof(rl_table, Rimage_get_duration)},
+	{"Rimage_get_frame_delay", offsetof(rl_table, Rimage_get_frame_delay)},
+	{"Rimage_play", offsetof(rl_table, Rimage_play)},
+	{"Rimage_pause", offsetof(rl_table, Rimage_pause)},
+	{"Rimage_stop", offsetof(rl_table, Rimage_stop)},
+	{"Rimage_is_playing", offsetof(rl_table, Rimage_is_playing)},
+	{"Rimage_set_frame", offsetof(rl_table, Rimage_set_frame)},
+	{"Rimage_get_frame", offsetof(rl_table, Rimage_get_frame)},
+	{"Rimage_set_loop_count", offsetof(rl_table, Rimage_set_loop_count)},
+	{"Rimage_get_loop_count", offsetof(rl_table, Rimage_get_loop_count)},
+	{"Rimage_set_finished_callback", offsetof(rl_table, Rimage_set_finished_callback)},
 	{"Rtext_input_set_text", offsetof(rl_table, Rtext_input_set_text)},
 	{"Rtext_input_get_text", offsetof(rl_table, Rtext_input_get_text)},
 	{"Rtext_input_set_placeholder", offsetof(rl_table, Rtext_input_set_placeholder)},
@@ -1917,6 +2167,20 @@ static const struct {
 	{"Rtext_input_get_return_key", offsetof(rl_table, Rtext_input_get_return_key)},
 	{"Rtext_input_set_changed_callback", offsetof(rl_table, Rtext_input_set_changed_callback)},
 	{"Rtext_input_set_committed_callback", offsetof(rl_table, Rtext_input_set_committed_callback)},
+	{"Rtext_input_set_spell_check", offsetof(rl_table, Rtext_input_set_spell_check)},
+	{"Rtext_input_get_spell_check", offsetof(rl_table, Rtext_input_get_spell_check)},
+	{"Rtext_input_set_spell_language", offsetof(rl_table, Rtext_input_set_spell_language)},
+	{"Rspell_is_supported", offsetof(rl_table, Rspell_is_supported)},
+	{"Rspell_get_language_count", offsetof(rl_table, Rspell_get_language_count)},
+	{"Rspell_get_language_at", offsetof(rl_table, Rspell_get_language_at)},
+	{"Rspell_set_language", offsetof(rl_table, Rspell_set_language)},
+	{"Rspell_get_language", offsetof(rl_table, Rspell_get_language)},
+	{"Rspell_check", offsetof(rl_table, Rspell_check)},
+	{"Rspell_get_misspelling", offsetof(rl_table, Rspell_get_misspelling)},
+	{"Rspell_suggest", offsetof(rl_table, Rspell_suggest)},
+	{"Rspell_get_suggestion", offsetof(rl_table, Rspell_get_suggestion)},
+	{"Rspell_learn", offsetof(rl_table, Rspell_learn)},
+	{"Rspell_ignore", offsetof(rl_table, Rspell_ignore)},
 	{"Rspin_box_set_range", offsetof(rl_table, Rspin_box_set_range)},
 	{"Rspin_box_set_value", offsetof(rl_table, Rspin_box_set_value)},
 	{"Rspin_box_get_value", offsetof(rl_table, Rspin_box_get_value)},
@@ -1933,6 +2197,15 @@ static const struct {
 	{"Rcombo_box_set_selected", offsetof(rl_table, Rcombo_box_set_selected)},
 	{"Rcombo_box_get_selected", offsetof(rl_table, Rcombo_box_get_selected)},
 	{"Rcombo_box_set_changed_callback", offsetof(rl_table, Rcombo_box_set_changed_callback)},
+	{"Rcombo_box_set_editable", offsetof(rl_table, Rcombo_box_set_editable)},
+	{"Rcombo_box_is_editable", offsetof(rl_table, Rcombo_box_is_editable)},
+	{"Rcombo_box_set_searchable", offsetof(rl_table, Rcombo_box_set_searchable)},
+	{"Rcombo_box_is_searchable", offsetof(rl_table, Rcombo_box_is_searchable)},
+	{"Rcombo_box_get_text", offsetof(rl_table, Rcombo_box_get_text)},
+	{"Rcombo_box_set_text", offsetof(rl_table, Rcombo_box_set_text)},
+	{"Rcombo_box_set_text_changed_callback", offsetof(rl_table, Rcombo_box_set_text_changed_callback)},
+	{"Rcombo_box_set_open", offsetof(rl_table, Rcombo_box_set_open)},
+	{"Rcombo_box_is_open", offsetof(rl_table, Rcombo_box_is_open)},
 	{"Rseparator_set_orientation", offsetof(rl_table, Rseparator_set_orientation)},
 	{"Rlist_view_add_item", offsetof(rl_table, Rlist_view_add_item)},
 	{"Rlist_view_set_item_text", offsetof(rl_table, Rlist_view_set_item_text)},
@@ -2024,6 +2297,7 @@ static const struct {
 	{"Rtile_view_set_drop_highlight", offsetof(rl_table, Rtile_view_set_drop_highlight)},
 	{"Rtile_view_set_drag_type", offsetof(rl_table, Rtile_view_set_drag_type)},
 	{"Rtile_view_set_drag_data_callback", offsetof(rl_table, Rtile_view_set_drag_data_callback)},
+	{"Rtile_view_set_drag_out_callback", offsetof(rl_table, Rtile_view_set_drag_out_callback)},
 	{"Rtile_view_set_selection_changed_callback", offsetof(rl_table, Rtile_view_set_selection_changed_callback)},
 	{"Rtile_view_set_activated_callback", offsetof(rl_table, Rtile_view_set_activated_callback)},
 	{"Rtile_view_set_context_callback", offsetof(rl_table, Rtile_view_set_context_callback)},
@@ -2047,13 +2321,20 @@ static const struct {
 	{"Rtable_set_cell_color_callback", offsetof(rl_table, Rtable_set_cell_color_callback)},
 	{"Rtable_set_cell_text_color", offsetof(rl_table, Rtable_set_cell_text_color)},
 	{"Rtable_set_multi_select", offsetof(rl_table, Rtable_set_multi_select)},
+	{"Rtable_set_selection_mode", offsetof(rl_table, Rtable_set_selection_mode)},
+	{"Rtable_get_selection_mode", offsetof(rl_table, Rtable_get_selection_mode)},
 	{"Rtable_set_row_selected", offsetof(rl_table, Rtable_set_row_selected)},
 	{"Rtable_is_row_selected", offsetof(rl_table, Rtable_is_row_selected)},
+	{"Rtable_select_range", offsetof(rl_table, Rtable_select_range)},
+	{"Rtable_select_all", offsetof(rl_table, Rtable_select_all)},
 	{"Rtable_clear_selection", offsetof(rl_table, Rtable_clear_selection)},
 	{"Rtable_get_selection_count", offsetof(rl_table, Rtable_get_selection_count)},
 	{"Rtable_get_selection", offsetof(rl_table, Rtable_get_selection)},
+	{"Rtable_get_selection_range_count", offsetof(rl_table, Rtable_get_selection_range_count)},
+	{"Rtable_get_selection_range", offsetof(rl_table, Rtable_get_selection_range)},
 	{"Rtable_set_selected", offsetof(rl_table, Rtable_set_selected)},
 	{"Rtable_get_selected", offsetof(rl_table, Rtable_get_selected)},
+	{"Rtable_get_current_row", offsetof(rl_table, Rtable_get_current_row)},
 	{"Rtable_scroll_to_row", offsetof(rl_table, Rtable_scroll_to_row)},
 	{"Rtable_sort", offsetof(rl_table, Rtable_sort)},
 	{"Rtable_get_sort_column", offsetof(rl_table, Rtable_get_sort_column)},
@@ -2064,6 +2345,18 @@ static const struct {
 	{"Rtable_set_selection_changed_callback", offsetof(rl_table, Rtable_set_selection_changed_callback)},
 	{"Rtable_set_activated_callback", offsetof(rl_table, Rtable_set_activated_callback)},
 	{"Rtable_set_sort_callback", offsetof(rl_table, Rtable_set_sort_callback)},
+	{"Rtable_set_column_editable", offsetof(rl_table, Rtable_set_column_editable)},
+	{"Rtable_is_column_editable", offsetof(rl_table, Rtable_is_column_editable)},
+	{"Rtable_set_cell_edited_callback", offsetof(rl_table, Rtable_set_cell_edited_callback)},
+	{"Rtable_edit_cell", offsetof(rl_table, Rtable_edit_cell)},
+	{"Rtable_is_editing", offsetof(rl_table, Rtable_is_editing)},
+	{"Rtable_end_edit", offsetof(rl_table, Rtable_end_edit)},
+	{"Rtable_set_frozen_columns", offsetof(rl_table, Rtable_set_frozen_columns)},
+	{"Rtable_get_frozen_columns", offsetof(rl_table, Rtable_get_frozen_columns)},
+	{"Rtable_set_column_kind", offsetof(rl_table, Rtable_set_column_kind)},
+	{"Rtable_get_column_kind", offsetof(rl_table, Rtable_get_column_kind)},
+	{"Rtable_is_cell_checked", offsetof(rl_table, Rtable_is_cell_checked)},
+	{"Rtable_set_cell_checked", offsetof(rl_table, Rtable_set_cell_checked)},
 	{"Rdate_picker_set_date", offsetof(rl_table, Rdate_picker_set_date)},
 	{"Rdate_picker_get_date", offsetof(rl_table, Rdate_picker_get_date)},
 	{"Rdate_picker_set_range", offsetof(rl_table, Rdate_picker_set_range)},
@@ -2073,11 +2366,25 @@ static const struct {
 	{"Rdate_picker_set_open", offsetof(rl_table, Rdate_picker_set_open)},
 	{"Rdate_picker_is_open", offsetof(rl_table, Rdate_picker_is_open)},
 	{"Rdate_picker_set_changed_callback", offsetof(rl_table, Rdate_picker_set_changed_callback)},
+	{"Rdate_picker_set_time_zone", offsetof(rl_table, Rdate_picker_set_time_zone)},
+	{"Rdate_picker_get_time_zone", offsetof(rl_table, Rdate_picker_get_time_zone)},
+	{"Rdate_picker_set_instant", offsetof(rl_table, Rdate_picker_set_instant)},
+	{"Rdate_picker_get_instant", offsetof(rl_table, Rdate_picker_get_instant)},
 	{"Rtime_picker_set_time", offsetof(rl_table, Rtime_picker_set_time)},
 	{"Rtime_picker_get_time", offsetof(rl_table, Rtime_picker_get_time)},
 	{"Rtime_picker_set_seconds_visible", offsetof(rl_table, Rtime_picker_set_seconds_visible)},
 	{"Rtime_picker_set_minute_step", offsetof(rl_table, Rtime_picker_set_minute_step)},
 	{"Rtime_picker_set_changed_callback", offsetof(rl_table, Rtime_picker_set_changed_callback)},
+	{"Rtime_picker_set_clock", offsetof(rl_table, Rtime_picker_set_clock)},
+	{"Rtime_picker_get_clock", offsetof(rl_table, Rtime_picker_get_clock)},
+	{"Rtime_picker_get_text", offsetof(rl_table, Rtime_picker_get_text)},
+	{"Rtime_picker_set_time_zone", offsetof(rl_table, Rtime_picker_set_time_zone)},
+	{"Rtime_picker_get_time_zone", offsetof(rl_table, Rtime_picker_get_time_zone)},
+	{"Rtime_picker_set_time_zone_visible", offsetof(rl_table, Rtime_picker_set_time_zone_visible)},
+	{"Rtime_picker_set_date", offsetof(rl_table, Rtime_picker_set_date)},
+	{"Rtime_picker_get_date", offsetof(rl_table, Rtime_picker_get_date)},
+	{"Rtime_picker_set_instant", offsetof(rl_table, Rtime_picker_set_instant)},
+	{"Rtime_picker_get_instant", offsetof(rl_table, Rtime_picker_get_instant)},
 	{"Rtoast_show", offsetof(rl_table, Rtoast_show)},
 	{"Rtoast_show_kind", offsetof(rl_table, Rtoast_show_kind)},
 	{"Rtoast_hide", offsetof(rl_table, Rtoast_hide)},
@@ -2282,6 +2589,25 @@ static const struct {
 	{"Rmap_view_set_view_changed_callback", offsetof(rl_table, Rmap_view_set_view_changed_callback)},
 	{"Rmap_view_set_attribution", offsetof(rl_table, Rmap_view_set_attribution)},
 	{"Rmap_view_get_attribution", offsetof(rl_table, Rmap_view_get_attribution)},
+	{"Rsystem_web_view_is_supported", offsetof(rl_table, Rsystem_web_view_is_supported)},
+	{"Rsystem_web_view_create", offsetof(rl_table, Rsystem_web_view_create)},
+	{"Rsystem_web_view_load_url", offsetof(rl_table, Rsystem_web_view_load_url)},
+	{"Rsystem_web_view_load_file", offsetof(rl_table, Rsystem_web_view_load_file)},
+	{"Rsystem_web_view_load_html", offsetof(rl_table, Rsystem_web_view_load_html)},
+	{"Rsystem_web_view_reload", offsetof(rl_table, Rsystem_web_view_reload)},
+	{"Rsystem_web_view_stop", offsetof(rl_table, Rsystem_web_view_stop)},
+	{"Rsystem_web_view_go_back", offsetof(rl_table, Rsystem_web_view_go_back)},
+	{"Rsystem_web_view_go_forward", offsetof(rl_table, Rsystem_web_view_go_forward)},
+	{"Rsystem_web_view_can_go_back", offsetof(rl_table, Rsystem_web_view_can_go_back)},
+	{"Rsystem_web_view_can_go_forward", offsetof(rl_table, Rsystem_web_view_can_go_forward)},
+	{"Rsystem_web_view_get_url", offsetof(rl_table, Rsystem_web_view_get_url)},
+	{"Rsystem_web_view_get_title", offsetof(rl_table, Rsystem_web_view_get_title)},
+	{"Rsystem_web_view_is_loading", offsetof(rl_table, Rsystem_web_view_is_loading)},
+	{"Rsystem_web_view_get_error", offsetof(rl_table, Rsystem_web_view_get_error)},
+	{"Rsystem_web_view_run_javascript", offsetof(rl_table, Rsystem_web_view_run_javascript)},
+	{"Rsystem_web_view_set_message_callback", offsetof(rl_table, Rsystem_web_view_set_message_callback)},
+	{"Rsystem_web_view_set_event_callback", offsetof(rl_table, Rsystem_web_view_set_event_callback)},
+	{"Rsystem_web_view_get_native_handle", offsetof(rl_table, Rsystem_web_view_get_native_handle)},
 	{"Rpdf_document_create", offsetof(rl_table, Rpdf_document_create)},
 	{"Rpdf_document_delete", offsetof(rl_table, Rpdf_document_delete)},
 	{"Rpdf_document_set_title", offsetof(rl_table, Rpdf_document_set_title)},
@@ -2323,6 +2649,23 @@ static const struct {
 	{"Rtext_editor_get_selection", offsetof(rl_table, Rtext_editor_get_selection)},
 	{"Rtext_editor_get_selected_text", offsetof(rl_table, Rtext_editor_get_selected_text)},
 	{"Rtext_editor_scroll_to_line", offsetof(rl_table, Rtext_editor_scroll_to_line)},
+	{"Rtext_editor_add_cursor", offsetof(rl_table, Rtext_editor_add_cursor)},
+	{"Rtext_editor_add_selection", offsetof(rl_table, Rtext_editor_add_selection)},
+	{"Rtext_editor_get_cursor_count", offsetof(rl_table, Rtext_editor_get_cursor_count)},
+	{"Rtext_editor_get_cursor_at", offsetof(rl_table, Rtext_editor_get_cursor_at)},
+	{"Rtext_editor_get_main_cursor", offsetof(rl_table, Rtext_editor_get_main_cursor)},
+	{"Rtext_editor_clear_cursors", offsetof(rl_table, Rtext_editor_clear_cursors)},
+	{"Rtext_editor_add_next_occurrence", offsetof(rl_table, Rtext_editor_add_next_occurrence)},
+	{"Rtext_editor_select_all_occurrences", offsetof(rl_table, Rtext_editor_select_all_occurrences)},
+	{"Rtext_editor_fold", offsetof(rl_table, Rtext_editor_fold)},
+	{"Rtext_editor_unfold", offsetof(rl_table, Rtext_editor_unfold)},
+	{"Rtext_editor_fold_all", offsetof(rl_table, Rtext_editor_fold_all)},
+	{"Rtext_editor_unfold_all", offsetof(rl_table, Rtext_editor_unfold_all)},
+	{"Rtext_editor_is_folded", offsetof(rl_table, Rtext_editor_is_folded)},
+	{"Rtext_editor_is_line_hidden", offsetof(rl_table, Rtext_editor_is_line_hidden)},
+	{"Rtext_editor_get_fold_end", offsetof(rl_table, Rtext_editor_get_fold_end)},
+	{"Rtext_editor_set_folding", offsetof(rl_table, Rtext_editor_set_folding)},
+	{"Rtext_editor_get_folding", offsetof(rl_table, Rtext_editor_get_folding)},
 	{"Rtext_editor_undo", offsetof(rl_table, Rtext_editor_undo)},
 	{"Rtext_editor_redo", offsetof(rl_table, Rtext_editor_redo)},
 	{"Rtext_editor_can_undo", offsetof(rl_table, Rtext_editor_can_undo)},
@@ -2348,6 +2691,9 @@ static const struct {
 	{"Rtext_editor_get_language", offsetof(rl_table, Rtext_editor_get_language)},
 	{"Rtext_editor_set_markdown", offsetof(rl_table, Rtext_editor_set_markdown)},
 	{"Rtext_editor_get_markdown", offsetof(rl_table, Rtext_editor_get_markdown)},
+	{"Rtext_editor_set_spell_check", offsetof(rl_table, Rtext_editor_set_spell_check)},
+	{"Rtext_editor_get_spell_check", offsetof(rl_table, Rtext_editor_get_spell_check)},
+	{"Rtext_editor_set_spell_language", offsetof(rl_table, Rtext_editor_set_spell_language)},
 	{"Rtext_editor_get_token", offsetof(rl_table, Rtext_editor_get_token)},
 	{"Rtext_editor_set_completion", offsetof(rl_table, Rtext_editor_set_completion)},
 	{"Rtext_editor_show_completions", offsetof(rl_table, Rtext_editor_show_completions)},
@@ -2361,6 +2707,21 @@ static const struct {
 	{"Rtext_editor_clear_markers", offsetof(rl_table, Rtext_editor_clear_markers)},
 	{"Rtext_editor_get_marker_count", offsetof(rl_table, Rtext_editor_get_marker_count)},
 	{"Rtext_editor_set_hover_callback", offsetof(rl_table, Rtext_editor_set_hover_callback)},
+	{"Rtext_editor_set_search", offsetof(rl_table, Rtext_editor_set_search)},
+	{"Rtext_editor_get_search", offsetof(rl_table, Rtext_editor_get_search)},
+	{"Rtext_editor_get_search_flags", offsetof(rl_table, Rtext_editor_get_search_flags)},
+	{"Rtext_editor_find_next", offsetof(rl_table, Rtext_editor_find_next)},
+	{"Rtext_editor_find_previous", offsetof(rl_table, Rtext_editor_find_previous)},
+	{"Rtext_editor_get_match_count", offsetof(rl_table, Rtext_editor_get_match_count)},
+	{"Rtext_editor_get_match_index", offsetof(rl_table, Rtext_editor_get_match_index)},
+	{"Rtext_editor_get_match", offsetof(rl_table, Rtext_editor_get_match)},
+	{"Rtext_editor_select_match", offsetof(rl_table, Rtext_editor_select_match)},
+	{"Rtext_editor_replace", offsetof(rl_table, Rtext_editor_replace)},
+	{"Rtext_editor_replace_all", offsetof(rl_table, Rtext_editor_replace_all)},
+	{"Rtext_editor_show_find", offsetof(rl_table, Rtext_editor_show_find)},
+	{"Rtext_editor_hide_find", offsetof(rl_table, Rtext_editor_hide_find)},
+	{"Rtext_editor_is_find_shown", offsetof(rl_table, Rtext_editor_is_find_shown)},
+	{"Rtext_editor_set_find_bar", offsetof(rl_table, Rtext_editor_set_find_bar)},
 	{"Rtheme_set_token_color", offsetof(rl_table, Rtheme_set_token_color)},
 	{"Rtheme_get_token_color", offsetof(rl_table, Rtheme_get_token_color)},
 	{"Rtheme_clear_token_colors", offsetof(rl_table, Rtheme_clear_token_colors)},
@@ -2624,6 +2985,38 @@ static const struct {
 	{"Rblock_editor_select", offsetof(rl_table, Rblock_editor_select)},
 	{"Rblock_editor_get_view", offsetof(rl_table, Rblock_editor_get_view)},
 	{"Rblock_editor_set_view", offsetof(rl_table, Rblock_editor_set_view)},
+	{"Rdiff_unified", offsetof(rl_table, Rdiff_unified)},
+	{"Rdiff_count_changes", offsetof(rl_table, Rdiff_count_changes)},
+	{"Rdiff_view_create", offsetof(rl_table, Rdiff_view_create)},
+	{"Rdiff_view_set_texts", offsetof(rl_table, Rdiff_view_set_texts)},
+	{"Rdiff_view_set_names", offsetof(rl_table, Rdiff_view_set_names)},
+	{"Rdiff_view_load_files", offsetof(rl_table, Rdiff_view_load_files)},
+	{"Rdiff_view_set_patch", offsetof(rl_table, Rdiff_view_set_patch)},
+	{"Rdiff_view_set_mode", offsetof(rl_table, Rdiff_view_set_mode)},
+	{"Rdiff_view_get_mode", offsetof(rl_table, Rdiff_view_get_mode)},
+	{"Rdiff_view_set_context", offsetof(rl_table, Rdiff_view_set_context)},
+	{"Rdiff_view_get_context", offsetof(rl_table, Rdiff_view_get_context)},
+	{"Rdiff_view_set_flags", offsetof(rl_table, Rdiff_view_set_flags)},
+	{"Rdiff_view_get_flags", offsetof(rl_table, Rdiff_view_get_flags)},
+	{"Rdiff_view_set_word_diff", offsetof(rl_table, Rdiff_view_set_word_diff)},
+	{"Rdiff_view_set_line_numbers", offsetof(rl_table, Rdiff_view_set_line_numbers)},
+	{"Rdiff_view_set_language", offsetof(rl_table, Rdiff_view_set_language)},
+	{"Rdiff_view_get_change_count", offsetof(rl_table, Rdiff_view_get_change_count)},
+	{"Rdiff_view_get_change", offsetof(rl_table, Rdiff_view_get_change)},
+	{"Rdiff_view_go_to_change", offsetof(rl_table, Rdiff_view_go_to_change)},
+	{"Rdiff_view_get_current_change", offsetof(rl_table, Rdiff_view_get_current_change)},
+	{"Rdiff_view_next_change", offsetof(rl_table, Rdiff_view_next_change)},
+	{"Rdiff_view_prev_change", offsetof(rl_table, Rdiff_view_prev_change)},
+	{"Rdiff_view_get_row_count", offsetof(rl_table, Rdiff_view_get_row_count)},
+	{"Rdiff_view_get_row", offsetof(rl_table, Rdiff_view_get_row)},
+	{"Rdiff_view_get_row_text", offsetof(rl_table, Rdiff_view_get_row_text)},
+	{"Rdiff_view_expand", offsetof(rl_table, Rdiff_view_expand)},
+	{"Rdiff_view_get_first_visible_row", offsetof(rl_table, Rdiff_view_get_first_visible_row)},
+	{"Rdiff_view_scroll_to_row", offsetof(rl_table, Rdiff_view_scroll_to_row)},
+	{"Rdiff_view_add_annotation", offsetof(rl_table, Rdiff_view_add_annotation)},
+	{"Rdiff_view_clear_annotations", offsetof(rl_table, Rdiff_view_clear_annotations)},
+	{"Rdiff_view_get_selected_text", offsetof(rl_table, Rdiff_view_get_selected_text)},
+	{"Rdiff_view_set_line_clicked_callback", offsetof(rl_table, Rdiff_view_set_line_clicked_callback)},
 	{"Rdialog_open", offsetof(rl_table, Rdialog_open)},
 	{"Rdialog_close", offsetof(rl_table, Rdialog_close)},
 	{"Rdialog_run", offsetof(rl_table, Rdialog_run)},
@@ -2664,6 +3057,27 @@ static const struct {
 	{"Rnotification_is_supported", offsetof(rl_table, Rnotification_is_supported)},
 	{"Rnotification_set_fallback", offsetof(rl_table, Rnotification_set_fallback)},
 	{"Rnotification_set_clicked_callback", offsetof(rl_table, Rnotification_set_clicked_callback)},
+	{"Rnotification_show_desc", offsetof(rl_table, Rnotification_show_desc)},
+	{"Rnotification_close", offsetof(rl_table, Rnotification_close)},
+	{"Rnotification_set_callback", offsetof(rl_table, Rnotification_set_callback)},
+	{"Rnotification_set_bring_to_front", offsetof(rl_table, Rnotification_set_bring_to_front)},
+	{"Rnotification_set_fallback_toast", offsetof(rl_table, Rnotification_set_fallback_toast)},
+	{"Rnotification_supports", offsetof(rl_table, Rnotification_supports)},
+	{"Rpermission_get_status", offsetof(rl_table, Rpermission_get_status)},
+	{"Rpermission_request", offsetof(rl_table, Rpermission_request)},
+	{"Rpermission_open_settings", offsetof(rl_table, Rpermission_open_settings)},
+	{"Rpermission_to_string", offsetof(rl_table, Rpermission_to_string)},
+	{"Rpermission_status_to_string", offsetof(rl_table, Rpermission_status_to_string)},
+	{"Rfile_open_async", offsetof(rl_table, Rfile_open_async)},
+	{"Rfile_save_async", offsetof(rl_table, Rfile_save_async)},
+	{"Rfile_export_async", offsetof(rl_table, Rfile_export_async)},
+	{"Rfile_select_folder_async", offsetof(rl_table, Rfile_select_folder_async)},
+	{"Rcamera_is_available", offsetof(rl_table, Rcamera_is_available)},
+	{"Rcamera_take_photo", offsetof(rl_table, Rcamera_take_photo)},
+	{"Rphoto_pick", offsetof(rl_table, Rphoto_pick)},
+	{"Rhaptic_is_supported", offsetof(rl_table, Rhaptic_is_supported)},
+	{"Rhaptic_play", offsetof(rl_table, Rhaptic_play)},
+	{"Rshare_show", offsetof(rl_table, Rshare_show)},
 	{"Rviewport_set_texture", offsetof(rl_table, Rviewport_set_texture)},
 	{"Rviewport_set_stretch", offsetof(rl_table, Rviewport_set_stretch)},
 	{"Rviewport_set_flip_y", offsetof(rl_table, Rviewport_set_flip_y)},
@@ -2798,6 +3212,21 @@ static const struct {
 	{"Rtr_plural", offsetof(rl_table, Rtr_plural)},
 	{"Rwidget_set_text_key", offsetof(rl_table, Rwidget_set_text_key)},
 	{"Rlocale_format_number", offsetof(rl_table, Rlocale_format_number)},
+	{"Rlocale_set_clock", offsetof(rl_table, Rlocale_set_clock)},
+	{"Rlocale_get_clock", offsetof(rl_table, Rlocale_get_clock)},
+	{"Rlocale_uses_12_hour_clock", offsetof(rl_table, Rlocale_uses_12_hour_clock)},
+	{"Rlocale_get_day_period", offsetof(rl_table, Rlocale_get_day_period)},
+	{"Rlocale_format_time", offsetof(rl_table, Rlocale_format_time)},
+	{"Rtimezone_get_system", offsetof(rl_table, Rtimezone_get_system)},
+	{"Rtimezone_set_directory", offsetof(rl_table, Rtimezone_set_directory)},
+	{"Rtimezone_is_valid", offsetof(rl_table, Rtimezone_is_valid)},
+	{"Rtimezone_to_local", offsetof(rl_table, Rtimezone_to_local)},
+	{"Rtimezone_from_local", offsetof(rl_table, Rtimezone_from_local)},
+	{"Rtimezone_count_local", offsetof(rl_table, Rtimezone_count_local)},
+	{"Rtimezone_get_offset", offsetof(rl_table, Rtimezone_get_offset)},
+	{"Rtimezone_is_daylight_saving", offsetof(rl_table, Rtimezone_is_daylight_saving)},
+	{"Rtimezone_get_abbreviation", offsetof(rl_table, Rtimezone_get_abbreviation)},
+	{"Rtimezone_get_label", offsetof(rl_table, Rtimezone_get_label)},
 	{"Raccessibility_set_text_scale", offsetof(rl_table, Raccessibility_set_text_scale)},
 	{"Raccessibility_get_text_scale", offsetof(rl_table, Raccessibility_get_text_scale)},
 	{"Raccessibility_set_high_contrast", offsetof(rl_table, Raccessibility_set_high_contrast)},
@@ -2835,6 +3264,8 @@ static const struct {
 	{"Rhost_inject_composition", offsetof(rl_table, Rhost_inject_composition)},
 	{"Rhost_inject_focus", offsetof(rl_table, Rhost_inject_focus)},
 	{"Rhost_inject_close", offsetof(rl_table, Rhost_inject_close)},
+	{"Rhost_permission_answer", offsetof(rl_table, Rhost_permission_answer)},
+	{"Rhost_service_complete", offsetof(rl_table, Rhost_service_complete)},
 	{"Rtest_set_deterministic", offsetof(rl_table, Rtest_set_deterministic)},
 	{"Rtest_is_deterministic", offsetof(rl_table, Rtest_is_deterministic)},
 	{"Rtest_get_platform_tag", offsetof(rl_table, Rtest_get_platform_tag)},
@@ -2860,6 +3291,11 @@ static const struct {
 	{"Rtest_is_checked", offsetof(rl_table, Rtest_is_checked)},
 	{"Rtest_expect_golden", offsetof(rl_table, Rtest_expect_golden)},
 	{"Rtest_compare_pixels", offsetof(rl_table, Rtest_compare_pixels)},
+	{"Rtest_dump_tree", offsetof(rl_table, Rtest_dump_tree)},
+	{"Rtest_save_tree", offsetof(rl_table, Rtest_save_tree)},
+	{"Rtest_save_png", offsetof(rl_table, Rtest_save_png)},
+	{"Rtest_run_script", offsetof(rl_table, Rtest_run_script)},
+	{"Rtest_get_script_error", offsetof(rl_table, Rtest_get_script_error)},
 };
 
 #define RL(name) rl.name
@@ -3771,6 +4207,18 @@ static void rl_t_RErrorCallback(RError code, RSeverity severity, const char* det
 
 /* ---- structures: tables with the names of their fields */
 
+static void rl_get_RNotificationAction(lua_State* L, int t, RNotificationAction* s) {
+	int v;
+	memset(s, 0, sizeof(*s));
+	luaL_checkstack(L, 6, "raven");
+	lua_getfield(L, t, "id");
+	v = lua_gettop(L);
+	s->id = rl_str(L, v, "RNotificationAction.id");
+	lua_getfield(L, t, "label");
+	v = lua_gettop(L);
+	s->label = rl_str(L, v, "RNotificationAction.label");
+}
+
 static void rl_get_RFileFilter(lua_State* L, int t, RFileFilter* s) {
 	int v;
 	memset(s, 0, sizeof(*s));
@@ -3971,6 +4419,22 @@ static void rl_get_RFrameStats(lua_State* L, int t, RFrameStats* s) {
 	v = lua_gettop(L);
 	if (!lua_isnil(L, v)) s->frame_index = rl_u64(L, v, "RFrameStats.frame_index");
 	lua_settop(L, v - 1);
+}
+
+static void rl_get_RDataItem(lua_State* L, int t, RDataItem* s) {
+	int v;
+	memset(s, 0, sizeof(*s));
+	luaL_checkstack(L, 7, "raven");
+	lua_getfield(L, t, "mime");
+	v = lua_gettop(L);
+	s->mime = rl_str(L, v, "RDataItem.mime");
+	lua_getfield(L, t, "data");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) {
+		size_t n;
+		s->data = rl_lstr(L, v, &n, "RDataItem.data");
+		s->size = n;
+	}
 }
 
 static void rl_set_RInsets(lua_State* L, int t, const RInsets* s) {
@@ -4742,6 +5206,48 @@ static void rl_get_RJumpTask(lua_State* L, int t, RJumpTask* s) {
 	s->description = rl_str(L, v, "RJumpTask.description");
 }
 
+static void rl_get_RNotificationDesc(lua_State* L, int t, RNotificationDesc* s) {
+	int v;
+	memset(s, 0, sizeof(*s));
+	luaL_checkstack(L, 13, "raven");
+	lua_getfield(L, t, "size");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->size = rl_u32(L, v, "RNotificationDesc.size");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "tag");
+	v = lua_gettop(L);
+	s->tag = rl_str(L, v, "RNotificationDesc.tag");
+	lua_getfield(L, t, "title");
+	v = lua_gettop(L);
+	s->title = rl_str(L, v, "RNotificationDesc.title");
+	lua_getfield(L, t, "body");
+	v = lua_gettop(L);
+	s->body = rl_str(L, v, "RNotificationDesc.body");
+	lua_getfield(L, t, "urgency");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->urgency = (RNotificationUrgency)rl_enum(L, v, "RNotificationDesc.urgency");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "icon");
+	v = lua_gettop(L);
+	s->icon = rl_str(L, v, "RNotificationDesc.icon");
+	lua_getfield(L, t, "actions");
+	v = lua_gettop(L);
+	if (lua_istable(L, v)) {
+		int k, count = (int)rl_rawlen(L, v);
+		RNotificationAction* list = (RNotificationAction*)rl_scratch(L, (size_t)(count > 0 ? count : 0) * sizeof(RNotificationAction));
+		for (k = 0; k < count; k++) {
+			lua_rawgeti(L, v, k + 1);
+			if (lua_istable(L, -1)) rl_get_RNotificationAction(L, lua_gettop(L), &list[k]);
+		}
+		s->actions = count > 0 ? list : NULL;
+		s->action_count = count;
+	}
+	lua_getfield(L, t, "window");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->window = rl_u32(L, v, "RNotificationDesc.window");
+	lua_settop(L, v - 1);
+}
+
 static void rl_get_RFileDialogDesc(lua_State* L, int t, RFileDialogDesc* s) {
 	int v;
 	memset(s, 0, sizeof(*s));
@@ -4777,6 +5283,80 @@ static void rl_get_RFileDialogDesc(lua_State* L, int t, RFileDialogDesc* s) {
 	lua_getfield(L, t, "flags");
 	v = lua_gettop(L);
 	if (!lua_isnil(L, v)) s->flags = rl_u32(L, v, "RFileDialogDesc.flags");
+	lua_settop(L, v - 1);
+}
+
+static void rl_set_RPickedFile(lua_State* L, int t, const RPickedFile* s) {
+	luaL_checkstack(L, 4, "raven");
+	rl_push_text(L, s->path);
+	lua_setfield(L, t, "path");
+	rl_push_text(L, s->name);
+	lua_setfield(L, t, "name");
+	rl_push_text(L, s->mime_type);
+	lua_setfield(L, t, "mime_type");
+	rl_push_u64(L, (uint64_t)s->size);
+	lua_setfield(L, t, "size");
+	lua_pushinteger(L, (lua_Integer)s->width);
+	lua_setfield(L, t, "width");
+	lua_pushinteger(L, (lua_Integer)s->height);
+	lua_setfield(L, t, "height");
+}
+
+static void rl_push_RPickedFile(lua_State* L, const RPickedFile* s) {
+	if (!s) {
+		lua_pushnil(L);
+		return;
+	}
+	lua_createtable(L, 0, 6);
+	rl_set_RPickedFile(L, lua_gettop(L), s);
+}
+
+static void rl_get_RPickedFile(lua_State* L, int t, RPickedFile* s) {
+	int v;
+	memset(s, 0, sizeof(*s));
+	luaL_checkstack(L, 10, "raven");
+	lua_getfield(L, t, "path");
+	v = lua_gettop(L);
+	s->path = rl_str(L, v, "RPickedFile.path");
+	lua_getfield(L, t, "name");
+	v = lua_gettop(L);
+	s->name = rl_str(L, v, "RPickedFile.name");
+	lua_getfield(L, t, "mime_type");
+	v = lua_gettop(L);
+	s->mime_type = rl_str(L, v, "RPickedFile.mime_type");
+	lua_getfield(L, t, "size");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->size = rl_u64(L, v, "RPickedFile.size");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "width");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->width = rl_int(L, v, "RPickedFile.width");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "height");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->height = rl_int(L, v, "RPickedFile.height");
+	lua_settop(L, v - 1);
+}
+
+static void rl_get_RShareDesc(lua_State* L, int t, RShareDesc* s) {
+	int v;
+	memset(s, 0, sizeof(*s));
+	luaL_checkstack(L, 9, "raven");
+	lua_getfield(L, t, "text");
+	v = lua_gettop(L);
+	s->text = rl_str(L, v, "RShareDesc.text");
+	lua_getfield(L, t, "path");
+	v = lua_gettop(L);
+	s->path = rl_str(L, v, "RShareDesc.path");
+	lua_getfield(L, t, "mime_type");
+	v = lua_gettop(L);
+	s->mime_type = rl_str(L, v, "RShareDesc.mime_type");
+	lua_getfield(L, t, "title");
+	v = lua_gettop(L);
+	s->title = rl_str(L, v, "RShareDesc.title");
+	lua_getfield(L, t, "anchor");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->anchor = rl_u32(L, v, "RShareDesc.anchor");
 	lua_settop(L, v - 1);
 }
 
@@ -5065,7 +5645,7 @@ static void rl_get_RAccessibilitySettings(lua_State* L, int t, RAccessibilitySet
 static void rl_get_RHostPlatformDesc(lua_State* L, int t, RHostPlatformDesc* s) {
 	int v;
 	memset(s, 0, sizeof(*s));
-	luaL_checkstack(L, 9, "raven");
+	luaL_checkstack(L, 16, "raven");
 	lua_getfield(L, t, "set_cursor");
 	v = lua_gettop(L);
 	{
@@ -5097,6 +5677,52 @@ static void rl_get_RHostPlatformDesc(lua_State* L, int t, RHostPlatformDesc* s) 
 	lua_getfield(L, t, "user_data");
 	v = lua_gettop(L);
 	s->user_data = rl_ptr(L, v, "RHostPlatformDesc.user_data");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "permission_status");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.permission_status");
+		memcpy(&s->permission_status, &address, sizeof(address));
+	}
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "permission_request");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.permission_request");
+		memcpy(&s->permission_request, &address, sizeof(address));
+	}
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "service_request");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.service_request");
+		memcpy(&s->service_request, &address, sizeof(address));
+	}
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "has_camera");
+	v = lua_gettop(L);
+	if (!lua_isnil(L, v)) s->has_camera = rl_int(L, v, "RHostPlatformDesc.has_camera");
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "open_url");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.open_url");
+		memcpy(&s->open_url, &address, sizeof(address));
+	}
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "haptic");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.haptic");
+		memcpy(&s->haptic, &address, sizeof(address));
+	}
+	lua_settop(L, v - 1);
+	lua_getfield(L, t, "download");
+	v = lua_gettop(L);
+	{
+		void* address = rl_ptr(L, v, "RHostPlatformDesc.download");
+		memcpy(&s->download, &address, sizeof(address));
+	}
 	lua_settop(L, v - 1);
 }
 
@@ -5393,6 +6019,34 @@ static int rl_t_RDropCallback(Rid a0, const RDropEvent* a1, void* a2) {
 	rl_run(cb, rl_k_RDropCallback, &c);
 	rl_cb_leave(cb);
 	return c.r;
+}
+
+typedef struct rl_c_RDragFinishedCallback {
+	rl_cb* cb;
+	Rid a0;
+	RDragOperation a1;
+} rl_c_RDragFinishedCallback;
+
+static int rl_k_RDragFinishedCallback(lua_State* L) {
+	rl_c_RDragFinishedCallback* c = (rl_c_RDragFinishedCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RDragFinishedCallback(Rid a0, RDragOperation a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RDragFinishedCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RDragFinishedCallback, &c);
+	rl_cb_leave(cb);
 }
 
 typedef struct rl_c_RBackCallback {
@@ -5869,6 +6523,31 @@ static void rl_t_RSliderChangedCallback(Rid a0, float a1, void* a2) {
 	rl_cb_leave(cb);
 }
 
+typedef struct rl_c_RImageFinishedCallback {
+	rl_cb* cb;
+	Rid a0;
+} rl_c_RImageFinishedCallback;
+
+static int rl_k_RImageFinishedCallback(lua_State* L) {
+	rl_c_RImageFinishedCallback* c = (rl_c_RImageFinishedCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 10, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_user(L, c->cb);
+	lua_call(L, 2, 0);
+	return 0;
+}
+
+static void rl_t_RImageFinishedCallback(Rid a0, void* a1) {
+	rl_cb* cb = (rl_cb*)a1;
+	rl_c_RImageFinishedCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RImageFinishedCallback, &c);
+	rl_cb_leave(cb);
+}
+
 typedef struct rl_c_RTextChangedCallback {
 	rl_cb* cb;
 	Rid a0;
@@ -5950,6 +6629,34 @@ static void rl_t_RComboBoxChangedCallback(Rid a0, int a1, void* a2) {
 	c.a1 = a1;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RComboBoxChangedCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RComboBoxTextCallback {
+	rl_cb* cb;
+	Rid a0;
+	const char* a1;
+} rl_c_RComboBoxTextCallback;
+
+static int rl_k_RComboBoxTextCallback(lua_State* L) {
+	rl_c_RComboBoxTextCallback* c = (rl_c_RComboBoxTextCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_text(L, c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RComboBoxTextCallback(Rid a0, const char* a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RComboBoxTextCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RComboBoxTextCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -6458,6 +7165,44 @@ static void rl_t_RTableSortCallback(Rid a0, int a1, int a2, void* a3) {
 	rl_cb_leave(cb);
 }
 
+typedef struct rl_c_RTableCellEditedCallback {
+	rl_cb* cb;
+	Rid a0;
+	int a1;
+	int a2;
+	const char* a3;
+	int r;
+} rl_c_RTableCellEditedCallback;
+
+static int rl_k_RTableCellEditedCallback(lua_State* L) {
+	rl_c_RTableCellEditedCallback* c = (rl_c_RTableCellEditedCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 13, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	lua_pushinteger(L, (lua_Integer)c->a2);
+	rl_push_text(L, c->a3);
+	rl_push_user(L, c->cb);
+	lua_call(L, 5, 1);
+	c->r = rl_result_int(L, -1);
+	return 0;
+}
+
+static int rl_t_RTableCellEditedCallback(Rid a0, int a1, int a2, const char* a3, void* a4) {
+	rl_cb* cb = (rl_cb*)a4;
+	rl_c_RTableCellEditedCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	c.a3 = a3;
+	c.r = 0;
+	if (!rl_cb_enter(cb)) return c.r;
+	rl_run(cb, rl_k_RTableCellEditedCallback, &c);
+	rl_cb_leave(cb);
+	return c.r;
+}
+
 typedef struct rl_c_RDateChangedCallback {
 	rl_cb* cb;
 	Rid a0;
@@ -6936,6 +7681,93 @@ static void rl_t_RMapViewCallback(Rid a0, double a1, double a2, double a3, void*
 	c.a3 = a3;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RMapViewCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RSystemWebViewResultCallback {
+	rl_cb* cb;
+	Rid a0;
+	const char* a1;
+	const char* a2;
+} rl_c_RSystemWebViewResultCallback;
+
+static int rl_k_RSystemWebViewResultCallback(lua_State* L) {
+	rl_c_RSystemWebViewResultCallback* c = (rl_c_RSystemWebViewResultCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 12, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_text(L, c->a1);
+	rl_push_text(L, c->a2);
+	rl_push_user(L, c->cb);
+	lua_call(L, 4, 0);
+	return 0;
+}
+
+static void rl_t_RSystemWebViewResultCallback(Rid a0, const char* a1, const char* a2, void* a3) {
+	rl_cb* cb = (rl_cb*)a3;
+	rl_c_RSystemWebViewResultCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RSystemWebViewResultCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RSystemWebViewMessageCallback {
+	rl_cb* cb;
+	Rid a0;
+	const char* a1;
+} rl_c_RSystemWebViewMessageCallback;
+
+static int rl_k_RSystemWebViewMessageCallback(lua_State* L) {
+	rl_c_RSystemWebViewMessageCallback* c = (rl_c_RSystemWebViewMessageCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_text(L, c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RSystemWebViewMessageCallback(Rid a0, const char* a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RSystemWebViewMessageCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RSystemWebViewMessageCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RSystemWebViewEventCallback {
+	rl_cb* cb;
+	Rid a0;
+	RSystemWebViewEvent a1;
+} rl_c_RSystemWebViewEventCallback;
+
+static int rl_k_RSystemWebViewEventCallback(lua_State* L) {
+	rl_c_RSystemWebViewEventCallback* c = (rl_c_RSystemWebViewEventCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RSystemWebViewEventCallback(Rid a0, RSystemWebViewEvent a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RSystemWebViewEventCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RSystemWebViewEventCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -7492,6 +8324,40 @@ static void rl_t_RBlockEditorContextCallback(Rid a0, int a1, float a2, float a3,
 	rl_cb_leave(cb);
 }
 
+typedef struct rl_c_RDiffViewLineCallback {
+	rl_cb* cb;
+	Rid a0;
+	RDiffSide a1;
+	int a2;
+	int a3;
+} rl_c_RDiffViewLineCallback;
+
+static int rl_k_RDiffViewLineCallback(lua_State* L) {
+	rl_c_RDiffViewLineCallback* c = (rl_c_RDiffViewLineCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 13, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	lua_pushinteger(L, (lua_Integer)c->a2);
+	lua_pushinteger(L, (lua_Integer)c->a3);
+	rl_push_user(L, c->cb);
+	lua_call(L, 5, 0);
+	return 0;
+}
+
+static void rl_t_RDiffViewLineCallback(Rid a0, RDiffSide a1, int a2, int a3, void* a4) {
+	rl_cb* cb = (rl_cb*)a4;
+	rl_c_RDiffViewLineCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	c.a3 = a3;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RDiffViewLineCallback, &c);
+	rl_cb_leave(cb);
+}
+
 typedef struct rl_c_RDialogClosedCallback {
 	rl_cb* cb;
 	Rid a0;
@@ -7598,6 +8464,96 @@ static void rl_t_RNotificationClickedCallback(void* a0) {
 	c.cb = cb;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RNotificationClickedCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RNotificationCallback {
+	rl_cb* cb;
+	const char* a0;
+	RNotificationEvent a1;
+	const char* a2;
+} rl_c_RNotificationCallback;
+
+static int rl_k_RNotificationCallback(lua_State* L) {
+	rl_c_RNotificationCallback* c = (rl_c_RNotificationCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 12, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_text(L, c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_text(L, c->a2);
+	rl_push_user(L, c->cb);
+	lua_call(L, 4, 0);
+	return 0;
+}
+
+static void rl_t_RNotificationCallback(const char* a0, RNotificationEvent a1, const char* a2, void* a3) {
+	rl_cb* cb = (rl_cb*)a3;
+	rl_c_RNotificationCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RNotificationCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RPermissionCallback {
+	rl_cb* cb;
+	RPermission a0;
+	RPermissionStatus a1;
+} rl_c_RPermissionCallback;
+
+static int rl_k_RPermissionCallback(lua_State* L) {
+	rl_c_RPermissionCallback* c = (rl_c_RPermissionCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	lua_pushinteger(L, (lua_Integer)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RPermissionCallback(RPermission a0, RPermissionStatus a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RPermissionCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RPermissionCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RDeviceCallback {
+	rl_cb* cb;
+	RDeviceResult a0;
+	const RPickedFile* a1;
+	int a2;
+} rl_c_RDeviceCallback;
+
+static int rl_k_RDeviceCallback(lua_State* L) {
+	rl_c_RDeviceCallback* c = (rl_c_RDeviceCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 12, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	lua_pushinteger(L, (lua_Integer)c->a0);
+	rl_push_RPickedFile(L, c->a1);
+	lua_pushinteger(L, (lua_Integer)c->a2);
+	rl_push_user(L, c->cb);
+	lua_call(L, 4, 0);
+	return 0;
+}
+
+static void rl_t_RDeviceCallback(RDeviceResult a0, const RPickedFile* a1, int a2, void* a3) {
+	rl_cb* cb = (rl_cb*)a3;
+	rl_c_RDeviceCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RDeviceCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -8769,6 +9725,137 @@ static int rl_w_Rclipboard_get_text(lua_State* L) {
 		rl_push_text(L, value_);
 		results_++;
 	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_has_text(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rclipboard_has_text)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_set_data(lua_State* L) {
+	RDataItem* a0 = NULL;
+	int a0_count = 0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	if (!lua_isnoneornil(L, 1)) {
+		int k_;
+		luaL_checktype(L, 1, LUA_TTABLE);
+		a0_count = (int)rl_rawlen(L, 1);
+		a0 = (RDataItem*)rl_scratch(L, (size_t)a0_count * sizeof(RDataItem));
+		for (k_ = 0; k_ < a0_count; k_++) {
+			luaL_checkstack(L, 4, "raven");
+			lua_rawgeti(L, 1, k_ + 1);
+			if (!lua_istable(L, -1)) luaL_argerror(L, 1, "every element must be a table");
+			rl_get_RDataItem(L, lua_gettop(L), &a0[k_]);
+		}
+	}
+	a0_count = rl_count_opt(L, 2, a0_count);
+	{
+		int value_ = RL(Rclipboard_set_data)(a0_count > 0 ? a0 : NULL, a0_count);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_has_data(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		int value_ = RL(Rclipboard_has_data)(a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_get_data(lua_State* L) {
+	const char* a0;
+	size_t a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	{
+		char* value_ = RL(Rclipboard_get_data)(a0, &a1);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (size_t)a1);
+			RL(Rmemory_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_set_image(lua_State* L) {
+	const char* a0;
+	size_t a0_size;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_lstr(L, 1, &a0_size, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	rl_check_pixels(L, 1, a0, a0_size, a1, a2);
+	{
+		int value_ = RL(Rclipboard_set_image)((const uint8_t*)a0, (int)a1, (int)a2, (int)a3);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_has_image(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rclipboard_has_image)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rclipboard_get_image(lua_State* L) {
+	int a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	memset(&a0, 0, sizeof(a0));
+	memset(&a1, 0, sizeof(a1));
+	{
+		uint8_t* value_ = RL(Rclipboard_get_image)(&a0, &a1);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (a0 > 0 && a1 > 0 ? (size_t)a0 * (size_t)a1 * 4 : 0));
+			RL(Rpixels_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	luaL_checkstack(L, 4, "raven");
+	lua_pushinteger(L, (lua_Integer)a0);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
 	return results_;
 }
 
@@ -10011,6 +11098,22 @@ static int rl_w_Rwindow_inject_drop(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rwindow_inject_drag_end(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	{
+		int value_ = RL(Rwindow_inject_drag_end)((Rid)a0, (RDragOperation)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rwindow_inject_back(lua_State* L) {
 	uint32_t a0;
 	int results_ = 0;
@@ -10403,6 +11506,85 @@ static int rl_w_Rdrag_cancel(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rdrag_begin_external(lua_State* L) {
+	uint32_t a0;
+	RDataItem* a1 = NULL;
+	int a1_count = 0;
+	uint32_t a3;
+	void* a5;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 6);
+	a0 = rl_u32(L, 1, NULL);
+	if (!lua_isnoneornil(L, 2)) {
+		int k_;
+		luaL_checktype(L, 2, LUA_TTABLE);
+		a1_count = (int)rl_rawlen(L, 2);
+		a1 = (RDataItem*)rl_scratch(L, (size_t)a1_count * sizeof(RDataItem));
+		for (k_ = 0; k_ < a1_count; k_++) {
+			luaL_checkstack(L, 4, "raven");
+			lua_rawgeti(L, 2, k_ + 1);
+			if (!lua_istable(L, -1)) luaL_argerror(L, 2, "every element must be a table");
+			rl_get_RDataItem(L, lua_gettop(L), &a1[k_]);
+		}
+	}
+	a1_count = rl_count_opt(L, 3, a1_count);
+	a3 = rl_u32(L, 4, NULL);
+	k0_ = rl_callback_arg(L, 5, &n0_);
+	a5 = lua_touserdata(L, 6);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 5, 0, 6);
+	}
+	{
+		int value_ = RL(Rdrag_begin_external)((Rid)a0, a1_count > 0 ? a1 : NULL, a1_count, (Ruint)a3, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDragFinishedCallback)rl_t_RDragFinishedCallback : (RDragFinishedCallback)n0_, cb_ ? (void*)cb_ : a5);
+		rl_bind(a0, RL_OWNER_WIDGET, 17, NULL, cb_);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdrag_set_image(lua_State* L) {
+	const char* a0;
+	size_t a0_size;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_lstr(L, 1, &a0_size, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	rl_check_pixels(L, 1, a0, a0_size, a1, a2);
+	RL(Rdrag_set_image)((const uint8_t*)a0, (int)a1, (int)a2);
+	return results_;
+}
+
+static int rl_w_Rdrag_external_supported(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rdrag_external_supported)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdrag_external_is_active(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rdrag_external_is_active)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rwindow_register_shortcut(lua_State* L) {
 	uint32_t a0;
 	int a1;
@@ -10623,7 +11805,7 @@ static int rl_w_Rwidget_set_touch_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_touch_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTouchCallback)rl_t_RTouchCallback : (RTouchCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 17, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 18, NULL, cb_);
 	return results_;
 }
 
@@ -10643,7 +11825,7 @@ static int rl_w_Rwidget_set_pen_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_pen_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPenCallback)rl_t_RPenCallback : (RPenCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 18, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 19, NULL, cb_);
 	return results_;
 }
 
@@ -10663,7 +11845,7 @@ static int rl_w_Rwidget_set_gesture_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_gesture_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RGestureCallback)rl_t_RGestureCallback : (RGestureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 19, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 20, NULL, cb_);
 	return results_;
 }
 
@@ -11384,6 +12566,20 @@ static int rl_w_Rtexture_create_from_svg(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtexture_uses_current_color(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtexture_uses_current_color)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rtexture_get_density(lua_State* L) {
 	uint32_t a0;
 	int results_ = 0;
@@ -11420,6 +12616,20 @@ static int rl_w_Rtexture_create_from_file_async(lua_State* L) {
 	a0 = rl_str(L, 1, NULL);
 	{
 		Rid value_ = RL(Rtexture_create_from_file_async)(a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtexture_create_from_url_async(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		Rid value_ = RL(Rtexture_create_from_url_async)(a0);
 		rl_push_u32(L, (uint32_t)value_);
 		results_++;
 	}
@@ -11490,6 +12700,75 @@ static int rl_w_Rimage_decode(lua_State* L) {
 	lua_pushinteger(L, (lua_Integer)a2);
 	results_++;
 	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rimage_decode_info(lua_State* L) {
+	const char* a0;
+	size_t a0_size;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_lstr(L, 1, &a0_size, NULL);
+	a0_size = rl_size_opt(L, 2, a0_size);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	{
+		int value_ = RL(Rimage_decode_info)((const void*)a0, a0_size, &a2, &a3, &a4, &a5);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 6, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a5);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rimage_decode_frame(lua_State* L) {
+	const char* a0;
+	size_t a0_size;
+	int a2;
+	int a3;
+	int a4;
+	double a5;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_lstr(L, 1, &a0_size, NULL);
+	a0_size = rl_size_opt(L, 2, a0_size);
+	a2 = rl_int(L, 3, NULL);
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	{
+		uint8_t* value_ = RL(Rimage_decode_frame)((const void*)a0, a0_size, (int)a2, &a3, &a4, &a5);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (a3 > 0 && a4 > 0 ? (size_t)a3 * (size_t)a4 * 4 : 0));
+			RL(Rpixels_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	luaL_checkstack(L, 5, "raven");
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a5);
 	results_++;
 	return results_;
 }
@@ -11629,6 +12908,45 @@ static int rl_w_Rtexture_set_filter(lua_State* L) {
 	a0 = rl_u32(L, 1, NULL);
 	a1 = rl_enum(L, 2, NULL);
 	RL(Rtexture_set_filter)((Rid)a0, (RFilterType)a1);
+	return results_;
+}
+
+static int rl_w_Ricon_get(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		Rid value_ = RL(Ricon_get)(a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Ricon_get_count(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Ricon_get_count)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Ricon_get_name(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	{
+		const char* value_ = RL(Ricon_get_name)((int)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
 	return results_;
 }
 
@@ -12390,7 +13708,7 @@ static int rl_w_Rwidget_set_event_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_event_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RWidgetEventCallback)rl_t_RWidgetEventCallback : (RWidgetEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 21, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 22, NULL, cb_);
 	return results_;
 }
 
@@ -12436,7 +13754,7 @@ static int rl_w_Rwidget_set_drop_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_drop_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDropCallback)rl_t_RDropCallback : (RDropCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 22, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 23, NULL, cb_);
 	return results_;
 }
 
@@ -13319,7 +14637,7 @@ static int rl_w_Rtab_view_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtab_view_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTabChangedCallback)rl_t_RTabChangedCallback : (RTabChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 23, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 24, NULL, cb_);
 	return results_;
 }
 
@@ -13461,7 +14779,7 @@ static int rl_w_Rtab_view_set_close_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtab_view_set_close_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTabCloseCallback)rl_t_RTabCloseCallback : (RTabCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 24, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 25, NULL, cb_);
 	return results_;
 }
 
@@ -13533,7 +14851,7 @@ static int rl_w_Rexpander_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rexpander_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RExpanderChangedCallback)rl_t_RExpanderChangedCallback : (RExpanderChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 25, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 26, NULL, cb_);
 	return results_;
 }
 
@@ -13732,7 +15050,7 @@ static int rl_w_Rlabel_set_link_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rlabel_set_link_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RLabelLinkCallback)rl_t_RLabelLinkCallback : (RLabelLinkCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 26, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 27, NULL, cb_);
 	return results_;
 }
 
@@ -13864,7 +15182,7 @@ static int rl_w_Rbutton_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rbutton_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RButtonClickedCallback)rl_t_RButtonClickedCallback : (RButtonClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 27, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 28, NULL, cb_);
 	return results_;
 }
 
@@ -13962,7 +15280,7 @@ static int rl_w_Rcheckbox_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcheckbox_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RCheckboxChangedCallback)rl_t_RCheckboxChangedCallback : (RCheckboxChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 28, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 29, NULL, cb_);
 	return results_;
 }
 
@@ -14069,7 +15387,7 @@ static int rl_w_Rslider_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rslider_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RSliderChangedCallback)rl_t_RSliderChangedCallback : (RSliderChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 29, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 30, NULL, cb_);
 	return results_;
 }
 
@@ -14180,6 +15498,180 @@ static int rl_w_Rimage_set_corner_radius(lua_State* L) {
 	a0 = rl_u32(L, 1, NULL);
 	a1 = (float)rl_number(L, 2, NULL);
 	RL(Rimage_set_corner_radius)((Rid)a0, (float)a1);
+	return results_;
+}
+
+static int rl_w_Rimage_is_animated(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rimage_is_animated)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_get_frame_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rimage_get_frame_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_get_duration(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		double value_ = RL(Rimage_get_duration)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_get_frame_delay(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		double value_ = RL(Rimage_get_frame_delay)((Rid)a0, (int)a1);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_play(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rimage_play)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rimage_pause(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rimage_pause)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rimage_stop(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rimage_stop)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rimage_is_playing(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rimage_is_playing)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_set_frame(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rimage_set_frame)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rimage_get_frame(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rimage_get_frame)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_set_loop_count(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rimage_set_loop_count)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rimage_get_loop_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rimage_get_loop_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rimage_set_finished_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rimage_set_finished_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RImageFinishedCallback)rl_t_RImageFinishedCallback : (RImageFinishedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 31, NULL, cb_);
 	return results_;
 }
 
@@ -14363,7 +15855,7 @@ static int rl_w_Rtext_input_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_input_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextChangedCallback)rl_t_RTextChangedCallback : (RTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 30, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 32, NULL, cb_);
 	return results_;
 }
 
@@ -14383,7 +15875,197 @@ static int rl_w_Rtext_input_set_committed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_input_set_committed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextChangedCallback)rl_t_RTextChangedCallback : (RTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 31, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 33, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtext_input_set_spell_check(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtext_input_set_spell_check)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtext_input_get_spell_check(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_input_get_spell_check)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_input_set_spell_language(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rtext_input_set_spell_language)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rspell_is_supported(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rspell_is_supported)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_get_language_count(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rspell_get_language_count)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_get_language_at(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	{
+		const char* value_ = RL(Rspell_get_language_at)((int)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_set_language(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		int value_ = RL(Rspell_set_language)(a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_get_language(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		const char* value_ = RL(Rspell_get_language)();
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_check(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rspell_check)(a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_get_misspelling(lua_State* L) {
+	int a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	memset(&a2, 0, sizeof(a2));
+	{
+		int value_ = RL(Rspell_get_misspelling)((int)a0, &a1, &a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 4, "raven");
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rspell_suggest(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rspell_suggest)(a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_get_suggestion(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	{
+		const char* value_ = RL(Rspell_get_suggestion)((int)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rspell_learn(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rspell_learn)(a0, a1);
+	return results_;
+}
+
+static int rl_w_Rspell_ignore(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	RL(Rspell_ignore)(a0);
 	return results_;
 }
 
@@ -14516,7 +16198,7 @@ static int rl_w_Rspin_box_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rspin_box_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RSpinBoxChangedCallback)rl_t_RSpinBoxChangedCallback : (RSpinBoxChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 32, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 34, NULL, cb_);
 	return results_;
 }
 
@@ -14618,7 +16300,131 @@ static int rl_w_Rcombo_box_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcombo_box_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RComboBoxChangedCallback)rl_t_RComboBoxChangedCallback : (RComboBoxChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 33, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 35, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_set_editable(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rcombo_box_set_editable)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_is_editable(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rcombo_box_is_editable)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rcombo_box_set_searchable(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rcombo_box_set_searchable)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_is_searchable(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rcombo_box_is_searchable)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rcombo_box_get_text(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rcombo_box_get_text)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rcombo_box_set_text(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rcombo_box_set_text)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_set_text_changed_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rcombo_box_set_text_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RComboBoxTextCallback)rl_t_RComboBoxTextCallback : (RComboBoxTextCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 36, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_set_open(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rcombo_box_set_open)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rcombo_box_is_open(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rcombo_box_is_open)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
 	return results_;
 }
 
@@ -14734,7 +16540,7 @@ static int rl_w_Rlist_view_set_virtual_items(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rlist_view_set_virtual_items)((Rid)a0, (int)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RListItemTextCallback)rl_t_RListItemTextCallback : (RListItemTextCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 34, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 37, NULL, cb_);
 	return results_;
 }
 
@@ -14754,7 +16560,7 @@ static int rl_w_Rlist_view_set_item_color_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rlist_view_set_item_color_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RListItemColorCallback)rl_t_RListItemColorCallback : (RListItemColorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 35, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 38, NULL, cb_);
 	return results_;
 }
 
@@ -14812,7 +16618,7 @@ static int rl_w_Rlist_view_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rlist_view_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RListEventCallback)rl_t_RListEventCallback : (RListEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 36, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 39, NULL, cb_);
 	return results_;
 }
 
@@ -14832,7 +16638,7 @@ static int rl_w_Rlist_view_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rlist_view_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RListEventCallback)rl_t_RListEventCallback : (RListEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 37, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 40, NULL, cb_);
 	return results_;
 }
 
@@ -15082,7 +16888,7 @@ static int rl_w_Rtree_view_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtree_view_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTreeEventCallback)rl_t_RTreeEventCallback : (RTreeEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 38, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 41, NULL, cb_);
 	return results_;
 }
 
@@ -15102,7 +16908,7 @@ static int rl_w_Rtree_view_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtree_view_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTreeEventCallback)rl_t_RTreeEventCallback : (RTreeEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 39, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 42, NULL, cb_);
 	return results_;
 }
 
@@ -15250,7 +17056,7 @@ static int rl_w_Rtree_view_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtree_view_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTreeContextCallback)rl_t_RTreeContextCallback : (RTreeContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 40, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 43, NULL, cb_);
 	return results_;
 }
 
@@ -15558,7 +17364,7 @@ static int rl_w_Rmenu_item_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rmenu_item_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMenuItemClickedCallback)rl_t_RMenuItemClickedCallback : (RMenuItemClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 41, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 44, NULL, cb_);
 	return results_;
 }
 
@@ -15606,7 +17412,7 @@ static int rl_w_Rtile_view_set_items(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rtile_view_set_items)((Rid)a0, (int)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileItemCallback)rl_t_RTileItemCallback : (RTileItemCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 42, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 45, NULL, cb_);
 	return results_;
 }
 
@@ -15692,7 +17498,7 @@ static int rl_w_Rtile_view_set_sections(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rtile_view_set_sections)((Rid)a0, (int)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileSectionCallback)rl_t_RTileSectionCallback : (RTileSectionCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 43, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 46, NULL, cb_);
 	return results_;
 }
 
@@ -15790,7 +17596,7 @@ static int rl_w_Rtile_view_set_section_toggled_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtile_view_set_section_toggled_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileEventCallback)rl_t_RTileEventCallback : (RTileEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 44, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 47, NULL, cb_);
 	return results_;
 }
 
@@ -15960,7 +17766,27 @@ static int rl_w_Rtile_view_set_drag_data_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtile_view_set_drag_data_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileDragDataCallback)rl_t_RTileDragDataCallback : (RTileDragDataCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 45, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 48, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtile_view_set_drag_out_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rtile_view_set_drag_out_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileEventCallback)rl_t_RTileEventCallback : (RTileEventCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 49, NULL, cb_);
 	return results_;
 }
 
@@ -15980,7 +17806,7 @@ static int rl_w_Rtile_view_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtile_view_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileEventCallback)rl_t_RTileEventCallback : (RTileEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 46, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 50, NULL, cb_);
 	return results_;
 }
 
@@ -16000,7 +17826,7 @@ static int rl_w_Rtile_view_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtile_view_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileEventCallback)rl_t_RTileEventCallback : (RTileEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 47, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 51, NULL, cb_);
 	return results_;
 }
 
@@ -16020,7 +17846,7 @@ static int rl_w_Rtile_view_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtile_view_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTileContextCallback)rl_t_RTileContextCallback : (RTileContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 48, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 52, NULL, cb_);
 	return results_;
 }
 
@@ -16272,7 +18098,7 @@ static int rl_w_Rtable_set_virtual_rows(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rtable_set_virtual_rows)((Rid)a0, (int)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableCellTextCallback)rl_t_RTableCellTextCallback : (RTableCellTextCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 49, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 53, NULL, cb_);
 	return results_;
 }
 
@@ -16292,7 +18118,7 @@ static int rl_w_Rtable_set_cell_color_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtable_set_cell_color_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableCellColorCallback)rl_t_RTableCellColorCallback : (RTableCellColorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 50, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 54, NULL, cb_);
 	return results_;
 }
 
@@ -16330,6 +18156,32 @@ static int rl_w_Rtable_set_multi_select(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtable_set_selection_mode(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rtable_set_selection_mode)((Rid)a0, (RTableSelectionMode)a1);
+	return results_;
+}
+
+static int rl_w_Rtable_get_selection_mode(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RTableSelectionMode value_ = RL(Rtable_get_selection_mode)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rtable_set_row_selected(lua_State* L) {
 	uint32_t a0;
 	int a1;
@@ -16357,6 +18209,32 @@ static int rl_w_Rtable_is_row_selected(lua_State* L) {
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
+	return results_;
+}
+
+static int rl_w_Rtable_select_range(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	RL(Rtable_select_range)((Rid)a0, (int)a1, (int)a2, (int)a3);
+	return results_;
+}
+
+static int rl_w_Rtable_select_all(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rtable_select_all)((Rid)a0);
 	return results_;
 }
 
@@ -16400,6 +18278,45 @@ static int rl_w_Rtable_get_selection(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtable_get_selection_range_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtable_get_selection_range_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_get_selection_range(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	{
+		int value_ = RL(Rtable_get_selection_range)((Rid)a0, (int)a1, &a2, &a3);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 4, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	return results_;
+}
+
 static int rl_w_Rtable_set_selected(lua_State* L) {
 	uint32_t a0;
 	int a1;
@@ -16420,6 +18337,20 @@ static int rl_w_Rtable_get_selected(lua_State* L) {
 	a0 = rl_u32(L, 1, NULL);
 	{
 		int value_ = RL(Rtable_get_selected)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_get_current_row(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtable_get_current_row)((Rid)a0);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -16532,7 +18463,7 @@ static int rl_w_Rtable_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtable_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableEventCallback)rl_t_RTableEventCallback : (RTableEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 51, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 55, NULL, cb_);
 	return results_;
 }
 
@@ -16552,7 +18483,7 @@ static int rl_w_Rtable_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtable_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableEventCallback)rl_t_RTableEventCallback : (RTableEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 52, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 56, NULL, cb_);
 	return results_;
 }
 
@@ -16572,7 +18503,195 @@ static int rl_w_Rtable_set_sort_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtable_set_sort_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableSortCallback)rl_t_RTableSortCallback : (RTableSortCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 53, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 57, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtable_set_column_editable(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	RL(Rtable_set_column_editable)((Rid)a0, (int)a1, (int)a2);
+	return results_;
+}
+
+static int rl_w_Rtable_is_column_editable(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtable_is_column_editable)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_set_cell_edited_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rtable_set_cell_edited_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTableCellEditedCallback)rl_t_RTableCellEditedCallback : (RTableCellEditedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 58, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtable_edit_cell(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	{
+		int value_ = RL(Rtable_edit_cell)((Rid)a0, (int)a1, (int)a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_is_editing(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtable_is_editing)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_end_edit(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtable_end_edit)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_set_frozen_columns(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtable_set_frozen_columns)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtable_get_frozen_columns(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtable_get_frozen_columns)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_set_column_kind(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_enum(L, 3, NULL);
+	RL(Rtable_set_column_kind)((Rid)a0, (int)a1, (RTableColumnKind)a2);
+	return results_;
+}
+
+static int rl_w_Rtable_get_column_kind(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		RTableColumnKind value_ = RL(Rtable_get_column_kind)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_is_cell_checked(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	{
+		int value_ = RL(Rtable_is_cell_checked)((Rid)a0, (int)a1, (int)a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtable_set_cell_checked(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	RL(Rtable_set_cell_checked)((Rid)a0, (int)a1, (int)a2, (int)a3);
 	return results_;
 }
 
@@ -16717,7 +18836,59 @@ static int rl_w_Rdate_picker_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdate_picker_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDateChangedCallback)rl_t_RDateChangedCallback : (RDateChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 54, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 59, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rdate_picker_set_time_zone(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rdate_picker_set_time_zone)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rdate_picker_get_time_zone(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rdate_picker_get_time_zone)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdate_picker_set_instant(lua_State* L) {
+	uint32_t a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	RL(Rdate_picker_set_instant)((Rid)a0, (double)a1);
+	return results_;
+}
+
+static int rl_w_Rdate_picker_get_instant(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		double value_ = RL(Rdate_picker_get_instant)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
 	return results_;
 }
 
@@ -16800,7 +18971,150 @@ static int rl_w_Rtime_picker_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtime_picker_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimeChangedCallback)rl_t_RTimeChangedCallback : (RTimeChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 55, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 60, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_set_clock(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rtime_picker_set_clock)((Rid)a0, (RClock)a1);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_get_clock(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RClock value_ = RL(Rtime_picker_get_clock)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtime_picker_get_text(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rtime_picker_get_text)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtime_picker_set_time_zone(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rtime_picker_set_time_zone)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_get_time_zone(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rtime_picker_get_time_zone)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtime_picker_set_time_zone_visible(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtime_picker_set_time_zone_visible)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_set_date(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	RL(Rtime_picker_set_date)((Rid)a0, (int)a1, (int)a2, (int)a3);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_get_date(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	RL(Rtime_picker_get_date)((Rid)a0, &a1, &a2, &a3);
+	luaL_checkstack(L, 5, "raven");
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rtime_picker_set_instant(lua_State* L) {
+	uint32_t a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	RL(Rtime_picker_set_instant)((Rid)a0, (double)a1);
+	return results_;
+}
+
+static int rl_w_Rtime_picker_get_instant(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		double value_ = RL(Rtime_picker_get_instant)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
 	return results_;
 }
 
@@ -16974,7 +19288,7 @@ static int rl_w_Rtoast_set_action_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtoast_set_action_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RToastCallback)rl_t_RToastCallback : (RToastCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 56, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 61, NULL, cb_);
 	return results_;
 }
 
@@ -17064,7 +19378,7 @@ static int rl_w_Rbreadcrumb_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rbreadcrumb_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBreadcrumbCallback)rl_t_RBreadcrumbCallback : (RBreadcrumbCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 57, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 62, NULL, cb_);
 	return results_;
 }
 
@@ -17172,7 +19486,7 @@ static int rl_w_Rrating_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rrating_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RRatingChangedCallback)rl_t_RRatingChangedCallback : (RRatingChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 58, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 63, NULL, cb_);
 	return results_;
 }
 
@@ -17256,7 +19570,7 @@ static int rl_w_Rpagination_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rpagination_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPageChangedCallback)rl_t_RPageChangedCallback : (RPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 59, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 64, NULL, cb_);
 	return results_;
 }
 
@@ -18079,7 +20393,7 @@ static int rl_w_Rplot_set_view_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rplot_set_view_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPlotViewCallback)rl_t_RPlotViewCallback : (RPlotViewCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 60, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 65, NULL, cb_);
 	return results_;
 }
 
@@ -18099,7 +20413,7 @@ static int rl_w_Rplot_set_drag_line_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rplot_set_drag_line_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPlotDragLineCallback)rl_t_RPlotDragLineCallback : (RPlotDragLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 61, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 66, NULL, cb_);
 	return results_;
 }
 
@@ -18119,7 +20433,7 @@ static int rl_w_Rplot_set_series_toggled_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rplot_set_series_toggled_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPlotSeriesCallback)rl_t_RPlotSeriesCallback : (RPlotSeriesCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 62, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 67, NULL, cb_);
 	return results_;
 }
 
@@ -18461,7 +20775,7 @@ static int rl_w_Rchart_set_slice_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rchart_set_slice_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RChartSliceCallback)rl_t_RChartSliceCallback : (RChartSliceCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 63, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 68, NULL, cb_);
 	return results_;
 }
 
@@ -18750,7 +21064,7 @@ static int rl_w_Rchart_set_cell_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rchart_set_cell_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RChartCellCallback)rl_t_RChartCellCallback : (RChartCellCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 64, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 69, NULL, cb_);
 	return results_;
 }
 
@@ -19068,7 +21382,7 @@ static int rl_w_Rpdf_view_set_page_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rpdf_view_set_page_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPdfPageChangedCallback)rl_t_RPdfPageChangedCallback : (RPdfPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 65, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 70, NULL, cb_);
 	return results_;
 }
 
@@ -19291,7 +21605,7 @@ static int rl_w_Rcarousel_set_page_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcarousel_set_page_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RCarouselPageChangedCallback)rl_t_RCarouselPageChangedCallback : (RCarouselPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 66, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 71, NULL, cb_);
 	return results_;
 }
 
@@ -19498,7 +21812,7 @@ static int rl_w_Rmap_view_set_tile_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rmap_view_set_tile_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMapTileCallback)rl_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 67, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 72, NULL, cb_);
 	return results_;
 }
 
@@ -19518,7 +21832,7 @@ static int rl_w_Rmap_view_set_tile_cancel_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rmap_view_set_tile_cancel_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMapTileCallback)rl_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 68, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 73, NULL, cb_);
 	return results_;
 }
 
@@ -19812,7 +22126,7 @@ static int rl_w_Rmap_view_set_marker_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rmap_view_set_marker_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMapMarkerCallback)rl_t_RMapMarkerCallback : (RMapMarkerCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 69, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 74, NULL, cb_);
 	return results_;
 }
 
@@ -19832,7 +22146,7 @@ static int rl_w_Rmap_view_set_view_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rmap_view_set_view_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMapViewCallback)rl_t_RMapViewCallback : (RMapViewCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 70, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 75, NULL, cb_);
 	return results_;
 }
 
@@ -19857,6 +22171,266 @@ static int rl_w_Rmap_view_get_attribution(lua_State* L) {
 	{
 		const char* value_ = RL(Rmap_view_get_attribution)((Rid)a0);
 		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_is_supported(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rsystem_web_view_is_supported)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_create(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		Rid value_ = RL(Rsystem_web_view_create)();
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_load_url(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rsystem_web_view_load_url)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_load_file(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rsystem_web_view_load_file)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_load_html(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	const char* a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_str(L, 3, NULL);
+	RL(Rsystem_web_view_load_html)((Rid)a0, a1, a2);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_reload(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rsystem_web_view_reload)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_stop(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rsystem_web_view_stop)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_go_back(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rsystem_web_view_go_back)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_go_forward(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rsystem_web_view_go_forward)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_can_go_back(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rsystem_web_view_can_go_back)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_can_go_forward(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rsystem_web_view_can_go_forward)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_get_url(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rsystem_web_view_get_url)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_get_title(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rsystem_web_view_get_title)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_is_loading(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rsystem_web_view_is_loading)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_get_error(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rsystem_web_view_get_error)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_run_javascript(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	void* a3;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	k0_ = rl_callback_arg(L, 3, &n0_);
+	a3 = lua_touserdata(L, 4);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 3, 0, 4);
+	}
+	RL(Rsystem_web_view_run_javascript)((Rid)a0, a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RSystemWebViewResultCallback)rl_t_RSystemWebViewResultCallback : (RSystemWebViewResultCallback)n0_, cb_ ? (void*)cb_ : a3);
+	rl_bind(a0, RL_OWNER_WIDGET, 76, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_set_message_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rsystem_web_view_set_message_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RSystemWebViewMessageCallback)rl_t_RSystemWebViewMessageCallback : (RSystemWebViewMessageCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 77, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_set_event_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rsystem_web_view_set_event_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RSystemWebViewEventCallback)rl_t_RSystemWebViewEventCallback : (RSystemWebViewEventCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 78, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rsystem_web_view_get_native_handle(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const void* value_ = RL(Rsystem_web_view_get_native_handle)((Rid)a0);
+		rl_push_ptr(L, value_);
 		results_++;
 	}
 	return results_;
@@ -20552,6 +23126,263 @@ static int rl_w_Rtext_editor_scroll_to_line(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtext_editor_add_cursor(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	RL(Rtext_editor_add_cursor)((Rid)a0, (int)a1, (int)a2);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_add_selection(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 5);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	a4 = rl_int(L, 5, NULL);
+	RL(Rtext_editor_add_selection)((Rid)a0, (int)a1, (int)a2, (int)a3, (int)a4);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_cursor_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_cursor_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_cursor_at(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	{
+		int value_ = RL(Rtext_editor_get_cursor_at)((Rid)a0, (int)a1, &a2, &a3, &a4, &a5);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 6, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a5);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_main_cursor(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_main_cursor)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_clear_cursors(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rtext_editor_clear_cursors)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_add_next_occurrence(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_add_next_occurrence)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_select_all_occurrences(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_select_all_occurrences)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_fold(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_fold)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_unfold(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_unfold)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_fold_all(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rtext_editor_fold_all)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_unfold_all(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rtext_editor_unfold_all)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_is_folded(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_is_folded)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_is_line_hidden(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_is_line_hidden)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_fold_end(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_fold_end)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_set_folding(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtext_editor_set_folding)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_folding(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_folding)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rtext_editor_undo(lua_State* L) {
 	uint32_t a0;
 	int results_ = 0;
@@ -20752,7 +23583,7 @@ static int rl_w_Rtext_editor_set_zoom_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_zoom_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorZoomCallback)rl_t_RTextEditorZoomCallback : (RTextEditorZoomCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 71, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 79, NULL, cb_);
 	return results_;
 }
 
@@ -20893,6 +23724,44 @@ static int rl_w_Rtext_editor_get_markdown(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtext_editor_set_spell_check(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtext_editor_set_spell_check)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_spell_check(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_spell_check)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_set_spell_language(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rtext_editor_set_spell_language)((Rid)a0, a1);
+	return results_;
+}
+
 static int rl_w_Rtext_editor_get_token(lua_State* L) {
 	uint32_t a0;
 	int a1;
@@ -20963,7 +23832,7 @@ static int rl_w_Rtext_editor_set_completion_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_completion_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RCompletionCallback)rl_t_RCompletionCallback : (RCompletionCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 72, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 80, NULL, cb_);
 	return results_;
 }
 
@@ -21081,7 +23950,230 @@ static int rl_w_Rtext_editor_set_hover_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_hover_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorHoverCallback)rl_t_RTextEditorHoverCallback : (RTextEditorHoverCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 73, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 81, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_set_search(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	uint32_t a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_u32(L, 3, NULL);
+	RL(Rtext_editor_set_search)((Rid)a0, a1, (Ruint)a2);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_search(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rtext_editor_get_search)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_search_flags(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		Ruint value_ = RL(Rtext_editor_get_search_flags)((Rid)a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_find_next(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_find_next)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_find_previous(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_find_previous)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_match_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_match_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_match_index(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_get_match_index)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_get_match(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	{
+		int value_ = RL(Rtext_editor_get_match)((Rid)a0, (int)a1, &a2, &a3, &a4);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 5, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rtext_editor_select_match(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_select_match)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_replace(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_replace)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_replace_all(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rtext_editor_replace_all)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_show_find(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtext_editor_show_find)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_hide_find(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rtext_editor_hide_find)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rtext_editor_is_find_shown(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rtext_editor_is_find_shown)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtext_editor_set_find_bar(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rtext_editor_set_find_bar)((Rid)a0, (int)a1);
 	return results_;
 }
 
@@ -21153,7 +24245,7 @@ static int rl_w_Rtext_editor_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorChangedCallback)rl_t_RTextEditorChangedCallback : (RTextEditorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 74, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 82, NULL, cb_);
 	return results_;
 }
 
@@ -21494,7 +24586,7 @@ static int rl_w_Rdock_area_set_close_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_close_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockCloseCallback)rl_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 75, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
 	return results_;
 }
 
@@ -21554,7 +24646,7 @@ static int rl_w_Rdock_area_set_float_window(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdock_area_set_float_window)((Rid)a0, (Ruint)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockFloatWindowCallback)rl_t_RDockFloatWindowCallback : (RDockFloatWindowCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 76, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
 	return results_;
 }
 
@@ -21622,7 +24714,7 @@ static int rl_w_Rdock_area_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockChangedCallback)rl_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 77, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
 	return results_;
 }
 
@@ -21767,7 +24859,7 @@ static int rl_w_Risland_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Risland_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RIslandChangedCallback)rl_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 78, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
 	return results_;
 }
 
@@ -21991,7 +25083,7 @@ static int rl_w_Rtray_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtray_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTrayClickedCallback)rl_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_PLAIN, 79, NULL, cb_);
+	rl_bind(a0, RL_OWNER_PLAIN, 87, NULL, cb_);
 	return results_;
 }
 
@@ -22275,7 +25367,7 @@ static int rl_w_Rcolor_picker_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcolor_picker_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RColorChangedCallback)rl_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 80, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
 	return results_;
 }
 
@@ -23139,7 +26231,7 @@ static int rl_w_Rtimeline_set_time_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_time_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineTimeCallback)rl_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 81, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 89, NULL, cb_);
 	return results_;
 }
 
@@ -23159,7 +26251,7 @@ static int rl_w_Rtimeline_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 82, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 90, NULL, cb_);
 	return results_;
 }
 
@@ -23179,7 +26271,7 @@ static int rl_w_Rtimeline_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
 	return results_;
 }
 
@@ -23199,7 +26291,7 @@ static int rl_w_Rtimeline_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
 	return results_;
 }
 
@@ -23219,7 +26311,7 @@ static int rl_w_Rtimeline_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
 	return results_;
 }
 
@@ -24152,7 +27244,7 @@ static int rl_w_Rnode_graph_set_connect_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_connect_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphConnectCallback)rl_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
 	return results_;
 }
 
@@ -24172,7 +27264,7 @@ static int rl_w_Rnode_graph_set_linked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_linked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 87, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
 	return results_;
 }
 
@@ -24192,7 +27284,7 @@ static int rl_w_Rnode_graph_set_unlinked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_unlinked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
 	return results_;
 }
 
@@ -24212,7 +27304,7 @@ static int rl_w_Rnode_graph_set_moved_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_moved_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 89, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
 	return results_;
 }
 
@@ -24232,7 +27324,7 @@ static int rl_w_Rnode_graph_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 90, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
 	return results_;
 }
 
@@ -24252,7 +27344,7 @@ static int rl_w_Rnode_graph_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
 	return results_;
 }
 
@@ -24272,7 +27364,7 @@ static int rl_w_Rnode_graph_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 100, NULL, cb_);
 	return results_;
 }
 
@@ -24292,7 +27384,7 @@ static int rl_w_Rnode_graph_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphContextCallback)rl_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
 	return results_;
 }
 
@@ -24312,7 +27404,7 @@ static int rl_w_Rnode_graph_set_canvas_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_canvas_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
 	return results_;
 }
 
@@ -24332,7 +27424,7 @@ static int rl_w_Rnode_graph_set_wire_dropped_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_wire_dropped_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
 	return results_;
 }
 
@@ -24352,7 +27444,7 @@ static int rl_w_Rnode_graph_set_pin_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_pin_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
 	return results_;
 }
 
@@ -25053,7 +28145,7 @@ static int rl_w_Rblock_editor_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 105, NULL, cb_);
 	return results_;
 }
 
@@ -25073,7 +28165,7 @@ static int rl_w_Rblock_editor_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 106, NULL, cb_);
 	return results_;
 }
 
@@ -25093,7 +28185,7 @@ static int rl_w_Rblock_editor_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorContextCallback)rl_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
 	return results_;
 }
 
@@ -25242,6 +28334,502 @@ static int rl_w_Rblock_editor_set_view(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rdiff_unified(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	const char* a2;
+	const char* a3;
+	int a4;
+	uint32_t a5;
+	size_t a6;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 6);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_str(L, 3, NULL);
+	a3 = rl_str(L, 4, NULL);
+	a4 = rl_int(L, 5, NULL);
+	a5 = rl_u32(L, 6, NULL);
+	memset(&a6, 0, sizeof(a6));
+	{
+		char* value_ = RL(Rdiff_unified)(a0, a1, a2, a3, (int)a4, (uint32_t)a5, &a6);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (size_t)a6);
+			RL(Rmemory_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_count_changes(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	uint32_t a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_u32(L, 3, NULL);
+	{
+		int value_ = RL(Rdiff_count_changes)(a0, a1, (uint32_t)a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_create(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		Rid value_ = RL(Rdiff_view_create)();
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_texts(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	const char* a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_str(L, 3, NULL);
+	RL(Rdiff_view_set_texts)((Rid)a0, a1, a2);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_names(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	const char* a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_str(L, 3, NULL);
+	RL(Rdiff_view_set_names)((Rid)a0, a1, a2);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_load_files(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	const char* a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	a2 = rl_str(L, 3, NULL);
+	{
+		int value_ = RL(Rdiff_view_load_files)((Rid)a0, a1, a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_patch(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rdiff_view_set_patch)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_mode(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rdiff_view_set_mode)((Rid)a0, (RDiffViewMode)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_mode(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RDiffViewMode value_ = RL(Rdiff_view_get_mode)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_context(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rdiff_view_set_context)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_context(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_get_context)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_flags(lua_State* L) {
+	uint32_t a0;
+	uint32_t a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_u32(L, 2, NULL);
+	RL(Rdiff_view_set_flags)((Rid)a0, (uint32_t)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_flags(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		uint32_t value_ = RL(Rdiff_view_get_flags)((Rid)a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_word_diff(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rdiff_view_set_word_diff)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_line_numbers(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rdiff_view_set_line_numbers)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_language(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rdiff_view_set_language)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_change_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_get_change_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_change(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	{
+		int value_ = RL(Rdiff_view_get_change)((Rid)a0, (int)a1, &a2, &a3, &a4, &a5);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 6, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a5);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rdiff_view_go_to_change(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rdiff_view_go_to_change)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_current_change(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_get_current_change)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_next_change(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_next_change)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_prev_change(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_prev_change)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_row_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_get_row_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_row(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	{
+		RDiffRowKind value_ = RL(Rdiff_view_get_row)((Rid)a0, (int)a1, &a2, &a3);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 4, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_row_text(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_enum(L, 3, NULL);
+	{
+		const char* value_ = RL(Rdiff_view_get_row_text)((Rid)a0, (int)a1, (RDiffSide)a2);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_expand(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rdiff_view_expand)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_first_visible_row(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rdiff_view_get_first_visible_row)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_scroll_to_row(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rdiff_view_scroll_to_row)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_add_annotation(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	const char* a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_str(L, 4, NULL);
+	RL(Rdiff_view_add_annotation)((Rid)a0, (RDiffSide)a1, (int)a2, a3);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_clear_annotations(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rdiff_view_clear_annotations)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rdiff_view_get_selected_text(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rdiff_view_get_selected_text)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rdiff_view_set_line_clicked_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rdiff_view_set_line_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDiffViewLineCallback)rl_t_RDiffViewLineCallback : (RDiffViewLineCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
+	return results_;
+}
+
 static int rl_w_Rdialog_open(lua_State* L) {
 	uint32_t a0;
 	uint32_t a1;
@@ -25256,13 +28844,13 @@ static int rl_w_Rdialog_open(lua_State* L) {
 	a1 = rl_u32(L, 2, NULL);
 	k0_ = rl_callback_arg(L, 3, &n0_);
 	a3 = lua_touserdata(L, 4);
-	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 100)) {
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 109)) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdialog_open)((Rid)a0, (Rid)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rl_bind(a1, RL_OWNER_WIDGET, 100, NULL, cb_);
+		rl_bind(a1, RL_OWNER_WIDGET, 109, NULL, cb_);
 	}
 	return results_;
 }
@@ -25317,7 +28905,7 @@ static int rl_w_Rpopup_open(lua_State* L) {
 		cb_ = rl_cb_new(L, 5, 0, 6);
 	}
 	RL(Rpopup_open)((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 110, NULL, cb_);
 	return results_;
 }
 
@@ -25767,7 +29355,7 @@ static int rl_w_Rfile_browser_set_accepted_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_accepted_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 111, NULL, cb_);
 	return results_;
 }
 
@@ -25787,7 +29375,7 @@ static int rl_w_Rfile_browser_set_cancelled_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_cancelled_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 112, NULL, cb_);
 	return results_;
 }
 
@@ -25807,7 +29395,7 @@ static int rl_w_Rfile_browser_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 113, NULL, cb_);
 	return results_;
 }
 
@@ -25854,7 +29442,7 @@ static int rl_w_Rnotification_set_fallback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_fallback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationFallback)rl_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 105, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 114, NULL, cb_);
 	return results_;
 }
 
@@ -25872,7 +29460,396 @@ static int rl_w_Rnotification_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_clicked_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationClickedCallback)rl_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 106, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 115, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rnotification_show_desc(lua_State* L) {
+	RNotificationDesc a0_value;
+	const RNotificationDesc* a0 = NULL;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	if (lua_istable(L, 1)) {
+		rl_get_RNotificationDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RNotificationDesc*)rl_ptr(L, 1, NULL);
+	}
+	{
+		int value_ = RL(Rnotification_show_desc)(a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rnotification_close(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	RL(Rnotification_close)(a0);
+	return results_;
+}
+
+static int rl_w_Rnotification_set_callback(lua_State* L) {
+	void* a1;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	k0_ = rl_callback_arg(L, 1, &n0_);
+	a1 = lua_touserdata(L, 2);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && 1) {
+		cb_ = rl_cb_new(L, 1, 0, 2);
+	}
+	RL(Rnotification_set_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationCallback)rl_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 116, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rnotification_set_bring_to_front(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	RL(Rnotification_set_bring_to_front)((int)a0);
+	return results_;
+}
+
+static int rl_w_Rnotification_set_fallback_toast(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rnotification_set_fallback_toast)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rnotification_supports(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	{
+		int value_ = RL(Rnotification_supports)((RNotificationFeature)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rpermission_get_status(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	{
+		RPermissionStatus value_ = RL(Rpermission_get_status)((RPermission)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rpermission_request(lua_State* L) {
+	int a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_enum(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rpermission_request)((RPermission)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPermissionCallback)rl_t_RPermissionCallback : (RPermissionCallback)n0_, cb_ ? (void*)cb_ : a2);
+	return results_;
+}
+
+static int rl_w_Rpermission_open_settings(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rpermission_open_settings)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rpermission_to_string(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	{
+		const char* value_ = RL(Rpermission_to_string)((RPermission)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rpermission_status_to_string(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	{
+		const char* value_ = RL(Rpermission_status_to_string)((RPermissionStatus)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rfile_open_async(lua_State* L) {
+	RFileDialogDesc a0_value;
+	const RFileDialogDesc* a0 = NULL;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	if (lua_istable(L, 1)) {
+		rl_get_RFileDialogDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RFileDialogDesc*)rl_ptr(L, 1, NULL);
+	}
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rfile_open_async)(a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	return results_;
+}
+
+static int rl_w_Rfile_save_async(lua_State* L) {
+	RFileDialogDesc a0_value;
+	const RFileDialogDesc* a0 = NULL;
+	const char* a1;
+	size_t a1_size;
+	void* a4;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 5);
+	if (lua_istable(L, 1)) {
+		rl_get_RFileDialogDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RFileDialogDesc*)rl_ptr(L, 1, NULL);
+	}
+	a1 = rl_lstr(L, 2, &a1_size, NULL);
+	a1_size = rl_size_opt(L, 3, a1_size);
+	k0_ = rl_callback_arg(L, 4, &n0_);
+	a4 = lua_touserdata(L, 5);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 4, 0, 5);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rfile_save_async)(a0, (const void*)a1, a1_size, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a4);
+	return results_;
+}
+
+static int rl_w_Rfile_export_async(lua_State* L) {
+	RFileDialogDesc a0_value;
+	const RFileDialogDesc* a0 = NULL;
+	const char* a1;
+	void* a3;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	if (lua_istable(L, 1)) {
+		rl_get_RFileDialogDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RFileDialogDesc*)rl_ptr(L, 1, NULL);
+	}
+	a1 = rl_str(L, 2, NULL);
+	k0_ = rl_callback_arg(L, 3, &n0_);
+	a3 = lua_touserdata(L, 4);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 3, 0, 4);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rfile_export_async)(a0, a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a3);
+	return results_;
+}
+
+static int rl_w_Rfile_select_folder_async(lua_State* L) {
+	RFileDialogDesc a0_value;
+	const RFileDialogDesc* a0 = NULL;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	if (lua_istable(L, 1)) {
+		rl_get_RFileDialogDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RFileDialogDesc*)rl_ptr(L, 1, NULL);
+	}
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rfile_select_folder_async)(a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	return results_;
+}
+
+static int rl_w_Rcamera_is_available(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rcamera_is_available)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rcamera_take_photo(lua_State* L) {
+	void* a1;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	k0_ = rl_callback_arg(L, 1, &n0_);
+	a1 = lua_touserdata(L, 2);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 1, 0, 2);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rcamera_take_photo)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a1);
+	return results_;
+}
+
+static int rl_w_Rphoto_pick(lua_State* L) {
+	int a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_int(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rphoto_pick)((int)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	return results_;
+}
+
+static int rl_w_Rhaptic_is_supported(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rhaptic_is_supported)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rhaptic_play(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	{
+		int value_ = RL(Rhaptic_play)((RHaptic)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rshare_show(lua_State* L) {
+	RShareDesc a0_value;
+	const RShareDesc* a0 = NULL;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	if (lua_istable(L, 1)) {
+		rl_get_RShareDesc(L, 1, &a0_value);
+		a0 = &a0_value;
+	} else {
+		a0 = (const RShareDesc*)rl_ptr(L, 1, NULL);
+	}
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Ris_initialized)()) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	if (cb_) {
+		cb_->once = 1;
+		rl_tasks_add(cb_);
+	}
+	RL(Rshare_show)(a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceCallback)rl_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
 	return results_;
 }
 
@@ -26003,7 +29980,7 @@ static int rl_w_Rviewport_set_resize_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rviewport_set_resize_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RViewportResizeCallback)rl_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 125, NULL, cb_);
 	return results_;
 }
 
@@ -26035,7 +30012,7 @@ static int rl_w_Rcustom_set_paint_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_paint_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPaintCallback)rl_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 126, NULL, cb_);
 	return results_;
 }
 
@@ -26055,7 +30032,7 @@ static int rl_w_Rcustom_set_measure_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_measure_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMeasureCallback)rl_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 109, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
 	return results_;
 }
 
@@ -26817,7 +30794,7 @@ static int rl_w_Rxml_set_reload_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rxml_set_reload_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RXmlReloadCallback)rl_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 110, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 128, NULL, cb_);
 	return results_;
 }
 
@@ -26938,7 +30915,7 @@ static int rl_w_Rxml_register_tag(lua_State* L) {
 			rl_cb_release(cb_);
 			cb_ = NULL;
 		}
-		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 111, a0, cb_);
+		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, cb_);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -26952,7 +30929,7 @@ static int rl_w_Rxml_unregister_tag(lua_State* L) {
 	lua_settop(L, 1);
 	a0 = rl_str(L, 1, NULL);
 	RL(Rxml_unregister_tag)(a0);
-	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 111, a0, NULL);
+	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, NULL);
 	return results_;
 }
 
@@ -27783,7 +31760,7 @@ static int rl_w_Rscript_set_log_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_log_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptLogCallback)rl_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 112, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 130, NULL, cb_);
 	return results_;
 }
 
@@ -27801,7 +31778,7 @@ static int rl_w_Rscript_set_diagnostic_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_diagnostic_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptDiagnosticCallback)rl_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 113, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
 	return results_;
 }
 
@@ -27952,7 +31929,7 @@ static int rl_w_Rlocale_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rlocale_set_changed_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RLocaleChangedCallback)rl_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 114, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
 	return results_;
 }
 
@@ -28042,6 +32019,264 @@ static int rl_w_Rlocale_format_number(lua_State* L) {
 	a1 = rl_int(L, 2, NULL);
 	{
 		const char* value_ = RL(Rlocale_format_number)((double)a0, (int)a1);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rlocale_set_clock(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_enum(L, 1, NULL);
+	RL(Rlocale_set_clock)((RClock)a0);
+	return results_;
+}
+
+static int rl_w_Rlocale_get_clock(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		RClock value_ = RL(Rlocale_get_clock)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rlocale_uses_12_hour_clock(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rlocale_uses_12_hour_clock)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rlocale_get_day_period(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	{
+		const char* value_ = RL(Rlocale_get_day_period)((int)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rlocale_format_time(lua_State* L) {
+	int a0;
+	int a1;
+	int a2;
+	int a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_int(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	{
+		const char* value_ = RL(Rlocale_format_time)((int)a0, (int)a1, (int)a2, (int)a3);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_get_system(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		const char* value_ = RL(Rtimezone_get_system)();
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_set_directory(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	RL(Rtimezone_set_directory)(a0);
+	return results_;
+}
+
+static int rl_w_Rtimezone_is_valid(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		int value_ = RL(Rtimezone_is_valid)(a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_to_local(lua_State* L) {
+	const char* a0;
+	double a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int a6;
+	int a7;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	memset(&a6, 0, sizeof(a6));
+	memset(&a7, 0, sizeof(a7));
+	{
+		int value_ = RL(Rtimezone_to_local)(a0, (double)a1, &a2, &a3, &a4, &a5, &a6, &a7);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 8, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a5);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a6);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a7);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rtimezone_from_local(lua_State* L) {
+	const char* a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int a6;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 7);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	a4 = rl_int(L, 5, NULL);
+	a5 = rl_int(L, 6, NULL);
+	a6 = rl_int(L, 7, NULL);
+	{
+		double value_ = RL(Rtimezone_from_local)(a0, (int)a1, (int)a2, (int)a3, (int)a4, (int)a5, (int)a6);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_count_local(lua_State* L) {
+	const char* a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int a6;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 7);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	a4 = rl_int(L, 5, NULL);
+	a5 = rl_int(L, 6, NULL);
+	a6 = rl_int(L, 7, NULL);
+	{
+		int value_ = RL(Rtimezone_count_local)(a0, (int)a1, (int)a2, (int)a3, (int)a4, (int)a5, (int)a6);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_get_offset(lua_State* L) {
+	const char* a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	{
+		int value_ = RL(Rtimezone_get_offset)(a0, (double)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_is_daylight_saving(lua_State* L) {
+	const char* a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	{
+		int value_ = RL(Rtimezone_is_daylight_saving)(a0, (double)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_get_abbreviation(lua_State* L) {
+	const char* a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	{
+		const char* value_ = RL(Rtimezone_get_abbreviation)(a0, (double)a1);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtimezone_get_label(lua_State* L) {
+	const char* a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	{
+		const char* value_ = RL(Rtimezone_get_label)(a0, (double)a1);
 		rl_push_text(L, value_);
 		results_++;
 	}
@@ -28284,7 +32519,7 @@ static int rl_w_Rwidget_set_accessible_action(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_accessible_action)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RAccessiblePressCallback)rl_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 115, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 133, NULL, cb_);
 	return results_;
 }
 
@@ -28523,6 +32758,45 @@ static int rl_w_Rhost_inject_close(lua_State* L) {
 	lua_settop(L, 1);
 	a0 = rl_u32(L, 1, NULL);
 	RL(Rhost_inject_close)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rhost_permission_answer(lua_State* L) {
+	int a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_enum(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rhost_permission_answer)((RPermission)a0, (RPermissionStatus)a1);
+	return results_;
+}
+
+static int rl_w_Rhost_service_complete(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	RPickedFile* a2 = NULL;
+	int a2_count = 0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	if (!lua_isnoneornil(L, 3)) {
+		int k_;
+		luaL_checktype(L, 3, LUA_TTABLE);
+		a2_count = (int)rl_rawlen(L, 3);
+		a2 = (RPickedFile*)rl_scratch(L, (size_t)a2_count * sizeof(RPickedFile));
+		for (k_ = 0; k_ < a2_count; k_++) {
+			luaL_checkstack(L, 4, "raven");
+			lua_rawgeti(L, 3, k_ + 1);
+			if (!lua_istable(L, -1)) luaL_argerror(L, 3, "every element must be a table");
+			rl_get_RPickedFile(L, lua_gettop(L), &a2[k_]);
+		}
+	}
+	a2_count = rl_count_opt(L, 4, a2_count);
+	RL(Rhost_service_complete)((Ruint)a0, (RDeviceResult)a1, a2_count > 0 ? a2 : NULL, a2_count);
 	return results_;
 }
 
@@ -28948,6 +33222,79 @@ static int rl_w_Rtest_compare_pixels(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rtest_dump_tree(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rtest_dump_tree)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtest_save_tree(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rtest_save_tree)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtest_save_png(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rtest_save_png)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtest_run_script(lua_State* L) {
+	const char* a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rtest_run_script)(a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rtest_get_script_error(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		const char* value_ = RL(Rtest_get_script_error)();
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
 static const luaL_Reg rl_functions[] = {
 	{"Rinit", rl_w_Rinit},
 	{"Rinit_ex", rl_w_Rinit_ex},
@@ -29014,6 +33361,13 @@ static const luaL_Reg rl_functions[] = {
 	{"Rclipboard_set_text", rl_w_Rclipboard_set_text},
 	{"Rclipboard_set_html", rl_w_Rclipboard_set_html},
 	{"Rclipboard_get_text", rl_w_Rclipboard_get_text},
+	{"Rclipboard_has_text", rl_w_Rclipboard_has_text},
+	{"Rclipboard_set_data", rl_w_Rclipboard_set_data},
+	{"Rclipboard_has_data", rl_w_Rclipboard_has_data},
+	{"Rclipboard_get_data", rl_w_Rclipboard_get_data},
+	{"Rclipboard_set_image", rl_w_Rclipboard_set_image},
+	{"Rclipboard_has_image", rl_w_Rclipboard_has_image},
+	{"Rclipboard_get_image", rl_w_Rclipboard_get_image},
 	{"Rerror_get_last", rl_w_Rerror_get_last},
 	{"Rerror_to_string", rl_w_Rerror_to_string},
 	{"Rseverity_to_string", rl_w_Rseverity_to_string},
@@ -29095,6 +33449,7 @@ static const luaL_Reg rl_functions[] = {
 	{"Rwindow_inject_composition", rl_w_Rwindow_inject_composition},
 	{"Rwindow_inject_drag", rl_w_Rwindow_inject_drag},
 	{"Rwindow_inject_drop", rl_w_Rwindow_inject_drop},
+	{"Rwindow_inject_drag_end", rl_w_Rwindow_inject_drag_end},
 	{"Rwindow_inject_back", rl_w_Rwindow_inject_back},
 	{"Rwindow_is_key_down", rl_w_Rwindow_is_key_down},
 	{"Rwindow_is_mouse_button_down", rl_w_Rwindow_is_mouse_button_down},
@@ -29118,6 +33473,10 @@ static const luaL_Reg rl_functions[] = {
 	{"Rdrag_get_type", rl_w_Rdrag_get_type},
 	{"Rdrag_get_data", rl_w_Rdrag_get_data},
 	{"Rdrag_cancel", rl_w_Rdrag_cancel},
+	{"Rdrag_begin_external", rl_w_Rdrag_begin_external},
+	{"Rdrag_set_image", rl_w_Rdrag_set_image},
+	{"Rdrag_external_supported", rl_w_Rdrag_external_supported},
+	{"Rdrag_external_is_active", rl_w_Rdrag_external_is_active},
 	{"Rwindow_register_shortcut", rl_w_Rwindow_register_shortcut},
 	{"Rwindow_unregister_shortcut", rl_w_Rwindow_unregister_shortcut},
 	{"Rtouch_get_settings", rl_w_Rtouch_get_settings},
@@ -29185,12 +33544,16 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtexture_create", rl_w_Rtexture_create},
 	{"Rtexture_create_async", rl_w_Rtexture_create_async},
 	{"Rtexture_create_from_svg", rl_w_Rtexture_create_from_svg},
+	{"Rtexture_uses_current_color", rl_w_Rtexture_uses_current_color},
 	{"Rtexture_get_density", rl_w_Rtexture_get_density},
 	{"Rtexture_create_from_file", rl_w_Rtexture_create_from_file},
 	{"Rtexture_create_from_file_async", rl_w_Rtexture_create_from_file_async},
+	{"Rtexture_create_from_url_async", rl_w_Rtexture_create_from_url_async},
 	{"Rtexture_create_from_pixels", rl_w_Rtexture_create_from_pixels},
 	{"Rtexture_update", rl_w_Rtexture_update},
 	{"Rimage_decode", rl_w_Rimage_decode},
+	{"Rimage_decode_info", rl_w_Rimage_decode_info},
+	{"Rimage_decode_frame", rl_w_Rimage_decode_frame},
 	{"Rpixels_free", rl_w_Rpixels_free},
 	{"Rimage_encode_png", rl_w_Rimage_encode_png},
 	{"Rimage_save_png", rl_w_Rimage_save_png},
@@ -29200,6 +33563,9 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtexture_is_valid", rl_w_Rtexture_is_valid},
 	{"Rtexture_get_size", rl_w_Rtexture_get_size},
 	{"Rtexture_set_filter", rl_w_Rtexture_set_filter},
+	{"Ricon_get", rl_w_Ricon_get},
+	{"Ricon_get_count", rl_w_Ricon_get_count},
+	{"Ricon_get_name", rl_w_Ricon_get_name},
 	{"Rwidget_create", rl_w_Rwidget_create},
 	{"Rwidget_destroy", rl_w_Rwidget_destroy},
 	{"Rwidget_is_valid", rl_w_Rwidget_is_valid},
@@ -29379,6 +33745,19 @@ static const luaL_Reg rl_functions[] = {
 	{"Rimage_set_stretch", rl_w_Rimage_set_stretch},
 	{"Rimage_set_region", rl_w_Rimage_set_region},
 	{"Rimage_set_corner_radius", rl_w_Rimage_set_corner_radius},
+	{"Rimage_is_animated", rl_w_Rimage_is_animated},
+	{"Rimage_get_frame_count", rl_w_Rimage_get_frame_count},
+	{"Rimage_get_duration", rl_w_Rimage_get_duration},
+	{"Rimage_get_frame_delay", rl_w_Rimage_get_frame_delay},
+	{"Rimage_play", rl_w_Rimage_play},
+	{"Rimage_pause", rl_w_Rimage_pause},
+	{"Rimage_stop", rl_w_Rimage_stop},
+	{"Rimage_is_playing", rl_w_Rimage_is_playing},
+	{"Rimage_set_frame", rl_w_Rimage_set_frame},
+	{"Rimage_get_frame", rl_w_Rimage_get_frame},
+	{"Rimage_set_loop_count", rl_w_Rimage_set_loop_count},
+	{"Rimage_get_loop_count", rl_w_Rimage_get_loop_count},
+	{"Rimage_set_finished_callback", rl_w_Rimage_set_finished_callback},
 	{"Rtext_input_set_text", rl_w_Rtext_input_set_text},
 	{"Rtext_input_get_text", rl_w_Rtext_input_get_text},
 	{"Rtext_input_set_placeholder", rl_w_Rtext_input_set_placeholder},
@@ -29394,6 +33773,20 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtext_input_get_return_key", rl_w_Rtext_input_get_return_key},
 	{"Rtext_input_set_changed_callback", rl_w_Rtext_input_set_changed_callback},
 	{"Rtext_input_set_committed_callback", rl_w_Rtext_input_set_committed_callback},
+	{"Rtext_input_set_spell_check", rl_w_Rtext_input_set_spell_check},
+	{"Rtext_input_get_spell_check", rl_w_Rtext_input_get_spell_check},
+	{"Rtext_input_set_spell_language", rl_w_Rtext_input_set_spell_language},
+	{"Rspell_is_supported", rl_w_Rspell_is_supported},
+	{"Rspell_get_language_count", rl_w_Rspell_get_language_count},
+	{"Rspell_get_language_at", rl_w_Rspell_get_language_at},
+	{"Rspell_set_language", rl_w_Rspell_set_language},
+	{"Rspell_get_language", rl_w_Rspell_get_language},
+	{"Rspell_check", rl_w_Rspell_check},
+	{"Rspell_get_misspelling", rl_w_Rspell_get_misspelling},
+	{"Rspell_suggest", rl_w_Rspell_suggest},
+	{"Rspell_get_suggestion", rl_w_Rspell_get_suggestion},
+	{"Rspell_learn", rl_w_Rspell_learn},
+	{"Rspell_ignore", rl_w_Rspell_ignore},
 	{"Rspin_box_set_range", rl_w_Rspin_box_set_range},
 	{"Rspin_box_set_value", rl_w_Rspin_box_set_value},
 	{"Rspin_box_get_value", rl_w_Rspin_box_get_value},
@@ -29410,6 +33803,15 @@ static const luaL_Reg rl_functions[] = {
 	{"Rcombo_box_set_selected", rl_w_Rcombo_box_set_selected},
 	{"Rcombo_box_get_selected", rl_w_Rcombo_box_get_selected},
 	{"Rcombo_box_set_changed_callback", rl_w_Rcombo_box_set_changed_callback},
+	{"Rcombo_box_set_editable", rl_w_Rcombo_box_set_editable},
+	{"Rcombo_box_is_editable", rl_w_Rcombo_box_is_editable},
+	{"Rcombo_box_set_searchable", rl_w_Rcombo_box_set_searchable},
+	{"Rcombo_box_is_searchable", rl_w_Rcombo_box_is_searchable},
+	{"Rcombo_box_get_text", rl_w_Rcombo_box_get_text},
+	{"Rcombo_box_set_text", rl_w_Rcombo_box_set_text},
+	{"Rcombo_box_set_text_changed_callback", rl_w_Rcombo_box_set_text_changed_callback},
+	{"Rcombo_box_set_open", rl_w_Rcombo_box_set_open},
+	{"Rcombo_box_is_open", rl_w_Rcombo_box_is_open},
 	{"Rseparator_set_orientation", rl_w_Rseparator_set_orientation},
 	{"Rlist_view_add_item", rl_w_Rlist_view_add_item},
 	{"Rlist_view_set_item_text", rl_w_Rlist_view_set_item_text},
@@ -29501,6 +33903,7 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtile_view_set_drop_highlight", rl_w_Rtile_view_set_drop_highlight},
 	{"Rtile_view_set_drag_type", rl_w_Rtile_view_set_drag_type},
 	{"Rtile_view_set_drag_data_callback", rl_w_Rtile_view_set_drag_data_callback},
+	{"Rtile_view_set_drag_out_callback", rl_w_Rtile_view_set_drag_out_callback},
 	{"Rtile_view_set_selection_changed_callback", rl_w_Rtile_view_set_selection_changed_callback},
 	{"Rtile_view_set_activated_callback", rl_w_Rtile_view_set_activated_callback},
 	{"Rtile_view_set_context_callback", rl_w_Rtile_view_set_context_callback},
@@ -29524,13 +33927,20 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtable_set_cell_color_callback", rl_w_Rtable_set_cell_color_callback},
 	{"Rtable_set_cell_text_color", rl_w_Rtable_set_cell_text_color},
 	{"Rtable_set_multi_select", rl_w_Rtable_set_multi_select},
+	{"Rtable_set_selection_mode", rl_w_Rtable_set_selection_mode},
+	{"Rtable_get_selection_mode", rl_w_Rtable_get_selection_mode},
 	{"Rtable_set_row_selected", rl_w_Rtable_set_row_selected},
 	{"Rtable_is_row_selected", rl_w_Rtable_is_row_selected},
+	{"Rtable_select_range", rl_w_Rtable_select_range},
+	{"Rtable_select_all", rl_w_Rtable_select_all},
 	{"Rtable_clear_selection", rl_w_Rtable_clear_selection},
 	{"Rtable_get_selection_count", rl_w_Rtable_get_selection_count},
 	{"Rtable_get_selection", rl_w_Rtable_get_selection},
+	{"Rtable_get_selection_range_count", rl_w_Rtable_get_selection_range_count},
+	{"Rtable_get_selection_range", rl_w_Rtable_get_selection_range},
 	{"Rtable_set_selected", rl_w_Rtable_set_selected},
 	{"Rtable_get_selected", rl_w_Rtable_get_selected},
+	{"Rtable_get_current_row", rl_w_Rtable_get_current_row},
 	{"Rtable_scroll_to_row", rl_w_Rtable_scroll_to_row},
 	{"Rtable_sort", rl_w_Rtable_sort},
 	{"Rtable_get_sort_column", rl_w_Rtable_get_sort_column},
@@ -29541,6 +33951,18 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtable_set_selection_changed_callback", rl_w_Rtable_set_selection_changed_callback},
 	{"Rtable_set_activated_callback", rl_w_Rtable_set_activated_callback},
 	{"Rtable_set_sort_callback", rl_w_Rtable_set_sort_callback},
+	{"Rtable_set_column_editable", rl_w_Rtable_set_column_editable},
+	{"Rtable_is_column_editable", rl_w_Rtable_is_column_editable},
+	{"Rtable_set_cell_edited_callback", rl_w_Rtable_set_cell_edited_callback},
+	{"Rtable_edit_cell", rl_w_Rtable_edit_cell},
+	{"Rtable_is_editing", rl_w_Rtable_is_editing},
+	{"Rtable_end_edit", rl_w_Rtable_end_edit},
+	{"Rtable_set_frozen_columns", rl_w_Rtable_set_frozen_columns},
+	{"Rtable_get_frozen_columns", rl_w_Rtable_get_frozen_columns},
+	{"Rtable_set_column_kind", rl_w_Rtable_set_column_kind},
+	{"Rtable_get_column_kind", rl_w_Rtable_get_column_kind},
+	{"Rtable_is_cell_checked", rl_w_Rtable_is_cell_checked},
+	{"Rtable_set_cell_checked", rl_w_Rtable_set_cell_checked},
 	{"Rdate_picker_set_date", rl_w_Rdate_picker_set_date},
 	{"Rdate_picker_get_date", rl_w_Rdate_picker_get_date},
 	{"Rdate_picker_set_range", rl_w_Rdate_picker_set_range},
@@ -29550,11 +33972,25 @@ static const luaL_Reg rl_functions[] = {
 	{"Rdate_picker_set_open", rl_w_Rdate_picker_set_open},
 	{"Rdate_picker_is_open", rl_w_Rdate_picker_is_open},
 	{"Rdate_picker_set_changed_callback", rl_w_Rdate_picker_set_changed_callback},
+	{"Rdate_picker_set_time_zone", rl_w_Rdate_picker_set_time_zone},
+	{"Rdate_picker_get_time_zone", rl_w_Rdate_picker_get_time_zone},
+	{"Rdate_picker_set_instant", rl_w_Rdate_picker_set_instant},
+	{"Rdate_picker_get_instant", rl_w_Rdate_picker_get_instant},
 	{"Rtime_picker_set_time", rl_w_Rtime_picker_set_time},
 	{"Rtime_picker_get_time", rl_w_Rtime_picker_get_time},
 	{"Rtime_picker_set_seconds_visible", rl_w_Rtime_picker_set_seconds_visible},
 	{"Rtime_picker_set_minute_step", rl_w_Rtime_picker_set_minute_step},
 	{"Rtime_picker_set_changed_callback", rl_w_Rtime_picker_set_changed_callback},
+	{"Rtime_picker_set_clock", rl_w_Rtime_picker_set_clock},
+	{"Rtime_picker_get_clock", rl_w_Rtime_picker_get_clock},
+	{"Rtime_picker_get_text", rl_w_Rtime_picker_get_text},
+	{"Rtime_picker_set_time_zone", rl_w_Rtime_picker_set_time_zone},
+	{"Rtime_picker_get_time_zone", rl_w_Rtime_picker_get_time_zone},
+	{"Rtime_picker_set_time_zone_visible", rl_w_Rtime_picker_set_time_zone_visible},
+	{"Rtime_picker_set_date", rl_w_Rtime_picker_set_date},
+	{"Rtime_picker_get_date", rl_w_Rtime_picker_get_date},
+	{"Rtime_picker_set_instant", rl_w_Rtime_picker_set_instant},
+	{"Rtime_picker_get_instant", rl_w_Rtime_picker_get_instant},
 	{"Rtoast_show", rl_w_Rtoast_show},
 	{"Rtoast_show_kind", rl_w_Rtoast_show_kind},
 	{"Rtoast_hide", rl_w_Rtoast_hide},
@@ -29759,6 +34195,25 @@ static const luaL_Reg rl_functions[] = {
 	{"Rmap_view_set_view_changed_callback", rl_w_Rmap_view_set_view_changed_callback},
 	{"Rmap_view_set_attribution", rl_w_Rmap_view_set_attribution},
 	{"Rmap_view_get_attribution", rl_w_Rmap_view_get_attribution},
+	{"Rsystem_web_view_is_supported", rl_w_Rsystem_web_view_is_supported},
+	{"Rsystem_web_view_create", rl_w_Rsystem_web_view_create},
+	{"Rsystem_web_view_load_url", rl_w_Rsystem_web_view_load_url},
+	{"Rsystem_web_view_load_file", rl_w_Rsystem_web_view_load_file},
+	{"Rsystem_web_view_load_html", rl_w_Rsystem_web_view_load_html},
+	{"Rsystem_web_view_reload", rl_w_Rsystem_web_view_reload},
+	{"Rsystem_web_view_stop", rl_w_Rsystem_web_view_stop},
+	{"Rsystem_web_view_go_back", rl_w_Rsystem_web_view_go_back},
+	{"Rsystem_web_view_go_forward", rl_w_Rsystem_web_view_go_forward},
+	{"Rsystem_web_view_can_go_back", rl_w_Rsystem_web_view_can_go_back},
+	{"Rsystem_web_view_can_go_forward", rl_w_Rsystem_web_view_can_go_forward},
+	{"Rsystem_web_view_get_url", rl_w_Rsystem_web_view_get_url},
+	{"Rsystem_web_view_get_title", rl_w_Rsystem_web_view_get_title},
+	{"Rsystem_web_view_is_loading", rl_w_Rsystem_web_view_is_loading},
+	{"Rsystem_web_view_get_error", rl_w_Rsystem_web_view_get_error},
+	{"Rsystem_web_view_run_javascript", rl_w_Rsystem_web_view_run_javascript},
+	{"Rsystem_web_view_set_message_callback", rl_w_Rsystem_web_view_set_message_callback},
+	{"Rsystem_web_view_set_event_callback", rl_w_Rsystem_web_view_set_event_callback},
+	{"Rsystem_web_view_get_native_handle", rl_w_Rsystem_web_view_get_native_handle},
 	{"Rpdf_document_create", rl_w_Rpdf_document_create},
 	{"Rpdf_document_delete", rl_w_Rpdf_document_delete},
 	{"Rpdf_document_set_title", rl_w_Rpdf_document_set_title},
@@ -29800,6 +34255,23 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtext_editor_get_selection", rl_w_Rtext_editor_get_selection},
 	{"Rtext_editor_get_selected_text", rl_w_Rtext_editor_get_selected_text},
 	{"Rtext_editor_scroll_to_line", rl_w_Rtext_editor_scroll_to_line},
+	{"Rtext_editor_add_cursor", rl_w_Rtext_editor_add_cursor},
+	{"Rtext_editor_add_selection", rl_w_Rtext_editor_add_selection},
+	{"Rtext_editor_get_cursor_count", rl_w_Rtext_editor_get_cursor_count},
+	{"Rtext_editor_get_cursor_at", rl_w_Rtext_editor_get_cursor_at},
+	{"Rtext_editor_get_main_cursor", rl_w_Rtext_editor_get_main_cursor},
+	{"Rtext_editor_clear_cursors", rl_w_Rtext_editor_clear_cursors},
+	{"Rtext_editor_add_next_occurrence", rl_w_Rtext_editor_add_next_occurrence},
+	{"Rtext_editor_select_all_occurrences", rl_w_Rtext_editor_select_all_occurrences},
+	{"Rtext_editor_fold", rl_w_Rtext_editor_fold},
+	{"Rtext_editor_unfold", rl_w_Rtext_editor_unfold},
+	{"Rtext_editor_fold_all", rl_w_Rtext_editor_fold_all},
+	{"Rtext_editor_unfold_all", rl_w_Rtext_editor_unfold_all},
+	{"Rtext_editor_is_folded", rl_w_Rtext_editor_is_folded},
+	{"Rtext_editor_is_line_hidden", rl_w_Rtext_editor_is_line_hidden},
+	{"Rtext_editor_get_fold_end", rl_w_Rtext_editor_get_fold_end},
+	{"Rtext_editor_set_folding", rl_w_Rtext_editor_set_folding},
+	{"Rtext_editor_get_folding", rl_w_Rtext_editor_get_folding},
 	{"Rtext_editor_undo", rl_w_Rtext_editor_undo},
 	{"Rtext_editor_redo", rl_w_Rtext_editor_redo},
 	{"Rtext_editor_can_undo", rl_w_Rtext_editor_can_undo},
@@ -29825,6 +34297,9 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtext_editor_get_language", rl_w_Rtext_editor_get_language},
 	{"Rtext_editor_set_markdown", rl_w_Rtext_editor_set_markdown},
 	{"Rtext_editor_get_markdown", rl_w_Rtext_editor_get_markdown},
+	{"Rtext_editor_set_spell_check", rl_w_Rtext_editor_set_spell_check},
+	{"Rtext_editor_get_spell_check", rl_w_Rtext_editor_get_spell_check},
+	{"Rtext_editor_set_spell_language", rl_w_Rtext_editor_set_spell_language},
 	{"Rtext_editor_get_token", rl_w_Rtext_editor_get_token},
 	{"Rtext_editor_set_completion", rl_w_Rtext_editor_set_completion},
 	{"Rtext_editor_show_completions", rl_w_Rtext_editor_show_completions},
@@ -29838,6 +34313,21 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtext_editor_clear_markers", rl_w_Rtext_editor_clear_markers},
 	{"Rtext_editor_get_marker_count", rl_w_Rtext_editor_get_marker_count},
 	{"Rtext_editor_set_hover_callback", rl_w_Rtext_editor_set_hover_callback},
+	{"Rtext_editor_set_search", rl_w_Rtext_editor_set_search},
+	{"Rtext_editor_get_search", rl_w_Rtext_editor_get_search},
+	{"Rtext_editor_get_search_flags", rl_w_Rtext_editor_get_search_flags},
+	{"Rtext_editor_find_next", rl_w_Rtext_editor_find_next},
+	{"Rtext_editor_find_previous", rl_w_Rtext_editor_find_previous},
+	{"Rtext_editor_get_match_count", rl_w_Rtext_editor_get_match_count},
+	{"Rtext_editor_get_match_index", rl_w_Rtext_editor_get_match_index},
+	{"Rtext_editor_get_match", rl_w_Rtext_editor_get_match},
+	{"Rtext_editor_select_match", rl_w_Rtext_editor_select_match},
+	{"Rtext_editor_replace", rl_w_Rtext_editor_replace},
+	{"Rtext_editor_replace_all", rl_w_Rtext_editor_replace_all},
+	{"Rtext_editor_show_find", rl_w_Rtext_editor_show_find},
+	{"Rtext_editor_hide_find", rl_w_Rtext_editor_hide_find},
+	{"Rtext_editor_is_find_shown", rl_w_Rtext_editor_is_find_shown},
+	{"Rtext_editor_set_find_bar", rl_w_Rtext_editor_set_find_bar},
 	{"Rtheme_set_token_color", rl_w_Rtheme_set_token_color},
 	{"Rtheme_get_token_color", rl_w_Rtheme_get_token_color},
 	{"Rtheme_clear_token_colors", rl_w_Rtheme_clear_token_colors},
@@ -30101,6 +34591,38 @@ static const luaL_Reg rl_functions[] = {
 	{"Rblock_editor_select", rl_w_Rblock_editor_select},
 	{"Rblock_editor_get_view", rl_w_Rblock_editor_get_view},
 	{"Rblock_editor_set_view", rl_w_Rblock_editor_set_view},
+	{"Rdiff_unified", rl_w_Rdiff_unified},
+	{"Rdiff_count_changes", rl_w_Rdiff_count_changes},
+	{"Rdiff_view_create", rl_w_Rdiff_view_create},
+	{"Rdiff_view_set_texts", rl_w_Rdiff_view_set_texts},
+	{"Rdiff_view_set_names", rl_w_Rdiff_view_set_names},
+	{"Rdiff_view_load_files", rl_w_Rdiff_view_load_files},
+	{"Rdiff_view_set_patch", rl_w_Rdiff_view_set_patch},
+	{"Rdiff_view_set_mode", rl_w_Rdiff_view_set_mode},
+	{"Rdiff_view_get_mode", rl_w_Rdiff_view_get_mode},
+	{"Rdiff_view_set_context", rl_w_Rdiff_view_set_context},
+	{"Rdiff_view_get_context", rl_w_Rdiff_view_get_context},
+	{"Rdiff_view_set_flags", rl_w_Rdiff_view_set_flags},
+	{"Rdiff_view_get_flags", rl_w_Rdiff_view_get_flags},
+	{"Rdiff_view_set_word_diff", rl_w_Rdiff_view_set_word_diff},
+	{"Rdiff_view_set_line_numbers", rl_w_Rdiff_view_set_line_numbers},
+	{"Rdiff_view_set_language", rl_w_Rdiff_view_set_language},
+	{"Rdiff_view_get_change_count", rl_w_Rdiff_view_get_change_count},
+	{"Rdiff_view_get_change", rl_w_Rdiff_view_get_change},
+	{"Rdiff_view_go_to_change", rl_w_Rdiff_view_go_to_change},
+	{"Rdiff_view_get_current_change", rl_w_Rdiff_view_get_current_change},
+	{"Rdiff_view_next_change", rl_w_Rdiff_view_next_change},
+	{"Rdiff_view_prev_change", rl_w_Rdiff_view_prev_change},
+	{"Rdiff_view_get_row_count", rl_w_Rdiff_view_get_row_count},
+	{"Rdiff_view_get_row", rl_w_Rdiff_view_get_row},
+	{"Rdiff_view_get_row_text", rl_w_Rdiff_view_get_row_text},
+	{"Rdiff_view_expand", rl_w_Rdiff_view_expand},
+	{"Rdiff_view_get_first_visible_row", rl_w_Rdiff_view_get_first_visible_row},
+	{"Rdiff_view_scroll_to_row", rl_w_Rdiff_view_scroll_to_row},
+	{"Rdiff_view_add_annotation", rl_w_Rdiff_view_add_annotation},
+	{"Rdiff_view_clear_annotations", rl_w_Rdiff_view_clear_annotations},
+	{"Rdiff_view_get_selected_text", rl_w_Rdiff_view_get_selected_text},
+	{"Rdiff_view_set_line_clicked_callback", rl_w_Rdiff_view_set_line_clicked_callback},
 	{"Rdialog_open", rl_w_Rdialog_open},
 	{"Rdialog_close", rl_w_Rdialog_close},
 	{"Rdialog_run", rl_w_Rdialog_run},
@@ -30141,6 +34663,27 @@ static const luaL_Reg rl_functions[] = {
 	{"Rnotification_is_supported", rl_w_Rnotification_is_supported},
 	{"Rnotification_set_fallback", rl_w_Rnotification_set_fallback},
 	{"Rnotification_set_clicked_callback", rl_w_Rnotification_set_clicked_callback},
+	{"Rnotification_show_desc", rl_w_Rnotification_show_desc},
+	{"Rnotification_close", rl_w_Rnotification_close},
+	{"Rnotification_set_callback", rl_w_Rnotification_set_callback},
+	{"Rnotification_set_bring_to_front", rl_w_Rnotification_set_bring_to_front},
+	{"Rnotification_set_fallback_toast", rl_w_Rnotification_set_fallback_toast},
+	{"Rnotification_supports", rl_w_Rnotification_supports},
+	{"Rpermission_get_status", rl_w_Rpermission_get_status},
+	{"Rpermission_request", rl_w_Rpermission_request},
+	{"Rpermission_open_settings", rl_w_Rpermission_open_settings},
+	{"Rpermission_to_string", rl_w_Rpermission_to_string},
+	{"Rpermission_status_to_string", rl_w_Rpermission_status_to_string},
+	{"Rfile_open_async", rl_w_Rfile_open_async},
+	{"Rfile_save_async", rl_w_Rfile_save_async},
+	{"Rfile_export_async", rl_w_Rfile_export_async},
+	{"Rfile_select_folder_async", rl_w_Rfile_select_folder_async},
+	{"Rcamera_is_available", rl_w_Rcamera_is_available},
+	{"Rcamera_take_photo", rl_w_Rcamera_take_photo},
+	{"Rphoto_pick", rl_w_Rphoto_pick},
+	{"Rhaptic_is_supported", rl_w_Rhaptic_is_supported},
+	{"Rhaptic_play", rl_w_Rhaptic_play},
+	{"Rshare_show", rl_w_Rshare_show},
 	{"Rviewport_set_texture", rl_w_Rviewport_set_texture},
 	{"Rviewport_set_stretch", rl_w_Rviewport_set_stretch},
 	{"Rviewport_set_flip_y", rl_w_Rviewport_set_flip_y},
@@ -30275,6 +34818,21 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtr_plural", rl_w_Rtr_plural},
 	{"Rwidget_set_text_key", rl_w_Rwidget_set_text_key},
 	{"Rlocale_format_number", rl_w_Rlocale_format_number},
+	{"Rlocale_set_clock", rl_w_Rlocale_set_clock},
+	{"Rlocale_get_clock", rl_w_Rlocale_get_clock},
+	{"Rlocale_uses_12_hour_clock", rl_w_Rlocale_uses_12_hour_clock},
+	{"Rlocale_get_day_period", rl_w_Rlocale_get_day_period},
+	{"Rlocale_format_time", rl_w_Rlocale_format_time},
+	{"Rtimezone_get_system", rl_w_Rtimezone_get_system},
+	{"Rtimezone_set_directory", rl_w_Rtimezone_set_directory},
+	{"Rtimezone_is_valid", rl_w_Rtimezone_is_valid},
+	{"Rtimezone_to_local", rl_w_Rtimezone_to_local},
+	{"Rtimezone_from_local", rl_w_Rtimezone_from_local},
+	{"Rtimezone_count_local", rl_w_Rtimezone_count_local},
+	{"Rtimezone_get_offset", rl_w_Rtimezone_get_offset},
+	{"Rtimezone_is_daylight_saving", rl_w_Rtimezone_is_daylight_saving},
+	{"Rtimezone_get_abbreviation", rl_w_Rtimezone_get_abbreviation},
+	{"Rtimezone_get_label", rl_w_Rtimezone_get_label},
 	{"Raccessibility_set_text_scale", rl_w_Raccessibility_set_text_scale},
 	{"Raccessibility_get_text_scale", rl_w_Raccessibility_get_text_scale},
 	{"Raccessibility_set_high_contrast", rl_w_Raccessibility_set_high_contrast},
@@ -30312,6 +34870,8 @@ static const luaL_Reg rl_functions[] = {
 	{"Rhost_inject_composition", rl_w_Rhost_inject_composition},
 	{"Rhost_inject_focus", rl_w_Rhost_inject_focus},
 	{"Rhost_inject_close", rl_w_Rhost_inject_close},
+	{"Rhost_permission_answer", rl_w_Rhost_permission_answer},
+	{"Rhost_service_complete", rl_w_Rhost_service_complete},
 	{"Rtest_set_deterministic", rl_w_Rtest_set_deterministic},
 	{"Rtest_is_deterministic", rl_w_Rtest_is_deterministic},
 	{"Rtest_get_platform_tag", rl_w_Rtest_get_platform_tag},
@@ -30337,6 +34897,11 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtest_is_checked", rl_w_Rtest_is_checked},
 	{"Rtest_expect_golden", rl_w_Rtest_expect_golden},
 	{"Rtest_compare_pixels", rl_w_Rtest_compare_pixels},
+	{"Rtest_dump_tree", rl_w_Rtest_dump_tree},
+	{"Rtest_save_tree", rl_w_Rtest_save_tree},
+	{"Rtest_save_png", rl_w_Rtest_save_png},
+	{"Rtest_run_script", rl_w_Rtest_run_script},
+	{"Rtest_get_script_error", rl_w_Rtest_get_script_error},
 	{NULL, NULL}
 };
 
@@ -30686,6 +35251,10 @@ static const rl_constant rl_constants[] = {
 	{"R_DROP_MOVE", 225.0},
 	{"R_DROP_LEAVE", 226.0},
 	{"R_DROP_DROPPED", 227.0},
+	{"R_DRAG_OPERATION_NONE", 0.0},
+	{"R_DRAG_OPERATION_COPY", 1.0},
+	{"R_DRAG_OPERATION_MOVE", 2.0},
+	{"R_DRAG_OPERATION_LINK", 4.0},
 	{"R_TOUCH_MODE_AUTO", 1152.0},
 	{"R_TOUCH_MODE_SCROLL", 1153.0},
 	{"R_TOUCH_MODE_MOUSE", 1154.0},
@@ -30771,6 +35340,13 @@ static const rl_constant rl_constants[] = {
 	{"R_COLOR_DANGER", 289.0},
 	{"R_COLOR_LINK", 290.0},
 	{"R_COLOR_CODE", 291.0},
+	{"R_COLOR_SEARCH_MATCH", 292.0},
+	{"R_COLOR_SEARCH_CURRENT", 293.0},
+	{"R_COLOR_SPELLING", 294.0},
+	{"R_COLOR_DIFF_ADDED", 295.0},
+	{"R_COLOR_DIFF_REMOVED", 296.0},
+	{"R_COLOR_DIFF_ADDED_WORD", 297.0},
+	{"R_COLOR_DIFF_REMOVED_WORD", 298.0},
 	{"R_METRIC_FONT_SIZE", 320.0},
 	{"R_METRIC_CORNER_RADIUS", 321.0},
 	{"R_METRIC_BORDER_WIDTH", 322.0},
@@ -30853,6 +35429,8 @@ static const rl_constant rl_constants[] = {
 	{"R_WIDGET_CHART", 564.0},
 	{"R_WIDGET_MAP_VIEW", 565.0},
 	{"R_WIDGET_CAROUSEL", 566.0},
+	{"R_WIDGET_SYSTEM_WEB_VIEW", 567.0},
+	{"R_WIDGET_DIFF_VIEW", 568.0},
 	{"R_HALIGN_FILL", 576.0},
 	{"R_HALIGN_LEFT", 577.0},
 	{"R_HALIGN_CENTER", 578.0},
@@ -30961,6 +35539,17 @@ static const rl_constant rl_constants[] = {
 	{"R_CHART_GAUGE", 1426.0},
 	{"R_CHART_HEATMAP", 1427.0},
 	{"R_CHART_SPARKLINE", 1428.0},
+	{"R_SYSTEM_WEB_VIEW_NAVIGATED", 2960.0},
+	{"R_SYSTEM_WEB_VIEW_TITLE", 2961.0},
+	{"R_SYSTEM_WEB_VIEW_LOADING", 2962.0},
+	{"R_SYSTEM_WEB_VIEW_LOADED", 2963.0},
+	{"R_SYSTEM_WEB_VIEW_FAILED", 2964.0},
+	{"R_TABLE_SELECTION_SINGLE", 3008.0},
+	{"R_TABLE_SELECTION_MULTIPLE", 3009.0},
+	{"R_TABLE_SELECTION_NONE", 3010.0},
+	{"R_TABLE_COLUMN_TEXT", 3024.0},
+	{"R_TABLE_COLUMN_CHECK", 3025.0},
+	{"R_TABLE_COLUMN_PROGRESS", 3026.0},
 	{"R_SYNTAX_NONE", 832.0},
 	{"R_SYNTAX_XML", 833.0},
 	{"R_SYNTAX_C", 834.0},
@@ -30987,6 +35576,8 @@ static const rl_constant rl_constants[] = {
 	{"R_TOKEN_STRONG", 940.0},
 	{"R_TOKEN_EMPHASIS", 941.0},
 	{"R_TOKEN_LINK", 942.0},
+	{"R_SEARCH_MATCH_CASE", 1.0},
+	{"R_SEARCH_WHOLE_WORD", 2.0},
 	{"R_MARKER_ERROR", 848.0},
 	{"R_MARKER_WARNING", 849.0},
 	{"R_MARKER_INFO", 850.0},
@@ -31025,9 +35616,33 @@ static const rl_constant rl_constants[] = {
 	{"R_BLOCK_NEXT", 1808.0},
 	{"R_BLOCK_BODY", 1809.0},
 	{"R_BLOCK_INPUT", 1810.0},
+	{"R_DIFF_VIEW_UNIFIED", 3152.0},
+	{"R_DIFF_VIEW_SPLIT", 3153.0},
+	{"R_DIFF_LEFT", 3156.0},
+	{"R_DIFF_RIGHT", 3157.0},
+	{"R_DIFF_ROW_SAME", 3160.0},
+	{"R_DIFF_ROW_REMOVED", 3161.0},
+	{"R_DIFF_ROW_ADDED", 3162.0},
+	{"R_DIFF_ROW_CHANGED", 3163.0},
+	{"R_DIFF_ROW_FOLD", 3164.0},
+	{"R_DIFF_ROW_HUNK", 3165.0},
+	{"R_DIFF_ROW_FILE", 3166.0},
+	{"R_DIFF_ROW_NOTE", 3167.0},
+	{"R_DIFF_IGNORE_TRAILING_SPACE", 1.0},
+	{"R_DIFF_IGNORE_SPACE", 2.0},
+	{"R_DIFF_IGNORE_CASE", 4.0},
 	{"R_NOTIFICATION_LOW", 1264.0},
 	{"R_NOTIFICATION_NORMAL", 1265.0},
 	{"R_NOTIFICATION_CRITICAL", 1266.0},
+	{"R_NOTIFICATION_ACTIVATED", 3104.0},
+	{"R_NOTIFICATION_ACTION_INVOKED", 3105.0},
+	{"R_NOTIFICATION_DISMISSED", 3106.0},
+	{"R_NOTIFICATION_FEATURE_ACTIONS", 1.0},
+	{"R_NOTIFICATION_FEATURE_REPLACE", 2.0},
+	{"R_NOTIFICATION_FEATURE_CLOSE", 4.0},
+	{"R_NOTIFICATION_FEATURE_ICON", 8.0},
+	{"R_NOTIFICATION_FEATURE_ACTIVATED", 16.0},
+	{"R_NOTIFICATION_FEATURE_DISMISSED", 32.0},
 	{"R_FILE_DIALOG_MULTIPLE", 1.0},
 	{"R_FILE_DIALOG_RAVEN", 2.0},
 	{"R_FILE_DIALOG_SHOW_HIDDEN", 4.0},
@@ -31042,6 +35657,30 @@ static const rl_constant rl_constants[] = {
 	{"R_MESSAGE_RESULT_OK", 1.0},
 	{"R_MESSAGE_RESULT_YES", 2.0},
 	{"R_MESSAGE_RESULT_NO", 3.0},
+	{"R_PERMISSION_CAMERA", 3072.0},
+	{"R_PERMISSION_NOTIFICATIONS", 3073.0},
+	{"R_PERMISSION_PHOTOS", 3074.0},
+	{"R_PERMISSION_MICROPHONE", 3075.0},
+	{"R_PERMISSION_LOCATION", 3076.0},
+	{"R_PERMISSION_UNSUPPORTED", 3088.0},
+	{"R_PERMISSION_NOT_ASKED", 3089.0},
+	{"R_PERMISSION_GRANTED", 3090.0},
+	{"R_PERMISSION_LIMITED", 3091.0},
+	{"R_PERMISSION_DENIED", 3092.0},
+	{"R_PERMISSION_BLOCKED", 3093.0},
+	{"R_DEVICE_DONE", 3104.0},
+	{"R_DEVICE_CANCELLED", 3105.0},
+	{"R_DEVICE_DENIED", 3106.0},
+	{"R_DEVICE_UNSUPPORTED", 3107.0},
+	{"R_DEVICE_BUSY", 3108.0},
+	{"R_DEVICE_FAILED", 3109.0},
+	{"R_HAPTIC_LIGHT", 3120.0},
+	{"R_HAPTIC_MEDIUM", 3121.0},
+	{"R_HAPTIC_HEAVY", 3122.0},
+	{"R_HAPTIC_SELECTION", 3123.0},
+	{"R_HAPTIC_SUCCESS", 3124.0},
+	{"R_HAPTIC_WARNING", 3125.0},
+	{"R_HAPTIC_ERROR", 3126.0},
 	{"R_MOTION_SNAPPY", 800.0},
 	{"R_MOTION_SMOOTH", 801.0},
 	{"R_MOTION_BOUNCY", 802.0},
@@ -31065,6 +35704,9 @@ static const rl_constant rl_constants[] = {
 	{"R_XML_FILE", 966.0},
 	{"R_XML_NUMBERS", 967.0},
 	{"R_XML_LIST", 968.0},
+	{"R_CLOCK_AUTO", 3120.0},
+	{"R_CLOCK_12_HOUR", 3121.0},
+	{"R_CLOCK_24_HOUR", 3122.0},
 	{"R_COLOR_FILTER_NONE", 1856.0},
 	{"R_COLOR_FILTER_PROTANOPIA", 1857.0},
 	{"R_COLOR_FILTER_DEUTERANOPIA", 1858.0},
@@ -31112,6 +35754,12 @@ static const rl_constant rl_constants[] = {
 	{"R_ROLE_SEPARATOR", 1921.0},
 	{"R_ROLE_SCROLL_BAR", 1922.0},
 	{"R_ROLE_PANE", 1923.0},
+	{"R_HOST_SERVICE_OPEN_FILES", 3136.0},
+	{"R_HOST_SERVICE_SAVE_FILE", 3137.0},
+	{"R_HOST_SERVICE_SELECT_FOLDER", 3138.0},
+	{"R_HOST_SERVICE_TAKE_PHOTO", 3139.0},
+	{"R_HOST_SERVICE_PICK_PHOTOS", 3140.0},
+	{"R_HOST_SERVICE_SHARE", 3141.0},
 	{"R_GOLDEN_MATCH", 2976.0},
 	{"R_GOLDEN_UPDATED", 2977.0},
 	{"R_GOLDEN_MISMATCH", 2978.0},

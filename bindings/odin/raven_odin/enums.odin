@@ -583,6 +583,14 @@ Color_Role :: enum i32 {
 	Search_Match = 0x0124,
 	// The selected match of a search in a text editor.
 	Search_Current = 0x0125,
+	// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+	Spelling = 0x0126,
+	// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+	Diff_Added = 0x0127,
+	Diff_Removed = 0x0128,
+	// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+	Diff_Added_Word = 0x0129,
+	Diff_Removed_Word = 0x012A,
 }
 
 // Sizes, in logical units.
@@ -737,6 +745,8 @@ Widget_Type :: enum i32 {
 	Carousel = 0x0236,
 	// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
 	System_Web_View = 0x0237,
+	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+	Diff_View = 0x0238,
 }
 
 H_Align :: enum i32 {
@@ -1028,6 +1038,28 @@ System_Web_View_Event :: enum i32 {
 	Failed = 0x0B94,
 }
 
+// How the rows of a Table are selected (Rtable_set_selection_mode).
+Table_Selection_Mode :: enum i32 {
+	// One row at a time (the default).
+	Single = 0x0BC0,
+	// Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+	Multiple = 0x0BC1,
+	// The user selects nothing (the rows are only shown; cells may still be edited and checked).
+	None = 0x0BC2,
+}
+
+// What the cells of a column show (Rtable_set_column_kind).
+Table_Column_Kind :: enum i32 {
+	// Their text (the default).
+	Text = 0x0BD0,
+	// A check box, checked when the text is "1", "true" or "yes". The user
+	// toggles it with a click or Space unless the column is made not
+	// editable; the cell edited callback is then called with "1" or "0".
+	Check = 0x0BD1,
+	// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+	Progress = 0x0BD2,
+}
+
 // Shorthands of Rtext_editor_set_language for two languages.
 Syntax :: enum i32 {
 	None = 0x0340,
@@ -1179,6 +1211,50 @@ Block_Place :: enum i32 {
 	Body = 0x0711,
 	Input = 0x0712,
 }
+
+Diff_View_Mode :: enum i32 {
+	// One column: the removed lines, then the added lines, between the lines kept.
+	Unified = 0x0C50,
+	// Two columns: the left text and the right text side by side, aligned.
+	Split = 0x0C51,
+}
+
+Diff_Side :: enum i32 {
+	// The text before (the old one, "a/", the lines removed).
+	Left = 0x0C54,
+	// The text after (the new one, "b/", the lines added).
+	Right = 0x0C55,
+}
+
+Diff_Row_Kind :: enum i32 {
+	// A line that is on both sides.
+	Same = 0x0C58,
+	// A line of the left text only.
+	Removed = 0x0C59,
+	// A line of the right text only.
+	Added = 0x0C5A,
+	// Split mode: a removed line facing the added line that replaces it.
+	Changed = 0x0C5B,
+	// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+	Fold = 0x0C5C,
+	// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+	Hunk = 0x0C5D,
+	// A patch: the names of a file.
+	File = 0x0C5E,
+	// A note attached to the line above it (Rdiff_view_add_annotation).
+	Note = 0x0C5F,
+}
+
+// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+Diff_Flag :: enum u32 {
+	// Spaces and tabs at the end of a line (and a carriage return) do not count.
+	Trailing_Space = 0,
+	// No space or tab counts, wherever it is.
+	Space = 1,
+	// Upper and lower case letters are the same (A to Z).
+	Case = 2,
+}
+Diff_Flags :: bit_set[Diff_Flag; u32]
 
 // How much a notification of the system asks for attention (Rnotification_show).
 Notification_Urgency :: enum i32 {

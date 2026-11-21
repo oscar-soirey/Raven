@@ -468,7 +468,7 @@ as it changes, and alive.
   material, motion, accent, font, wallpaper; *Generate the palette* works out
   every color from the accent (tint and depth adjustable), *Surprise me* tries
   another one.
-- **Colors**, **Sizes**, **Code**: the 36 color roles, the metrics, the glass
+- **Colors**, **Sizes**, **Code**: the 43 color roles, the metrics, the glass
   multipliers and the syntax colors, each showing what the look gives until it
   is set, with a button to go back to it.
 - **Styles**: the `<Style>` rules as text, with ready-made ones to add.
@@ -600,7 +600,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
 | `RAVEN_ANDROID_JAVA` | `ON` | Android: compile Raven's Java part (target `raven_java`) and offer `raven_aar`; the SDK and the JDK are found as [examples/mobile](examples/mobile/README.md#packaging) says, or set with `RAVEN_ANDROID_SDK`, `RAVEN_ANDROID_BUILD_TOOLS`, `RAVEN_ANDROID_JAR` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
-| `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
+| `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding (and the frames of APNG files; animated GIFs play without it) |
 | `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
@@ -671,6 +671,10 @@ The build trees are in `build\dist\`.
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
 | `examples/transfer` | swatches dragged out of the window (a picture into a document, a PNG file into the Finder or the Explorer), copied and pasted as pictures, a name copied as HTML, text and a format of the application |
+| `examples/icons` | every icon shipped with Raven, and some in buttons, tabs and a tree, in the color of the text; a button switches between the dark and the light theme |
+| `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
+| `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
+| `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1478,6 +1482,54 @@ Only the page shown, and the one coming in while the pages move, is drawn and
 reached by the mouse and the keyboard. Screen readers see a list of tabs, one
 per page (its `Slot.Title`, else "Page 2 of 5").
 
+
+### Diff view
+
+```xml
+<DiffView Name="diff" Mode="Split" Context="3" IgnoreWhitespace="Trailing"
+          LeftSource="v1.0/server.c" RightSource="v1.1/server.c" Slot.Fill="1"/>
+```
+
+```c
+Rid diff = Rdiff_view_create();
+Rdiff_view_set_texts(diff, old_text, new_text);     /* or Rdiff_view_load_files, Rdiff_view_set_patch */
+Rdiff_view_set_names(diff, "config.ini (saved)", "config.ini (now)");
+Rdiff_view_set_mode(diff, R_DIFF_VIEW_SPLIT);
+Rdiff_view_add_annotation(diff, R_DIFF_RIGHT, 42, "Why this timeout?");
+Rdiff_view_next_change(diff);                       /* scrolls to it; F7 / Shift+F7 do the same */
+
+char* patch = Rdiff_unified(old_text, new_text, "a/config.ini", "b/config.ini", 3, 0, NULL);
+/* ... the patch of `diff -u`, without a widget, from any thread ... */
+Rmemory_free(patch);
+```
+
+![Two versions of a file side by side in a DiffView](docs/images/diff_view.png)
+
+A `DiffView` shows what changed between two texts (two versions of a file,
+of a setting, of a document), or a patch as `git diff` writes it, files and
+hunks included. The removed and added lines are in one column (`Unified`) or
+side by side (`Split`, where the lines of a change face each other and both
+sides scroll together), with the numbers of the lines of both sides and the
+words that changed inside a changed line marked. Unchanged lines are folded
+away except `Context` lines around each change; a click on "20 unchanged
+lines" shows them. With the extension of the names or `Language`, the code
+is colored as in the text editor. Only the rows on screen are drawn: a
+hundred thousand lines scroll as ten do. The text is selected and copied as
+in an editor; F7 / Shift+F7 (or Alt+Down / Alt+Up) go from change to change,
+`Rdiff_view_get_change` tells where each one is, and a click on a line or on
+its number calls `Rdiff_view_set_line_clicked_callback`. Notes
+(`Rdiff_view_add_annotation`) show under their line, which is never folded.
+
+The comparison is Myers' algorithm in linear memory, after the lines found
+on one side only are set apart (two texts with nothing in common cost no
+more than reading them); a limit on the work keeps the worst cases (the
+same few lines shuffled) bounded, with a result a little longer than the
+shortest one. Two files of 50 000 lines with 1% of them changed are compared
+in a few milliseconds. `R_DIFF_IGNORE_TRAILING_SPACE`, `R_DIFF_IGNORE_SPACE`
+and `R_DIFF_IGNORE_CASE` decide which lines are the same. The colors are the
+theme roles `R_COLOR_DIFF_ADDED`, `R_COLOR_DIFF_REMOVED` and their `_WORD`
+shades. Screen readers read each row ("added line 12: return 0;").
+
 ### Tables, dates and the small controls
 
 ```xml
@@ -1513,8 +1565,41 @@ wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
 `Rnotification_show` asks the system for a
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
-(`Rnotification_set_fallback`), to show it in a toast for instance. A click on
-a notification calls `Rnotification_set_clicked_callback` (Windows for now).
+(`Rnotification_set_fallback`), to show it in a toast for instance.
+
+`Rnotification_show_desc` adds a tag (a notification shown again with the same
+tag replaces the first one; `Rnotification_close` takes it away), up to three
+buttons and an icon. What the user does with it comes back to
+`Rnotification_set_callback`: a click on the notification
+(`R_NOTIFICATION_ACTIVATED`, which also brings its window back: shown again,
+out of the Dock or the taskbar, in front; `Rnotification_set_bring_to_front`
+turns that off), a click on a button (`R_NOTIFICATION_ACTION_INVOKED` with its
+id) or its dismissal. Where the system shows no notifications, a `Toast` given
+to `Rnotification_set_fallback_toast` shows them with their title, icon and
+buttons, and reports to the same callback: the application behaves the same
+everywhere.
+
+```c
+static const RNotificationAction actions[] = { { "reply", "Reply" }, { "later", "Remind me" } };
+RNotificationDesc desc = { sizeof(RNotificationDesc) };
+desc.tag = "chat-ada";
+desc.title = "Ada Lovelace";
+desc.body = "Are we still on for tonight?";
+desc.icon = "chat.svg";
+desc.actions = actions;
+desc.action_count = 2;
+Rnotification_show_desc(&desc);
+```
+
+| | buttons | replace / close | icon | click | dismissal |
+|---|---|---|---|---|---|
+| macOS (in a bundle) | yes | yes | yes | yes | yes |
+| Linux, BSD | where the server has them (GNOME, KDE, dunst, mako...) | yes | yes | where the server has buttons | yes |
+| Windows (a balloon shown as a toast) | no | yes (one at a time) | no | yes | no |
+| fallback toast | yes | yes | yes | yes | yes |
+
+`Rnotification_supports(R_NOTIFICATION_FEATURE_ACTIONS)` and the other
+features tell an application what the system does here.
 
 SVG files are read wherever an image is (`Image Source="icon.svg"`,
 `Rtexture_create_from_file`) and shown at the size the SVG gives. They are
@@ -1522,6 +1607,93 @@ drawn with as many pixels as they are shown with: once painted, an SVG is
 drawn again on a worker thread for the density of the screen, an `Image` that
 stretches it or a zoom, and again when the window moves to another monitor.
 `Rtexture_create_from_svg` with a scale draws one at that scale only.
+
+### Icons
+
+![The icons example](docs/images/icons.png)
+
+*`examples/icons`: every icon shipped with Raven, and some in buttons (one
+hovered, one disabled), tabs and a tree; the button at the top right switches
+to the light theme.*
+
+```xml
+<Button>
+    <HBox Spacing="8">
+        <Image Source="raven:save" Width="16" Height="16"/>
+        <Label Text="Save"/>
+    </HBox>
+</Button>
+<TreeView>
+    <Item Text="Project" Icon="raven:folder"/>
+</TreeView>
+<MenuItem Text="Open" Icon="raven:open"/>
+```
+
+```c
+Rid search = Ricon_get("search");               /* a texture owned by Raven, shared */
+Rimage_set_texture(image, search);
+Rmenu_item_set_icon(item, Ricon_get("save"), 0, 0, 1, 1, R_FALSE);
+for (int i = 0; i < Ricon_get_count(); i++)     /* "add", "arrow-down"... in order */
+    printf("%s\n", Ricon_get_name(i));
+```
+
+Raven ships a set of 63 icons for the usual actions: add, remove, close,
+check, chevrons and arrows, menu, search, settings, edit, delete, copy, cut,
+paste, undo, redo, save, open, folder, file, home, user, info, warning, error,
+help, refresh, download, upload, share, link, lock, eye, star, heart,
+calendar, clock, bell, mail, play, pause, stop, filter, sort, more,
+external-link, zoom, print, sun, moon... They are the icons of
+[Lucide](https://lucide.dev) (ISC License), drawn with lines on a grid of
+24 x 24, and take 7 KB in the library. `Ricon_get` gives one by its name, and
+XML names one with `raven:` wherever an image goes: `Image Source`,
+`MenuItem Icon`, the `Icon` of a `TreeView` item, `Slot.Icon` (the tab of a
+`TabView` with `Documents="true"`, a docked panel), a `Node Icon`, a Markdown
+image. They are SVGs, drawn at the density they are shown with.
+
+An icon takes the color of the text around it, and so does any SVG painted
+only in `currentColor` (`fill="currentColor"`, `stroke="currentColor"`): it
+is drawn once, in white, and the widget that shows it tints it with the color
+of its text when it paints. It follows the theme, dark or light, hover,
+pressed and disabled, and a `Color` given to a panel, without being drawn
+again. A `Tint` on the `Image` gives it a color of its own;
+`Rdraw_image` draws it in the color it is given; `Rtexture_uses_current_color`
+tells such a texture. In an SVG that also uses other colors, `currentColor`
+is black, as in an SVG shown on its own.
+
+Animated GIF and APNG files play in an `Image`, wherever the image comes from
+(`Image Source="loading.gif"`, `Rtexture_create_from_file`, a texture made
+from memory or on a worker thread). The frames follow the clock of the
+animations: `Rset_animation_speed` slows them, `Rtest_set_deterministic`
+makes them advance by a fixed step for tests, and with reduced motion
+(`Rset_animations_enabled(R_FALSE)`) the image stays on its frame. An image
+only asks for frames while it is painted: hidden, scrolled away or in a
+window that is not shown, it costs nothing and goes on from where it was;
+between two frames of the GIF the window sleeps instead of drawing at the
+rate of the screen. Each `Image` has its own playback:
+
+```c
+Rid image = Rwidget_create(R_WIDGET_IMAGE);
+Rimage_set_texture(image, Rtexture_create_from_file("spinner.gif"));
+Rimage_set_loop_count(image, 3);           /* -1: as the file says, 0: forever */
+Rimage_set_finished_callback(image, on_done, NULL);
+Rimage_pause(image);                       /* Rimage_play, Rimage_stop */
+Rimage_set_frame(image, 0);                /* Rimage_get_frame_count, _get_duration */
+```
+
+```xml
+<Image Source="intro.gif" Loop="1" Action="intro_done"/>
+<Image Source="badge.png" Animate="false"/>
+```
+
+The disposal and blend operations, transparency, local palettes, interlaced
+GIFs and the loop count (NETSCAPE2.0, `acTL`) are followed; frames of 10 ms
+or less last 100 ms, as in browsers. Nothing is decoded ahead: a playing
+image composes the frame it shows into one canvas of the size of the
+picture, so its memory does not grow with the number of frames (going back
+to an earlier frame composes again from the first). `Rimage_decode_info` and
+`Rimage_decode_frame` read the frames of a file without a widget. Other
+widgets that draw an animated texture (a `Button` icon...) show its first
+frame.
 
 ### Charts
 
@@ -1665,6 +1837,40 @@ under the caret.
 
 `Rwindow_inject_composition` and `Rwindow_get_text_composition` drive and read
 the composition (tests, a host that has its own input method).
+
+### Spell checking
+
+```xml
+<TextInput SpellCheck="true" Placeholder="Subject"/>
+<TextEditor SpellCheck="true" SpellLanguage="fr" Wrap="true"/>
+```
+
+A `TextInput` or a `TextEditor` with `SpellCheck="true"`
+(`Rtext_input_set_spell_check`, `Rtext_editor_set_spell_check`) underlines
+the misspelled words with a wavy line of the theme's `Spelling` color, but not
+the word being typed at the caret. A right click on one opens a menu with up
+to five corrections, *Ignore Spelling* (for the session) and *Add to
+Dictionary*; the keys `Raven.SpellIgnore`, `Raven.SpellLearn` and
+`Raven.SpellNoGuesses` translate it. A `TextEditor` checks only the lines it
+shows, and a line again only when it changes, a few milliseconds of them per
+frame: typing in a text of 50,000 lines checks one line.
+
+Spell checking is off by default: existing forms and code editors look as
+before, and a field that holds names, codes or passwords is not covered in
+red. Turn it on where people write prose.
+
+| Platform | Checker |
+|---|---|
+| macOS | `NSSpellChecker` (the languages and the dictionary of the user in the settings of the system) |
+| Windows 8 and later | the spell checker of Windows (`ISpellCheckerFactory`) |
+| Linux, BSD | Enchant 2 (`libenchant-2.so.2`), else Hunspell (`libhunspell`) with the dictionaries in `/usr/share/hunspell`, `/usr/share/myspell` or `$DICPATH`; both loaded at run time |
+| iOS, Android, web | none: `Rspell_is_supported` is `R_FALSE` and nothing is underlined |
+
+The language is the widget's (`SpellLanguage`), else `Rspell_set_language`,
+else the language of the locale (`Rlocale_get_language`), else the system's;
+`"fr"` finds `fr_FR`. `Rspell_check`, `Rspell_suggest`, `Rspell_learn`,
+`Rspell_ignore` and `Rspell_get_language_count` / `_at` use the same checker
+from code.
 
 ### Accessibility
 
@@ -2187,6 +2393,11 @@ The plan for what comes next is in [ROADMAP.md](ROADMAP.md).
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
+- Notifications on Windows are balloons of the notification area: no buttons
+  and no image of their own (the toasts of WinRT, with their actions, would
+  need an application id and a COM activator). A click on a notification
+  brings the window back everywhere but on Wayland, where Raven does not use
+  xdg-activation yet (the token the notification server gives is not used).
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it.
@@ -2198,7 +2409,7 @@ What Raven does not do yet, by area. Contributions are welcome.
   to the system. There are no native child windows, no tray icon, menu bar
   or badge of the system;
   notifications go to the fallback of the application
-  (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
+  (`Rnotification_set_fallback`, `Rnotification_set_fallback_toast`), and file dialogs are Raven's own. The text
   services of the system (suggestions, autocorrection, composition) work in a
   `TextInput`; a `TextEditor` or a `SpinBox` gets plain keys and text. The
   places known to be simplified are marked `SHORTCUT` in the sources.
@@ -2215,6 +2426,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
+- Spell checking on iOS, Android and the web, and misspelled words reported
+  to screen readers.
 - In the text editor: a language server client; regular expressions in the
   search; folding by the tags of markup (XML and HTML fold by indentation).
 
@@ -2239,7 +2452,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 `stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
 (zlib, Mikko Mononen), a subset
-of the Roboto font (Apache 2.0, Google) and a subset of Roboto Mono (SIL Open
-Font License 1.1) are included under `third_party/`; see
+of the Roboto font (Apache 2.0, Google), a subset of Roboto Mono (SIL Open
+Font License 1.1) and 63 icons of Lucide (ISC, some MIT from Feather) are
+included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
 Khronos) are needed to build but are not part of this repository.

@@ -111,6 +111,8 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Widgets
 
+- [x] Diff view: two texts or a patch, unified or side by side, folds,
+  words that changed, notes on lines, virtualized.
 - [x] Table: several selected rows (`SelectionMode="Multiple"`, kept as
   ranges: a million virtual rows cost nothing), cells that are edited in place
   (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`), frozen
@@ -119,8 +121,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   not planned: the table draws its cells itself.
 - [x] ComboBox: editable (any text) and searchable (typing filters the list,
   without regard to case or accents).
-- [ ] Date picker: a range of two dates; a time zone aware time picker; a
-  12-hour clock where the locale uses one.
+- [~] Date picker: a range of two dates (to do). Done: a 12-hour clock with
+  AM and PM where the locale uses one (`Clock="Auto|12|24"`,
+  `Rlocale_uses_12_hour_clock`), and time zones (`Rtimezone_*`, the tz
+  database of the system, `TimeZone` and `ShowTimeZone` on the pickers).
 - [x] Notifications: actions (buttons), a click that brings the window
   back, replacing a notification, an icon (`Rnotification_show_desc`,
   `Rnotification_close`, `Rnotification_set_callback`, the fallback toast).
@@ -134,7 +138,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [x] SVG icons tinted with the theme (`currentColor`), with a set of icons
   shipped with Raven: 63 icons of Lucide (`Ricon_get`, `raven:search` in
   XML), drawn in white and tinted with the text color of the widget.
-- [ ] Animated images (GIF, APNG).
+- [x] Animated images (GIF, APNG): an `Image` plays them on the clock of the
+  animations, only while it is painted; play / pause / stop / seek, loop
+  count, a callback at the end; `Animate` and `Loop` in XML. Raven's own GIF
+  decoder, APNG frames through stb_image; frames composed on demand into one
+  canvas (fuzzed under AddressSanitizer).
 
 ### Windows and system
 

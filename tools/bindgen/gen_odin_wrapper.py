@@ -15,8 +15,10 @@ from gen_odin import emit_doc
 # does not say it). The check below fails when an enumeration that looks like a
 # flag group is in neither list, so a new one is looked at once.
 FLAGS = {"RWindowFlags", "RModifier", "RPenButton", "RLanguageFlags", "RHeaderButtons", "RFileDialogFlags",
-         "RShaderFlags", "RPdfPaint", "RPdfTextStyle", "RPdfPrintFlags", "RDragOperation"}
-NOT_FLAGS = set()
+         "RShaderFlags", "RPdfPaint", "RPdfTextStyle", "RPdfPrintFlags", "RDragOperation", "RSearchFlags",
+         "RDiffFlags"}
+# (one value at a time: Rnotification_supports asks for one feature)
+NOT_FLAGS = {"RNotificationFeature"}
 
 
 def ada_case(name):

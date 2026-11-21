@@ -25,7 +25,8 @@
  * handled: its windows are not moved to a new scene.
  *
  * Relative paths read the resources of the app's bundle: see "Files of the
- * bundle".
+ * bundle". The services of the device (permissions, pickers, camera,
+ * haptics, sharing, notifications, downloads) are in uikit_services.m.
  *
  * Compiled with ARC (see CMakeLists.txt).
  */
@@ -40,6 +41,7 @@
 #if defined(RAVEN_BACKEND_METAL_ENABLED)
 #include "../../render/renderer.h"
 #endif
+#include "uikit_internal.h"
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
 #include "../../widget/widget.h"
 #include "../../core/accessibility.h"
@@ -263,6 +265,13 @@ static void rvn_uikit_keyboard_measure(rvn_pwindow_t* window) {
 		e.user = window->user;
 		rvn_uikit_post(&e);
 	}
+}
+
+static void rvn_uikit_post_appearance(void) {
+	rvn_pevent_t e;
+	memset(&e, 0, sizeof(e));
+	e.type = RVN_PEVENT_APPEARANCE;
+	rvn_uikit_post(&e);
 }
 
 static void rvn_uikit_post_key(rvn_pwindow_t* window, RKey key) {
@@ -818,18 +827,27 @@ static void rvn_uikit_post_key(rvn_pwindow_t* window, RKey key) {
 		self.multipleTouchEnabled = YES;
 		ravenMarked = NSMakeRange(NSNotFound, 0);
 		ravenToldFocus = R_INVALID_ID;
-		/* dark / light mode of the system: the core asks system_dark again */
-		[self registerForTraitChanges:@[ [UITraitUserInterfaceStyle class] ]
-		                   withHandler:^(__kindof id<UITraitEnvironment> environment, UITraitCollection* previous) {
-			(void)environment; (void)previous;
-			rvn_pevent_t e;
-			memset(&e, 0, sizeof(e));
-			e.type = RVN_PEVENT_APPEARANCE;
-			rvn_uikit_post(&e);
-		}];
+		/* dark / light mode of the system: the core asks system_dark again (iOS 15 and 16: traitCollectionDidChange:) */
+		if (@available(iOS 17.0, *)) {
+			[self registerForTraitChanges:@[ [UITraitUserInterfaceStyle class] ]
+			                   withHandler:^(__kindof id<UITraitEnvironment> environment, UITraitCollection* previous) {
+				(void)environment; (void)previous;
+				rvn_uikit_post_appearance();
+			}];
+		}
 	}
 	return self;
 }
+
+/* iOS 15 and 16 (deprecated in 17, where registerForTraitChanges: above tells instead) */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+- (void)traitCollectionDidChange:(UITraitCollection*)previous {
+	[super traitCollectionDidChange:previous];
+	if (@available(iOS 17.0, *)) return;
+	if (!previous || previous.userInterfaceStyle != self.traitCollection.userInterfaceStyle) rvn_uikit_post_appearance();
+}
+#pragma clang diagnostic pop
 
 - (void)layoutSubviews {
 	[super layoutSubviews];
@@ -1354,10 +1372,12 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 			rvn_uikit_app_event(R_APP_WILL_TERMINATE);
 		}]
 	]);
+	rvn_uikit_services_init();
 	return R_TRUE;
 }
 
 static void rvn_uikit_shutdown(void) {
+	rvn_uikit_services_shutdown();
 	rvn_file_set_provider(NULL);
 	if (g_uikit.observers) {
 		NSArray* observers = CFBridgingRelease(g_uikit.observers);
@@ -1578,6 +1598,44 @@ static char* rvn_uikit_clipboard_get(void) {
 	return string ? rvn_strdup([string UTF8String]) : NULL;
 }
 
+/* ---------------------------------------------------------------------------
+ *  For uikit_services.m: where the screens of the system are shown
+ * ------------------------------------------------------------------------- */
+
+/* the window given, else Raven's first window still shown (windows are listed newest first) */
+static rvn_pwindow_t* rvn_uikit_window_or_first(rvn_pwindow_t* window) {
+	rvn_pwindow_t* found = NULL;
+	rvn_pwindow_t* each;
+	if (window) return window;
+	for (each = g_uikit.windows; each; each = each->next) {
+		UIWindow* uiwindow = (__bridge UIWindow*)each->window;
+		if (!uiwindow.hidden) found = each;
+	}
+	return found ? found : g_uikit.windows;
+}
+
+UIViewController* rvn_uikit_presenter(rvn_pwindow_t* window) {
+	UIWindow* uiwindow = nil;
+	UIViewController* top;
+	window = rvn_uikit_window_or_first(window);
+	if (window) uiwindow = (__bridge UIWindow*)window->window;
+	if (!uiwindow) {
+		UIWindowScene* scene = rvn_uikit_scene();
+		for (UIWindow* each in scene.windows) {
+			if (each.isKeyWindow || !uiwindow) uiwindow = each;
+		}
+	}
+	top = uiwindow.rootViewController;
+	/* (what is going away is not presented over: the caller waits for it) */
+	while (top.presentedViewController && !top.presentedViewController.isBeingDismissed) top = top.presentedViewController;
+	return top;
+}
+
+UIView* rvn_uikit_view(rvn_pwindow_t* window) {
+	window = rvn_uikit_window_or_first(window);
+	return window ? (__bridge UIView*)window->view : nil;
+}
+
 const rvn_platform_t* rvn_platform_uikit(void) {
 	static const rvn_platform_t platform = {
 		.name = "UIKit",
@@ -1615,6 +1673,24 @@ const rvn_platform_t* rvn_platform_uikit(void) {
 		.a11y_announce = rvn_uikit_a11y_announce,
 		.a11y_active = rvn_uikit_a11y_active,
 		.a11y_settings = rvn_uikit_a11y_settings,
+		.notify = rvn_uikit_notify,
+		.notify_close = rvn_uikit_notify_close,
+		.notify_features = rvn_uikit_notify_features,
+		/* the services of the device (uikit_services.m); folder_select: none on iOS for now */
+		.permission_status = rvn_uikit_permission_status,
+		.permission_request = rvn_uikit_permission_request,
+		.permission_open_settings = rvn_uikit_permission_open_settings,
+		.file_open = rvn_uikit_file_open,
+		.file_save = rvn_uikit_file_save,
+		.camera_available = rvn_uikit_camera_available,
+		.camera_take_photo = rvn_uikit_camera_take_photo,
+		.photo_pick = rvn_uikit_photo_pick,
+		.share = rvn_uikit_share,
+		.open_url = rvn_uikit_open_url,
+		.haptic_supported = rvn_uikit_haptic_supported,
+		.haptic = rvn_uikit_haptic,
+		.download = rvn_uikit_download,
+		.clipboard_has_text = rvn_uikit_clipboard_has_text,
 		.web_view_supported = rvn_webkit_supported,
 		.web_view_create = rvn_webkit_create,
 		.web_view_destroy = rvn_webkit_destroy,

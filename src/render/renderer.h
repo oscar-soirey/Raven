@@ -57,6 +57,13 @@ typedef struct rvn_texture_t {
 	int svg_pending;
 	/** An SVG painted only in currentColor, drawn in white: the widgets that show it tint it with their text color. */
 	int current_color;
+	/**
+	 * An animated GIF or APNG: its frames, which the Image widgets that show
+	 * it play (widgets/image.c). The texture itself holds the first frame.
+	 */
+	struct rvn_anim_t* anim;
+	/** Times the texture was made again after the loss of the device (its pixels may be gone). */
+	uint32_t restores;
 } rvn_texture_t;
 
 rvn_texture_t* rvn_texture_get(Rid id);
@@ -72,6 +79,10 @@ rvn_texture_t* rvn_texture_register(void);
 /** Creates a texture from raw pixels. Takes ownership of `pixels` (rvn_alloc'ed, may be NULL). */
 Rid rvn_texture_create_raw(int width, int height, RTextureFormat format, RFilterType filter, void* pixels);
 void rvn_textures_shutdown(void);
+/** Gives new pixels of the same size to a texture made by rvn_texture_create_raw. Takes ownership of `pixels`. No repaint is asked. */
+void rvn_texture_replace_pixels(Rid id, uint8_t* pixels);
+/** Destroys a texture made by rvn_texture_create_raw, without asking the windows to be painted again. */
+void rvn_texture_release(Rid id);
 /** After the loss of the device: makes the backend texture again (see rvn_texture_t). */
 void rvn_texture_restore(rvn_texture_t* texture);
 
@@ -128,7 +139,93 @@ void rvn_textures_update_svg(void);
 /* ---- render/svg_decode.c (nanosvg) ---- */
 int rvn_svg_detect(const uint8_t* data, size_t size);
 uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height, int* current_color);
-/** Downloads and decodes an HTTP(S) image asynchronously. Internal resource helper. */
+
+/* ---- render/anim_decode.c: animated GIF and APNG ---- */
+#define RVN_ANIM_GIF 1
+#define RVN_ANIM_APNG 2
+/** What happens to the rectangle of a frame before the next one is drawn. */
+#define RVN_ANIM_DISPOSE_NONE 0
+#define RVN_ANIM_DISPOSE_BACKGROUND 1 /* made transparent */
+#define RVN_ANIM_DISPOSE_PREVIOUS 2   /* given back what was there before the frame */
+/** How a frame is drawn: replacing its rectangle, or over it. */
+#define RVN_ANIM_BLEND_SOURCE 0
+#define RVN_ANIM_BLEND_OVER 1
+
+typedef struct rvn_anim_frame_t {
+	int x, y, width, height;
+	/** How long it is shown (ms), after the browser rule (10 ms or less: 100 ms). */
+	uint32_t delay_ms;
+	uint8_t dispose, blend, interlaced;
+	/** GIF: the index of the transparent color, or -1; its color table (offset in the file, colors). */
+	int transparent;
+	uint32_t palette, palette_count;
+	/** GIF: offset of the LZW code size. APNG: first of its `segments` in rvn_anim_t.segments. */
+	uint32_t offset, segments;
+} rvn_anim_frame_t;
+
+/** A run of compressed pixels of an APNG frame (IDAT or fdAT data) in the file. */
+typedef struct rvn_anim_segment_t {
+	uint32_t offset, length;
+} rvn_anim_segment_t;
+
+/** An animated image: the structure of its file, which it keeps (or refers to); no decoded frame. Immutable once open. */
+typedef struct rvn_anim_t {
+	int format;
+	int width, height;
+	int frame_count;
+	/** APNG: R_FALSE when the image of the file is not one of the frames (then even one frame differs from it). */
+	int image_is_frame;
+	/** Times it plays: 0 forever (GIF: 1 + the repeats of its NETSCAPE2.0 block; APNG: num_plays). */
+	int loop_count;
+	/** Sum of the delays (ms). */
+	uint32_t duration_ms;
+	/** Different for every animation opened (never 0). */
+	uint32_t serial;
+	const uint8_t* data;
+	size_t size;
+	uint8_t* owned;
+	rvn_anim_frame_t* frames;
+	/* APNG: the data of the frames; offsets of its IHDR data and its PLTE and tRNS chunks (whole) */
+	rvn_anim_segment_t* segments;
+	uint32_t segment_count;
+	uint32_t header, palette, palette_length, transparency, transparency_length;
+} rvn_anim_t;
+
+/** Composes frames into a canvas of the size of the animation (RGBA8, straight alpha). Zero it, set index to -1. */
+typedef struct rvn_anim_cursor_t {
+	uint8_t* canvas;
+	/** The rectangle under the last frame that restores it. */
+	uint8_t* saved;
+	/** Frame in the canvas (-1: none), of the animation of this serial. */
+	int index;
+	uint32_t serial;
+} rvn_anim_cursor_t;
+
+/** R_TRUE for a GIF, and for a PNG with an animation control chunk. Does not mean it has several frames. */
+int rvn_anim_detect(const uint8_t* data, size_t size);
+/**
+ * Reads the structure of a GIF or APNG of at least two frames (or an APNG
+ * whose one frame is not the image of the file: a still image that only
+ * this decoder shows right). NULL for anything else (a still image, a
+ * damaged header, a canvas too big). With
+ * `copy`, the animation keeps a copy of the file; otherwise the data must
+ * outlive it. Thread-safe.
+ */
+rvn_anim_t* rvn_anim_open(const uint8_t* data, size_t size, int copy);
+void rvn_anim_free(rvn_anim_t* anim);
+/** Composes frame `index` (clamped) into the canvas of the cursor, going on from the frame it holds, or from the first. */
+const uint8_t* rvn_anim_compose(const rvn_anim_t* anim, rvn_anim_cursor_t* cursor, int index);
+void rvn_anim_cursor_free(rvn_anim_cursor_t* cursor);
+/** Frame `index` as a whole image (width x height RGBA8). Free with rvn_free. */
+uint8_t* rvn_anim_decode_frame(const rvn_anim_t* anim, int index);
+/**
+ * rvn_image_decode_at that also gives the animation of an animated GIF or
+ * APNG (`anim`, may be NULL; then the pixels are its first frame). The
+ * animation keeps a copy of the file.
+ */
+uint8_t* rvn_image_decode_anim(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density,
+	int* current_color, rvn_anim_t** anim);
+
 
 /* ---------------------------------------------------------------------------
  *  Renderer (render/renderer.c)

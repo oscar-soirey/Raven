@@ -248,6 +248,7 @@ const te_color_info g_te_colors[TE_COLOR_COUNT] = {
 	{ R_COLOR_CODE, "Code", "Text", "`code` in Markdown" },
 	{ R_COLOR_SEARCH_MATCH, "SearchMatch", "Text", "Matches of a search in a text editor (see-through)" },
 	{ R_COLOR_SEARCH_CURRENT, "SearchCurrent", "Text", "The selected match of a search" },
+	{ R_COLOR_SPELLING, "Spelling", "Text", "Wavy line under misspelled words (spell checking)" },
 	{ R_COLOR_ACCENT, "Accent", "Accent", "Primary buttons, checked boxes, sliders" },
 	{ R_COLOR_ACCENT_HOVERED, "AccentHovered", "Accent", "The accent under the pointer" },
 	{ R_COLOR_ACCENT_PRESSED, "AccentPressed", "Accent", "The accent while pressed" },
@@ -874,6 +875,7 @@ void te_generate_palette(te_model* model, int dark, float tint, float contrast) 
 	set_hsl(model, R_COLOR_SUCCESS, 142.0f, 0.55f, dark ? 0.62f : 0.36f, 1.0f);
 	set_hsl(model, R_COLOR_WARNING, 38.0f, 0.92f, dark ? 0.62f : 0.42f, 1.0f);
 	set_hsl(model, R_COLOR_DANGER, 2.0f, 0.78f, dark ? 0.64f : 0.48f, 1.0f);
+	set_hsl(model, R_COLOR_SPELLING, 2.0f, 0.78f, dark ? 0.64f : 0.48f, 1.0f);
 	/* the lines of a diff: the status colors, see-through so that the surface shows */
 	set_hsl(model, R_COLOR_DIFF_ADDED, 135.0f, 0.60f, dark ? 0.45f : 0.38f, dark ? 0.18f : 0.12f);
 	set_hsl(model, R_COLOR_DIFF_REMOVED, 2.0f, 0.75f, dark ? 0.60f : 0.48f, dark ? 0.18f : 0.10f);
@@ -887,6 +889,7 @@ void te_generate_palette(te_model* model, int dark, float tint, float contrast) 
 	ensure_contrast(model, R_COLOR_FOCUS, R_COLOR_WINDOW, 3.0f, dark);
 	ensure_contrast(model, R_COLOR_LINK, R_COLOR_WINDOW, 4.5f, dark);
 	ensure_contrast(model, R_COLOR_DANGER, R_COLOR_PANEL, 3.0f, dark);
+	ensure_contrast(model, R_COLOR_SPELLING, R_COLOR_INPUT, 3.0f, dark);
 	ensure_contrast(model, R_COLOR_SUCCESS, R_COLOR_PANEL, 3.0f, dark);
 	ensure_contrast(model, R_COLOR_WARNING, R_COLOR_PANEL, 3.0f, dark);
 

@@ -287,6 +287,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
+		case R_WIDGET_DIFF_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_DATE_PICKER: return R_ROLE_COMBO_BOX;
 		case R_WIDGET_TIME_PICKER: return R_ROLE_SPIN_BUTTON;
 		case R_WIDGET_TOAST: return Rtoast_is_shown(widget->id) ? R_ROLE_ALERT : R_ROLE_NONE;
@@ -388,6 +389,7 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
 		case R_WIDGET_CAROUSEL: return (int)widget->child_count;
 		case RVN_WIDGET_INTERNAL_COMBO_LIST: return rvn_combo_list_row_count(widget);
+		case R_WIDGET_DIFF_VIEW: return Rdiff_view_get_row_count(widget->id);
 		default: return 0;
 	}
 }
@@ -568,6 +570,11 @@ rvn_a11y_id_t rvn_a11y_hit(Rid id, float x, float y) {
 			if (hit->cls->type == R_WIDGET_TABLE) {
 				rvn_vec2_t origin = rvn_widget_origin(hit);
 				int row = rvn_table_accessible_row_at(hit, x - origin.x, y - origin.y);
+				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
+			}
+			if (hit->cls->type == R_WIDGET_DIFF_VIEW) {
+				rvn_vec2_t origin = rvn_widget_origin(hit);
+				int row = rvn_diff_view_row_at(hit, x - origin.x, y - origin.y);
 				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
 			}
 			return rvn_a11y_node_of(hit);
@@ -751,6 +758,20 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				if ((widget->flags & RVN_WF_FOCUSED) && rvn_table_cursor_row(widget) == item) node->states |= RVN_A11Y_FOCUSED;
 				break;
 			}
+			case R_WIDGET_DIFF_VIEW: {
+				/* a row: "added line 12: ...", a fold that opens */
+				rvn_rect_t rect = rvn_diff_view_row_rect(widget, item);
+				if (item >= Rdiff_view_get_row_count(widget->id)) return R_FALSE;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
+				node->role = R_ROLE_LIST_ITEM;
+				rvn_diff_view_describe_row(widget, item, &g_a11y.name);
+				if (rvn_diff_view_row_is_fold(widget, item)) node->states |= RVN_A11Y_INVOKABLE | RVN_A11Y_EXPANDABLE;
+				break;
+			}
 			case R_WIDGET_LIST_VIEW: {
 				const char* text = Rlist_view_get_item_text(widget->id, item);
 				node->role = R_ROLE_LIST_ITEM;
@@ -912,6 +933,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (Rcarousel_get_page_count(widget->id) > 0)
 				rvn_text_printf(&g_a11y.value, "page %d of %d", Rcarousel_get_page(widget->id) + 1, Rcarousel_get_page_count(widget->id));
 			break;
+		case R_WIDGET_DIFF_VIEW: {
+			int changes = Rdiff_view_get_change_count(widget->id), current = Rdiff_view_get_current_change(widget->id);
+			if (current >= 0) rvn_text_printf(&g_a11y.value, "change %d of %d", current + 1, changes);
+			else rvn_text_printf(&g_a11y.value, changes == 1 ? "%d change" : "%d changes", changes);
+			break;
+		}
 		case R_WIDGET_PDF_VIEW:
 			/* the title as the name; the page shown as the value */
 			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
@@ -1110,6 +1137,10 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				rvn_map_view_press_marker(widget, item);
 				rvn_dispatch_end();
 				return R_TRUE;
+			case R_WIDGET_DIFF_VIEW:
+				/* a fold opens */
+				if (action != RVN_A11Y_PRESS && action != RVN_A11Y_EXPAND) return R_FALSE;
+				return Rdiff_view_expand(widget->id, item);
 			case R_WIDGET_CAROUSEL:
 				if (item >= Rcarousel_get_page_count(widget->id)) return R_FALSE;
 				Rcarousel_set_page(widget->id, item, R_TRUE);

@@ -1370,6 +1370,11 @@ def struct_fields(api, s):
             result.append((fld, "list_" + kind, detail, following))
             skip.add(i + 1)
             continue
+        if kind in ("cptr", "cbytes") and following is not None and following.ctype == "size_t" and following.name.endswith("size"):
+            # bytes and their size (RDataItem.data, size) become one string
+            result.append((fld, "sized", detail, following))
+            skip.add(i + 1)
+            continue
         if kind in ("scalar", "enum", "cstr", "ptr"):
             result.append((fld, kind, detail, None))
             continue
@@ -1396,6 +1401,9 @@ def struct_code(api, s, wanted_in, wanted_out):
                 out.append("\trl_push_text(L, s->%s);" % n)
             elif kind == "ptr":
                 out.append("\trl_push_ptr(L, s->%s);" % n)
+            elif kind == "sized":
+                out.append("\tif (s->%s) lua_pushlstring(L, (const char*)s->%s, s->%s);" % (n, n, count.name))
+                out.append("\telse lua_pushnil(L);")
             elif kind == "chars":
                 out.append("\trl_push_chars(L, s->%s, sizeof(s->%s));" % (n, n))
             elif kind == "numbers":
@@ -1462,6 +1470,13 @@ def struct_code(api, s, wanted_in, wanted_out):
                 keep = True
             elif kind == "ptr":
                 out.append("\ts->%s = rl_ptr(L, v, %s);" % (n, label))
+            elif kind == "sized":
+                out.append("\tif (!lua_isnil(L, v)) {")
+                out.append("\t\tsize_t n;")
+                out.append("\t\ts->%s = rl_lstr(L, v, &n, %s);" % (n, label))
+                out.append("\t\ts->%s = n;" % count.name)
+                out.append("\t}")
+                keep = True
             elif kind == "fnptr":
                 out.append("\t{")
                 out.append("\t\tvoid* address = rl_ptr(L, v, %s);" % label)

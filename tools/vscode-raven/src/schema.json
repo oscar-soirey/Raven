@@ -562,6 +562,31 @@
 				"name": "Color.SearchCurrent",
 				"kind": "color",
 				"description": ""
+			},
+			{
+				"name": "Color.Spelling",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.DiffAdded",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.DiffRemoved",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.DiffAddedWord",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.DiffRemovedWord",
+				"kind": "color",
+				"description": ""
 			}
 		],
 		"Metrics": [
@@ -1474,6 +1499,16 @@
 					"description": "The return key of the on-screen keyboard."
 				},
 				{
+					"name": "SpellCheck",
+					"kind": "bool",
+					"description": "Underlines the misspelled words, with corrections on a right click (off by default)."
+				},
+				{
+					"name": "SpellLanguage",
+					"kind": "text",
+					"description": "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -1951,6 +1986,16 @@
 					"description": "Regions of the text can be folded: markers beside the line numbers, Ctrl+Shift+[ and ] (on by default)."
 				},
 				{
+					"name": "SpellCheck",
+					"kind": "bool",
+					"description": "Underlines the misspelled words, with corrections on a right click (off by default)."
+				},
+				{
+					"name": "SpellLanguage",
+					"kind": "text",
+					"description": "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -1961,6 +2006,119 @@
 				"Syntax",
 				"FontSize"
 			]
+		},
+		{
+			"name": "DiffView",
+			"description": "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "LeftSource",
+					"kind": "file",
+					"description": "The file before, compared with RightSource; its path is the name shown unless LeftName is given."
+				},
+				{
+					"name": "RightSource",
+					"kind": "file",
+					"description": "The file after."
+				},
+				{
+					"name": "Left",
+					"kind": "text",
+					"description": "The text before (or a <Left> element holding it)."
+				},
+				{
+					"name": "Right",
+					"kind": "text",
+					"description": "The text after (or a <Right> element holding it)."
+				},
+				{
+					"name": "LeftName",
+					"kind": "text",
+					"description": "Name shown over the text before (its extension chooses the colors of the code)."
+				},
+				{
+					"name": "RightName",
+					"kind": "text",
+					"description": "Name shown over the text after."
+				},
+				{
+					"name": "Patch",
+					"kind": "text",
+					"description": "A unified diff (git diff, diff -u) to show instead of two texts (or a <Patch> element holding it)."
+				},
+				{
+					"name": "PatchSource",
+					"kind": "file",
+					"description": "A file holding a unified diff."
+				},
+				{
+					"name": "Mode",
+					"kind": "choice",
+					"choices": [
+						"Unified",
+						"Split"
+					],
+					"description": "One column, or the two texts side by side (Split)."
+				},
+				{
+					"name": "Context",
+					"kind": "number",
+					"description": "Unchanged lines shown around each change (3); the others are folded. All, or -1: every line."
+				},
+				{
+					"name": "IgnoreWhitespace",
+					"kind": "choice",
+					"choices": [
+						"None",
+						"Trailing",
+						"All"
+					],
+					"description": "Spaces that do not count: none, those at the end of the lines, all of them."
+				},
+				{
+					"name": "IgnoreCase",
+					"kind": "bool",
+					"description": "Upper and lower case letters are the same."
+				},
+				{
+					"name": "WordDiff",
+					"kind": "bool",
+					"description": "Marks the words that changed inside a changed line (default true)."
+				},
+				{
+					"name": "LineNumbers",
+					"kind": "bool",
+					"description": "The numbers of the lines of both sides (default true)."
+				},
+				{
+					"name": "Language",
+					"kind": "choice",
+					"choices": [
+						"None",
+						"C",
+						"C++",
+						"C#",
+						"Java",
+						"JavaScript",
+						"TypeScript",
+						"Python",
+						"Rust",
+						"GLSL",
+						"JSON",
+						"CSS",
+						"XML",
+						"HTML"
+					],
+					"description": "Colors the code; by default guessed from the extension of the names."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired when a line or its number is clicked."
+				}
+			],
+			"accepted": []
 		},
 		{
 			"name": "HeaderBar",
@@ -2444,21 +2602,6 @@
 						"None"
 					],
 					"description": "One row at a time (default), any number of rows (Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A), or none."
-				},
-				{
-					"name": "MultiSelect",
-					"kind": "bool",
-					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
-				},
-				{
-					"name": "MultiSelect",
-					"kind": "bool",
-					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
-				},
-				{
-					"name": "MultiSelect",
-					"kind": "bool",
-					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",
@@ -3270,6 +3413,7 @@
 		"Map": "MapView",
 		"TileMap": "MapView",
 		"PageView": "Carousel",
-		"Slideshow": "Carousel"
+		"Slideshow": "Carousel",
+		"DiffViewer": "DiffView"
 	}
 }

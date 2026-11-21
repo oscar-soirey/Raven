@@ -12,6 +12,7 @@
 
 #include "../platform.h"
 #include "../../core/accessibility.h"
+#include "../../core/transfer.h"
 #include "../apple/webkit_web_view.h"
 #include "../../widget/widget.h"
 
@@ -249,6 +250,150 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 - (BOOL)canBecomeMainWindow { return YES; }
 @end
 
+/* ---------------------------------------------------------------------------
+ *  Data for the other applications: the pasteboard (clipboard, drags)
+ *
+ *  The formats Raven names by MIME types (RDataItem) are given their uniform
+ *  type identifiers; a format of the application has one made from its MIME
+ *  type ("org.raven.mime." and the MIME type escaped), the same in every
+ *  application made with Raven. Files (text/uri-list) are one pasteboard item
+ *  each, as the Finder writes and reads them; the other formats go into the
+ *  first item. A PNG is also given as TIFF, the picture older programs read.
+ * ------------------------------------------------------------------------- */
+
+static NSString* rvn_cocoa_type_for_mime(const char* mime) {
+    static const struct { const char* mime; const char* type; } known[] = {
+        { "text/plain", "public.utf8-plain-text" }, { "text/html", "public.html" },
+        { "text/rtf", "public.rtf" }, { "image/png", "public.png" }, { "image/tiff", "public.tiff" },
+        { "image/jpeg", "public.jpeg" }, { "image/gif", "com.compuserve.gif" },
+        { "image/svg+xml", "public.svg-image" }, { "application/pdf", "com.adobe.pdf" },
+        { "application/json", "public.json" }, { "text/csv", "public.comma-separated-values-text" },
+        { "image/bmp", "com.microsoft.bmp" }
+    };
+    static const char hex[] = "0123456789ABCDEF";
+    NSMutableString* type;
+    const unsigned char* p;
+    size_t i;
+    for (i = 0; i < sizeof(known) / sizeof(known[0]); i++) {
+        if (rvn_mime_is(mime, known[i].mime)) return [NSString stringWithUTF8String:known[i].type];
+    }
+    type = [NSMutableString stringWithString:@"org.raven.mime."];
+    for (p = (const unsigned char*)mime; *p && *p != ';' && *p != ' '; p++) {
+        unsigned char c = *p;
+        if (c >= 'A' && c <= 'Z') c = (unsigned char)(c - 'A' + 'a');
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.') [type appendFormat:@"%c", c];
+        else [type appendFormat:@"-%c%c", hex[c >> 4], hex[c & 15]];
+    }
+    return type;
+}
+
+/* The items of the pasteboard for these formats (autoreleased), or nil when there are none. */
+static NSArray* rvn_cocoa_pasteboard_items(const RDataItem* items, int count) {
+    NSMutableArray* result = [NSMutableArray array];
+    NSPasteboardItem* first = [[[NSPasteboardItem alloc] init] autorelease];
+    int i, has_tiff = rvn_data_find(items, count, "image/tiff") != NULL, first_used = 0;
+    for (i = 0; i < count; i++) {
+        NSData* data = [NSData dataWithBytes:items[i].data length:items[i].size];
+        if (rvn_mime_is(items[i].mime, "text/uri-list")) continue;
+        [first setData:data forType:rvn_cocoa_type_for_mime(items[i].mime)];
+        first_used = 1;
+        if (rvn_mime_is(items[i].mime, "image/png") && !has_tiff) {
+            NSBitmapImageRep* image = [NSBitmapImageRep imageRepWithData:data];
+            NSData* tiff = image ? [image TIFFRepresentation] : nil;
+            if (tiff) [first setData:tiff forType:NSPasteboardTypeTIFF];
+        }
+    }
+    if (first_used) [result addObject:first];
+    for (i = 0; i < count; i++) {
+        NSString* list;
+        NSArray* lines;
+        if (!rvn_mime_is(items[i].mime, "text/uri-list")) continue;
+        list = [[[NSString alloc] initWithBytes:items[i].data length:items[i].size encoding:NSUTF8StringEncoding] autorelease];
+        lines = list ? [list componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]] : nil;
+        for (NSString* line in lines) {
+            NSString* trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSURL* url;
+            NSPasteboardItem* item;
+            if (![trimmed length] || [trimmed hasPrefix:@"#"]) continue;
+            url = [NSURL URLWithString:trimmed];
+            if (!url) continue;
+            item = [[[NSPasteboardItem alloc] init] autorelease];
+            [item setString:[url absoluteString] forType:[url isFileURL] ? NSPasteboardTypeFileURL : NSPasteboardTypeURL];
+            /* (a page or a file: the programs that only take text get its address) */
+            if (![url isFileURL] && ![item stringForType:NSPasteboardTypeString]) [item setString:[url absoluteString] forType:NSPasteboardTypeString];
+            [result addObject:item];
+        }
+    }
+    return [result count] ? result : nil;
+}
+
+/* What `board` holds as `mime` (rvn_alloc'ed, followed by a '\0'), converted from what it has. */
+static char* rvn_cocoa_pasteboard_read(NSPasteboard* board, const char* mime, size_t* size) {
+    NSData* data = nil;
+    if (rvn_mime_is(mime, "text/uri-list")) {
+        NSArray* urls = [board readObjectsForClasses:@[[NSURL class]] options:nil];
+        NSMutableString* list = [NSMutableString string];
+        for (NSURL* url in urls) [list appendFormat:@"%@\r\n", [url absoluteString]];
+        if ([list length]) data = [list dataUsingEncoding:NSUTF8StringEncoding];
+    } else if (rvn_mime_is(mime, "text/plain")) {
+        NSString* text = [board stringForType:NSPasteboardTypeString];
+        if (text) data = [text dataUsingEncoding:NSUTF8StringEncoding];
+    } else if (rvn_mime_is(mime, "image/png")) {
+        data = [board dataForType:NSPasteboardTypePNG];
+        if (!data) {
+            /* another picture (TIFF, PDF, JPEG...): through the images of AppKit */
+            NSImage* image = [NSImage canInitWithPasteboard:board] ? [[[NSImage alloc] initWithPasteboard:board] autorelease] : nil;
+            CGImageRef cg = image ? [image CGImageForProposedRect:NULL context:nil hints:nil] : NULL;
+            if (cg) {
+                NSBitmapImageRep* rep = [[[NSBitmapImageRep alloc] initWithCGImage:cg] autorelease];
+                data = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+            }
+        }
+    } else {
+        data = [board dataForType:rvn_cocoa_type_for_mime(mime)];
+    }
+    if (!data) return NULL;
+    if (size) *size = (size_t)[data length];
+    return rvn_bytes_dup([data bytes], (size_t)[data length]);
+}
+
+static int rvn_cocoa_pasteboard_has(NSPasteboard* board, const char* mime) {
+    if (rvn_mime_is(mime, "text/uri-list")) return [board canReadObjectForClasses:@[[NSURL class]] options:nil];
+    if (rvn_mime_is(mime, "text/plain")) return [board availableTypeFromArray:@[NSPasteboardTypeString]] != nil;
+    if (rvn_mime_is(mime, "image/png")) return [board availableTypeFromArray:@[NSPasteboardTypePNG]] != nil || [NSImage canInitWithPasteboard:board];
+    return [board availableTypeFromArray:@[rvn_cocoa_type_for_mime(mime)]] != nil;
+}
+
+static NSDragOperation rvn_cocoa_drag_mask(uint32_t operations) {
+    NSDragOperation mask = NSDragOperationNone;
+    if (operations & R_DRAG_OPERATION_COPY) mask |= NSDragOperationCopy;
+    if (operations & R_DRAG_OPERATION_MOVE) mask |= NSDragOperationMove | NSDragOperationDelete;
+    if (operations & R_DRAG_OPERATION_LINK) mask |= NSDragOperationLink;
+    return mask;
+}
+
+static int rvn_cocoa_drag_done(NSDragOperation operation) {
+    if (operation & NSDragOperationMove) return R_DRAG_OPERATION_MOVE;
+    /* (dropped on the Trash: the source removes it) */
+    if (operation & NSDragOperationDelete) return R_DRAG_OPERATION_MOVE;
+    if (operation & NSDragOperationLink) return R_DRAG_OPERATION_LINK;
+    if (operation & (NSDragOperationCopy | NSDragOperationGeneric)) return R_DRAG_OPERATION_COPY;
+    return R_DRAG_OPERATION_NONE;
+}
+
+/* An image from RGBA8 pixels, straight alpha (autoreleased); `points` its size on the screen. */
+static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int height, NSSize points) {
+    NSBitmapImageRep* rep = [[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:width pixelsHigh:height
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+        bitmapFormat:NSBitmapFormatAlphaNonpremultiplied bytesPerRow:(NSInteger)width * 4 bitsPerPixel:32] autorelease];
+    NSImage* image;
+    if (!rep || ![rep bitmapData]) return nil;
+    memcpy([rep bitmapData], rgba, (size_t)width * (size_t)height * 4u);
+    image = [[[NSImage alloc] initWithSize:points] autorelease];
+    [image addRepresentation:rep];
+    return image;
+}
+
 /*
  * The content view. It is an NSTextInputClient: while the focus is in a
  * TextInput, SpinBox or TextEditor, keys go through the input method of the
@@ -260,9 +405,14 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
  * Elsewhere (no text focus) and with Command or Control, keys go to the core
  * directly, as before.
  */
-@interface RavenCocoaView : NSView <NSDraggingDestination, NSTextInputClient> {
+@interface RavenCocoaView : NSView <NSDraggingDestination, NSDraggingSource, NSTextInputClient> {
 @public rvn_pwindow_t* ravenWindow;
     NSTrackingArea* trackingArea;
+    /* the press or move of the mouse a drag out of the window starts from (beginDraggingSession needs it) */
+    NSEvent* dragEvent;
+    /* a drag out of the window is going on: what the target may do with it */
+    NSDragOperation dragMask;
+@public int dragging;
     /* the marked text of the input method (nil: none) and its selection, UTF-16 */
     NSString* ravenMarked;
     NSRange ravenMarkedSelection;
@@ -285,10 +435,12 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 }
 - (void)dealloc {
     if (trackingArea) [trackingArea release];
+    [dragEvent release];
     [ravenMarked release];
     [ravenKeyText release];
     [super dealloc];
 }
+- (void)rvnKeepDragEvent:(NSEvent*)event { [dragEvent release]; dragEvent = [event retain]; }
 - (BOOL)acceptsFirstResponder { return YES; }
 /* (the island of the camera housing takes the click at once, without becoming the key window first) */
 - (BOOL)acceptsFirstMouse:(NSEvent*)event { (void)event; return ravenWindow && ravenWindow->overlay; }
@@ -383,9 +535,9 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_MOVE; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s); e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
     [self rvnPen:event phase:[event type] == NSEventTypeLeftMouseDragged ? R_PEN_MOVE : R_PEN_HOVER];
 }
-- (void)mouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
-- (void)rightMouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
-- (void)otherMouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
+- (void)mouseDragged:(NSEvent*)event { [self rvnKeepDragEvent:event]; rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
+- (void)rightMouseDragged:(NSEvent*)event { [self rvnKeepDragEvent:event]; rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
+- (void)otherMouseDragged:(NSEvent*)event { [self rvnKeepDragEvent:event]; rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
 - (void)mouseEntered:(NSEvent*)event { (void)event; }
 - (void)mouseExited:(NSEvent*)event {
     (void)event; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_LEAVE; rvn_cocoa_emit(ravenWindow, &e);
@@ -404,12 +556,12 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     e.button = button; e.pressed = pressed; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s);
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
-- (void)mouseDown:(NSEvent*)event { [self rvnMouse:event button:0 pressed:1]; [self rvnPen:event phase:R_PEN_DOWN]; }
-- (void)mouseUp:(NSEvent*)event { [self rvnMouse:event button:0 pressed:0]; [self rvnPen:event phase:R_PEN_UP]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
-- (void)rightMouseDown:(NSEvent*)event { [self rvnMouse:event button:1 pressed:1]; }
-- (void)rightMouseUp:(NSEvent*)event { [self rvnMouse:event button:1 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
-- (void)otherMouseDown:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:1]; }
-- (void)otherMouseUp:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+- (void)mouseDown:(NSEvent*)event { [self rvnKeepDragEvent:event]; [self rvnMouse:event button:0 pressed:1]; [self rvnPen:event phase:R_PEN_DOWN]; }
+- (void)mouseUp:(NSEvent*)event { [self rvnKeepDragEvent:nil]; [self rvnMouse:event button:0 pressed:0]; [self rvnPen:event phase:R_PEN_UP]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+- (void)rightMouseDown:(NSEvent*)event { [self rvnKeepDragEvent:event]; [self rvnMouse:event button:1 pressed:1]; }
+- (void)rightMouseUp:(NSEvent*)event { [self rvnKeepDragEvent:nil]; [self rvnMouse:event button:1 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+- (void)otherMouseDown:(NSEvent*)event { [self rvnKeepDragEvent:event]; [self rvnMouse:event button:(int)[event buttonNumber] pressed:1]; }
+- (void)otherMouseUp:(NSEvent*)event { [self rvnKeepDragEvent:nil]; [self rvnMouse:event button:(int)[event buttonNumber] pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 /*
  * A trackpad (or a Magic Mouse) gives its deltas in points, the content
  * following the fingers: RVN_WHEEL_LINE points make a line, and the wheel is
@@ -633,7 +785,15 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_DRAG;
     e.x = (int)lrint(p.x * scale); e.y = (int)lrint(p.y * scale);
     e.leaving = leaving; e.accepted = &accepted; rvn_cocoa_emit(ravenWindow, &e);
-    return accepted ? NSDragOperationCopy : NSDragOperationNone;
+    if (!accepted) return NSDragOperationNone;
+    {
+        /* an operation the source allows: a copy when it may */
+        NSDragOperation mask = [sender draggingSourceOperationMask];
+        if (mask & NSDragOperationCopy) return NSDragOperationCopy;
+        if (mask & NSDragOperationMove) return NSDragOperationMove;
+        if (mask & NSDragOperationLink) return NSDragOperationLink;
+        return NSDragOperationGeneric;
+    }
 }
 - (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender { return [self rvnDrag:sender leaving:0]; }
 - (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender { return [self rvnDrag:sender leaving:0]; }
@@ -656,7 +816,83 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     if (text) { rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_DROP; e.drop_text = [text UTF8String]; rvn_cocoa_emit(ravenWindow, &e); return YES; }
     return NO;
 }
+/*
+ * Dragging out of the window (drag_begin): AppKit runs the drag, from the
+ * press or move of the mouse being handled, and tells its end here.
+ */
+- (NSDragOperation)draggingSession:(NSDraggingSession*)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+    (void)session; (void)context;
+    return dragMask;
+}
+- (void)draggingSession:(NSDraggingSession*)session endedAtPoint:(NSPoint)screenPoint operation:(NSDragOperation)operation {
+    (void)session; (void)screenPoint;
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_DRAG_END; e.operation = rvn_cocoa_drag_done(operation);
+    if (!dragging) return;
+    dragging = 0;
+    /* (the window may be gone: the core holds the drag itself) */
+    if (ravenWindow) rvn_cocoa_emit(ravenWindow, &e);
+    else if (g_cocoa.handler) g_cocoa.handler(&e);
+}
+- (BOOL)rvnDragItems:(const RDataItem*)items count:(int)count operations:(uint32_t)operations
+    rgba:(const uint8_t*)rgba width:(int)width height:(int)height {
+    NSArray* writers = rvn_cocoa_pasteboard_items(items, count);
+    NSMutableArray* dragged;
+    NSImage* image = nil;
+    NSPoint at;
+    NSSize size;
+    NSUInteger i, n;
+    NSDraggingSession* session;
+    CGFloat scale = [[self window] backingScaleFactor] > 0.0 ? [[self window] backingScaleFactor] : 1.0;
+    if (!writers || !dragEvent) return NO;
+    at = [self convertPoint:[dragEvent locationInWindow] fromView:nil];
+    /* the picture that follows the pointer: the one given, else the picture dragged, else the icon of the file */
+    if (rgba && width > 0 && height > 0) {
+        image = rvn_cocoa_image_from_rgba(rgba, width, height, NSMakeSize(width / scale, height / scale));
+    } else {
+        const RDataItem* png = rvn_data_find(items, count, "image/png");
+        NSImage* picture = png ? [[[NSImage alloc] initWithData:[NSData dataWithBytes:png->data length:png->size]] autorelease] : nil;
+        if (picture && [picture size].width > 0 && [picture size].height > 0) {
+            CGFloat fit = MIN(1.0, 128.0 / MAX([picture size].width, [picture size].height));
+            [picture setSize:NSMakeSize([picture size].width * fit, [picture size].height * fit)];
+            image = picture;
+        }
+    }
+    n = [writers count];
+    dragged = [NSMutableArray arrayWithCapacity:n];
+    for (i = 0; i < n; i++) {
+        NSPasteboardItem* writer = [writers objectAtIndex:i];
+        NSDraggingItem* item = [[[NSDraggingItem alloc] initWithPasteboardWriter:writer] autorelease];
+        NSImage* shown = i == 0 ? image : nil;
+        NSString* file = [writer stringForType:NSPasteboardTypeFileURL];
+        if (!shown && file) {
+            NSURL* url = [NSURL URLWithString:file];
+            if ([url path]) shown = [[NSWorkspace sharedWorkspace] iconForFile:[url path]];
+            if (shown) [shown setSize:NSMakeSize(48, 48)];
+        }
+        if (!shown) {
+            shown = [NSImage imageNamed:NSImageNameMultipleDocuments];
+            if (shown) [shown setSize:NSMakeSize(48, 48)];
+        }
+        size = shown ? [shown size] : NSMakeSize(48, 48);
+        /* (the others a little behind the first one) */
+        [item setDraggingFrame:NSMakeRect(at.x - size.width * 0.5 + (CGFloat)MIN(i, 4) * 6.0, at.y - size.height * 0.5 + (CGFloat)MIN(i, 4) * 6.0,
+            size.width, size.height) contents:shown];
+        [dragged addObject:item];
+    }
+    dragMask = rvn_cocoa_drag_mask(operations);
+    dragging = 1;
+    session = [self beginDraggingSessionWithItems:dragged event:dragEvent source:self];
+    [self rvnKeepDragEvent:nil];
+    if (!session) dragging = 0;
+    return session != nil;
+}
 @end
+
+static int rvn_cocoa_drag_begin(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
+    const uint8_t* rgba, int width, int height) {
+    if (!window || ![window->view isKindOfClass:[RavenCocoaView class]]) return R_FALSE;
+    return [(RavenCocoaView*)window->view rvnDragItems:items count:count operations:operations rgba:rgba width:width height:height] ? R_TRUE : R_FALSE;
+}
 
 /* ---------------------------------------------------------------------------
  *  The menu bar of the system
@@ -1219,7 +1455,8 @@ static void rvn_cocoa_window_destroy(rvn_pwindow_t* window) {
     if (window->handle) { [window->handle setDelegate:nil]; [window->handle close]; [window->handle release]; }
     if (window->delegate) [window->delegate release];
     if (window->view) {
-        ((RavenCocoaView*)window->view)->ravenWindow = NULL;
+        /* (a drag out of it going on keeps the view: it no longer stands for a window) */
+        if ([window->view isKindOfClass:[RavenCocoaView class]]) ((RavenCocoaView*)window->view)->ravenWindow = NULL;
         if (window->is_child) [window->view removeFromSuperview];
         [window->view release];
     }
@@ -1546,6 +1783,18 @@ static char* rvn_cocoa_clipboard_get(void) {
     NSString* value = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
     if (!value) return NULL;
     const char* utf8 = [value UTF8String]; return utf8 ? rvn_strdup(utf8) : NULL;
+}
+static int rvn_cocoa_clipboard_set_data(const RDataItem* items, int count) {
+    NSPasteboard* board = [NSPasteboard generalPasteboard];
+    NSArray* writers = rvn_cocoa_pasteboard_items(items, count);
+    [board clearContents];
+    return writers && [board writeObjects:writers] ? R_TRUE : R_FALSE;
+}
+static int rvn_cocoa_clipboard_has_data(const char* mime) {
+    return rvn_cocoa_pasteboard_has([NSPasteboard generalPasteboard], mime) ? R_TRUE : R_FALSE;
+}
+static char* rvn_cocoa_clipboard_get_data(const char* mime, size_t* size) {
+    return rvn_cocoa_pasteboard_read([NSPasteboard generalPasteboard], mime, size);
 }
 
 /* ---------------------------------------------------------------------------
@@ -2054,6 +2303,8 @@ static int rvn_cocoa_notify(const rvn_notification_t* notification) {
         [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
                               completionHandler:^(BOOL granted, NSError* error) {
             __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+            /* (Rpermission_request may be waiting for this same answer) */
+            rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, granted ? R_PERMISSION_GRANTED : R_PERMISSION_BLOCKED);
             if (granted) {
                 [center addNotificationRequest:request withCompletionHandler:nil];
             } else {
@@ -2066,6 +2317,47 @@ static int rvn_cocoa_notify(const rvn_notification_t* notification) {
         }];
         return R_TRUE;
     }
+}
+
+/*
+ * The permission of notifications (Rpermission_get_status / _request): the
+ * one the first notification asks for. Without a bundle there are none.
+ * The center answers its settings on a queue of its own: waited for here,
+ * briefly (a status must not block long).
+ */
+static int rvn_cocoa_permission_status(int permission) {
+    __block int status = R_PERMISSION_NOT_ASKED;
+    dispatch_semaphore_t done;
+    if (permission != R_PERMISSION_NOTIFICATIONS || ![[NSBundle mainBundle] bundleIdentifier]) return R_PERMISSION_UNSUPPORTED;
+    done = dispatch_semaphore_create(0);
+    dispatch_retain(done);
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings* settings) {
+        switch ([settings authorizationStatus]) {
+        case UNAuthorizationStatusAuthorized: status = R_PERMISSION_GRANTED; break;
+        case UNAuthorizationStatusProvisional: status = R_PERMISSION_LIMITED; break;
+        /* (macOS never asks twice) */
+        case UNAuthorizationStatusDenied: status = R_PERMISSION_BLOCKED; break;
+        default: status = R_PERMISSION_NOT_ASKED; break;
+        }
+        dispatch_semaphore_signal(done);
+        dispatch_release(done);
+    }];
+    if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(NSEC_PER_SEC / 2))) != 0) status = R_PERMISSION_NOT_ASKED;
+    dispatch_release(done);
+    return status;
+}
+
+static void rvn_cocoa_permission_request(int permission) {
+    if (permission != R_PERMISSION_NOTIFICATIONS) {
+        rvn_permission_answer(permission, R_PERMISSION_UNSUPPORTED);
+        return;
+    }
+    [[UNUserNotificationCenter currentNotificationCenter] requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
+                                                                        completionHandler:^(BOOL granted, NSError* error) {
+        (void)error;
+        __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+        rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, granted ? R_PERMISSION_GRANTED : R_PERMISSION_BLOCKED);
+    }];
 }
 
 static void rvn_cocoa_notify_close(const char* tag) {
@@ -2112,9 +2404,12 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .window_get_native = rvn_cocoa_window_get_native, .child_create = rvn_cocoa_child_create,
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,
+        .clipboard_set_data = rvn_cocoa_clipboard_set_data, .clipboard_has_data = rvn_cocoa_clipboard_has_data,
+        .clipboard_get_data = rvn_cocoa_clipboard_get_data, .drag_begin = rvn_cocoa_drag_begin,
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
         .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
+        .permission_status = rvn_cocoa_permission_status, .permission_request = rvn_cocoa_permission_request,
         .notify_close = rvn_cocoa_notify_close, .notify_features = rvn_cocoa_notify_features,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
         .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key,

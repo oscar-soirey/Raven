@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1060 of the 1416 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 324 are raw only: call them through the package `raven`, imported as `raw`.
+// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (120):
+//   a handle that is not known (169):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -46,10 +46,24 @@
 //     Rmap_view_remove_marker Rmap_view_clear_markers Rmap_view_get_marker_count
 //     Rmap_view_set_marker_position Rmap_view_set_marker_label Rmap_view_set_marker_color
 //     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
-//     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
-//     Rtest_expect_golden
+//     Rmap_view_get_attribution Rsystem_web_view_load_url Rsystem_web_view_load_file
+//     Rsystem_web_view_load_html Rsystem_web_view_reload Rsystem_web_view_stop Rsystem_web_view_go_back
+//     Rsystem_web_view_go_forward Rsystem_web_view_can_go_back Rsystem_web_view_can_go_forward
+//     Rsystem_web_view_get_url Rsystem_web_view_get_title Rsystem_web_view_is_loading
+//     Rsystem_web_view_get_error Rsystem_web_view_run_javascript Rsystem_web_view_set_message_callback
+//     Rsystem_web_view_set_event_callback Rsystem_web_view_get_native_handle Rdiff_view_set_texts
+//     Rdiff_view_set_names Rdiff_view_load_files Rdiff_view_set_patch Rdiff_view_set_mode
+//     Rdiff_view_get_mode Rdiff_view_set_context Rdiff_view_get_context Rdiff_view_set_flags
+//     Rdiff_view_get_flags Rdiff_view_set_word_diff Rdiff_view_set_line_numbers Rdiff_view_set_language
+//     Rdiff_view_get_change_count Rdiff_view_get_change Rdiff_view_go_to_change
+//     Rdiff_view_get_current_change Rdiff_view_next_change Rdiff_view_prev_change Rdiff_view_get_row_count
+//     Rdiff_view_get_row Rdiff_view_get_row_text Rdiff_view_expand Rdiff_view_get_first_visible_row
+//     Rdiff_view_scroll_to_row Rdiff_view_add_annotation Rdiff_view_clear_annotations
+//     Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback Rtest_click_at Rtest_hover_at
+//     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
+//     Rtest_save_png
 //
-//   a callback (107):
+//   a callback (113):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -57,13 +71,14 @@
 //     Rwidget_set_gesture_callback Rwidget_set_destroy_callback Rwidget_set_event_callback
 //     Rwidget_set_drop_callback Rtab_view_set_changed_callback Rtab_view_set_close_callback
 //     Rexpander_set_changed_callback Rlabel_set_link_callback Rbutton_set_clicked_callback
-//     Rcheckbox_set_changed_callback Rslider_set_changed_callback Rtext_input_set_changed_callback
-//     Rtext_input_set_committed_callback Rspin_box_set_changed_callback Rcombo_box_set_changed_callback
-//     Rcombo_box_set_text_changed_callback Rlist_view_set_virtual_items Rlist_view_set_item_color_callback
-//     Rlist_view_set_selection_changed_callback Rlist_view_set_activated_callback
-//     Rtree_view_set_selection_changed_callback Rtree_view_set_activated_callback
-//     Rtree_view_set_context_callback Rmenu_item_set_clicked_callback Rtile_view_set_items
-//     Rtile_view_set_sections Rtile_view_set_section_toggled_callback Rtile_view_set_drag_data_callback
+//     Rcheckbox_set_changed_callback Rslider_set_changed_callback Rimage_set_finished_callback
+//     Rtext_input_set_changed_callback Rtext_input_set_committed_callback Rspin_box_set_changed_callback
+//     Rcombo_box_set_changed_callback Rcombo_box_set_text_changed_callback Rlist_view_set_virtual_items
+//     Rlist_view_set_item_color_callback Rlist_view_set_selection_changed_callback
+//     Rlist_view_set_activated_callback Rtree_view_set_selection_changed_callback
+//     Rtree_view_set_activated_callback Rtree_view_set_context_callback Rmenu_item_set_clicked_callback
+//     Rtile_view_set_items Rtile_view_set_sections Rtile_view_set_section_toggled_callback
+//     Rtile_view_set_drag_data_callback Rtile_view_set_drag_out_callback
 //     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
 //     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
 //     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
@@ -83,26 +98,34 @@
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
 //     Rfile_browser_set_accepted_callback Rfile_browser_set_cancelled_callback
 //     Rfile_browser_set_selection_changed_callback Rnotification_set_fallback
-//     Rnotification_set_clicked_callback Rviewport_set_draw_callback Rviewport_set_resize_callback
-//     Rcustom_set_paint_callback Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag
-//     Rscript_set_log_callback Rscript_set_diagnostic_callback Rlocale_set_changed_callback
-//     Rwidget_set_accessible_action
+//     Rnotification_set_clicked_callback Rnotification_set_callback Rpermission_request Rcamera_take_photo
+//     Rphoto_pick Rviewport_set_draw_callback Rviewport_set_resize_callback Rcustom_set_paint_callback
+//     Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback
+//     Rscript_set_diagnostic_callback Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (9):
-//     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
-//     Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
+//   a handle result that is not known (12):
+//     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
+//     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
+//     Rpdf_document_create Rdiff_view_create Rtest_find
 //
-//   a parameter of type const uint8_t* (8):
-//     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rimage_encode_png Rimage_save_png
-//     Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
+//   a parameter of type const uint8_t* (10):
+//     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
+//     Rimage_encode_png Rimage_save_png Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
+//
+//   a parameter of type const RFileDialogDesc* (7):
+//     Rfile_dialog_open Rfile_dialog_save Rfile_dialog_select_folder Rfile_open_async Rfile_save_async
+//     Rfile_export_async Rfile_select_folder_async
 //
 //   a parameter of type const RActionContext* (6):
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
 //     Raction_get_bool
+//
+//   a parameter of type const void* (6):
+//     Rimage_decode Rimage_decode_info Rimage_decode_frame Rfile_register_memory Rfile_write Rshader_create
 //
 //   a parameter of type void* (6):
 //     Rmemory_realloc Rmemory_free Rwindow_set_user_handle Rwidget_set_user_handle
@@ -115,17 +138,14 @@
 //   a parameter of type RActionContext* (4):
 //     Raction_return_number Raction_return_string Raction_return_bool Raction_fail
 //
-//   a parameter of type const void* (4):
-//     Rimage_decode Rfile_register_memory Rfile_write Rshader_create
+//   a result of type char* (4):
+//     Rclipboard_get_data Rpdf_document_save_memory Rdiff_unified Rfile_read
 //
 //   a parameter of type RShaderLook* (3):
 //     Reffect_get_defaults Rshader_look_init Rshader_look_defaults
 //
 //   a parameter of type RTouchSettings* (3):
 //     Rtouch_get_settings Rtouch_get_default_settings Rwindow_get_touch_settings
-//
-//   a parameter of type const RFileDialogDesc* (3):
-//     Rfile_dialog_open Rfile_dialog_save Rfile_dialog_select_folder
 //
 //   a parameter of type const RPdfPrintDesc* (3):
 //     Rpdf_print Rpdf_print_file Rpdf_document_print
@@ -139,6 +159,9 @@
 //   a parameter of type RSpring* (2):
 //     Rspring_kick Rspring_set
 //
+//   a parameter of type const RDataItem* (2):
+//     Rclipboard_set_data Rdrag_begin_external
+//
 //   a parameter of type const RTouchSettings* (2):
 //     Rtouch_set_settings Rwindow_set_touch_settings
 //
@@ -147,9 +170,6 @@
 //
 //   a parameter of type const double* (2):
 //     Rplot_set_series_data Rplot_append_series_data
-//
-//   a result of type char* (2):
-//     Rpdf_document_save_memory Rfile_read
 //
 //   a parameter of type RAccessibilitySettings* (1):
 //     Raccessibility_get_system_settings
@@ -190,11 +210,23 @@
 //   a parameter of type const RLanguageDesc* (1):
 //     Rlanguage_register
 //
+//   a parameter of type const RNotificationDesc* (1):
+//     Rnotification_show_desc
+//
+//   a parameter of type const RPickedFile* (1):
+//     Rhost_service_complete
+//
 //   a parameter of type const RShaderLook* (1):
 //     Rborder_set_effect
 //
+//   a parameter of type const RShareDesc* (1):
+//     Rshare_show
+//
 //   a result of type const RAllocator* (1):
 //     Rallocator_get_system
+//
+//   a result of type uint8_t* (1):
+//     Rclipboard_get_image
 package raven_odin
 
 import raw "../raven"
@@ -351,7 +383,9 @@ action_is_builtin :: proc(name: string) -> bool {
 
 // Opens an address with the program the user has for it: a web
 // page in the browser, a mailto: in the mail program, a file in its
-// application. Returns at once.
+// application. Returns at once. On iOS and Android the system opens it
+// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+// and Raven must be initialized and this be called on the UI thread.
 // Returns: R_FALSE when the OS could not be asked (nothing tells whether
 // a program then really opened it).
 open_url :: proc(url: string) -> bool {
@@ -367,15 +401,37 @@ clipboard_set_text :: proc(text: string) {
 // Copies one content in two formats: `html` for the programs that
 // paste formatting (word processors, chat, mail) and `text` for the
 // others (editors, terminals). Each program takes the format it prefers.
-// Where the window system has no clipboard formats (Win32 and macOS for
-// now), or `html` is NULL, it is Rclipboard_set_text(text).
+// Where the window system has no clipboard formats, or `html` is NULL,
+// it is Rclipboard_set_text(text).
 clipboard_set_html :: proc(text: cstring, html: cstring) {
 	raw.Rclipboard_set_html(text, html)
 }
 
 // Returns: The clipboard text, or "" when empty. Valid until the next call.
+// On iOS a read that does not follow a paste of the user (the Paste of a
+// menu, a button, Command-V) shows the system's question "Allow Paste?",
+// and on Android 12+ the system says that the application pasted: read it
+// when the user pastes, not to look at it. Android lets only the
+// application in front read it.
 clipboard_get_text :: proc() -> string {
 	return string(raw.Rclipboard_get_text())
+}
+
+// Returns: R_TRUE when the clipboard holds text, without reading it (no
+// question of the system on iOS): to enable a Paste button.
+clipboard_has_text :: proc() -> bool {
+	return raw.Rclipboard_has_text() != 0
+}
+
+// Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+clipboard_has_data :: proc(mime: string) -> bool {
+	buffer_mime: [cstring_buffer_size]u8
+	return raw.Rclipboard_has_data(to_cstring(mime, &buffer_mime)) != 0
+}
+
+// Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+clipboard_has_image :: proc() -> bool {
+	return raw.Rclipboard_has_image() != 0
 }
 
 error_to_string :: proc(error: Error) -> string {
@@ -734,6 +790,14 @@ window_inject_drag :: proc(window: Window, x: f32, y: f32, inside: bool) -> bool
 	return raw.Rwindow_inject_drag(raw.Rid(window), x, y, (1 if inside else 0)) != 0
 }
 
+// The end of the drag out of the window that the window system
+// holds (Rdrag_begin_external), as it reports it: `operation` is what the
+// target did (an RDragOperation). Returns R_FALSE when no such drag is in
+// progress.
+window_inject_drag_end :: proc(window: Window, operation: Drag_Operation) -> i32 {
+	return raw.Rwindow_inject_drag_end(raw.Rid(window), raw.RDragOperation(operation))
+}
+
 // Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 window_inject_back :: proc(window: Window) -> i32 {
 	return raw.Rwindow_inject_back(raw.Rid(window))
@@ -863,6 +927,16 @@ drag_get_data :: proc(window: Window) -> string {
 // Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 drag_cancel :: proc(window: Window) {
 	raw.Rdrag_cancel(raw.Rid(window))
+}
+
+// R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+drag_external_supported :: proc() -> i32 {
+	return raw.Rdrag_external_supported()
+}
+
+// R_TRUE from Rdrag_begin_external until its callback was called.
+drag_external_is_active :: proc() -> bool {
+	return raw.Rdrag_external_is_active() != 0
 }
 
 window_register_shortcut :: proc(window: Window, key: Key, modifiers: u32, action: string) {
@@ -1229,7 +1303,8 @@ font_measure_text :: proc(font: Font, size: f32, text: string) -> (width: f32, h
 }
 
 // Creates a texture from the content of an image file (PNG, JPEG,
-// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+// animated GIF or APNG keeps its frames: an Image showing it plays them.
 // Returns: R_INVALID_ID on failure.
 texture_create :: proc(data: string, data_size: uint) -> (handle: Texture, ok: bool) #optional_ok {
 	buffer_data: [cstring_buffer_size]u8
@@ -1264,12 +1339,28 @@ texture_create_async :: proc(data: string, data_size: uint) -> (handle: Texture,
 // does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
 // ones read SVG files this way. Paths, fills, strokes and gradients are
 // drawn; text, filters and masks are not.
+//
+// currentColor: an SVG painted only in currentColor (fill="currentColor",
+// stroke="currentColor") is drawn in white, keeping its shape and its
+// opacity, and the widgets that show it (Image, the icons of menu items,
+// tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+// their text at draw time: it follows the theme, hover, pressed and
+// disabled without being drawn again. Rdraw_image draws it in its tint
+// color. In an SVG that also uses other colors, currentColor is black.
+// See Rtexture_uses_current_color.
 texture_create_from_svg :: proc(svg: string, svg_size: uint, scale: f32) -> (handle: Texture, ok: bool) #optional_ok {
 	buffer_svg: [cstring_buffer_size]u8
 	id := raw.Rtexture_create_from_svg(to_cstring(svg, &buffer_svg), svg_size, scale)
 	handle = Texture(id)
 	ok = id != raw.R_INVALID_ID
 	return
+}
+
+// R_TRUE when the texture is an SVG painted only in currentColor:
+// white where it is painted, tinted with the color of the text by the
+// widgets that show it (see Rtexture_create_from_svg).
+texture_uses_current_color :: proc(texture: Texture) -> i32 {
+	return raw.Rtexture_uses_current_color(raw.Rid(texture))
 }
 
 // Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
@@ -1322,6 +1413,34 @@ texture_get_size :: proc(texture: Texture) -> (width: i32, height: i32) {
 // R_FILTER_LINEAR.
 texture_set_filter :: proc(texture: Texture, filter: Filter_Type) {
 	raw.Rtexture_set_filter(raw.Rid(texture), raw.RFilterType(filter))
+}
+
+// An icon shipped with Raven, by its name: "search", "settings",
+// "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+// XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+// License), 24 x 24 logical units, drawn with lines in currentColor: the
+// widgets that show them tint them with the color of their text, so they
+// follow the theme and the states (Rtexture_create_from_svg). Drawn at
+// the density they are shown with, sharp on every screen.
+// Returns: A texture owned by Raven, made on first use and then shared
+// (do not destroy it; if it was, the next call makes it again);
+// R_INVALID_ID, with an error, when there is no icon of that name.
+icon_get :: proc(name: string) -> (handle: Texture, ok: bool) #optional_ok {
+	buffer_name: [cstring_buffer_size]u8
+	id := raw.Ricon_get(to_cstring(name, &buffer_name))
+	handle = Texture(id)
+	ok = id != raw.R_INVALID_ID
+	return
+}
+
+// Returns: The number of icons shipped with Raven.
+icon_get_count :: proc() -> i32 {
+	return raw.Ricon_get_count()
+}
+
+// Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
+icon_get_name :: proc(index: i32) -> cstring {
+	return raw.Ricon_get_name(index)
 }
 
 // Creates a widget. It is not shown until it is added to a parent
@@ -1971,7 +2090,7 @@ tab_view_set_tab_title :: proc(tab_view: Widget, content: Widget, title: string)
 	raw.Rtab_view_set_tab_title(raw.Rid(tab_view), raw.Rid(content), to_cstring(title, &buffer_title))
 }
 
-// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
 tab_view_set_tab_icon :: proc(tab_view: Widget, content: Widget, texture: Texture, u0: f32, v0: f32, u1: f32, v1: f32, tint: i32) {
 	raw.Rtab_view_set_tab_icon(raw.Rid(tab_view), raw.Rid(content), raw.Rid(texture), u0, v0, u1, v1, tint)
 }
@@ -2204,6 +2323,9 @@ image_set_texture :: proc(image: Widget, texture: Texture) {
 	raw.Rimage_set_texture(raw.Rid(image), raw.Rid(texture))
 }
 
+// Color the image is multiplied by (white by default). An SVG in
+// currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+// the text around it until a tint is given; then in the tint. XML: Tint.
 image_set_tint_color :: proc(image: Widget, r: f32, g: f32, b: f32, a: f32) {
 	raw.Rimage_set_tint_color(raw.Rid(image), r, g, b, a)
 }
@@ -2224,6 +2346,68 @@ image_set_region :: proc(image: Widget, min_u: f32, min_v: f32, max_u: f32, max_
 
 image_set_corner_radius :: proc(image: Widget, radius: f32) {
 	raw.Rimage_set_corner_radius(raw.Rid(image), radius)
+}
+
+// R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+image_is_animated :: proc(image: Widget) -> bool {
+	return raw.Rimage_is_animated(raw.Rid(image)) != 0
+}
+
+// Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+image_get_frame_count :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_frame_count(raw.Rid(image))
+}
+
+// Returns: The seconds one play of its animation lasts (0 for a still image).
+image_get_duration :: proc(image: Widget) -> f64 {
+	return raw.Rimage_get_duration(raw.Rid(image))
+}
+
+// Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+image_get_frame_delay :: proc(image: Widget, frame: i32) -> f64 {
+	return raw.Rimage_get_frame_delay(raw.Rid(image), frame)
+}
+
+// Plays the animation from the frame it is on (from the first
+// again when it had finished). An Image plays as soon as it is given an
+// animated texture, unless XML says Animate="false".
+image_play :: proc(image: Widget) {
+	raw.Rimage_play(raw.Rid(image))
+}
+
+// Stops the animation on the frame it is on.
+image_pause :: proc(image: Widget) {
+	raw.Rimage_pause(raw.Rid(image))
+}
+
+// Stops the animation and shows its first frame.
+image_stop :: proc(image: Widget) {
+	raw.Rimage_stop(raw.Rid(image))
+}
+
+image_is_playing :: proc(image: Widget) -> bool {
+	return raw.Rimage_is_playing(raw.Rid(image)) != 0
+}
+
+// Shows a frame (from 0), playing on from it if it plays.
+image_set_frame :: proc(image: Widget, frame: i32) {
+	raw.Rimage_set_frame(raw.Rid(image), frame)
+}
+
+image_get_frame :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_frame(raw.Rid(image))
+}
+
+// How many times the animation plays before it stops on its last
+// frame: 0 forever, -1 what the file says (the default). XML: Loop
+// (a number; also Forever, Once).
+image_set_loop_count :: proc(image: Widget, count: i32) {
+	raw.Rimage_set_loop_count(raw.Rid(image), count)
+}
+
+// Returns: The plays of the animation (0: forever), the file's unless it was set.
+image_get_loop_count :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_loop_count(raw.Rid(image))
 }
 
 // Dimmed text shown while the input is empty.
@@ -2273,6 +2457,86 @@ text_input_set_return_key :: proc(text_input: Widget, key: Return_Key) {
 
 text_input_get_return_key :: proc(text_input: Widget) -> Return_Key {
 	return Return_Key(raw.Rtext_input_get_return_key(raw.Rid(text_input)))
+}
+
+// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+// a right click on one offers corrections (see SPELL CHECKING). Off by
+// default. A password is never checked.
+text_input_set_spell_check :: proc(text_input: Widget, enabled: bool) {
+	raw.Rtext_input_set_spell_check(raw.Rid(text_input), (1 if enabled else 0))
+}
+
+text_input_get_spell_check :: proc(text_input: Widget) -> bool {
+	return raw.Rtext_input_get_spell_check(raw.Rid(text_input)) != 0
+}
+
+// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+text_input_set_spell_language :: proc(text_input: Widget, language: cstring) {
+	raw.Rtext_input_set_spell_language(raw.Rid(text_input), language)
+}
+
+// R_TRUE when the system has a spell checker that Raven can use.
+spell_is_supported :: proc() -> bool {
+	return raw.Rspell_is_supported() != 0
+}
+
+// The languages the checker has dictionaries for.
+spell_get_language_count :: proc() -> i32 {
+	return raw.Rspell_get_language_count()
+}
+
+spell_get_language_at :: proc(index: i32) -> string {
+	return string(raw.Rspell_get_language_at(index))
+}
+
+// The language used when a widget or a call gives none. NULL
+// follows the locale again.
+// Returns: R_FALSE when the checker has no dictionary for it (the default
+// of the system is then used).
+spell_set_language :: proc(language: cstring) -> bool {
+	return raw.Rspell_set_language(language) != 0
+}
+
+// The code of the language used by default, as the checker names it; "" when there is no checker.
+spell_get_language :: proc() -> string {
+	return string(raw.Rspell_get_language())
+}
+
+// Checks a text. `language` NULL: the default.
+// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+spell_check :: proc(text: cstring, language: cstring) -> i32 {
+	return raw.Rspell_check(text, language)
+}
+
+// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+spell_get_misspelling :: proc(index: i32) -> (result: i32, start: i32, end: i32) {
+	result = raw.Rspell_get_misspelling(index, &start, &end)
+	return
+}
+
+// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+spell_suggest :: proc(word: string, language: string) -> i32 {
+	buffer_word: [cstring_buffer_size]u8
+	buffer_language: [cstring_buffer_size]u8
+	return raw.Rspell_suggest(to_cstring(word, &buffer_word), to_cstring(language, &buffer_language))
+}
+
+// A correction found by the last Rspell_suggest; valid until the next call.
+spell_get_suggestion :: proc(index: i32) -> string {
+	return string(raw.Rspell_get_suggestion(index))
+}
+
+// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+spell_learn :: proc(word: string, language: string) {
+	buffer_word: [cstring_buffer_size]u8
+	buffer_language: [cstring_buffer_size]u8
+	raw.Rspell_learn(to_cstring(word, &buffer_word), to_cstring(language, &buffer_language))
+}
+
+// The word is no longer a misspelling, in every language, until the application quits.
+spell_ignore :: proc(word: string) {
+	buffer_word: [cstring_buffer_size]u8
+	raw.Rspell_ignore(to_cstring(word, &buffer_word))
 }
 
 spin_box_set_range :: proc(spin_box: Widget, minimum: f64, maximum: f64) {
@@ -2518,6 +2782,7 @@ tree_view_get_selected_item :: proc(tree_view: Widget) -> (handle: Tree_Item, ok
 }
 
 // Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+// An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 tree_item_set_icon :: proc(item: Tree_Item, texture: Texture, u0: f32, v0: f32, u1: f32, v1: f32) {
 	raw.Rtree_item_set_icon(raw.Rid(item), raw.Rid(texture), u0, v0, u1, v1)
 }
@@ -2656,6 +2921,7 @@ menu_item_set_checked :: proc(item: Menu_Item, checked: bool) {
 // Icon drawn before the text of a menu item (after the check mark column).
 // texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
 // tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+//                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 menu_item_set_icon :: proc(item: Menu_Item, texture: Texture, u0: f32, v0: f32, u1: f32, v1: f32, tint: i32) {
 	raw.Rmenu_item_set_icon(raw.Rid(item), raw.Rid(texture), u0, v0, u1, v1, tint)
 }
@@ -3071,6 +3337,25 @@ date_picker_is_open :: proc(date_picker: Widget) -> bool {
 	return raw.Rdate_picker_is_open(raw.Rid(date_picker)) != 0
 }
 
+// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+date_picker_set_time_zone :: proc(date_picker: Widget, zone: cstring) {
+	raw.Rdate_picker_set_time_zone(raw.Rid(date_picker), zone)
+}
+
+date_picker_get_time_zone :: proc(date_picker: Widget) -> string {
+	return string(raw.Rdate_picker_get_time_zone(raw.Rid(date_picker)))
+}
+
+// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+date_picker_set_instant :: proc(date_picker: Widget, utc: f64) {
+	raw.Rdate_picker_set_instant(raw.Rid(date_picker), utc)
+}
+
+// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+date_picker_get_instant :: proc(date_picker: Widget) -> f64 {
+	return raw.Rdate_picker_get_instant(raw.Rid(date_picker))
+}
+
 time_picker_set_time :: proc(time_picker: Widget, hour: i32, minute: i32, second: i32) {
 	raw.Rtime_picker_set_time(raw.Rid(time_picker), hour, minute, second)
 }
@@ -3087,6 +3372,59 @@ time_picker_set_seconds_visible :: proc(time_picker: Widget, visible: bool) {
 // Step of the minutes for the arrows and the wheel (default 1).
 time_picker_set_minute_step :: proc(time_picker: Widget, step: i32) {
 	raw.Rtime_picker_set_minute_step(raw.Rid(time_picker), step)
+}
+
+// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+time_picker_set_clock :: proc(time_picker: Widget, clock: Clock) {
+	raw.Rtime_picker_set_clock(raw.Rid(time_picker), raw.RClock(clock))
+}
+
+time_picker_get_clock :: proc(time_picker: Widget) -> Clock {
+	return Clock(raw.Rtime_picker_get_clock(raw.Rid(time_picker)))
+}
+
+// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+time_picker_get_text :: proc(time_picker: Widget) -> string {
+	return string(raw.Rtime_picker_get_text(raw.Rid(time_picker)))
+}
+
+// The time zone of the time ("America/New_York", see
+// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+// unknown zone is refused. TimeZone="..." in XML.
+time_picker_set_time_zone :: proc(time_picker: Widget, zone: cstring) {
+	raw.Rtime_picker_set_time_zone(raw.Rid(time_picker), zone)
+}
+
+// The zone set, "" for none.
+time_picker_get_time_zone :: proc(time_picker: Widget) -> string {
+	return string(raw.Rtime_picker_get_time_zone(raw.Rid(time_picker)))
+}
+
+// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+time_picker_set_time_zone_visible :: proc(time_picker: Widget, visible: bool) {
+	raw.Rtime_picker_set_time_zone_visible(raw.Rid(time_picker), (1 if visible else 0))
+}
+
+// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+time_picker_set_date :: proc(time_picker: Widget, year: i32, month: i32, day: i32) {
+	raw.Rtime_picker_set_date(raw.Rid(time_picker), year, month, day)
+}
+
+time_picker_get_date :: proc(time_picker: Widget) -> (year: i32, month: i32, day: i32) {
+	raw.Rtime_picker_get_date(raw.Rid(time_picker), &year, &month, &day)
+	return
+}
+
+// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+time_picker_set_instant :: proc(time_picker: Widget, utc: f64) {
+	raw.Rtime_picker_set_instant(raw.Rid(time_picker), utc)
+}
+
+// The instant the day and the time are in the zone. A time the
+// clocks skipped is moved forward, a time they repeated is the first
+// (see Rtimezone_from_local).
+time_picker_get_instant :: proc(time_picker: Widget) -> f64 {
+	return raw.Rtime_picker_get_instant(raw.Rid(time_picker))
 }
 
 // Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
@@ -3475,6 +3813,11 @@ pdf_is_available :: proc() -> bool {
 	return raw.Rpdf_is_available() != 0
 }
 
+// Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+system_web_view_is_supported :: proc() -> bool {
+	return raw.Rsystem_web_view_is_supported() != 0
+}
+
 pdf_document_delete :: proc(document: Xml_Document) {
 	raw.Rpdf_document_delete(raw.Rid(document))
 }
@@ -3623,7 +3966,8 @@ text_editor_get_line :: proc(editor: Widget, line: i32) -> cstring {
 }
 
 // Types a text at the cursor, replacing the selection, as the user
-// would: it can be undone and the changed callback is called.
+// would (at every cursor when there are several): it can be undone and
+// the changed callback is called.
 text_editor_insert_text :: proc(editor: Widget, text: string) {
 	buffer_text: [cstring_buffer_size]u8
 	raw.Rtext_editor_insert_text(raw.Rid(editor), to_cstring(text, &buffer_text))
@@ -3661,6 +4005,109 @@ text_editor_get_selected_text :: proc(editor: Widget) -> string {
 // Scrolls so that a line is visible.
 text_editor_scroll_to_line :: proc(editor: Widget, line: i32) {
 	raw.Rtext_editor_scroll_to_line(raw.Rid(editor), line)
+}
+
+// Adds a cursor (a caret) to the editor; the main cursor stays
+// the main one. A cursor over another one, or at the place of another
+// caret, becomes one with it. Rtext_editor_set_cursor,
+// Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+text_editor_add_cursor :: proc(editor: Widget, line: i32, column: i32) {
+	raw.Rtext_editor_add_cursor(raw.Rid(editor), line, column)
+}
+
+// Adds a cursor that selects from one position to another (its caret on the second).
+text_editor_add_selection :: proc(editor: Widget, from_line: i32, from_column: i32, to_line: i32, to_column: i32) {
+	raw.Rtext_editor_add_selection(raw.Rid(editor), from_line, from_column, to_line, to_column)
+}
+
+// Returns: The number of cursors, the main one included (1 at least).
+text_editor_get_cursor_count :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_cursor_count(raw.Rid(editor))
+}
+
+// A cursor by its index, in the order of the text (0 for the
+// first): its caret and the anchor of its selection (the same position
+// when nothing is selected). Returns R_FALSE when `index` is out of range.
+text_editor_get_cursor_at :: proc(editor: Widget, index: i32) -> (result: i32, line: i32, column: i32, anchor_line: i32, anchor_column: i32) {
+	result = raw.Rtext_editor_get_cursor_at(raw.Rid(editor), index, &line, &column, &anchor_line, &anchor_column)
+	return
+}
+
+// Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+text_editor_get_main_cursor :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_main_cursor(raw.Rid(editor))
+}
+
+// Back to the main cursor alone, as Escape does.
+text_editor_clear_cursors :: proc(editor: Widget) {
+	raw.Rtext_editor_clear_cursors(raw.Rid(editor))
+}
+
+// What Ctrl+D does: with nothing selected, selects the word at
+// each caret; else adds a cursor on the next occurrence of the main
+// selection (with its case, a whole word when it was selected so) that no
+// cursor selects, going on from the start of the text. Returns R_FALSE
+// when there is none.
+text_editor_add_next_occurrence :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_add_next_occurrence(raw.Rid(editor))
+}
+
+// What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+text_editor_select_all_occurrences :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_select_all_occurrences(raw.Rid(editor))
+}
+
+// Folds the region that starts at a line: the lines after it, up
+// to the one before the bracket that closes it (or to the last one more
+// indented), are hidden. When the line starts none, or it is folded
+// already, the nearest region around the line is folded. Cursors in it
+// go to the end of its first line. Returns R_FALSE when there is none.
+// Line numbers stay those of the text. Folds follow the lines when text
+// is added or removed elsewhere; editing a hidden line (or the line break
+// of the first line) unfolds its region, and so does a match of the
+// search or a cursor that goes into it.
+text_editor_fold :: proc(editor: Widget, line: i32) -> i32 {
+	return raw.Rtext_editor_fold(raw.Rid(editor), line)
+}
+
+// Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+text_editor_unfold :: proc(editor: Widget, line: i32) -> i32 {
+	return raw.Rtext_editor_unfold(raw.Rid(editor), line)
+}
+
+// Folds every region, those inside others too.
+text_editor_fold_all :: proc(editor: Widget) {
+	raw.Rtext_editor_fold_all(raw.Rid(editor))
+}
+
+text_editor_unfold_all :: proc(editor: Widget) {
+	raw.Rtext_editor_unfold_all(raw.Rid(editor))
+}
+
+// Returns: R_TRUE when a folded region starts at this line.
+text_editor_is_folded :: proc(editor: Widget, line: i32) -> bool {
+	return raw.Rtext_editor_is_folded(raw.Rid(editor), line) != 0
+}
+
+// Returns: R_TRUE when the line is hidden in a folded region.
+text_editor_is_line_hidden :: proc(editor: Widget, line: i32) -> bool {
+	return raw.Rtext_editor_is_line_hidden(raw.Rid(editor), line) != 0
+}
+
+// Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+text_editor_get_fold_end :: proc(editor: Widget, line: i32) -> i32 {
+	return raw.Rtext_editor_get_fold_end(raw.Rid(editor), line)
+}
+
+// R_FALSE unfolds everything and stops folding: no markers, and
+// Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+// XML: Folding="false".
+text_editor_set_folding :: proc(editor: Widget, enabled: bool) {
+	raw.Rtext_editor_set_folding(raw.Rid(editor), (1 if enabled else 0))
+}
+
+text_editor_get_folding :: proc(editor: Widget) -> bool {
+	return raw.Rtext_editor_get_folding(raw.Rid(editor)) != 0
 }
 
 text_editor_undo :: proc(editor: Widget) {
@@ -3781,6 +4228,23 @@ text_editor_get_markdown :: proc(editor: Widget) -> bool {
 	return raw.Rtext_editor_get_markdown(raw.Rid(editor)) != 0
 }
 
+// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+// a right click on one offers corrections (see SPELL CHECKING in
+// raven_controls.h). Only the lines shown are checked, again when they
+// change. Off by default: it is meant for prose, not for code.
+text_editor_set_spell_check :: proc(editor: Widget, enabled: bool) {
+	raw.Rtext_editor_set_spell_check(raw.Rid(editor), (1 if enabled else 0))
+}
+
+text_editor_get_spell_check :: proc(editor: Widget) -> bool {
+	return raw.Rtext_editor_get_spell_check(raw.Rid(editor)) != 0
+}
+
+// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+text_editor_set_spell_language :: proc(editor: Widget, language: cstring) {
+	raw.Rtext_editor_set_spell_language(raw.Rid(editor), language)
+}
+
 // What the language of the editor makes of the character at a
 // position: the colors come from it. R_TOKEN_TEXT without a language.
 text_editor_get_token :: proc(editor: Widget, line: i32, column: i32) -> Token {
@@ -3846,6 +4310,106 @@ text_editor_clear_markers :: proc(editor: Widget) {
 
 text_editor_get_marker_count :: proc(editor: Widget) -> i32 {
 	return raw.Rtext_editor_get_marker_count(raw.Rid(editor))
+}
+
+// Sets what is searched for, with RSearchFlags, and shows every
+// match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+// R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+// break finds nothing. NULL or "" clears the search. The selection does
+// not move; Rtext_editor_find_next goes to a match.
+text_editor_set_search :: proc(editor: Widget, query: cstring, flags: u32) {
+	raw.Rtext_editor_set_search(raw.Rid(editor), query, flags)
+}
+
+// Returns: The text searched for, "" when there is none.
+text_editor_get_search :: proc(editor: Widget) -> string {
+	return string(raw.Rtext_editor_get_search(raw.Rid(editor)))
+}
+
+// Returns: The RSearchFlags of the search.
+text_editor_get_search_flags :: proc(editor: Widget) -> u32 {
+	return raw.Rtext_editor_get_search_flags(raw.Rid(editor))
+}
+
+// Selects the next match after the selection (or the cursor),
+// going on from the start of the text after its end, and scrolls to it.
+// Returns R_FALSE when the text has no match.
+text_editor_find_next :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_find_next(raw.Rid(editor))
+}
+
+// The same, toward the start: the match before the selection, from the end of the text after its start.
+text_editor_find_previous :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_find_previous(raw.Rid(editor))
+}
+
+// Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+text_editor_get_match_count :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_match_count(raw.Rid(editor))
+}
+
+// Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+text_editor_get_match_index :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_match_index(raw.Rid(editor))
+}
+
+// Where a match is: its line and the columns of its first byte and
+// of the byte after it. Returns R_FALSE when `index` is out of range.
+text_editor_get_match :: proc(editor: Widget, index: i32) -> (result: i32, line: i32, from_column: i32, to_column: i32) {
+	result = raw.Rtext_editor_get_match(raw.Rid(editor), index, &line, &from_column, &to_column)
+	return
+}
+
+// Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+text_editor_select_match :: proc(editor: Widget, index: i32) -> i32 {
+	return raw.Rtext_editor_select_match(raw.Rid(editor), index)
+}
+
+// Replaces the selected match by `replacement`, as one step of
+// the history, then selects the next match. When the selection is not a
+// match, only selects the next one (the user sees what will be replaced).
+// Returns R_TRUE when something was replaced. As with
+// Rtext_editor_insert_text, the changed callback is called.
+text_editor_replace :: proc(editor: Widget, replacement: string) -> i32 {
+	buffer_replacement: [cstring_buffer_size]u8
+	return raw.Rtext_editor_replace(raw.Rid(editor), to_cstring(replacement, &buffer_replacement))
+}
+
+// Replaces every match by `replacement`, as a single step of the
+// history (one undo puts them all back). Returns the number of matches
+// replaced.
+text_editor_replace_all :: proc(editor: Widget, replacement: string) -> i32 {
+	buffer_replacement: [cstring_buffer_size]u8
+	return raw.Rtext_editor_replace_all(raw.Rid(editor), to_cstring(replacement, &buffer_replacement))
+}
+
+// Opens the find bar of the editor (Ctrl+F), with the row to
+// replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+// Text selected on one line becomes the text searched for.
+// Its texts are English unless the locale has the keys Raven.Find,
+// Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+// ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+// Raven.FindToggleReplace.
+text_editor_show_find :: proc(editor: Widget, replace: i32) {
+	raw.Rtext_editor_show_find(raw.Rid(editor), replace)
+}
+
+// Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+text_editor_hide_find :: proc(editor: Widget) {
+	raw.Rtext_editor_hide_find(raw.Rid(editor))
+}
+
+text_editor_is_find_shown :: proc(editor: Widget) -> bool {
+	return raw.Rtext_editor_is_find_shown(raw.Rid(editor)) != 0
+}
+
+// R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+// Cmd+G), which then go to the shortcuts of the window: for an
+// application with its own search, built on Rtext_editor_set_search. On
+// by default. XML: FindBar="false".
+text_editor_set_find_bar :: proc(editor: Widget, enabled: bool) {
+	raw.Rtext_editor_set_find_bar(raw.Rid(editor), (1 if enabled else 0))
 }
 
 // Color of a kind of token in the theme in use, instead of the
@@ -5154,6 +5718,13 @@ block_editor_set_view :: proc(editor: Widget, x: f32, y: f32, zoom: f32) {
 	raw.Rblock_editor_set_view(raw.Rid(editor), x, y, zoom)
 }
 
+// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+diff_count_changes :: proc(left: string, right: string, flags: u32) -> i32 {
+	buffer_left: [cstring_buffer_size]u8
+	buffer_right: [cstring_buffer_size]u8
+	return raw.Rdiff_count_changes(to_cstring(left, &buffer_left), to_cstring(right, &buffer_right), flags)
+}
+
 // Closes the dialog that contains a widget (the content itself or
 // anything inside it: the button that was clicked).
 // result Passed to the closed callback and returned by Rdialog_run.
@@ -5288,9 +5859,79 @@ notification_show :: proc(title: string, body: string, urgency: Notification_Urg
 	return raw.Rnotification_show(to_cstring(title, &buffer_title), to_cstring(body, &buffer_body), raw.RNotificationUrgency(urgency)) != 0
 }
 
-// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+// the fallback): the null platform, no notification server on Linux, an executable outside of a
+// bundle on macOS.
 notification_is_supported :: proc() -> bool {
 	return raw.Rnotification_is_supported() != 0
+}
+
+// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+notification_close :: proc(tag: string) {
+	buffer_tag: [cstring_buffer_size]u8
+	raw.Rnotification_close(to_cstring(tag, &buffer_tag))
+}
+
+// R_TRUE (the default): a click on a notification (not on one of
+// its buttons) brings its window back before the callback is called:
+// shown again if it was hidden or minimized, in front, with the keyboard.
+// R_FALSE: the application does what it wants in the callback.
+notification_set_bring_to_front :: proc(enabled: bool) {
+	raw.Rnotification_set_bring_to_front((1 if enabled else 0))
+}
+
+// A Toast that shows the notifications the system could not show,
+// with their title, icon and buttons; a click on one, or on a button, is
+// reported to Rnotification_set_callback as for the system's. Put it in
+// an Overlay (Queue="Stack" shows several at once). It takes the place
+// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+notification_set_fallback_toast :: proc(toast: Widget) {
+	raw.Rnotification_set_fallback_toast(raw.Rid(toast))
+}
+
+// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+notification_supports :: proc(feature: Notification_Feature) -> i32 {
+	return raw.Rnotification_supports(raw.RNotificationFeature(feature))
+}
+
+// What the user answered, without asking. Cheap: the platform
+// remembers it. On iOS the status of notifications is known shortly after
+// the start (R_PERMISSION_NOT_ASKED until then).
+permission_get_status :: proc(permission: Permission) -> Permission_Status {
+	return Permission_Status(raw.Rpermission_get_status(raw.RPermission(permission)))
+}
+
+// Opens the page of the application in the Settings of the system,
+// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+// Returns: R_FALSE when the platform has no such page.
+permission_open_settings :: proc() -> bool {
+	return raw.Rpermission_open_settings() != 0
+}
+
+// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+permission_to_string :: proc(permission: Permission) -> string {
+	return string(raw.Rpermission_to_string(raw.RPermission(permission)))
+}
+
+permission_status_to_string :: proc(status: Permission_Status) -> string {
+	return string(raw.Rpermission_status_to_string(raw.RPermissionStatus(status)))
+}
+
+// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+camera_is_available :: proc() -> bool {
+	return raw.Rcamera_is_available() != 0
+}
+
+// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+haptic_is_supported :: proc() -> bool {
+	return raw.Rhaptic_is_supported() != 0
+}
+
+// A short vibration, as the controls of the system play when
+// touched. Nothing happens where there are none, or when the user turned
+// them off. Returns: R_TRUE when it was handed to the system.
+haptic_play :: proc(haptic: Haptic) -> bool {
+	return raw.Rhaptic_play(raw.RHaptic(haptic)) != 0
 }
 
 // Shows a texture. R_INVALID_ID shows nothing.
@@ -5924,6 +6565,107 @@ locale_format_number :: proc(value: f64, decimals: i32) -> string {
 	return string(raw.Rlocale_format_number(value, decimals))
 }
 
+// Forces the clock of every time shown (a setting of the
+// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+// to follow the locale. A TimePicker can still choose its own (Clock="24").
+locale_set_clock :: proc(clock: Clock) {
+	raw.Rlocale_set_clock(raw.RClock(clock))
+}
+
+locale_get_clock :: proc() -> Clock {
+	return Clock(raw.Rlocale_get_clock())
+}
+
+// R_TRUE when times are shown on 12 hours with AM and PM. With
+// Rlocale_set_clock, what it forces; else, when the application chose a
+// language (Rlocale_set_language), the usage of that language (from CLDR:
+// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+// others 24); else the setting of the user on the system (Windows, macOS,
+// the LC_TIME of Linux), or the usage of the language of the system.
+locale_uses_12_hour_clock :: proc() -> i32 {
+	return raw.Rlocale_uses_12_hour_clock()
+}
+
+// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+locale_get_day_period :: proc(pm: i32) -> string {
+	return string(raw.Rlocale_get_day_period(pm))
+}
+
+// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+locale_format_time :: proc(hour: i32, minute: i32, second: i32, show_seconds: i32) -> string {
+	return string(raw.Rlocale_format_time(hour, minute, second, show_seconds))
+}
+
+// The zone of the system ("Europe/Paris"): the TZ variable, the
+// link /etc/localtime, else what the system says; "UTC" when it says
+// nothing. Valid until the next call.
+timezone_get_system :: proc() -> string {
+	return string(raw.Rtimezone_get_system())
+}
+
+// The folder of the tz database (the files "Europe/Paris"...), or
+// the packed tzdata file of Android, to read instead of the system's: for
+// a database shipped with the application, or tests. It is then the only
+// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+// read so far.
+timezone_set_directory :: proc(path: cstring) {
+	raw.Rtimezone_set_directory(path)
+}
+
+// R_TRUE when the zone is known. Every function takes a name of
+// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+// NULL / "" for the zone of the system.
+timezone_is_valid :: proc(zone: cstring) -> bool {
+	return raw.Rtimezone_is_valid(zone) != 0
+}
+
+// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+timezone_to_local :: proc(zone: string, utc: f64) -> (result: i32, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) {
+	buffer_zone: [cstring_buffer_size]u8
+	result = raw.Rtimezone_to_local(to_cstring(zone, &buffer_zone), utc, &year, &month, &day, &hour, &minute, &second)
+	return
+}
+
+// The instant a date and time of a zone is. When the clocks go
+// forward, the times they skip do not exist: such a time is moved forward
+// by the length of the gap (02:30 becomes 03:30). When they go back, the
+// times of the hour repeated happen twice: the first is taken (still in
+// summer time). Rtimezone_count_local tells these cases apart.
+timezone_from_local :: proc(zone: string, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> f64 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_from_local(to_cstring(zone, &buffer_zone), year, month, day, hour, minute, second)
+}
+
+// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+timezone_count_local :: proc(zone: string, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> i32 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_count_local(to_cstring(zone, &buffer_zone), year, month, day, hour, minute, second)
+}
+
+// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+timezone_get_offset :: proc(zone: string, utc: f64) -> i32 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_get_offset(to_cstring(zone, &buffer_zone), utc)
+}
+
+// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+timezone_is_daylight_saving :: proc(zone: string, utc: f64) -> bool {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_is_daylight_saving(to_cstring(zone, &buffer_zone), utc) != 0
+}
+
+// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+timezone_get_abbreviation :: proc(zone: string, utc: f64) -> string {
+	buffer_zone: [cstring_buffer_size]u8
+	return string(raw.Rtimezone_get_abbreviation(to_cstring(zone, &buffer_zone), utc))
+}
+
+// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+timezone_get_label :: proc(zone: string, utc: f64) -> string {
+	buffer_zone: [cstring_buffer_size]u8
+	return string(raw.Rtimezone_get_label(to_cstring(zone, &buffer_zone), utc))
+}
+
 // Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 accessibility_set_text_scale :: proc(scale: f32) {
 	raw.Raccessibility_set_text_scale(scale)
@@ -6095,6 +6837,13 @@ host_inject_close :: proc(window: Window) {
 	raw.Rhost_inject_close(raw.Rid(window))
 }
 
+// The user answered a permission_request (or the status changed
+// by itself). The waiting Rpermission_request callbacks get it at the
+// next frame. Any thread.
+host_permission_answer :: proc(permission: Permission, status: Permission_Status) {
+	raw.Rhost_permission_answer(raw.RPermission(permission), raw.RPermissionStatus(status))
+}
+
 // R_TRUE makes what is drawn depend only on what the test does:
 // every frame advances the animations by 1/60 s (Rset_animation_time_step),
 // and the carets of the text fields stay lit instead of blinking. R_FALSE
@@ -6198,4 +6947,29 @@ test_is_shown :: proc(widget: Widget) -> bool {
 // Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
 test_is_checked :: proc(widget: Widget) -> bool {
 	return raw.Rtest_is_checked(raw.Rid(widget)) != 0
+}
+
+// Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+// "Driving any application headlessly" in README.md):
+//
+//     click form/user
+//     type "ada"
+//     key Enter
+//     expect status text "Welcome, ada"
+//     snap after-login
+//
+// The frames are produced by the function (Rdraw_frame) until the script
+// ends. A widget is named by its name or path, by "text:Sign in" (the
+// first one shown that reads it), or a point of the window by "@x,y".
+// script The text of the script.
+// source_name The name its messages give it ("login.script"); may be NULL.
+// Returns: R_TRUE when every step was done and every check was true;
+// R_FALSE otherwise, with the reason in Rtest_get_script_error.
+test_run_script :: proc(script: cstring, source_name: cstring) -> bool {
+	return raw.Rtest_run_script(script, source_name) != 0
+}
+
+// Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.
+test_get_script_error :: proc() -> string {
+	return string(raw.Rtest_get_script_error())
 }

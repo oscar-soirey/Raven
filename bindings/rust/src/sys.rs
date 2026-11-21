@@ -568,6 +568,14 @@ pub const R_COLOR_CODE: RColorRole = 0x0123;
 pub const R_COLOR_SEARCH_MATCH: RColorRole = 0x0124;
 /// The selected match of a search in a text editor.
 pub const R_COLOR_SEARCH_CURRENT: RColorRole = 0x0125;
+/// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+pub const R_COLOR_SPELLING: RColorRole = 0x0126;
+/// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+pub const R_COLOR_DIFF_ADDED: RColorRole = 0x0127;
+pub const R_COLOR_DIFF_REMOVED: RColorRole = 0x0128;
+/// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+pub const R_COLOR_DIFF_ADDED_WORD: RColorRole = 0x0129;
+pub const R_COLOR_DIFF_REMOVED_WORD: RColorRole = 0x012A;
 
 /// Sizes, in logical units.
 pub type RMetric = c_int;
@@ -718,6 +726,8 @@ pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
 pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 /// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
 pub const R_WIDGET_SYSTEM_WEB_VIEW: RWidgetType = 0x0237;
+/// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+pub const R_WIDGET_DIFF_VIEW: RWidgetType = 0x0238;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -978,6 +988,26 @@ pub const R_SYSTEM_WEB_VIEW_LOADED: RSystemWebViewEvent = 0x0B93;
 /// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 pub const R_SYSTEM_WEB_VIEW_FAILED: RSystemWebViewEvent = 0x0B94;
 
+/// How the rows of a Table are selected (Rtable_set_selection_mode).
+pub type RTableSelectionMode = c_int;
+/// One row at a time (the default).
+pub const R_TABLE_SELECTION_SINGLE: RTableSelectionMode = 0x0BC0;
+/// Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+pub const R_TABLE_SELECTION_MULTIPLE: RTableSelectionMode = 0x0BC1;
+/// The user selects nothing (the rows are only shown; cells may still be edited and checked).
+pub const R_TABLE_SELECTION_NONE: RTableSelectionMode = 0x0BC2;
+
+/// What the cells of a column show (Rtable_set_column_kind).
+pub type RTableColumnKind = c_int;
+/// Their text (the default).
+pub const R_TABLE_COLUMN_TEXT: RTableColumnKind = 0x0BD0;
+/// A check box, checked when the text is "1", "true" or "yes". The user
+/// toggles it with a click or Space unless the column is made not
+/// editable; the cell edited callback is then called with "1" or "0".
+pub const R_TABLE_COLUMN_CHECK: RTableColumnKind = 0x0BD1;
+/// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+pub const R_TABLE_COLUMN_PROGRESS: RTableColumnKind = 0x0BD2;
+
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub type RSyntax = c_int;
 pub const R_SYNTAX_NONE: RSyntax = 0x0340;
@@ -1114,6 +1144,45 @@ pub const R_BLOCK_NEXT: RBlockPlace = 0x0710;
 pub const R_BLOCK_BODY: RBlockPlace = 0x0711;
 pub const R_BLOCK_INPUT: RBlockPlace = 0x0712;
 
+pub type RDiffViewMode = c_int;
+/// One column: the removed lines, then the added lines, between the lines kept.
+pub const R_DIFF_VIEW_UNIFIED: RDiffViewMode = 0x0C50;
+/// Two columns: the left text and the right text side by side, aligned.
+pub const R_DIFF_VIEW_SPLIT: RDiffViewMode = 0x0C51;
+
+pub type RDiffSide = c_int;
+/// The text before (the old one, "a/", the lines removed).
+pub const R_DIFF_LEFT: RDiffSide = 0x0C54;
+/// The text after (the new one, "b/", the lines added).
+pub const R_DIFF_RIGHT: RDiffSide = 0x0C55;
+
+pub type RDiffRowKind = c_int;
+/// A line that is on both sides.
+pub const R_DIFF_ROW_SAME: RDiffRowKind = 0x0C58;
+/// A line of the left text only.
+pub const R_DIFF_ROW_REMOVED: RDiffRowKind = 0x0C59;
+/// A line of the right text only.
+pub const R_DIFF_ROW_ADDED: RDiffRowKind = 0x0C5A;
+/// Split mode: a removed line facing the added line that replaces it.
+pub const R_DIFF_ROW_CHANGED: RDiffRowKind = 0x0C5B;
+/// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+pub const R_DIFF_ROW_FOLD: RDiffRowKind = 0x0C5C;
+/// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+pub const R_DIFF_ROW_HUNK: RDiffRowKind = 0x0C5D;
+/// A patch: the names of a file.
+pub const R_DIFF_ROW_FILE: RDiffRowKind = 0x0C5E;
+/// A note attached to the line above it (Rdiff_view_add_annotation).
+pub const R_DIFF_ROW_NOTE: RDiffRowKind = 0x0C5F;
+
+/// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+pub type RDiffFlags = c_int;
+/// Spaces and tabs at the end of a line (and a carriage return) do not count.
+pub const R_DIFF_IGNORE_TRAILING_SPACE: RDiffFlags = 1;
+/// No space or tab counts, wherever it is.
+pub const R_DIFF_IGNORE_SPACE: RDiffFlags = 2;
+/// Upper and lower case letters are the same (A to Z).
+pub const R_DIFF_IGNORE_CASE: RDiffFlags = 4;
+
 /// How much a notification of the system asks for attention (Rnotification_show).
 pub type RNotificationUrgency = c_int;
 /// No sound; may only go to the list of notifications.
@@ -1173,6 +1242,65 @@ pub const R_MESSAGE_RESULT_CANCEL: RMessageResult = 0;
 pub const R_MESSAGE_RESULT_OK: RMessageResult = 1;
 pub const R_MESSAGE_RESULT_YES: RMessageResult = 2;
 pub const R_MESSAGE_RESULT_NO: RMessageResult = 3;
+
+/// What the application may be allowed to use (Rpermission_request).
+pub type RPermission = c_int;
+pub const R_PERMISSION_CAMERA: RPermission = 0x0C00;
+/// Notifications of the system (Rnotification_show).
+pub const R_PERMISSION_NOTIFICATIONS: RPermission = 0x0C01;
+/// Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+pub const R_PERMISSION_PHOTOS: RPermission = 0x0C02;
+pub const R_PERMISSION_MICROPHONE: RPermission = 0x0C03;
+/// The location of the device while the application is in use.
+pub const R_PERMISSION_LOCATION: RPermission = 0x0C04;
+
+/// What the user answered, or would be asked (Rpermission_get_status).
+pub type RPermissionStatus = c_int;
+/// There is nothing to ask for here: the platform has no such permission,
+/// or Raven cannot ask for it on this platform. Whether the service itself
+/// exists is told by its own function (Rcamera_is_available,
+/// Rnotification_is_supported).
+pub const R_PERMISSION_UNSUPPORTED: RPermissionStatus = 0x0C10;
+/// Not asked yet: Rpermission_request shows the question of the system.
+pub const R_PERMISSION_NOT_ASKED: RPermissionStatus = 0x0C11;
+/// Allowed (also where the system asks nothing: notifications on Windows and Linux).
+pub const R_PERMISSION_GRANTED: RPermissionStatus = 0x0C12;
+/// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
+pub const R_PERMISSION_LIMITED: RPermissionStatus = 0x0C13;
+/// Refused, and the system may ask again (Android, after a first refusal).
+pub const R_PERMISSION_DENIED: RPermissionStatus = 0x0C14;
+/// Refused for good, or not the user's to give (parental controls, a
+/// profile of the company): the system shows no question any more, only
+/// its Settings can change it (Rpermission_open_settings).
+pub const R_PERMISSION_BLOCKED: RPermissionStatus = 0x0C15;
+
+/// How a request of a picker, the camera or a share sheet ended.
+pub type RDeviceResult = c_int;
+/// Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+pub const R_DEVICE_DONE: RDeviceResult = 0x0C20;
+/// The user closed the screen of the system without choosing.
+pub const R_DEVICE_CANCELLED: RDeviceResult = 0x0C21;
+/// A permission it needs was refused (Rcamera_take_photo: the camera).
+pub const R_DEVICE_DENIED: RDeviceResult = 0x0C22;
+/// The platform does not have this service.
+pub const R_DEVICE_UNSUPPORTED: RDeviceResult = 0x0C23;
+/// Another screen of the system is still open: one at a time.
+pub const R_DEVICE_BUSY: RDeviceResult = 0x0C24;
+/// The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+pub const R_DEVICE_FAILED: RDeviceResult = 0x0C25;
+
+/// A short vibration that answers a touch (Rhaptic_play).
+pub type RHaptic = c_int;
+/// Impacts: something touched, snapped, landed.
+pub const R_HAPTIC_LIGHT: RHaptic = 0x0C30;
+pub const R_HAPTIC_MEDIUM: RHaptic = 0x0C31;
+pub const R_HAPTIC_HEAVY: RHaptic = 0x0C32;
+/// The selection moved (a picker wheel, a switch, a segmented control).
+pub const R_HAPTIC_SELECTION: RHaptic = 0x0C33;
+/// The outcome of an action.
+pub const R_HAPTIC_SUCCESS: RHaptic = 0x0C34;
+pub const R_HAPTIC_WARNING: RHaptic = 0x0C35;
+pub const R_HAPTIC_ERROR: RHaptic = 0x0C36;
 
 /// How a spring moves. Animations in Raven are springs, as on iOS: a value is
 /// pulled toward its target and may run past it before settling, which is what
@@ -1295,6 +1423,21 @@ pub const R_ROLE_CANVAS: RAccessibleRole = 0x0780;
 pub const R_ROLE_SEPARATOR: RAccessibleRole = 0x0781;
 pub const R_ROLE_SCROLL_BAR: RAccessibleRole = 0x0782;
 pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
+
+/// What a request of a service of the device asks the application for (RHostServiceRequest).
+pub type RHostService = c_int;
+/// Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+pub const R_HOST_SERVICE_OPEN_FILES: RHostService = 0x0C40;
+/// Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+pub const R_HOST_SERVICE_SAVE_FILE: RHostService = 0x0C41;
+/// A folder (Rfile_select_folder_async).
+pub const R_HOST_SERVICE_SELECT_FOLDER: RHostService = 0x0C42;
+/// A photo from the camera (Rcamera_take_photo); camera permission already asked.
+pub const R_HOST_SERVICE_TAKE_PHOTO: RHostService = 0x0C43;
+/// Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+pub const R_HOST_SERVICE_PICK_PHOTOS: RHostService = 0x0C44;
+/// The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+pub const R_HOST_SERVICE_SHARE: RHostService = 0x0C45;
 
 pub type RGoldenStatus = c_int;
 /// The capture matches the golden.
@@ -1571,6 +1714,11 @@ pub type RNodeGraphPointCallback = Option<unsafe extern "C" fn(graph: Rid, item:
 pub type RBlockEditorCallback = Option<unsafe extern "C" fn(editor: Rid, block: c_int, user_data: *mut c_void)>;
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
 pub type RBlockEditorContextCallback = Option<unsafe extern "C" fn(editor: Rid, block: c_int, x: f32, y: f32, user_data: *mut c_void)>;
+/// A line, or its number in the gutter, was clicked. `side` is the side
+/// of the line clicked (in unified mode: the left side for a removed line
+/// and for the left column of numbers, else the right side), `line` its
+/// number on that side, from 1.
+pub type RDiffViewLineCallback = Option<unsafe extern "C" fn(diff_view: Rid, side: RDiffSide, line: c_int, in_gutter: c_int, user_data: *mut c_void)>;
 /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 pub type RDialogClosedCallback = Option<unsafe extern "C" fn(content: Rid, result: c_int, user_data: *mut c_void)>;
 /// Called when the user chooses: a double click or Enter on a file,
@@ -1585,6 +1733,12 @@ pub type RNotificationClickedCallback = Option<unsafe extern "C" fn(user_data: *
 /// `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
 /// NULL: none.
 pub type RNotificationCallback = Option<unsafe extern "C" fn(tag: *const c_char, event: RNotificationEvent, action: *const c_char, user_data: *mut c_void)>;
+/// The answer to Rpermission_request.
+pub type RPermissionCallback = Option<unsafe extern "C" fn(permission: RPermission, status: RPermissionStatus, user_data: *mut c_void)>;
+/// The end of a request of a picker, the camera, a save or a share
+/// sheet. `files` (count of them) are what it gave: none unless `result` is
+/// R_DEVICE_DONE. Called on the UI thread, once.
+pub type RDeviceCallback = Option<unsafe extern "C" fn(result: RDeviceResult, files: *const RPickedFile, count: c_int, user_data: *mut c_void)>;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -2137,6 +2291,43 @@ pub struct RFileDialogDesc {
     pub flags: u32,
 }
 
+/// A file given by a service of the device. Valid during the callback only: copy what you keep.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RPickedFile {
+    /// A path Raven and the C library can read (Rfile_read, textures, fonts,
+    /// fopen). On iOS and Android a copy in the cache of the application.
+    /// NULL for Rfile_save_async on iOS and Android: the file went where the
+    /// user chose, which the application cannot write to again.
+    pub path: *const c_char,
+    /// The name the user saw ("IMG_0042.JPG"), to show.
+    pub name: *const c_char,
+    /// The MIME type when the system tells ("image/jpeg"), or NULL.
+    pub mime_type: *const c_char,
+    /// Bytes.
+    pub size: u64,
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    pub width: c_int,
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    pub height: c_int,
+}
+
+/// What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RShareDesc {
+    /// Text, or a link ("https://..."). May be NULL.
+    pub text: *const c_char,
+    /// A file to send (a path Raven can read), or NULL.
+    pub path: *const c_char,
+    /// Its MIME type ("image/png"); NULL: guessed from its extension.
+    pub mime_type: *const c_char,
+    /// The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    pub title: *const c_char,
+    /// The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+    pub anchor: Rid,
+}
+
 /// Passed to the draw callback of a viewport. Sizes are in pixels.
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -2248,6 +2439,39 @@ pub struct RAccessibilitySettings {
     pub screen_reader: c_int,
 }
 
+/// A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RHostServiceRequest {
+    /// Given back to Rhost_service_complete.
+    pub id: u32,
+    pub service: RHostService,
+    /// The window it is for (R_INVALID_ID: none).
+    pub window: Rid,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    pub anchor_x: f32,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    pub anchor_y: f32,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    pub anchor_width: f32,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    pub anchor_height: f32,
+    pub title: *const c_char,
+    pub filters: *const RFileFilter,
+    pub filter_count: c_int,
+    /// Bitmask of RFileDialogFlags.
+    pub flags: u32,
+    pub file_name: *const c_char,
+    pub default_extension: *const c_char,
+    pub data: *const c_void,
+    pub size: usize,
+    pub path: *const c_char,
+    pub max_count: c_int,
+    pub text: *const c_char,
+    pub mime_type: *const c_char,
+    pub share_title: *const c_char,
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RHostPlatformDesc {
@@ -2260,6 +2484,22 @@ pub struct RHostPlatformDesc {
     /// Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     pub wake: *const c_void,
     pub user_data: *mut c_void,
+    /// An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    pub permission_status: *const c_void,
+    /// Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    pub permission_request: *const c_void,
+    /// A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    pub service_request: *const c_void,
+    /// R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    pub has_camera: c_int,
+    /// Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    pub open_url: *const c_void,
+    /// Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    pub haptic: *const c_void,
+    /// Downloads an http(s) URL (images from a URL): returns its content in a
+    /// buffer from Rmemory_alloc and its size, or NULL. Called on worker
+    /// threads, several at a time, and may block. NULL: as on desktops.
+    pub download: *const c_void,
 }
 
 /// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
@@ -2470,7 +2710,9 @@ extern "C" {
     pub fn Raction_is_builtin(name: *const c_char) -> c_int;
     /// Opens an address with the program the user has for it: a web
     /// page in the browser, a mailto: in the mail program, a file in its
-    /// application. Returns at once.
+    /// application. Returns at once. On iOS and Android the system opens it
+    /// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+    /// and Raven must be initialized and this be called on the UI thread.
     /// Returns: R_FALSE when the OS could not be asked (nothing tells whether
     /// a program then really opened it).
     pub fn Ropen_url(url: *const c_char) -> c_int;
@@ -2482,7 +2724,15 @@ extern "C" {
     /// it is Rclipboard_set_text(text).
     pub fn Rclipboard_set_html(text: *const c_char, html: *const c_char);
     /// Returns: The clipboard text, or "" when empty. Valid until the next call.
+    /// On iOS a read that does not follow a paste of the user (the Paste of a
+    /// menu, a button, Command-V) shows the system's question "Allow Paste?",
+    /// and on Android 12+ the system says that the application pasted: read it
+    /// when the user pastes, not to look at it. Android lets only the
+    /// application in front read it.
     pub fn Rclipboard_get_text() -> *const c_char;
+    /// Returns: R_TRUE when the clipboard holds text, without reading it (no
+    /// question of the system on iOS): to enable a Paste button.
+    pub fn Rclipboard_has_text() -> c_int;
     /// Replaces what the clipboard holds with one content in several
     /// formats (RDataItem): each program pastes the one it prefers.
     /// Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
@@ -3058,6 +3308,15 @@ extern "C" {
     pub fn Rtexture_create_from_file(path: *const c_char) -> Rid;
     /// Reads and decodes the file on a worker thread.
     pub fn Rtexture_create_from_file_async(path: *const c_char) -> Rid;
+    /// Downloads an http:// or https:// image and decodes it on a worker
+    /// thread, as an Image whose Source is a URL does. The handle is usable at
+    /// once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+    /// a texture that could not be downloaded is ready with a size of 0, and the
+    /// failure is reported as a warning). Desktops download with WinHTTP or
+    /// `curl`; iOS and Android through their platform. Android needs the INTERNET
+    /// permission in the manifest; iOS refuses http:// unless Info.plist allows
+    /// it (App Transport Security). Up to 32 MiB.
+    pub fn Rtexture_create_from_url_async(url: *const c_char) -> Rid;
     /// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
     pub fn Rtexture_create_from_pixels(rgba: *const u8, width: c_int, height: c_int) -> Rid;
     /// Replaces the pixels of a texture. The size may change. Use it to
@@ -3552,6 +3811,38 @@ extern "C" {
     pub fn Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: *mut c_void);
     /// Called when Enter is pressed. This also fires the action of the widget.
     pub fn Rtext_input_set_committed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: *mut c_void);
+    /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    /// a right click on one offers corrections (see SPELL CHECKING). Off by
+    /// default. A password is never checked.
+    pub fn Rtext_input_set_spell_check(text_input: Rid, enabled: c_int);
+    pub fn Rtext_input_get_spell_check(text_input: Rid) -> c_int;
+    /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+    pub fn Rtext_input_set_spell_language(text_input: Rid, language: *const c_char);
+    /// R_TRUE when the system has a spell checker that Raven can use.
+    pub fn Rspell_is_supported() -> c_int;
+    /// The languages the checker has dictionaries for.
+    pub fn Rspell_get_language_count() -> c_int;
+    pub fn Rspell_get_language_at(index: c_int) -> *const c_char;
+    /// The language used when a widget or a call gives none. NULL
+    /// follows the locale again.
+    /// Returns: R_FALSE when the checker has no dictionary for it (the default
+    /// of the system is then used).
+    pub fn Rspell_set_language(language: *const c_char) -> c_int;
+    /// The code of the language used by default, as the checker names it; "" when there is no checker.
+    pub fn Rspell_get_language() -> *const c_char;
+    /// Checks a text. `language` NULL: the default.
+    /// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+    pub fn Rspell_check(text: *const c_char, language: *const c_char) -> c_int;
+    /// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+    pub fn Rspell_get_misspelling(index: c_int, start: *mut c_int, end: *mut c_int) -> c_int;
+    /// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+    pub fn Rspell_suggest(word: *const c_char, language: *const c_char) -> c_int;
+    /// A correction found by the last Rspell_suggest; valid until the next call.
+    pub fn Rspell_get_suggestion(index: c_int) -> *const c_char;
+    /// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+    pub fn Rspell_learn(word: *const c_char, language: *const c_char);
+    /// The word is no longer a misspelling, in every language, until the application quits.
+    pub fn Rspell_ignore(word: *const c_char);
     pub fn Rspin_box_set_range(spin_box: Rid, minimum: f64, maximum: f64);
     pub fn Rspin_box_set_value(spin_box: Rid, value: f64);
     pub fn Rspin_box_get_value(spin_box: Rid) -> f64;
@@ -3797,17 +4088,40 @@ extern "C" {
     /// Stored rows: a fixed text color; column -1 colors the row; cells override it.
     /// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
     pub fn Rtable_set_cell_text_color(table: Rid, row: c_int, column: c_int, r: f32, g: f32, b: f32, a: f32);
-    /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+    /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
     pub fn Rtable_set_multi_select(table: Rid, enabled: c_int);
+    /// Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+    /// Going to single keeps the selected row, going to none clears the selection.
+    pub fn Rtable_set_selection_mode(table: Rid, mode: RTableSelectionMode);
+    pub fn Rtable_get_selection_mode(table: Rid) -> RTableSelectionMode;
     pub fn Rtable_set_row_selected(table: Rid, row: c_int, selected: c_int);
     pub fn Rtable_is_row_selected(table: Rid, row: c_int) -> c_int;
+    /// Selects (`selected` R_TRUE) or deselects the rows first..last, both
+    /// included, keeping the others: multiple selection only (in single
+    /// selection, selecting a range selects `last`).
+    pub fn Rtable_select_range(table: Rid, first: c_int, last: c_int, selected: c_int);
+    /// Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+    pub fn Rtable_select_all(table: Rid);
     pub fn Rtable_clear_selection(table: Rid);
     pub fn Rtable_get_selection_count(table: Rid) -> c_int;
     /// Selected row at index, top to bottom; -1 outside the selection.
     pub fn Rtable_get_selection(table: Rid, index: c_int) -> c_int;
+    /// The selection as runs of consecutive rows, top to bottom: the
+    /// fast way to go through a large selection (select all of a million rows
+    /// is one range).
+    pub fn Rtable_get_selection_range_count(table: Rid) -> c_int;
+    /// The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+    pub fn Rtable_get_selection_range(table: Rid, index: c_int, first: *mut c_int, last: *mut c_int) -> c_int;
     /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
     pub fn Rtable_set_selected(table: Rid, row: c_int);
+    /// The selected row (-1: none). In multiple selection, the one
+    /// selected last, or else the first one; the selection changed callback
+    /// receives it.
     pub fn Rtable_get_selected(table: Rid) -> c_int;
+    /// The row the keyboard is on: the selected row in single
+    /// selection; in multiple selection the row last clicked or reached with
+    /// the arrows, which Space toggles (it may be unselected). -1: none.
+    pub fn Rtable_get_current_row(table: Rid) -> c_int;
     pub fn Rtable_scroll_to_row(table: Rid, row: c_int);
     /// Sorts by a column (stored rows are moved); -1 shows no sorted column.
     pub fn Rtable_sort(table: Rid, column: c_int, descending: c_int);
@@ -3839,6 +4153,17 @@ extern "C" {
     /// default): every column scrolls.
     pub fn Rtable_set_frozen_columns(table: Rid, count: c_int);
     pub fn Rtable_get_frozen_columns(table: Rid) -> c_int;
+    /// Text (default), check box or progress bar: how the cells of the
+    /// column are drawn from their texts. A check column is made editable (the
+    /// user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+    /// only) and centered. For anything else, a cell color callback and the
+    /// texts are what the table offers: it draws no other widget in its cells.
+    pub fn Rtable_set_column_kind(table: Rid, column: c_int, kind: RTableColumnKind);
+    pub fn Rtable_get_column_kind(table: Rid, column: c_int) -> RTableColumnKind;
+    /// A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+    pub fn Rtable_is_cell_checked(table: Rid, row: c_int, column: c_int) -> c_int;
+    /// Stored rows: writes "1" or "0" in the cell (no callback is called).
+    pub fn Rtable_set_cell_checked(table: Rid, row: c_int, column: c_int, checked: c_int);
     /// Sets the date (today when the picker is created). An invalid date is refused.
     pub fn Rdate_picker_set_date(date_picker: Rid, year: c_int, month: c_int, day: c_int);
     pub fn Rdate_picker_get_date(date_picker: Rid, year: *mut c_int, month: *mut c_int, day: *mut c_int);
@@ -4475,6 +4800,14 @@ extern "C" {
     /// formatted. R_FALSE removes the language.
     pub fn Rtext_editor_set_markdown(editor: Rid, enabled: c_int);
     pub fn Rtext_editor_get_markdown(editor: Rid) -> c_int;
+    /// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+    /// a right click on one offers corrections (see SPELL CHECKING in
+    /// raven_controls.h). Only the lines shown are checked, again when they
+    /// change. Off by default: it is meant for prose, not for code.
+    pub fn Rtext_editor_set_spell_check(editor: Rid, enabled: c_int);
+    pub fn Rtext_editor_get_spell_check(editor: Rid) -> c_int;
+    /// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+    pub fn Rtext_editor_set_spell_language(editor: Rid, language: *const c_char);
     /// What the language of the editor makes of the character at a
     /// position: the colors come from it. R_TOKEN_TEXT without a language.
     pub fn Rtext_editor_get_token(editor: Rid, line: c_int, column: c_int) -> RToken;
@@ -5145,6 +5478,84 @@ extern "C" {
     /// Pan (canvas units at the top left) and zoom.
     pub fn Rblock_editor_get_view(editor: Rid, x: *mut f32, y: *mut f32, zoom: *mut f32);
     pub fn Rblock_editor_set_view(editor: Rid, x: f32, y: f32, zoom: f32);
+    /// The differences between two texts as a unified diff (the format
+    /// of `diff -u` and `git diff`), with `context` unchanged lines around each
+    /// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+    /// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+    /// the library: it may be called from any thread.
+    /// Returns: The patch followed by a '\0' (an empty text when the texts are
+    /// the same), to release with Rmemory_free; NULL when a text is NULL.
+    /// `size` receives its length in bytes, and may be NULL.
+    pub fn Rdiff_unified(left: *const c_char, right: *const c_char, left_name: *const c_char, right_name: *const c_char, context: c_int, flags: u32, size: *mut usize) -> *mut c_char;
+    /// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+    pub fn Rdiff_count_changes(left: *const c_char, right: *const c_char, flags: u32) -> c_int;
+    pub fn Rdiff_view_create() -> Rid;
+    /// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+    pub fn Rdiff_view_set_texts(diff_view: Rid, left: *const c_char, right: *const c_char);
+    /// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+    pub fn Rdiff_view_set_names(diff_view: Rid, left_name: *const c_char, right_name: *const c_char);
+    /// Compares two files. Their paths become the names unless names
+    /// were given. Returns: R_FALSE when a file cannot be read (it is compared
+    /// as empty).
+    pub fn Rdiff_view_load_files(diff_view: Rid, left_path: *const c_char, right_path: *const c_char) -> c_int;
+    /// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+    /// instead of two texts: each file with its name, each hunk with its header.
+    /// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+    pub fn Rdiff_view_set_patch(diff_view: Rid, patch: *const c_char) -> c_int;
+    pub fn Rdiff_view_set_mode(diff_view: Rid, mode: RDiffViewMode);
+    pub fn Rdiff_view_get_mode(diff_view: Rid) -> RDiffViewMode;
+    /// Unchanged lines shown around each change (3 by default); the
+    /// others are folded. A negative number shows every line.
+    pub fn Rdiff_view_set_context(diff_view: Rid, lines: c_int);
+    pub fn Rdiff_view_get_context(diff_view: Rid) -> c_int;
+    /// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+    pub fn Rdiff_view_set_flags(diff_view: Rid, flags: u32);
+    pub fn Rdiff_view_get_flags(diff_view: Rid) -> u32;
+    /// Marks the words that changed inside a changed line (default R_TRUE).
+    pub fn Rdiff_view_set_word_diff(diff_view: Rid, enabled: c_int);
+    /// Shows the numbers of the lines (default R_TRUE).
+    pub fn Rdiff_view_set_line_numbers(diff_view: Rid, visible: c_int);
+    /// Colors the code as the text editor does: a language name of
+    /// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+    /// NULL (default) to guess it from the extension of the names.
+    pub fn Rdiff_view_set_language(diff_view: Rid, language: *const c_char);
+    /// The number of changes: runs of lines removed and / or added.
+    pub fn Rdiff_view_get_change_count(diff_view: Rid) -> c_int;
+    /// Where a change is: its first line and its number of lines on
+    /// each side (a count of 0: nothing on that side; the line is then the one
+    /// after which the other side's lines go). Returns: R_FALSE when there is
+    /// no such change.
+    pub fn Rdiff_view_get_change(diff_view: Rid, change: c_int, left_line: *mut c_int, left_count: *mut c_int, right_line: *mut c_int, right_count: *mut c_int) -> c_int;
+    /// Scrolls to a change (from 0) and marks it as the current one.
+    pub fn Rdiff_view_go_to_change(diff_view: Rid, change: c_int);
+    /// The current change, -1 before the first one is gone to.
+    pub fn Rdiff_view_get_current_change(diff_view: Rid) -> c_int;
+    /// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+    pub fn Rdiff_view_next_change(diff_view: Rid) -> c_int;
+    pub fn Rdiff_view_prev_change(diff_view: Rid) -> c_int;
+    /// The rows shown, folds, hunk headers and notes included.
+    pub fn Rdiff_view_get_row_count(diff_view: Rid) -> c_int;
+    /// What a row shows, and the numbers of its lines (0 for a side it
+    /// has no line of). A fold gives the first line it hides on each side.
+    pub fn Rdiff_view_get_row(diff_view: Rid, row: c_int, left_line: *mut c_int, right_line: *mut c_int) -> RDiffRowKind;
+    /// The text of a row on one side (in unified mode the side does not
+    /// matter for a line); a fold, a hunk, a file or a note give their label.
+    /// Valid until the next call. "" when there is none.
+    pub fn Rdiff_view_get_row_text(diff_view: Rid, row: c_int, side: RDiffSide) -> *const c_char;
+    /// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+    pub fn Rdiff_view_expand(diff_view: Rid, row: c_int) -> c_int;
+    /// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+    pub fn Rdiff_view_get_first_visible_row(diff_view: Rid) -> c_int;
+    pub fn Rdiff_view_scroll_to_row(diff_view: Rid, row: c_int);
+    /// Attaches a short note to a line (a review comment, an error): a
+    /// mark in the gutter and the text in a row under the line, which is never
+    /// folded away. Several notes may go to one line.
+    pub fn Rdiff_view_add_annotation(diff_view: Rid, side: RDiffSide, line: c_int, text: *const c_char);
+    pub fn Rdiff_view_clear_annotations(diff_view: Rid);
+    /// The text selected by the user ("" when none), one line after another.
+    pub fn Rdiff_view_get_selected_text(diff_view: Rid) -> *const c_char;
+    /// Called when a line or its number is clicked (the action of the widget is fired too).
+    pub fn Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback, user_data: *mut c_void);
     /// Shows a widget as a dialog of a window. The window takes
     /// ownership of `content`: it is deleted when the dialog closes, so read
     /// what you need from it before, or in `closed`.
@@ -5269,6 +5680,57 @@ extern "C" {
     pub fn Rnotification_set_fallback_toast(toast: Rid);
     /// Whether the notifications of the system have that feature here (R_FALSE where there are none).
     pub fn Rnotification_supports(feature: RNotificationFeature) -> c_int;
+    /// What the user answered, without asking. Cheap: the platform
+    /// remembers it. On iOS the status of notifications is known shortly after
+    /// the start (R_PERMISSION_NOT_ASKED until then).
+    pub fn Rpermission_get_status(permission: RPermission) -> RPermissionStatus;
+    /// Asks the user, with the question of the system, when the status
+    /// is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+    /// with the status. Several requests for the same permission share one
+    /// question. `callback` may be NULL.
+    pub fn Rpermission_request(permission: RPermission, callback: RPermissionCallback, user_data: *mut c_void);
+    /// Opens the page of the application in the Settings of the system,
+    /// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+    /// Returns: R_FALSE when the platform has no such page.
+    pub fn Rpermission_open_settings() -> c_int;
+    /// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+    pub fn Rpermission_to_string(permission: RPermission) -> *const c_char;
+    pub fn Rpermission_status_to_string(status: RPermissionStatus) -> *const c_char;
+    /// Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+    pub fn Rfile_open_async(desc: *const RFileDialogDesc, callback: RDeviceCallback, user_data: *mut c_void);
+    /// Saves `size` bytes (copied: `data` may be freed at once) as a
+    /// file where the user chooses, proposed under `desc->file_name`. The
+    /// callback gives the file as saved: its name, and its path on desktops.
+    pub fn Rfile_save_async(desc: *const RFileDialogDesc, data: *const c_void, size: usize, callback: RDeviceCallback, user_data: *mut c_void);
+    /// Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+    pub fn Rfile_export_async(desc: *const RFileDialogDesc, path: *const c_char, callback: RDeviceCallback, user_data: *mut c_void);
+    /// Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+    pub fn Rfile_select_folder_async(desc: *const RFileDialogDesc, callback: RDeviceCallback, user_data: *mut c_void);
+    /// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+    pub fn Rcamera_is_available() -> c_int;
+    /// Shows the camera of the system to take one photo. It asks for
+    /// R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+    /// The photo is a JPEG file in the cache of the application, with its
+    /// size in pixels, upright.
+    pub fn Rcamera_take_photo(callback: RDeviceCallback, user_data: *mut c_void);
+    /// Shows the photo picker of the system (desktops: a file dialog for
+    /// images). No permission is needed: the application only sees what the
+    /// user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+    /// when it is HEIC).
+    /// max_count How many photos may be picked; 0: no limit.
+    pub fn Rphoto_pick(max_count: c_int, callback: RDeviceCallback, user_data: *mut c_void);
+    /// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+    pub fn Rhaptic_is_supported() -> c_int;
+    /// A short vibration, as the controls of the system play when
+    /// touched. Nothing happens where there are none, or when the user turned
+    /// them off. Returns: R_TRUE when it was handed to the system.
+    pub fn Rhaptic_play(haptic: RHaptic) -> c_int;
+    /// Shows the share sheet of the system with a text and / or a file,
+    /// to send them to another application (mail, chat, Files...). The
+    /// callback says R_DEVICE_DONE once something was chosen (Android: once the
+    /// sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+    /// closed. R_DEVICE_UNSUPPORTED on desktops.
+    pub fn Rshare_show(desc: *const RShareDesc, callback: RDeviceCallback, user_data: *mut c_void);
     /// Shows a texture. R_INVALID_ID shows nothing.
     pub fn Rviewport_set_texture(viewport: Rid, texture: Rid);
     /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
@@ -5725,6 +6187,14 @@ extern "C" {
     pub fn Rhost_inject_focus(window: Rid, focused: c_int);
     /// The user asked to close the window (its close callback decides).
     pub fn Rhost_inject_close(window: Rid);
+    /// The user answered a permission_request (or the status changed
+    /// by itself). The waiting Rpermission_request callbacks get it at the
+    /// next frame. Any thread.
+    pub fn Rhost_permission_answer(permission: RPermission, status: RPermissionStatus);
+    /// The end of a service_request: the files it gave (copied; paths
+    /// Raven can read; size 0 is read from the file), at the next frame. Once
+    /// per request. Any thread.
+    pub fn Rhost_service_complete(request: u32, result: RDeviceResult, files: *const RPickedFile, count: c_int);
     /// R_TRUE makes what is drawn depend only on what the test does:
     /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
     /// and the carets of the text fields stay lit instead of blinking. R_FALSE

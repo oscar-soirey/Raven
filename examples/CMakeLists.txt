@@ -19,10 +19,16 @@
 #   map              a MapView whose tiles it draws itself (offline), markers, flights; or tiles from files
 #   carousel         pages swiped one at a time: an onboarding with dots, arrows, loop and autoplay
 #   transfer         pictures and formats on the clipboard, swatches dragged out to other applications
+#   web_view         a page shown by the web engine of the system (WKWebView), scripts and messages
+#   icons            the icons shipped with Raven, in the color of the text: a gallery, buttons, tabs, a tree
+#   notifications    notifications of the system with a tag, buttons and an icon; a toast where there are none
+#   animated_images  animated GIF and APNG in Image widgets: play, pause, stop, seek, loop count
+#   diff_view        two versions of a file compared: side by side or unified, folds, changes, a note
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
 #   ui_test          a test of an interface: widgets driven by name, a golden image
+#   headless         scripts that drive hello and music from outside (RAVEN_HEADLESS, RAVEN_SCRIPT)
 #   viewport_vulkan  a Vulkan scene shown in the UI (offscreen image + in-pass draw)
 #   viewport_opengl  an OpenGL scene shown in a native child window
 #   mobile           the iOS / Android showcase in a desktop window, with its Device tab
@@ -44,7 +50,7 @@ function(raven_add_example name)
 		file(GLOB_RECURSE assets CONFIGURE_DEPENDS
 			"${name}/*.xml" "${name}/*.svg" "${name}/*.md"
 			"${name}/*.frag" "${name}/*.png" "${name}/*.jpg"
-			"${name}/*.jpeg" "${name}/*.webp")
+			"${name}/*.jpeg" "${name}/*.webp" "${name}/*.gif" "${name}/samples/*")
 		foreach(asset IN LISTS assets)
 			file(RELATIVE_PATH relative "${CMAKE_CURRENT_SOURCE_DIR}" "${asset}")
 			target_link_options(raven_${name} PRIVATE
@@ -80,11 +86,20 @@ raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(map map/main.c map/world.h map/map.xml)
 raven_add_example(carousel carousel/main.c carousel/carousel.xml)
 raven_add_example(transfer transfer/main.c transfer/transfer.xml)
+raven_add_example(icons icons/main.c icons/icons.xml)
+raven_add_example(notifications notifications/main.c notifications/notifications.xml notifications/chat.svg)
+raven_add_example(animated_images animated_images/main.c animated_images/animated_images.xml)
+raven_add_example(diff_view diff_view/main.c diff_view/diff_view.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml
 	music/ui/nowplaying.xml music/ui/player.xml music/ui/island.xml
 	music/themes/nocturne.xml music/themes/aurora.xml music/themes/daylight.xml music/themes/styles.xml)
+
+# A page shown by the web engine of the system (a message where the system has none Raven embeds).
+if(NOT EMSCRIPTEN)
+	raven_add_example(web_view web_view/main.c web_view/web_view.xml web_view/pages/welcome.html)
+endif()
 
 # A test of an interface (raven_testing.h), run by ctest too.
 if(NOT EMSCRIPTEN)
@@ -97,6 +112,16 @@ endif()
 if(NOT EMSCRIPTEN)
 	raven_add_example(mobile mobile/desktop/main.c mobile/shared/showcase.c mobile/shared/showcase.h)
 	target_include_directories(raven_mobile PRIVATE mobile/shared)
+endif()
+
+# Any application driven from outside, without a change of its code (RAVEN_HEADLESS, RAVEN_SCRIPT):
+# hello, which names none of its widgets, by the script of headless/hello.script. Without a GPU the
+# run goes on with the null backend: the checks and the tree, no pictures.
+if(NOT EMSCRIPTEN)
+	file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/headless_output")
+	add_test(NAME example_headless_hello COMMAND "${CMAKE_COMMAND}" -E env RAVEN_HEADLESS=1
+		"RAVEN_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/headless/hello.script" "$<TARGET_FILE:raven_hello>")
+	set_tests_properties(example_headless_hello PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/headless_output")
 endif()
 
 # Web pages in the interface: needs the optional library (RAVEN_BUILD_WEB).
