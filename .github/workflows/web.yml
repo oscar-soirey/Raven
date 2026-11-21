@@ -1,7 +1,10 @@
 name: Browser backend
 on:
   push:
+    branches-ignore: ["gh-readonly-queue/**"]
+    tags: ["**"]
   pull_request:
+  merge_group:
   workflow_dispatch:
 permissions:
   contents: read
