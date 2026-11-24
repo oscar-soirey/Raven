@@ -754,6 +754,8 @@ R_WIDGET_CAROUSEL :: 0x0236
 R_WIDGET_SYSTEM_WEB_VIEW :: 0x0237
 // The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 R_WIDGET_DIFF_VIEW :: 0x0238
+// The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+R_WIDGET_VIDEO_VIEW :: 0x0239
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -1013,6 +1015,33 @@ R_SYSTEM_WEB_VIEW_LOADING :: 0x0B92
 R_SYSTEM_WEB_VIEW_LOADED :: 0x0B93
 // The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 R_SYSTEM_WEB_VIEW_FAILED :: 0x0B94
+
+// Where a media player is (Rmedia_player_get_state).
+RMediaState :: i32
+// Nothing is loaded.
+R_MEDIA_EMPTY :: 0x0CD0
+// A file or an address is being opened: its duration and its size are not known yet.
+R_MEDIA_LOADING :: 0x0CD1
+// Loaded and still: paused, stopped, or loaded without being played.
+R_MEDIA_PAUSED :: 0x0CD2
+R_MEDIA_PLAYING :: 0x0CD3
+// It played to its end (without Loop); Rmedia_player_play starts it again.
+R_MEDIA_ENDED :: 0x0CD4
+// It cannot be played (Rmedia_player_get_error).
+R_MEDIA_ERROR :: 0x0CD5
+
+// What a media player tells (Rmedia_player_set_event_callback).
+RMediaEvent :: i32
+// The state changed (Rmedia_player_get_state).
+R_MEDIA_EVENT_STATE :: 0x0CD8
+// It is opened: its duration, the size of its picture and its tracks are known.
+R_MEDIA_EVENT_LOADED :: 0x0CD9
+// The position moved: about four times a second while it plays, and after a seek.
+R_MEDIA_EVENT_TIME :: 0x0CDA
+// It played to its end. With Loop it starts again instead, and this is not sent.
+R_MEDIA_EVENT_ENDED :: 0x0CDB
+// It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+R_MEDIA_EVENT_ERROR :: 0x0CDC
 
 // How the rows of a Table are selected (Rtable_set_selection_mode).
 RTableSelectionMode :: i32
@@ -1679,6 +1708,8 @@ RSystemWebViewResultCallback :: #type proc "c" (view: Rid, result: cstring, erro
 // Receives what the page sends with `window.raven.postMessage(value)`.
 RSystemWebViewMessageCallback :: #type proc "c" (view: Rid, message: cstring, user_data: rawptr)
 RSystemWebViewEventCallback :: #type proc "c" (view: Rid, event: RSystemWebViewEvent, user_data: rawptr)
+RMediaEventCallback :: #type proc "c" (player: Rid, event: RMediaEvent, user_data: rawptr)
+RVideoViewFullscreenCallback :: #type proc "c" (view: Rid, fullscreen: i32, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -4565,6 +4596,111 @@ foreign lib {
 	// The view of the system, to go further than these functions:
 	// a WKWebView* on macOS and iOS. NULL where unsupported.
 	Rsystem_web_view_get_native_handle :: proc(view: Rid) -> rawptr ---
+	// Returns: R_TRUE when the system can play media here (the framework is there).
+	Rmedia_is_supported :: proc() -> i32 ---
+	// Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+	Rmedia_get_backend_name :: proc() -> cstring ---
+	// A player with nothing loaded, for sound or for pictures drawn by the application.
+	Rmedia_player_create :: proc() -> Rid ---
+	// Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it).
+	Rmedia_player_destroy :: proc(player: Rid) ---
+	// Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+	Rmedia_player_is_valid :: proc(player: Rid) -> i32 ---
+	// Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+	// then R_MEDIA_PAUSED). What was loaded before is stopped.
+	// Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+	Rmedia_player_load_file :: proc(player: Rid, path: cstring) -> i32 ---
+	// Opens an address ("https://...", "file:///..."), where the system streams it.
+	Rmedia_player_load_url :: proc(player: Rid, url: cstring) -> i32 ---
+	// Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+	Rmedia_player_close :: proc(player: Rid) ---
+	// Returns: The file or address loaded, "" when none.
+	Rmedia_player_get_source :: proc(player: Rid) -> cstring ---
+	// Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+	Rmedia_player_play :: proc(player: Rid) ---
+	Rmedia_player_pause :: proc(player: Rid) ---
+	// Pauses and goes back to the start.
+	Rmedia_player_stop :: proc(player: Rid) ---
+	// Goes to a time, in seconds from the start (playing or paused, it stays so).
+	Rmedia_player_seek :: proc(player: Rid, seconds: f64) ---
+	Rmedia_player_get_state :: proc(player: Rid) -> RMediaState ---
+	// Returns: Seconds from the start.
+	Rmedia_player_get_position :: proc(player: Rid) -> f64 ---
+	// Returns: Seconds; 0 while it loads, and for a live stream.
+	Rmedia_player_get_duration :: proc(player: Rid) -> f64 ---
+	// Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels.
+	Rmedia_player_get_video_size :: proc(player: Rid, width: ^i32, height: ^i32) -> i32 ---
+	Rmedia_player_has_audio :: proc(player: Rid) -> i32 ---
+	// Returns: Why it cannot be played, "" when all is well.
+	Rmedia_player_get_error :: proc(player: Rid) -> cstring ---
+	// The loudness, 0 (silent) to 1 (as recorded, the default).
+	Rmedia_player_set_volume :: proc(player: Rid, volume: f32) ---
+	Rmedia_player_get_volume :: proc(player: Rid) -> f32 ---
+	Rmedia_player_set_muted :: proc(player: Rid, muted: i32) ---
+	Rmedia_player_is_muted :: proc(player: Rid) -> i32 ---
+	// R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+	Rmedia_player_set_loop :: proc(player: Rid, loop: i32) ---
+	Rmedia_player_get_loop :: proc(player: Rid) -> i32 ---
+	// The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can).
+	Rmedia_player_set_rate :: proc(player: Rid, rate: f32) ---
+	Rmedia_player_get_rate :: proc(player: Rid) -> f32 ---
+	// The picture of now, as a texture to draw (Rdraw_image, an
+	// Image): brought up to date by this call, so call it each time you
+	// draw, from the UI thread. The same texture all along, while the size of
+	// the picture stays the same. R_INVALID_ID before the first picture.
+	Rmedia_player_get_texture :: proc(player: Rid) -> Rid ---
+	// Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test).
+	Rmedia_player_get_frame_count :: proc(player: Rid) -> i32 ---
+	// Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+	Rmedia_player_set_event_callback :: proc(player: Rid, callback: RMediaEventCallback, user_data: rawptr) ---
+	// Plays a sound once, for the interface (a click, a chime), and
+	// forgets it: the player it makes deletes itself at the end, or on an
+	// error. Several play at once.
+	// volume 0 to 1.
+	// Returns: That player, valid until the sound ends (to stop it sooner);
+	// R_INVALID_ID when it cannot be played.
+	Rsound_play :: proc(path: cstring, volume: f32) -> Rid ---
+	// Stops every sound of Rsound_play.
+	Rsound_stop_all :: proc() ---
+	// VideoView: the picture of a media player, fitted in the widget as an
+	// Image (Rvideo_view_set_stretch), with controls over it when asked:
+	// play / pause, the time, a bar to go anywhere in it, the sound and its
+	// loudness, and full screen when the application handles it. The
+	// keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+	// and forth, Home / End to the start and the end, Up / Down change the
+	// loudness, M turns the sound off and on. A sound without picture shows
+	// its name. Where media cannot be played (Rmedia_is_supported) it shows
+	// why.
+	//
+	// The action of the widget (Rwidget_set_action, OnChanged in XML) is
+	// fired each time its state changes.
+	Rvideo_view_create :: proc() -> Rid ---
+	// Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself).
+	Rvideo_view_get_player :: proc(view: Rid) -> Rid ---
+	// Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays.
+	Rvideo_view_load_file :: proc(view: Rid, path: cstring) -> i32 ---
+	Rvideo_view_load_url :: proc(view: Rid, url: cstring) -> i32 ---
+	// R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+	Rvideo_view_set_autoplay :: proc(view: Rid, autoplay: i32) ---
+	Rvideo_view_get_autoplay :: proc(view: Rid) -> i32 ---
+	// How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it.
+	Rvideo_view_set_stretch :: proc(view: Rid, stretch: RStretch) ---
+	Rvideo_view_get_stretch :: proc(view: Rid) -> RStretch ---
+	// R_TRUE shows the controls over the bottom of the picture (XML
+	// Controls): always while it does not play, while the pointer moves
+	// over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+	Rvideo_view_set_controls :: proc(view: Rid, shown: i32) ---
+	Rvideo_view_get_controls :: proc(view: Rid) -> i32 ---
+	// Returns: R_TRUE while the controls are shown (they hide while it plays).
+	Rvideo_view_are_controls_visible :: proc(view: Rid) -> i32 ---
+	// The controls get a full screen button, which calls this with
+	// the state asked for: the application gives the view the room (hides
+	// what is around it, makes its window fill the screen) and the button
+	// shows the way back. NULL removes the button.
+	Rvideo_view_set_fullscreen_callback :: proc(view: Rid, callback: RVideoViewFullscreenCallback, user_data: rawptr) ---
+	// The state the button shows (also set by its clicks).
+	Rvideo_view_set_fullscreen :: proc(view: Rid, fullscreen: i32) ---
+	Rvideo_view_is_fullscreen :: proc(view: Rid) -> i32 ---
 	Rpdf_document_create :: proc() -> Rid ---
 	Rpdf_document_delete :: proc(document: Rid) ---
 	// The information of the document, shown by readers (the title in their window).
@@ -6158,6 +6294,17 @@ foreign lib {
 	// gives the clock back (time step 0).
 	Rtest_set_deterministic :: proc(enabled: i32) ---
 	Rtest_is_deterministic :: proc() -> i32 ---
+	// Media players (raven_controls.h, VIDEO AND SOUND) made from now
+	// on play a fake clip instead of their file: `duration` seconds of
+	// `width` x `height` pictures, `fps` per second, computed from the time
+	// (the red channel of the top-left pixel is the number of the picture,
+	// modulo 256), with a sound track. It plays on the clock of the
+	// animations, so with Rtest_set_deterministic each frame is 1/60 s of
+	// it. It opens at the first frame after the load; a source whose name
+	// contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+	// .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+	// A duration of 0 or less gives the media of the system back.
+	Rtest_set_fake_media :: proc(duration: f64, width: i32, height: i32, fps: f64) ---
 	// Returns: What the goldens of this run are made with, "OS-backend":
 	// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
 	// "null" with the null backend.

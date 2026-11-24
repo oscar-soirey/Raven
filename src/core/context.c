@@ -9,6 +9,7 @@
 #include "transfer.h"
 #include "../widgets/common.h"
 #include "../render/renderer.h"
+#include "../media/media.h"
 
 rvn_context_t g_rvn;
 
@@ -288,6 +289,8 @@ void Rshutdown(void) {
 		if (widget && !widget->parent && !(widget->flags & RVN_WF_INTERNAL)) rvn_widget_destroy(widget);
 	}
 	rvn_collect_dead();
+	/* the players the application did not delete, and the sounds still playing */
+	rvn_media_shutdown();
 
 	/* let the running jobs finish and deliver their results */
 	rvn_jobs_shutdown();
@@ -912,6 +915,8 @@ void rvn_update(void) {
 
 	rvn_tasks_run();
 	rvn_timers_run();
+	/* the players of video and sound: what changed since the last frame (media/media.c) */
+	rvn_media_update();
 	/* the GPU device was lost: everything of the backend is made again first */
 	rvn_device_check();
 

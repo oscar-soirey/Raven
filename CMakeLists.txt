@@ -291,6 +291,9 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/carousel.c
 	src/widgets/system_web_view.c
 	src/widgets/diff_view.c
+	src/widgets/video_view.c
+	src/media/media.c
+	src/media/media.h
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )
@@ -468,6 +471,27 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "android")
 	set(RAVEN_ANDROID_GLUE_DIR "${CMAKE_ANDROID_NDK}/sources/android/native_app_glue")
 elseif(NOT RAVEN_PLATFORM_SELECTED STREQUAL "null")
 	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, uikit, emscripten, android or null)")
+endif()
+
+# Video and sound (src/media): the media framework of the system. Each is loaded at run time, the
+# first time something is played, so that a program that plays nothing loads none of it and an
+# application links nothing more: AVFoundation with dlopen, Media Foundation with LoadLibrary (it is
+# missing from the "N" editions of Windows), GStreamer with dlopen where it is installed.
+if(APPLE)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/media/media_avfoundation.m)
+	set_source_files_properties(src/media/media_avfoundation.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	list(APPEND RAVEN_DEFINITIONS RAVEN_MEDIA_AVFOUNDATION)
+	find_library(RAVEN_FOUNDATION_FRAMEWORK Foundation)
+	if(NOT RAVEN_FOUNDATION_FRAMEWORK)
+		message(FATAL_ERROR "Raven: Apple builds require the Foundation framework (media/media_avfoundation.m)")
+	endif()
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_FOUNDATION_FRAMEWORK})
+elseif(WIN32)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/media/media_mf.c)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_MEDIA_MEDIA_FOUNDATION)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/media/media_gstreamer.c)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_MEDIA_GSTREAMER)
 endif()
 
 if(RAVEN_BACKEND_WEBGL)

@@ -747,6 +747,8 @@ Widget_Type :: enum i32 {
 	System_Web_View = 0x0237,
 	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 	Diff_View = 0x0238,
+	// The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+	Video_View = 0x0239,
 }
 
 H_Align :: enum i32 {
@@ -1036,6 +1038,35 @@ System_Web_View_Event :: enum i32 {
 	Loaded = 0x0B93,
 	// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 	Failed = 0x0B94,
+}
+
+// Where a media player is (Rmedia_player_get_state).
+Media_State :: enum i32 {
+	// Nothing is loaded.
+	Empty = 0x0CD0,
+	// A file or an address is being opened: its duration and its size are not known yet.
+	Loading = 0x0CD1,
+	// Loaded and still: paused, stopped, or loaded without being played.
+	Paused = 0x0CD2,
+	Playing = 0x0CD3,
+	// It played to its end (without Loop); Rmedia_player_play starts it again.
+	Ended = 0x0CD4,
+	// It cannot be played (Rmedia_player_get_error).
+	Error = 0x0CD5,
+}
+
+// What a media player tells (Rmedia_player_set_event_callback).
+Media_Event :: enum i32 {
+	// The state changed (Rmedia_player_get_state).
+	State = 0x0CD8,
+	// It is opened: its duration, the size of its picture and its tracks are known.
+	Loaded = 0x0CD9,
+	// The position moved: about four times a second while it plays, and after a seek.
+	Time = 0x0CDA,
+	// It played to its end. With Loop it starts again instead, and this is not sent.
+	Ended = 0x0CDB,
+	// It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+	Error = 0x0CDC,
 }
 
 // How the rows of a Table are selected (Rtable_set_selection_mode).

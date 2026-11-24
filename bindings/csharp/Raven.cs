@@ -1135,6 +1135,10 @@ namespace Raven
         /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
         /// </summary>
         R_WIDGET_DIFF_VIEW = 0x0238,
+        /// <summary>
+        /// The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+        /// </summary>
+        R_WIDGET_VIDEO_VIEW = 0x0239,
     }
 
     public enum RHAlign : int
@@ -1608,6 +1612,61 @@ namespace Raven
         /// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
         /// </summary>
         R_SYSTEM_WEB_VIEW_FAILED = 0x0B94,
+    }
+
+    /// <summary>
+    /// Where a media player is (Rmedia_player_get_state).
+    /// </summary>
+    public enum RMediaState : int
+    {
+        /// <summary>
+        /// Nothing is loaded.
+        /// </summary>
+        R_MEDIA_EMPTY = 0x0CD0,
+        /// <summary>
+        /// A file or an address is being opened: its duration and its size are not known yet.
+        /// </summary>
+        R_MEDIA_LOADING = 0x0CD1,
+        /// <summary>
+        /// Loaded and still: paused, stopped, or loaded without being played.
+        /// </summary>
+        R_MEDIA_PAUSED = 0x0CD2,
+        R_MEDIA_PLAYING = 0x0CD3,
+        /// <summary>
+        /// It played to its end (without Loop); Rmedia_player_play starts it again.
+        /// </summary>
+        R_MEDIA_ENDED = 0x0CD4,
+        /// <summary>
+        /// It cannot be played (Rmedia_player_get_error).
+        /// </summary>
+        R_MEDIA_ERROR = 0x0CD5,
+    }
+
+    /// <summary>
+    /// What a media player tells (Rmedia_player_set_event_callback).
+    /// </summary>
+    public enum RMediaEvent : int
+    {
+        /// <summary>
+        /// The state changed (Rmedia_player_get_state).
+        /// </summary>
+        R_MEDIA_EVENT_STATE = 0x0CD8,
+        /// <summary>
+        /// It is opened: its duration, the size of its picture and its tracks are known.
+        /// </summary>
+        R_MEDIA_EVENT_LOADED = 0x0CD9,
+        /// <summary>
+        /// The position moved: about four times a second while it plays, and after a seek.
+        /// </summary>
+        R_MEDIA_EVENT_TIME = 0x0CDA,
+        /// <summary>
+        /// It played to its end. With Loop it starts again instead, and this is not sent.
+        /// </summary>
+        R_MEDIA_EVENT_ENDED = 0x0CDB,
+        /// <summary>
+        /// It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+        /// </summary>
+        R_MEDIA_EVENT_ERROR = 0x0CDC,
     }
 
     /// <summary>
@@ -4126,6 +4185,12 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RSystemWebViewEventCallback(uint view, RSystemWebViewEvent @event, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RMediaEventCallback(uint player, RMediaEvent @event, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RVideoViewFullscreenCallback(uint view, int fullscreen, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -9616,6 +9681,272 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr Rsystem_web_view_get_native_handle(uint view);
 
+        /// <summary>
+        /// Returns: R_TRUE when the system can play media here (the framework is there).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_is_supported();
+
+        /// <summary>
+        /// Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rmedia_get_backend_name", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmedia_get_backend_name_();
+        public static string Rmedia_get_backend_name() { return Text(Rmedia_get_backend_name_()); }
+
+        /// <summary>
+        /// A player with nothing loaded, for sound or for pictures drawn by the application.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmedia_player_create();
+
+        /// <summary>
+        /// Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_destroy(uint player);
+
+        /// <summary>
+        /// Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_is_valid(uint player);
+
+        /// <summary>
+        /// Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+        /// then R_MEDIA_PAUSED). What was loaded before is stopped.
+        /// Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_load_file(uint player, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Opens an address ("https://...", "file:///..."), where the system streams it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_load_url(uint player, [MarshalAs(Utf8.Str)] string url);
+
+        /// <summary>
+        /// Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_close(uint player);
+
+        /// <summary>
+        /// Returns: The file or address loaded, "" when none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rmedia_player_get_source", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmedia_player_get_source_(uint player);
+        public static string Rmedia_player_get_source(uint player) { return Text(Rmedia_player_get_source_(player)); }
+
+        /// <summary>
+        /// Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_play(uint player);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_pause(uint player);
+
+        /// <summary>
+        /// Pauses and goes back to the start.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_stop(uint player);
+
+        /// <summary>
+        /// Goes to a time, in seconds from the start (playing or paused, it stays so).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_seek(uint player, double seconds);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RMediaState Rmedia_player_get_state(uint player);
+
+        /// <summary>
+        /// Returns: Seconds from the start.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rmedia_player_get_position(uint player);
+
+        /// <summary>
+        /// Returns: Seconds; 0 while it loads, and for a live stream.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rmedia_player_get_duration(uint player);
+
+        /// <summary>
+        /// Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_get_video_size(uint player, out int width, out int height);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_has_audio(uint player);
+
+        /// <summary>
+        /// Returns: Why it cannot be played, "" when all is well.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rmedia_player_get_error", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmedia_player_get_error_(uint player);
+        public static string Rmedia_player_get_error(uint player) { return Text(Rmedia_player_get_error_(player)); }
+
+        /// <summary>
+        /// The loudness, 0 (silent) to 1 (as recorded, the default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_set_volume(uint player, float volume);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rmedia_player_get_volume(uint player);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_set_muted(uint player, int muted);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_is_muted(uint player);
+
+        /// <summary>
+        /// R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_set_loop(uint player, int loop);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_get_loop(uint player);
+
+        /// <summary>
+        /// The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_set_rate(uint player, float rate);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rmedia_player_get_rate(uint player);
+
+        /// <summary>
+        /// The picture of now, as a texture to draw (Rdraw_image, an
+        /// Image): brought up to date by this call, so call it each time you
+        /// draw, from the UI thread. The same texture all along, while the size of
+        /// the picture stays the same. R_INVALID_ID before the first picture.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmedia_player_get_texture(uint player);
+
+        /// <summary>
+        /// Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmedia_player_get_frame_count(uint player);
+
+        /// <summary>
+        /// Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmedia_player_set_event_callback(uint player, RMediaEventCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Plays a sound once, for the interface (a click, a chime), and
+        /// forgets it: the player it makes deletes itself at the end, or on an
+        /// error. Several play at once.
+        /// volume 0 to 1.
+        /// Returns: That player, valid until the sound ends (to stop it sooner);
+        /// R_INVALID_ID when it cannot be played.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rsound_play([MarshalAs(Utf8.Str)] string path, float volume);
+
+        /// <summary>
+        /// Stops every sound of Rsound_play.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsound_stop_all();
+
+        /// <summary>
+        /// VideoView: the picture of a media player, fitted in the widget as an
+        /// Image (Rvideo_view_set_stretch), with controls over it when asked:
+        /// play / pause, the time, a bar to go anywhere in it, the sound and its
+        /// loudness, and full screen when the application handles it. The
+        /// keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+        /// and forth, Home / End to the start and the end, Up / Down change the
+        /// loudness, M turns the sound off and on. A sound without picture shows
+        /// its name. Where media cannot be played (Rmedia_is_supported) it shows
+        /// why.
+        /// 
+        /// The action of the widget (Rwidget_set_action, OnChanged in XML) is
+        /// fired each time its state changes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rvideo_view_create();
+
+        /// <summary>
+        /// Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rvideo_view_get_player(uint view);
+
+        /// <summary>
+        /// Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_load_file(uint view, [MarshalAs(Utf8.Str)] string path);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_load_url(uint view, [MarshalAs(Utf8.Str)] string url);
+
+        /// <summary>
+        /// R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rvideo_view_set_autoplay(uint view, int autoplay);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_get_autoplay(uint view);
+
+        /// <summary>
+        /// How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rvideo_view_set_stretch(uint view, RStretch stretch);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RStretch Rvideo_view_get_stretch(uint view);
+
+        /// <summary>
+        /// R_TRUE shows the controls over the bottom of the picture (XML
+        /// Controls): always while it does not play, while the pointer moves
+        /// over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rvideo_view_set_controls(uint view, int shown);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_get_controls(uint view);
+
+        /// <summary>
+        /// Returns: R_TRUE while the controls are shown (they hide while it plays).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_are_controls_visible(uint view);
+
+        /// <summary>
+        /// The controls get a full screen button, which calls this with
+        /// the state asked for: the application gives the view the room (hides
+        /// what is around it, makes its window fill the screen) and the button
+        /// shows the way back. NULL removes the button.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rvideo_view_set_fullscreen_callback(uint view, RVideoViewFullscreenCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The state the button shows (also set by its clicks).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rvideo_view_set_fullscreen(uint view, int fullscreen);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rvideo_view_is_fullscreen(uint view);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rpdf_document_create();
 
@@ -13724,6 +14055,21 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtest_is_deterministic();
+
+        /// <summary>
+        /// Media players (raven_controls.h, VIDEO AND SOUND) made from now
+        /// on play a fake clip instead of their file: `duration` seconds of
+        /// `width` x `height` pictures, `fps` per second, computed from the time
+        /// (the red channel of the top-left pixel is the number of the picture,
+        /// modulo 256), with a sound track. It plays on the clock of the
+        /// animations, so with Rtest_set_deterministic each frame is 1/60 s of
+        /// it. It opens at the first frame after the load; a source whose name
+        /// contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+        /// .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+        /// A duration of 0 or less gives the media of the system back.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtest_set_fake_media(double duration, int width, int height, double fps);
 
         /// <summary>
         /// Returns: What the goldens of this run are made with, "OS-backend":

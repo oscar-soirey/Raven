@@ -994,6 +994,52 @@ typedef struct rl_table {
 	void (*Rsystem_web_view_set_message_callback)(Rid, RSystemWebViewMessageCallback, void*);
 	void (*Rsystem_web_view_set_event_callback)(Rid, RSystemWebViewEventCallback, void*);
 	void* (*Rsystem_web_view_get_native_handle)(Rid);
+	int (*Rmedia_is_supported)(void);
+	const char* (*Rmedia_get_backend_name)(void);
+	Rid (*Rmedia_player_create)(void);
+	void (*Rmedia_player_destroy)(Rid);
+	int (*Rmedia_player_is_valid)(Rid);
+	int (*Rmedia_player_load_file)(Rid, const char*);
+	int (*Rmedia_player_load_url)(Rid, const char*);
+	void (*Rmedia_player_close)(Rid);
+	const char* (*Rmedia_player_get_source)(Rid);
+	void (*Rmedia_player_play)(Rid);
+	void (*Rmedia_player_pause)(Rid);
+	void (*Rmedia_player_stop)(Rid);
+	void (*Rmedia_player_seek)(Rid, double);
+	RMediaState (*Rmedia_player_get_state)(Rid);
+	double (*Rmedia_player_get_position)(Rid);
+	double (*Rmedia_player_get_duration)(Rid);
+	int (*Rmedia_player_get_video_size)(Rid, int*, int*);
+	int (*Rmedia_player_has_audio)(Rid);
+	const char* (*Rmedia_player_get_error)(Rid);
+	void (*Rmedia_player_set_volume)(Rid, float);
+	float (*Rmedia_player_get_volume)(Rid);
+	void (*Rmedia_player_set_muted)(Rid, int);
+	int (*Rmedia_player_is_muted)(Rid);
+	void (*Rmedia_player_set_loop)(Rid, int);
+	int (*Rmedia_player_get_loop)(Rid);
+	void (*Rmedia_player_set_rate)(Rid, float);
+	float (*Rmedia_player_get_rate)(Rid);
+	Rid (*Rmedia_player_get_texture)(Rid);
+	int (*Rmedia_player_get_frame_count)(Rid);
+	void (*Rmedia_player_set_event_callback)(Rid, RMediaEventCallback, void*);
+	Rid (*Rsound_play)(const char*, float);
+	void (*Rsound_stop_all)(void);
+	Rid (*Rvideo_view_create)(void);
+	Rid (*Rvideo_view_get_player)(Rid);
+	int (*Rvideo_view_load_file)(Rid, const char*);
+	int (*Rvideo_view_load_url)(Rid, const char*);
+	void (*Rvideo_view_set_autoplay)(Rid, int);
+	int (*Rvideo_view_get_autoplay)(Rid);
+	void (*Rvideo_view_set_stretch)(Rid, RStretch);
+	RStretch (*Rvideo_view_get_stretch)(Rid);
+	void (*Rvideo_view_set_controls)(Rid, int);
+	int (*Rvideo_view_get_controls)(Rid);
+	int (*Rvideo_view_are_controls_visible)(Rid);
+	void (*Rvideo_view_set_fullscreen_callback)(Rid, RVideoViewFullscreenCallback, void*);
+	void (*Rvideo_view_set_fullscreen)(Rid, int);
+	int (*Rvideo_view_is_fullscreen)(Rid);
 	Rid (*Rpdf_document_create)(void);
 	void (*Rpdf_document_delete)(Rid);
 	void (*Rpdf_document_set_title)(Rid, const char*);
@@ -1654,6 +1700,7 @@ typedef struct rl_table {
 	void (*Rhost_service_complete)(Ruint, RDeviceResult, const RPickedFile*, int);
 	void (*Rtest_set_deterministic)(int);
 	int (*Rtest_is_deterministic)(void);
+	void (*Rtest_set_fake_media)(double, int, int, double);
 	const char* (*Rtest_get_platform_tag)(void);
 	Rid (*Rtest_find)(Rid, const char*);
 	int (*Rtest_click)(Rid);
@@ -2608,6 +2655,52 @@ static const struct {
 	{"Rsystem_web_view_set_message_callback", offsetof(rl_table, Rsystem_web_view_set_message_callback)},
 	{"Rsystem_web_view_set_event_callback", offsetof(rl_table, Rsystem_web_view_set_event_callback)},
 	{"Rsystem_web_view_get_native_handle", offsetof(rl_table, Rsystem_web_view_get_native_handle)},
+	{"Rmedia_is_supported", offsetof(rl_table, Rmedia_is_supported)},
+	{"Rmedia_get_backend_name", offsetof(rl_table, Rmedia_get_backend_name)},
+	{"Rmedia_player_create", offsetof(rl_table, Rmedia_player_create)},
+	{"Rmedia_player_destroy", offsetof(rl_table, Rmedia_player_destroy)},
+	{"Rmedia_player_is_valid", offsetof(rl_table, Rmedia_player_is_valid)},
+	{"Rmedia_player_load_file", offsetof(rl_table, Rmedia_player_load_file)},
+	{"Rmedia_player_load_url", offsetof(rl_table, Rmedia_player_load_url)},
+	{"Rmedia_player_close", offsetof(rl_table, Rmedia_player_close)},
+	{"Rmedia_player_get_source", offsetof(rl_table, Rmedia_player_get_source)},
+	{"Rmedia_player_play", offsetof(rl_table, Rmedia_player_play)},
+	{"Rmedia_player_pause", offsetof(rl_table, Rmedia_player_pause)},
+	{"Rmedia_player_stop", offsetof(rl_table, Rmedia_player_stop)},
+	{"Rmedia_player_seek", offsetof(rl_table, Rmedia_player_seek)},
+	{"Rmedia_player_get_state", offsetof(rl_table, Rmedia_player_get_state)},
+	{"Rmedia_player_get_position", offsetof(rl_table, Rmedia_player_get_position)},
+	{"Rmedia_player_get_duration", offsetof(rl_table, Rmedia_player_get_duration)},
+	{"Rmedia_player_get_video_size", offsetof(rl_table, Rmedia_player_get_video_size)},
+	{"Rmedia_player_has_audio", offsetof(rl_table, Rmedia_player_has_audio)},
+	{"Rmedia_player_get_error", offsetof(rl_table, Rmedia_player_get_error)},
+	{"Rmedia_player_set_volume", offsetof(rl_table, Rmedia_player_set_volume)},
+	{"Rmedia_player_get_volume", offsetof(rl_table, Rmedia_player_get_volume)},
+	{"Rmedia_player_set_muted", offsetof(rl_table, Rmedia_player_set_muted)},
+	{"Rmedia_player_is_muted", offsetof(rl_table, Rmedia_player_is_muted)},
+	{"Rmedia_player_set_loop", offsetof(rl_table, Rmedia_player_set_loop)},
+	{"Rmedia_player_get_loop", offsetof(rl_table, Rmedia_player_get_loop)},
+	{"Rmedia_player_set_rate", offsetof(rl_table, Rmedia_player_set_rate)},
+	{"Rmedia_player_get_rate", offsetof(rl_table, Rmedia_player_get_rate)},
+	{"Rmedia_player_get_texture", offsetof(rl_table, Rmedia_player_get_texture)},
+	{"Rmedia_player_get_frame_count", offsetof(rl_table, Rmedia_player_get_frame_count)},
+	{"Rmedia_player_set_event_callback", offsetof(rl_table, Rmedia_player_set_event_callback)},
+	{"Rsound_play", offsetof(rl_table, Rsound_play)},
+	{"Rsound_stop_all", offsetof(rl_table, Rsound_stop_all)},
+	{"Rvideo_view_create", offsetof(rl_table, Rvideo_view_create)},
+	{"Rvideo_view_get_player", offsetof(rl_table, Rvideo_view_get_player)},
+	{"Rvideo_view_load_file", offsetof(rl_table, Rvideo_view_load_file)},
+	{"Rvideo_view_load_url", offsetof(rl_table, Rvideo_view_load_url)},
+	{"Rvideo_view_set_autoplay", offsetof(rl_table, Rvideo_view_set_autoplay)},
+	{"Rvideo_view_get_autoplay", offsetof(rl_table, Rvideo_view_get_autoplay)},
+	{"Rvideo_view_set_stretch", offsetof(rl_table, Rvideo_view_set_stretch)},
+	{"Rvideo_view_get_stretch", offsetof(rl_table, Rvideo_view_get_stretch)},
+	{"Rvideo_view_set_controls", offsetof(rl_table, Rvideo_view_set_controls)},
+	{"Rvideo_view_get_controls", offsetof(rl_table, Rvideo_view_get_controls)},
+	{"Rvideo_view_are_controls_visible", offsetof(rl_table, Rvideo_view_are_controls_visible)},
+	{"Rvideo_view_set_fullscreen_callback", offsetof(rl_table, Rvideo_view_set_fullscreen_callback)},
+	{"Rvideo_view_set_fullscreen", offsetof(rl_table, Rvideo_view_set_fullscreen)},
+	{"Rvideo_view_is_fullscreen", offsetof(rl_table, Rvideo_view_is_fullscreen)},
 	{"Rpdf_document_create", offsetof(rl_table, Rpdf_document_create)},
 	{"Rpdf_document_delete", offsetof(rl_table, Rpdf_document_delete)},
 	{"Rpdf_document_set_title", offsetof(rl_table, Rpdf_document_set_title)},
@@ -3268,6 +3361,7 @@ static const struct {
 	{"Rhost_service_complete", offsetof(rl_table, Rhost_service_complete)},
 	{"Rtest_set_deterministic", offsetof(rl_table, Rtest_set_deterministic)},
 	{"Rtest_is_deterministic", offsetof(rl_table, Rtest_is_deterministic)},
+	{"Rtest_set_fake_media", offsetof(rl_table, Rtest_set_fake_media)},
 	{"Rtest_get_platform_tag", offsetof(rl_table, Rtest_get_platform_tag)},
 	{"Rtest_find", offsetof(rl_table, Rtest_find)},
 	{"Rtest_click", offsetof(rl_table, Rtest_click)},
@@ -7768,6 +7862,62 @@ static void rl_t_RSystemWebViewEventCallback(Rid a0, RSystemWebViewEvent a1, voi
 	c.a1 = a1;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RSystemWebViewEventCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RMediaEventCallback {
+	rl_cb* cb;
+	Rid a0;
+	RMediaEvent a1;
+} rl_c_RMediaEventCallback;
+
+static int rl_k_RMediaEventCallback(lua_State* L) {
+	rl_c_RMediaEventCallback* c = (rl_c_RMediaEventCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RMediaEventCallback(Rid a0, RMediaEvent a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RMediaEventCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RMediaEventCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RVideoViewFullscreenCallback {
+	rl_cb* cb;
+	Rid a0;
+	int a1;
+} rl_c_RVideoViewFullscreenCallback;
+
+static int rl_k_RVideoViewFullscreenCallback(lua_State* L) {
+	rl_c_RVideoViewFullscreenCallback* c = (rl_c_RVideoViewFullscreenCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RVideoViewFullscreenCallback(Rid a0, int a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RVideoViewFullscreenCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RVideoViewFullscreenCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -22436,6 +22586,624 @@ static int rl_w_Rsystem_web_view_get_native_handle(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rmedia_is_supported(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rmedia_is_supported)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_get_backend_name(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		const char* value_ = RL(Rmedia_get_backend_name)();
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_create(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		Rid value_ = RL(Rmedia_player_create)();
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_destroy(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rmedia_player_destroy)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_is_valid(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmedia_player_is_valid)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_load_file(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rmedia_player_load_file)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_load_url(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rmedia_player_load_url)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_close(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rmedia_player_close)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_source(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rmedia_player_get_source)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_play(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rmedia_player_play)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_pause(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rmedia_player_pause)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_stop(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rmedia_player_stop)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_seek(lua_State* L) {
+	uint32_t a0;
+	double a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_number(L, 2, NULL);
+	RL(Rmedia_player_seek)((Rid)a0, (double)a1);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_state(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RMediaState value_ = RL(Rmedia_player_get_state)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_position(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		double value_ = RL(Rmedia_player_get_position)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_duration(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		double value_ = RL(Rmedia_player_get_duration)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_video_size(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	memset(&a2, 0, sizeof(a2));
+	{
+		int value_ = RL(Rmedia_player_get_video_size)((Rid)a0, &a1, &a2);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 4, "raven");
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rmedia_player_has_audio(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmedia_player_has_audio)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_error(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rmedia_player_get_error)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_set_volume(lua_State* L) {
+	uint32_t a0;
+	float a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = (float)rl_number(L, 2, NULL);
+	RL(Rmedia_player_set_volume)((Rid)a0, (float)a1);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_volume(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		float value_ = RL(Rmedia_player_get_volume)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_set_muted(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rmedia_player_set_muted)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_is_muted(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmedia_player_is_muted)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_set_loop(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rmedia_player_set_loop)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_loop(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmedia_player_get_loop)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_set_rate(lua_State* L) {
+	uint32_t a0;
+	float a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = (float)rl_number(L, 2, NULL);
+	RL(Rmedia_player_set_rate)((Rid)a0, (float)a1);
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_rate(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		float value_ = RL(Rmedia_player_get_rate)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_texture(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		Rid value_ = RL(Rmedia_player_get_texture)((Rid)a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_get_frame_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmedia_player_get_frame_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmedia_player_set_event_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rmedia_player_set_event_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMediaEventCallback)rl_t_RMediaEventCallback : (RMediaEventCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 79, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rsound_play(lua_State* L) {
+	const char* a0;
+	float a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_str(L, 1, NULL);
+	a1 = (float)rl_number(L, 2, NULL);
+	{
+		Rid value_ = RL(Rsound_play)(a0, (float)a1);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rsound_stop_all(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	RL(Rsound_stop_all)();
+	return results_;
+}
+
+static int rl_w_Rvideo_view_create(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		Rid value_ = RL(Rvideo_view_create)();
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_get_player(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		Rid value_ = RL(Rvideo_view_get_player)((Rid)a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_load_file(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rvideo_view_load_file)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_load_url(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rvideo_view_load_url)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_set_autoplay(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rvideo_view_set_autoplay)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rvideo_view_get_autoplay(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rvideo_view_get_autoplay)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_set_stretch(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rvideo_view_set_stretch)((Rid)a0, (RStretch)a1);
+	return results_;
+}
+
+static int rl_w_Rvideo_view_get_stretch(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RStretch value_ = RL(Rvideo_view_get_stretch)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_set_controls(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rvideo_view_set_controls)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rvideo_view_get_controls(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rvideo_view_get_controls)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_are_controls_visible(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rvideo_view_are_controls_visible)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rvideo_view_set_fullscreen_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rvideo_view_set_fullscreen_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RVideoViewFullscreenCallback)rl_t_RVideoViewFullscreenCallback : (RVideoViewFullscreenCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 80, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rvideo_view_set_fullscreen(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rvideo_view_set_fullscreen)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rvideo_view_is_fullscreen(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rvideo_view_is_fullscreen)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rpdf_document_create(lua_State* L) {
 	int results_ = 0;
 	(void)L;
@@ -23583,7 +24351,7 @@ static int rl_w_Rtext_editor_set_zoom_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_zoom_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorZoomCallback)rl_t_RTextEditorZoomCallback : (RTextEditorZoomCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 79, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 81, NULL, cb_);
 	return results_;
 }
 
@@ -23832,7 +24600,7 @@ static int rl_w_Rtext_editor_set_completion_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_completion_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RCompletionCallback)rl_t_RCompletionCallback : (RCompletionCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 80, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 82, NULL, cb_);
 	return results_;
 }
 
@@ -23950,7 +24718,7 @@ static int rl_w_Rtext_editor_set_hover_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_hover_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorHoverCallback)rl_t_RTextEditorHoverCallback : (RTextEditorHoverCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 81, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
 	return results_;
 }
 
@@ -24245,7 +25013,7 @@ static int rl_w_Rtext_editor_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtext_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTextEditorChangedCallback)rl_t_RTextEditorChangedCallback : (RTextEditorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 82, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
 	return results_;
 }
 
@@ -24586,7 +25354,7 @@ static int rl_w_Rdock_area_set_close_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_close_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockCloseCallback)rl_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
 	return results_;
 }
 
@@ -24646,7 +25414,7 @@ static int rl_w_Rdock_area_set_float_window(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdock_area_set_float_window)((Rid)a0, (Ruint)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockFloatWindowCallback)rl_t_RDockFloatWindowCallback : (RDockFloatWindowCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
 	return results_;
 }
 
@@ -24714,7 +25482,7 @@ static int rl_w_Rdock_area_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockChangedCallback)rl_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 87, NULL, cb_);
 	return results_;
 }
 
@@ -24859,7 +25627,7 @@ static int rl_w_Risland_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Risland_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RIslandChangedCallback)rl_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
 	return results_;
 }
 
@@ -25083,7 +25851,7 @@ static int rl_w_Rtray_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtray_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTrayClickedCallback)rl_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_PLAIN, 87, NULL, cb_);
+	rl_bind(a0, RL_OWNER_PLAIN, 89, NULL, cb_);
 	return results_;
 }
 
@@ -25367,7 +26135,7 @@ static int rl_w_Rcolor_picker_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcolor_picker_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RColorChangedCallback)rl_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 90, NULL, cb_);
 	return results_;
 }
 
@@ -26231,7 +26999,7 @@ static int rl_w_Rtimeline_set_time_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_time_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineTimeCallback)rl_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 89, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
 	return results_;
 }
 
@@ -26251,7 +27019,7 @@ static int rl_w_Rtimeline_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 90, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
 	return results_;
 }
 
@@ -26271,7 +27039,7 @@ static int rl_w_Rtimeline_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
 	return results_;
 }
 
@@ -26291,7 +27059,7 @@ static int rl_w_Rtimeline_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
 	return results_;
 }
 
@@ -26311,7 +27079,7 @@ static int rl_w_Rtimeline_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
 	return results_;
 }
 
@@ -27244,7 +28012,7 @@ static int rl_w_Rnode_graph_set_connect_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_connect_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphConnectCallback)rl_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
 	return results_;
 }
 
@@ -27264,7 +28032,7 @@ static int rl_w_Rnode_graph_set_linked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_linked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
 	return results_;
 }
 
@@ -27284,7 +28052,7 @@ static int rl_w_Rnode_graph_set_unlinked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_unlinked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
 	return results_;
 }
 
@@ -27304,7 +28072,7 @@ static int rl_w_Rnode_graph_set_moved_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_moved_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
 	return results_;
 }
 
@@ -27324,7 +28092,7 @@ static int rl_w_Rnode_graph_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 100, NULL, cb_);
 	return results_;
 }
 
@@ -27344,7 +28112,7 @@ static int rl_w_Rnode_graph_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
 	return results_;
 }
 
@@ -27364,7 +28132,7 @@ static int rl_w_Rnode_graph_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 100, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
 	return results_;
 }
 
@@ -27384,7 +28152,7 @@ static int rl_w_Rnode_graph_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphContextCallback)rl_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
 	return results_;
 }
 
@@ -27404,7 +28172,7 @@ static int rl_w_Rnode_graph_set_canvas_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_canvas_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
 	return results_;
 }
 
@@ -27424,7 +28192,7 @@ static int rl_w_Rnode_graph_set_wire_dropped_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_wire_dropped_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 105, NULL, cb_);
 	return results_;
 }
 
@@ -27444,7 +28212,7 @@ static int rl_w_Rnode_graph_set_pin_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_pin_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 106, NULL, cb_);
 	return results_;
 }
 
@@ -28145,7 +28913,7 @@ static int rl_w_Rblock_editor_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 105, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
 	return results_;
 }
 
@@ -28165,7 +28933,7 @@ static int rl_w_Rblock_editor_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 106, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
 	return results_;
 }
 
@@ -28185,7 +28953,7 @@ static int rl_w_Rblock_editor_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorContextCallback)rl_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 109, NULL, cb_);
 	return results_;
 }
 
@@ -28826,7 +29594,7 @@ static int rl_w_Rdiff_view_set_line_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdiff_view_set_line_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDiffViewLineCallback)rl_t_RDiffViewLineCallback : (RDiffViewLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 110, NULL, cb_);
 	return results_;
 }
 
@@ -28844,13 +29612,13 @@ static int rl_w_Rdialog_open(lua_State* L) {
 	a1 = rl_u32(L, 2, NULL);
 	k0_ = rl_callback_arg(L, 3, &n0_);
 	a3 = lua_touserdata(L, 4);
-	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 109)) {
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 111)) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdialog_open)((Rid)a0, (Rid)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rl_bind(a1, RL_OWNER_WIDGET, 109, NULL, cb_);
+		rl_bind(a1, RL_OWNER_WIDGET, 111, NULL, cb_);
 	}
 	return results_;
 }
@@ -28905,7 +29673,7 @@ static int rl_w_Rpopup_open(lua_State* L) {
 		cb_ = rl_cb_new(L, 5, 0, 6);
 	}
 	RL(Rpopup_open)((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rl_bind(a0, RL_OWNER_WIDGET, 110, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 112, NULL, cb_);
 	return results_;
 }
 
@@ -29355,7 +30123,7 @@ static int rl_w_Rfile_browser_set_accepted_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_accepted_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 111, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 113, NULL, cb_);
 	return results_;
 }
 
@@ -29375,7 +30143,7 @@ static int rl_w_Rfile_browser_set_cancelled_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_cancelled_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 112, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 114, NULL, cb_);
 	return results_;
 }
 
@@ -29395,7 +30163,7 @@ static int rl_w_Rfile_browser_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 113, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 115, NULL, cb_);
 	return results_;
 }
 
@@ -29442,7 +30210,7 @@ static int rl_w_Rnotification_set_fallback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_fallback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationFallback)rl_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 114, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 116, NULL, cb_);
 	return results_;
 }
 
@@ -29460,7 +30228,7 @@ static int rl_w_Rnotification_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_clicked_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationClickedCallback)rl_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 115, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 117, NULL, cb_);
 	return results_;
 }
 
@@ -29508,7 +30276,7 @@ static int rl_w_Rnotification_set_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationCallback)rl_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 116, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 118, NULL, cb_);
 	return results_;
 }
 
@@ -29980,7 +30748,7 @@ static int rl_w_Rviewport_set_resize_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rviewport_set_resize_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RViewportResizeCallback)rl_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 125, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
 	return results_;
 }
 
@@ -30012,7 +30780,7 @@ static int rl_w_Rcustom_set_paint_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_paint_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPaintCallback)rl_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 126, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 128, NULL, cb_);
 	return results_;
 }
 
@@ -30032,7 +30800,7 @@ static int rl_w_Rcustom_set_measure_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_measure_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMeasureCallback)rl_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 129, NULL, cb_);
 	return results_;
 }
 
@@ -30794,7 +31562,7 @@ static int rl_w_Rxml_set_reload_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rxml_set_reload_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RXmlReloadCallback)rl_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 128, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 130, NULL, cb_);
 	return results_;
 }
 
@@ -30915,7 +31683,7 @@ static int rl_w_Rxml_register_tag(lua_State* L) {
 			rl_cb_release(cb_);
 			cb_ = NULL;
 		}
-		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, cb_);
+		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 131, a0, cb_);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -30929,7 +31697,7 @@ static int rl_w_Rxml_unregister_tag(lua_State* L) {
 	lua_settop(L, 1);
 	a0 = rl_str(L, 1, NULL);
 	RL(Rxml_unregister_tag)(a0);
-	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, NULL);
+	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 131, a0, NULL);
 	return results_;
 }
 
@@ -31760,7 +32528,7 @@ static int rl_w_Rscript_set_log_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_log_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptLogCallback)rl_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 130, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
 	return results_;
 }
 
@@ -31778,7 +32546,7 @@ static int rl_w_Rscript_set_diagnostic_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_diagnostic_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptDiagnosticCallback)rl_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 133, NULL, cb_);
 	return results_;
 }
 
@@ -31929,7 +32697,7 @@ static int rl_w_Rlocale_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rlocale_set_changed_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RLocaleChangedCallback)rl_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 134, NULL, cb_);
 	return results_;
 }
 
@@ -32519,7 +33287,7 @@ static int rl_w_Rwidget_set_accessible_action(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_accessible_action)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RAccessiblePressCallback)rl_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 133, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 135, NULL, cb_);
 	return results_;
 }
 
@@ -32818,6 +33586,22 @@ static int rl_w_Rtest_is_deterministic(lua_State* L) {
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
+	return results_;
+}
+
+static int rl_w_Rtest_set_fake_media(lua_State* L) {
+	double a0;
+	int a1;
+	int a2;
+	double a3;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_number(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_number(L, 4, NULL);
+	RL(Rtest_set_fake_media)((double)a0, (int)a1, (int)a2, (double)a3);
 	return results_;
 }
 
@@ -34214,6 +34998,52 @@ static const luaL_Reg rl_functions[] = {
 	{"Rsystem_web_view_set_message_callback", rl_w_Rsystem_web_view_set_message_callback},
 	{"Rsystem_web_view_set_event_callback", rl_w_Rsystem_web_view_set_event_callback},
 	{"Rsystem_web_view_get_native_handle", rl_w_Rsystem_web_view_get_native_handle},
+	{"Rmedia_is_supported", rl_w_Rmedia_is_supported},
+	{"Rmedia_get_backend_name", rl_w_Rmedia_get_backend_name},
+	{"Rmedia_player_create", rl_w_Rmedia_player_create},
+	{"Rmedia_player_destroy", rl_w_Rmedia_player_destroy},
+	{"Rmedia_player_is_valid", rl_w_Rmedia_player_is_valid},
+	{"Rmedia_player_load_file", rl_w_Rmedia_player_load_file},
+	{"Rmedia_player_load_url", rl_w_Rmedia_player_load_url},
+	{"Rmedia_player_close", rl_w_Rmedia_player_close},
+	{"Rmedia_player_get_source", rl_w_Rmedia_player_get_source},
+	{"Rmedia_player_play", rl_w_Rmedia_player_play},
+	{"Rmedia_player_pause", rl_w_Rmedia_player_pause},
+	{"Rmedia_player_stop", rl_w_Rmedia_player_stop},
+	{"Rmedia_player_seek", rl_w_Rmedia_player_seek},
+	{"Rmedia_player_get_state", rl_w_Rmedia_player_get_state},
+	{"Rmedia_player_get_position", rl_w_Rmedia_player_get_position},
+	{"Rmedia_player_get_duration", rl_w_Rmedia_player_get_duration},
+	{"Rmedia_player_get_video_size", rl_w_Rmedia_player_get_video_size},
+	{"Rmedia_player_has_audio", rl_w_Rmedia_player_has_audio},
+	{"Rmedia_player_get_error", rl_w_Rmedia_player_get_error},
+	{"Rmedia_player_set_volume", rl_w_Rmedia_player_set_volume},
+	{"Rmedia_player_get_volume", rl_w_Rmedia_player_get_volume},
+	{"Rmedia_player_set_muted", rl_w_Rmedia_player_set_muted},
+	{"Rmedia_player_is_muted", rl_w_Rmedia_player_is_muted},
+	{"Rmedia_player_set_loop", rl_w_Rmedia_player_set_loop},
+	{"Rmedia_player_get_loop", rl_w_Rmedia_player_get_loop},
+	{"Rmedia_player_set_rate", rl_w_Rmedia_player_set_rate},
+	{"Rmedia_player_get_rate", rl_w_Rmedia_player_get_rate},
+	{"Rmedia_player_get_texture", rl_w_Rmedia_player_get_texture},
+	{"Rmedia_player_get_frame_count", rl_w_Rmedia_player_get_frame_count},
+	{"Rmedia_player_set_event_callback", rl_w_Rmedia_player_set_event_callback},
+	{"Rsound_play", rl_w_Rsound_play},
+	{"Rsound_stop_all", rl_w_Rsound_stop_all},
+	{"Rvideo_view_create", rl_w_Rvideo_view_create},
+	{"Rvideo_view_get_player", rl_w_Rvideo_view_get_player},
+	{"Rvideo_view_load_file", rl_w_Rvideo_view_load_file},
+	{"Rvideo_view_load_url", rl_w_Rvideo_view_load_url},
+	{"Rvideo_view_set_autoplay", rl_w_Rvideo_view_set_autoplay},
+	{"Rvideo_view_get_autoplay", rl_w_Rvideo_view_get_autoplay},
+	{"Rvideo_view_set_stretch", rl_w_Rvideo_view_set_stretch},
+	{"Rvideo_view_get_stretch", rl_w_Rvideo_view_get_stretch},
+	{"Rvideo_view_set_controls", rl_w_Rvideo_view_set_controls},
+	{"Rvideo_view_get_controls", rl_w_Rvideo_view_get_controls},
+	{"Rvideo_view_are_controls_visible", rl_w_Rvideo_view_are_controls_visible},
+	{"Rvideo_view_set_fullscreen_callback", rl_w_Rvideo_view_set_fullscreen_callback},
+	{"Rvideo_view_set_fullscreen", rl_w_Rvideo_view_set_fullscreen},
+	{"Rvideo_view_is_fullscreen", rl_w_Rvideo_view_is_fullscreen},
 	{"Rpdf_document_create", rl_w_Rpdf_document_create},
 	{"Rpdf_document_delete", rl_w_Rpdf_document_delete},
 	{"Rpdf_document_set_title", rl_w_Rpdf_document_set_title},
@@ -34874,6 +35704,7 @@ static const luaL_Reg rl_functions[] = {
 	{"Rhost_service_complete", rl_w_Rhost_service_complete},
 	{"Rtest_set_deterministic", rl_w_Rtest_set_deterministic},
 	{"Rtest_is_deterministic", rl_w_Rtest_is_deterministic},
+	{"Rtest_set_fake_media", rl_w_Rtest_set_fake_media},
 	{"Rtest_get_platform_tag", rl_w_Rtest_get_platform_tag},
 	{"Rtest_find", rl_w_Rtest_find},
 	{"Rtest_click", rl_w_Rtest_click},
@@ -35431,6 +36262,7 @@ static const rl_constant rl_constants[] = {
 	{"R_WIDGET_CAROUSEL", 566.0},
 	{"R_WIDGET_SYSTEM_WEB_VIEW", 567.0},
 	{"R_WIDGET_DIFF_VIEW", 568.0},
+	{"R_WIDGET_VIDEO_VIEW", 569.0},
 	{"R_HALIGN_FILL", 576.0},
 	{"R_HALIGN_LEFT", 577.0},
 	{"R_HALIGN_CENTER", 578.0},
@@ -35544,6 +36376,17 @@ static const rl_constant rl_constants[] = {
 	{"R_SYSTEM_WEB_VIEW_LOADING", 2962.0},
 	{"R_SYSTEM_WEB_VIEW_LOADED", 2963.0},
 	{"R_SYSTEM_WEB_VIEW_FAILED", 2964.0},
+	{"R_MEDIA_EMPTY", 3280.0},
+	{"R_MEDIA_LOADING", 3281.0},
+	{"R_MEDIA_PAUSED", 3282.0},
+	{"R_MEDIA_PLAYING", 3283.0},
+	{"R_MEDIA_ENDED", 3284.0},
+	{"R_MEDIA_ERROR", 3285.0},
+	{"R_MEDIA_EVENT_STATE", 3288.0},
+	{"R_MEDIA_EVENT_LOADED", 3289.0},
+	{"R_MEDIA_EVENT_TIME", 3290.0},
+	{"R_MEDIA_EVENT_ENDED", 3291.0},
+	{"R_MEDIA_EVENT_ERROR", 3292.0},
 	{"R_TABLE_SELECTION_SINGLE", 3008.0},
 	{"R_TABLE_SELECTION_MULTIPLE", 3009.0},
 	{"R_TABLE_SELECTION_NONE", 3010.0},

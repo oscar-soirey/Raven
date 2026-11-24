@@ -1217,6 +1217,9 @@ pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 -- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pattern R_WIDGET_DIFF_VIEW :: RWidgetType
 pattern R_WIDGET_DIFF_VIEW = RWidgetType 568
+-- | The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+pattern R_WIDGET_VIDEO_VIEW :: RWidgetType
+pattern R_WIDGET_VIDEO_VIEW = RWidgetType 569
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1643,6 +1646,48 @@ pattern R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent 2963
 -- | The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 pattern R_SYSTEM_WEB_VIEW_FAILED :: RSystemWebViewEvent
 pattern R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent 2964
+
+-- | Where a media player is (Rmedia_player_get_state).
+newtype RMediaState = RMediaState CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Nothing is loaded.
+pattern R_MEDIA_EMPTY :: RMediaState
+pattern R_MEDIA_EMPTY = RMediaState 3280
+-- | A file or an address is being opened: its duration and its size are not known yet.
+pattern R_MEDIA_LOADING :: RMediaState
+pattern R_MEDIA_LOADING = RMediaState 3281
+-- | Loaded and still: paused, stopped, or loaded without being played.
+pattern R_MEDIA_PAUSED :: RMediaState
+pattern R_MEDIA_PAUSED = RMediaState 3282
+pattern R_MEDIA_PLAYING :: RMediaState
+pattern R_MEDIA_PLAYING = RMediaState 3283
+-- | It played to its end (without Loop); Rmedia_player_play starts it again.
+pattern R_MEDIA_ENDED :: RMediaState
+pattern R_MEDIA_ENDED = RMediaState 3284
+-- | It cannot be played (Rmedia_player_get_error).
+pattern R_MEDIA_ERROR :: RMediaState
+pattern R_MEDIA_ERROR = RMediaState 3285
+
+-- | What a media player tells (Rmedia_player_set_event_callback).
+newtype RMediaEvent = RMediaEvent CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The state changed (Rmedia_player_get_state).
+pattern R_MEDIA_EVENT_STATE :: RMediaEvent
+pattern R_MEDIA_EVENT_STATE = RMediaEvent 3288
+-- | It is opened: its duration, the size of its picture and its tracks are known.
+pattern R_MEDIA_EVENT_LOADED :: RMediaEvent
+pattern R_MEDIA_EVENT_LOADED = RMediaEvent 3289
+-- | The position moved: about four times a second while it plays, and after a seek.
+pattern R_MEDIA_EVENT_TIME :: RMediaEvent
+pattern R_MEDIA_EVENT_TIME = RMediaEvent 3290
+-- | It played to its end. With Loop it starts again instead, and this is not sent.
+pattern R_MEDIA_EVENT_ENDED :: RMediaEvent
+pattern R_MEDIA_EVENT_ENDED = RMediaEvent 3291
+-- | It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+pattern R_MEDIA_EVENT_ERROR :: RMediaEvent
+pattern R_MEDIA_EVENT_ERROR = RMediaEvent 3292
 
 -- | How the rows of a Table are selected (Rtable_set_selection_mode).
 newtype RTableSelectionMode = RTableSelectionMode CInt
@@ -2948,6 +2993,18 @@ type RSystemWebViewEventCallback = FunPtr (Rid -> RSystemWebViewEvent -> Ptr () 
 -- | Makes a 'RSystemWebViewEventCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRSystemWebViewEventCallback :: (Rid -> RSystemWebViewEvent -> Ptr () -> IO ()) -> IO RSystemWebViewEventCallback
+
+type RMediaEventCallback = FunPtr (Rid -> RMediaEvent -> Ptr () -> IO ())
+
+-- | Makes a 'RMediaEventCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRMediaEventCallback :: (Rid -> RMediaEvent -> Ptr () -> IO ()) -> IO RMediaEventCallback
+
+type RVideoViewFullscreenCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RVideoViewFullscreenCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRVideoViewFullscreenCallback :: (Rid -> CInt -> Ptr () -> IO ()) -> IO RVideoViewFullscreenCallback
 
 -- | Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 type RTextEditorZoomCallback = FunPtr (Rid -> CFloat -> Ptr () -> IO ())
@@ -7863,6 +7920,157 @@ foreign import ccall safe "Rsystem_web_view_set_event_callback" rsystem_web_view
 -- a WKWebView* on macOS and iOS. NULL where unsupported.
 foreign import ccall safe "Rsystem_web_view_get_native_handle" rsystem_web_view_get_native_handle :: Rid -> IO (Ptr ())
 
+-- | Returns: R_TRUE when the system can play media here (the framework is there).
+foreign import ccall safe "Rmedia_is_supported" rmedia_is_supported :: IO CInt
+
+-- | Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+foreign import ccall safe "Rmedia_get_backend_name" rmedia_get_backend_name :: IO CString
+
+-- | A player with nothing loaded, for sound or for pictures drawn by the application.
+foreign import ccall safe "Rmedia_player_create" rmedia_player_create :: IO Rid
+
+-- | Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it).
+foreign import ccall safe "Rmedia_player_destroy" rmedia_player_destroy :: Rid -> IO ()
+
+-- | Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+foreign import ccall safe "Rmedia_player_is_valid" rmedia_player_is_valid :: Rid -> IO CInt
+
+-- | Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+-- then R_MEDIA_PAUSED). What was loaded before is stopped.
+-- Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+foreign import ccall safe "Rmedia_player_load_file" rmedia_player_load_file :: Rid -> CString -> IO CInt
+
+-- | Opens an address ("https://...", "file:///..."), where the system streams it.
+foreign import ccall safe "Rmedia_player_load_url" rmedia_player_load_url :: Rid -> CString -> IO CInt
+
+-- | Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+foreign import ccall safe "Rmedia_player_close" rmedia_player_close :: Rid -> IO ()
+
+-- | Returns: The file or address loaded, "" when none.
+foreign import ccall safe "Rmedia_player_get_source" rmedia_player_get_source :: Rid -> IO CString
+
+-- | Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+foreign import ccall safe "Rmedia_player_play" rmedia_player_play :: Rid -> IO ()
+
+foreign import ccall safe "Rmedia_player_pause" rmedia_player_pause :: Rid -> IO ()
+
+-- | Pauses and goes back to the start.
+foreign import ccall safe "Rmedia_player_stop" rmedia_player_stop :: Rid -> IO ()
+
+-- | Goes to a time, in seconds from the start (playing or paused, it stays so).
+foreign import ccall safe "Rmedia_player_seek" rmedia_player_seek :: Rid -> CDouble -> IO ()
+
+foreign import ccall safe "Rmedia_player_get_state" rmedia_player_get_state :: Rid -> IO RMediaState
+
+-- | Returns: Seconds from the start.
+foreign import ccall safe "Rmedia_player_get_position" rmedia_player_get_position :: Rid -> IO CDouble
+
+-- | Returns: Seconds; 0 while it loads, and for a live stream.
+foreign import ccall safe "Rmedia_player_get_duration" rmedia_player_get_duration :: Rid -> IO CDouble
+
+-- | Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels.
+foreign import ccall safe "Rmedia_player_get_video_size" rmedia_player_get_video_size :: Rid -> Ptr CInt -> Ptr CInt -> IO CInt
+
+foreign import ccall safe "Rmedia_player_has_audio" rmedia_player_has_audio :: Rid -> IO CInt
+
+-- | Returns: Why it cannot be played, "" when all is well.
+foreign import ccall safe "Rmedia_player_get_error" rmedia_player_get_error :: Rid -> IO CString
+
+-- | The loudness, 0 (silent) to 1 (as recorded, the default).
+foreign import ccall safe "Rmedia_player_set_volume" rmedia_player_set_volume :: Rid -> CFloat -> IO ()
+
+foreign import ccall safe "Rmedia_player_get_volume" rmedia_player_get_volume :: Rid -> IO CFloat
+
+foreign import ccall safe "Rmedia_player_set_muted" rmedia_player_set_muted :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rmedia_player_is_muted" rmedia_player_is_muted :: Rid -> IO CInt
+
+-- | R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+foreign import ccall safe "Rmedia_player_set_loop" rmedia_player_set_loop :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rmedia_player_get_loop" rmedia_player_get_loop :: Rid -> IO CInt
+
+-- | The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can).
+foreign import ccall safe "Rmedia_player_set_rate" rmedia_player_set_rate :: Rid -> CFloat -> IO ()
+
+foreign import ccall safe "Rmedia_player_get_rate" rmedia_player_get_rate :: Rid -> IO CFloat
+
+-- | The picture of now, as a texture to draw (Rdraw_image, an
+-- Image): brought up to date by this call, so call it each time you
+-- draw, from the UI thread. The same texture all along, while the size of
+-- the picture stays the same. R_INVALID_ID before the first picture.
+foreign import ccall safe "Rmedia_player_get_texture" rmedia_player_get_texture :: Rid -> IO Rid
+
+-- | Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test).
+foreign import ccall safe "Rmedia_player_get_frame_count" rmedia_player_get_frame_count :: Rid -> IO CInt
+
+-- | Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+foreign import ccall safe "Rmedia_player_set_event_callback" rmedia_player_set_event_callback :: Rid -> RMediaEventCallback -> Ptr () -> IO ()
+
+-- | Plays a sound once, for the interface (a click, a chime), and
+-- forgets it: the player it makes deletes itself at the end, or on an
+-- error. Several play at once.
+-- volume 0 to 1.
+-- Returns: That player, valid until the sound ends (to stop it sooner);
+-- R_INVALID_ID when it cannot be played.
+foreign import ccall safe "Rsound_play" rsound_play :: CString -> CFloat -> IO Rid
+
+-- | Stops every sound of Rsound_play.
+foreign import ccall safe "Rsound_stop_all" rsound_stop_all :: IO ()
+
+-- | VideoView: the picture of a media player, fitted in the widget as an
+-- Image (Rvideo_view_set_stretch), with controls over it when asked:
+-- play / pause, the time, a bar to go anywhere in it, the sound and its
+-- loudness, and full screen when the application handles it. The
+-- keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+-- and forth, Home / End to the start and the end, Up / Down change the
+-- loudness, M turns the sound off and on. A sound without picture shows
+-- its name. Where media cannot be played (Rmedia_is_supported) it shows
+-- why.
+--
+-- The action of the widget (Rwidget_set_action, OnChanged in XML) is
+-- fired each time its state changes.
+foreign import ccall safe "Rvideo_view_create" rvideo_view_create :: IO Rid
+
+-- | Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself).
+foreign import ccall safe "Rvideo_view_get_player" rvideo_view_get_player :: Rid -> IO Rid
+
+-- | Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays.
+foreign import ccall safe "Rvideo_view_load_file" rvideo_view_load_file :: Rid -> CString -> IO CInt
+
+foreign import ccall safe "Rvideo_view_load_url" rvideo_view_load_url :: Rid -> CString -> IO CInt
+
+-- | R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+foreign import ccall safe "Rvideo_view_set_autoplay" rvideo_view_set_autoplay :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rvideo_view_get_autoplay" rvideo_view_get_autoplay :: Rid -> IO CInt
+
+-- | How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it.
+foreign import ccall safe "Rvideo_view_set_stretch" rvideo_view_set_stretch :: Rid -> RStretch -> IO ()
+
+foreign import ccall safe "Rvideo_view_get_stretch" rvideo_view_get_stretch :: Rid -> IO RStretch
+
+-- | R_TRUE shows the controls over the bottom of the picture (XML
+-- Controls): always while it does not play, while the pointer moves
+-- over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+foreign import ccall safe "Rvideo_view_set_controls" rvideo_view_set_controls :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rvideo_view_get_controls" rvideo_view_get_controls :: Rid -> IO CInt
+
+-- | Returns: R_TRUE while the controls are shown (they hide while it plays).
+foreign import ccall safe "Rvideo_view_are_controls_visible" rvideo_view_are_controls_visible :: Rid -> IO CInt
+
+-- | The controls get a full screen button, which calls this with
+-- the state asked for: the application gives the view the room (hides
+-- what is around it, makes its window fill the screen) and the button
+-- shows the way back. NULL removes the button.
+foreign import ccall safe "Rvideo_view_set_fullscreen_callback" rvideo_view_set_fullscreen_callback :: Rid -> RVideoViewFullscreenCallback -> Ptr () -> IO ()
+
+-- | The state the button shows (also set by its clicks).
+foreign import ccall safe "Rvideo_view_set_fullscreen" rvideo_view_set_fullscreen :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rvideo_view_is_fullscreen" rvideo_view_is_fullscreen :: Rid -> IO CInt
+
 foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid
 
 foreign import ccall safe "Rpdf_document_delete" rpdf_document_delete :: Rid -> IO ()
@@ -10115,6 +10323,18 @@ foreign import ccall safe "Rhost_service_complete" rhost_service_complete :: Wor
 foreign import ccall safe "Rtest_set_deterministic" rtest_set_deterministic :: CInt -> IO ()
 
 foreign import ccall safe "Rtest_is_deterministic" rtest_is_deterministic :: IO CInt
+
+-- | Media players (raven_controls.h, VIDEO AND SOUND) made from now
+-- on play a fake clip instead of their file: `duration` seconds of
+-- `width` x `height` pictures, `fps` per second, computed from the time
+-- (the red channel of the top-left pixel is the number of the picture,
+-- modulo 256), with a sound track. It plays on the clock of the
+-- animations, so with Rtest_set_deterministic each frame is 1/60 s of
+-- it. It opens at the first frame after the load; a source whose name
+-- contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+-- .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+-- A duration of 0 or less gives the media of the system back.
+foreign import ccall safe "Rtest_set_fake_media" rtest_set_fake_media :: CDouble -> CInt -> CInt -> CDouble -> IO ()
 
 -- | Returns: What the goldens of this run are made with, "OS-backend":
 -- "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and

@@ -728,6 +728,8 @@ pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 pub const R_WIDGET_SYSTEM_WEB_VIEW: RWidgetType = 0x0237;
 /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pub const R_WIDGET_DIFF_VIEW: RWidgetType = 0x0238;
+/// The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+pub const R_WIDGET_VIDEO_VIEW: RWidgetType = 0x0239;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -987,6 +989,33 @@ pub const R_SYSTEM_WEB_VIEW_LOADING: RSystemWebViewEvent = 0x0B92;
 pub const R_SYSTEM_WEB_VIEW_LOADED: RSystemWebViewEvent = 0x0B93;
 /// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 pub const R_SYSTEM_WEB_VIEW_FAILED: RSystemWebViewEvent = 0x0B94;
+
+/// Where a media player is (Rmedia_player_get_state).
+pub type RMediaState = c_int;
+/// Nothing is loaded.
+pub const R_MEDIA_EMPTY: RMediaState = 0x0CD0;
+/// A file or an address is being opened: its duration and its size are not known yet.
+pub const R_MEDIA_LOADING: RMediaState = 0x0CD1;
+/// Loaded and still: paused, stopped, or loaded without being played.
+pub const R_MEDIA_PAUSED: RMediaState = 0x0CD2;
+pub const R_MEDIA_PLAYING: RMediaState = 0x0CD3;
+/// It played to its end (without Loop); Rmedia_player_play starts it again.
+pub const R_MEDIA_ENDED: RMediaState = 0x0CD4;
+/// It cannot be played (Rmedia_player_get_error).
+pub const R_MEDIA_ERROR: RMediaState = 0x0CD5;
+
+/// What a media player tells (Rmedia_player_set_event_callback).
+pub type RMediaEvent = c_int;
+/// The state changed (Rmedia_player_get_state).
+pub const R_MEDIA_EVENT_STATE: RMediaEvent = 0x0CD8;
+/// It is opened: its duration, the size of its picture and its tracks are known.
+pub const R_MEDIA_EVENT_LOADED: RMediaEvent = 0x0CD9;
+/// The position moved: about four times a second while it plays, and after a seek.
+pub const R_MEDIA_EVENT_TIME: RMediaEvent = 0x0CDA;
+/// It played to its end. With Loop it starts again instead, and this is not sent.
+pub const R_MEDIA_EVENT_ENDED: RMediaEvent = 0x0CDB;
+/// It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+pub const R_MEDIA_EVENT_ERROR: RMediaEvent = 0x0CDC;
 
 /// How the rows of a Table are selected (Rtable_set_selection_mode).
 pub type RTableSelectionMode = c_int;
@@ -1653,6 +1682,8 @@ pub type RSystemWebViewResultCallback = Option<unsafe extern "C" fn(view: Rid, r
 /// Receives what the page sends with `window.raven.postMessage(value)`.
 pub type RSystemWebViewMessageCallback = Option<unsafe extern "C" fn(view: Rid, message: *const c_char, user_data: *mut c_void)>;
 pub type RSystemWebViewEventCallback = Option<unsafe extern "C" fn(view: Rid, event: RSystemWebViewEvent, user_data: *mut c_void)>;
+pub type RMediaEventCallback = Option<unsafe extern "C" fn(player: Rid, event: RMediaEvent, user_data: *mut c_void)>;
+pub type RVideoViewFullscreenCallback = Option<unsafe extern "C" fn(view: Rid, fullscreen: c_int, user_data: *mut c_void)>;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub type RTextEditorZoomCallback = Option<unsafe extern "C" fn(editor: Rid, zoom: f32, user_data: *mut c_void)>;
 /// Called each time the editor gathers its proposals, with the
@@ -4608,6 +4639,111 @@ extern "C" {
     /// The view of the system, to go further than these functions:
     /// a WKWebView* on macOS and iOS. NULL where unsupported.
     pub fn Rsystem_web_view_get_native_handle(view: Rid) -> *mut c_void;
+    /// Returns: R_TRUE when the system can play media here (the framework is there).
+    pub fn Rmedia_is_supported() -> c_int;
+    /// Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+    pub fn Rmedia_get_backend_name() -> *const c_char;
+    /// A player with nothing loaded, for sound or for pictures drawn by the application.
+    pub fn Rmedia_player_create() -> Rid;
+    /// Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it).
+    pub fn Rmedia_player_destroy(player: Rid);
+    /// Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+    pub fn Rmedia_player_is_valid(player: Rid) -> c_int;
+    /// Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+    /// then R_MEDIA_PAUSED). What was loaded before is stopped.
+    /// Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+    pub fn Rmedia_player_load_file(player: Rid, path: *const c_char) -> c_int;
+    /// Opens an address ("https://...", "file:///..."), where the system streams it.
+    pub fn Rmedia_player_load_url(player: Rid, url: *const c_char) -> c_int;
+    /// Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+    pub fn Rmedia_player_close(player: Rid);
+    /// Returns: The file or address loaded, "" when none.
+    pub fn Rmedia_player_get_source(player: Rid) -> *const c_char;
+    /// Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+    pub fn Rmedia_player_play(player: Rid);
+    pub fn Rmedia_player_pause(player: Rid);
+    /// Pauses and goes back to the start.
+    pub fn Rmedia_player_stop(player: Rid);
+    /// Goes to a time, in seconds from the start (playing or paused, it stays so).
+    pub fn Rmedia_player_seek(player: Rid, seconds: f64);
+    pub fn Rmedia_player_get_state(player: Rid) -> RMediaState;
+    /// Returns: Seconds from the start.
+    pub fn Rmedia_player_get_position(player: Rid) -> f64;
+    /// Returns: Seconds; 0 while it loads, and for a live stream.
+    pub fn Rmedia_player_get_duration(player: Rid) -> f64;
+    /// Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels.
+    pub fn Rmedia_player_get_video_size(player: Rid, width: *mut c_int, height: *mut c_int) -> c_int;
+    pub fn Rmedia_player_has_audio(player: Rid) -> c_int;
+    /// Returns: Why it cannot be played, "" when all is well.
+    pub fn Rmedia_player_get_error(player: Rid) -> *const c_char;
+    /// The loudness, 0 (silent) to 1 (as recorded, the default).
+    pub fn Rmedia_player_set_volume(player: Rid, volume: f32);
+    pub fn Rmedia_player_get_volume(player: Rid) -> f32;
+    pub fn Rmedia_player_set_muted(player: Rid, muted: c_int);
+    pub fn Rmedia_player_is_muted(player: Rid) -> c_int;
+    /// R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+    pub fn Rmedia_player_set_loop(player: Rid, loop_: c_int);
+    pub fn Rmedia_player_get_loop(player: Rid) -> c_int;
+    /// The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can).
+    pub fn Rmedia_player_set_rate(player: Rid, rate: f32);
+    pub fn Rmedia_player_get_rate(player: Rid) -> f32;
+    /// The picture of now, as a texture to draw (Rdraw_image, an
+    /// Image): brought up to date by this call, so call it each time you
+    /// draw, from the UI thread. The same texture all along, while the size of
+    /// the picture stays the same. R_INVALID_ID before the first picture.
+    pub fn Rmedia_player_get_texture(player: Rid) -> Rid;
+    /// Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test).
+    pub fn Rmedia_player_get_frame_count(player: Rid) -> c_int;
+    /// Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+    pub fn Rmedia_player_set_event_callback(player: Rid, callback: RMediaEventCallback, user_data: *mut c_void);
+    /// Plays a sound once, for the interface (a click, a chime), and
+    /// forgets it: the player it makes deletes itself at the end, or on an
+    /// error. Several play at once.
+    /// volume 0 to 1.
+    /// Returns: That player, valid until the sound ends (to stop it sooner);
+    /// R_INVALID_ID when it cannot be played.
+    pub fn Rsound_play(path: *const c_char, volume: f32) -> Rid;
+    /// Stops every sound of Rsound_play.
+    pub fn Rsound_stop_all();
+    /// VideoView: the picture of a media player, fitted in the widget as an
+    /// Image (Rvideo_view_set_stretch), with controls over it when asked:
+    /// play / pause, the time, a bar to go anywhere in it, the sound and its
+    /// loudness, and full screen when the application handles it. The
+    /// keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+    /// and forth, Home / End to the start and the end, Up / Down change the
+    /// loudness, M turns the sound off and on. A sound without picture shows
+    /// its name. Where media cannot be played (Rmedia_is_supported) it shows
+    /// why.
+    ///
+    /// The action of the widget (Rwidget_set_action, OnChanged in XML) is
+    /// fired each time its state changes.
+    pub fn Rvideo_view_create() -> Rid;
+    /// Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself).
+    pub fn Rvideo_view_get_player(view: Rid) -> Rid;
+    /// Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays.
+    pub fn Rvideo_view_load_file(view: Rid, path: *const c_char) -> c_int;
+    pub fn Rvideo_view_load_url(view: Rid, url: *const c_char) -> c_int;
+    /// R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+    pub fn Rvideo_view_set_autoplay(view: Rid, autoplay: c_int);
+    pub fn Rvideo_view_get_autoplay(view: Rid) -> c_int;
+    /// How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it.
+    pub fn Rvideo_view_set_stretch(view: Rid, stretch: RStretch);
+    pub fn Rvideo_view_get_stretch(view: Rid) -> RStretch;
+    /// R_TRUE shows the controls over the bottom of the picture (XML
+    /// Controls): always while it does not play, while the pointer moves
+    /// over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+    pub fn Rvideo_view_set_controls(view: Rid, shown: c_int);
+    pub fn Rvideo_view_get_controls(view: Rid) -> c_int;
+    /// Returns: R_TRUE while the controls are shown (they hide while it plays).
+    pub fn Rvideo_view_are_controls_visible(view: Rid) -> c_int;
+    /// The controls get a full screen button, which calls this with
+    /// the state asked for: the application gives the view the room (hides
+    /// what is around it, makes its window fill the screen) and the button
+    /// shows the way back. NULL removes the button.
+    pub fn Rvideo_view_set_fullscreen_callback(view: Rid, callback: RVideoViewFullscreenCallback, user_data: *mut c_void);
+    /// The state the button shows (also set by its clicks).
+    pub fn Rvideo_view_set_fullscreen(view: Rid, fullscreen: c_int);
+    pub fn Rvideo_view_is_fullscreen(view: Rid) -> c_int;
     pub fn Rpdf_document_create() -> Rid;
     pub fn Rpdf_document_delete(document: Rid);
     /// The information of the document, shown by readers (the title in their window).
@@ -6201,6 +6337,17 @@ extern "C" {
     /// gives the clock back (time step 0).
     pub fn Rtest_set_deterministic(enabled: c_int);
     pub fn Rtest_is_deterministic() -> c_int;
+    /// Media players (raven_controls.h, VIDEO AND SOUND) made from now
+    /// on play a fake clip instead of their file: `duration` seconds of
+    /// `width` x `height` pictures, `fps` per second, computed from the time
+    /// (the red channel of the top-left pixel is the number of the picture,
+    /// modulo 256), with a sound track. It plays on the clock of the
+    /// animations, so with Rtest_set_deterministic each frame is 1/60 s of
+    /// it. It opens at the first frame after the load; a source whose name
+    /// contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+    /// .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+    /// A duration of 0 or less gives the media of the system back.
+    pub fn Rtest_set_fake_media(duration: f64, width: c_int, height: c_int, fps: f64);
     /// Returns: What the goldens of this run are made with, "OS-backend":
     /// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
     /// "null" with the null backend.

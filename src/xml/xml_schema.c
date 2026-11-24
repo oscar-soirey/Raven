@@ -448,6 +448,18 @@ static const rvn_schema_attribute_t g_system_web_view[] = {
 	T("BaseUrl", "Where the relative addresses of Html are looked for."),
 	A("OnChanged", "Action fired when the view shows another address."),
 };
+static const rvn_schema_attribute_t g_video_view[] = {
+	F("Source", "A video or sound file, found next to the document."),
+	T("Url", "An address the system streams (\"https://...\")."),
+	B("AutoPlay", "Plays as soon as it is loaded."),
+	B("Loop", "Starts again at the end."),
+	B("Muted", "Without sound."),
+	N("Volume", "Loudness, 0 to 1 (default 1)."),
+	N("Rate", "Speed: 1 normal, 0.5 half, 2 twice."),
+	B("Controls", "Play / pause, the time, a bar to go anywhere, the sound, over the bottom of the picture."),
+	C("Stretch", STRETCH, "How the picture fills its place (Fit by default)."),
+	A("OnChanged", "Action fired when it starts or stops playing, ends, or fails."),
+};
 static const rvn_schema_attribute_t g_viewport[] = {
 	C("Stretch", STRETCH, "How the picture fills its place."),
 	B("FlipY", "Turns the picture upside down (some renderers draw that way)."),
@@ -642,6 +654,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("MenuItem", g_menu_item, "An item of a menu."),
 	TAG("Viewport", g_viewport, "A place the application draws in with its own renderer."),
 	TAG("SystemWebView", g_system_web_view, "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message."),
+	TAG("VideoView", g_video_view, "A video (or a sound) played by the media framework of the system, with controls; elsewhere a message."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
 	TAG("DiffView", g_diff_view, "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked."),

@@ -6,9 +6,13 @@
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
 #   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
-#   test_icons, test_spell, test_headless, test_web_input
+#   test_icons, test_spell, test_headless, test_web_input, test_video_view
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
+#   test_media_system
+#       plays the clips of examples/media_player/media with the media framework
+#       of the system (AVFoundation, Media Foundation, GStreamer), headless;
+#       skipped where there is none, or where it cannot decode H.264.
 #   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
 #   headless_cli_quit, headless_cli_snap
 #       headless_app.c, an ordinary application, driven from outside by the
@@ -142,6 +146,13 @@ raven_add_test(test_carousel)
 raven_add_test(test_transfer)
 # SystemWebView where the system has no web view (headless): the widget, its API, its XML, its message
 raven_add_test(test_system_web_view)
+# media players and VideoView on the fake media of the tests (Rtest_set_fake_media)
+raven_add_test(test_video_view)
+# real files played by the framework of the system (AVFoundation, Media Foundation, GStreamer);
+# skipped where there is none
+raven_add_test(test_media_system)
+target_compile_definitions(test_media_system PRIVATE "RAVEN_TEST_MEDIA=\"${PROJECT_SOURCE_DIR}/examples/media_player/media\"")
+set_tests_properties(test_media_system PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 raven_add_test(test_animated_images)
 target_sources(test_animated_images PRIVATE anim_foreign_gif.h anim_foreign_expected.h)
 raven_add_test(test_diff_view)

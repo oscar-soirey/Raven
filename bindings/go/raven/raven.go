@@ -711,6 +711,7 @@ const (
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
 	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
 	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0238
+	R_WIDGET_VIDEO_VIEW      RWidgetType = 0x0239
 )
 
 type RHAlign int32
@@ -979,6 +980,29 @@ const (
 	R_SYSTEM_WEB_VIEW_LOADING   RSystemWebViewEvent = 0x0B92
 	R_SYSTEM_WEB_VIEW_LOADED    RSystemWebViewEvent = 0x0B93
 	R_SYSTEM_WEB_VIEW_FAILED    RSystemWebViewEvent = 0x0B94
+)
+
+// RMediaState: Where a media player is (Rmedia_player_get_state).
+type RMediaState int32
+
+const (
+	R_MEDIA_EMPTY   RMediaState = 0x0CD0
+	R_MEDIA_LOADING RMediaState = 0x0CD1
+	R_MEDIA_PAUSED  RMediaState = 0x0CD2
+	R_MEDIA_PLAYING RMediaState = 0x0CD3
+	R_MEDIA_ENDED   RMediaState = 0x0CD4
+	R_MEDIA_ERROR   RMediaState = 0x0CD5
+)
+
+// RMediaEvent: What a media player tells (Rmedia_player_set_event_callback).
+type RMediaEvent int32
+
+const (
+	R_MEDIA_EVENT_STATE  RMediaEvent = 0x0CD8
+	R_MEDIA_EVENT_LOADED RMediaEvent = 0x0CD9
+	R_MEDIA_EVENT_TIME   RMediaEvent = 0x0CDA
+	R_MEDIA_EVENT_ENDED  RMediaEvent = 0x0CDB
+	R_MEDIA_EVENT_ERROR  RMediaEvent = 0x0CDC
 )
 
 // RTableSelectionMode: How the rows of a Table are selected (Rtable_set_selection_mode).
@@ -5916,6 +5940,250 @@ func SystemWebViewGetError(view ID) string {
 	return C.GoString(C.Rsystem_web_view_get_error(C.Rid(view)))
 }
 
+// MediaIsSupported: Returns: R_TRUE when the system can play media here (the framework is there).
+func MediaIsSupported() int {
+	return int(C.Rmedia_is_supported())
+}
+
+// MediaGetBackendName: Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; ""
+// where none.
+func MediaGetBackendName() string {
+	return C.GoString(C.Rmedia_get_backend_name())
+}
+
+// MediaPlayerCreate: A player with nothing loaded, for sound or for pictures drawn by the application.
+func MediaPlayerCreate() ID {
+	return ID(C.Rmedia_player_create())
+}
+
+// MediaPlayerDestroy: Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes
+// with it).
+func MediaPlayerDestroy(player ID) {
+	C.Rmedia_player_destroy(C.Rid(player))
+}
+
+// MediaPlayerIsValid: Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+func MediaPlayerIsValid(player ID) int {
+	return int(C.Rmedia_player_is_valid(C.Rid(player)))
+}
+
+// MediaPlayerLoadFile: Opens a file; it is then paused at its start (R_MEDIA_LOADING, then R_MEDIA_PAUSED).
+// What was loaded before is stopped. Returns: R_FALSE when it cannot even be opened (the state is then
+// R_MEDIA_ERROR).
+func MediaPlayerLoadFile(player ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rmedia_player_load_file(C.Rid(player), path_))
+}
+
+// MediaPlayerLoadUrl: Opens an address ("https://...", "file:///..."), where the system streams it.
+func MediaPlayerLoadUrl(player ID, url string) int {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	return int(C.Rmedia_player_load_url(C.Rid(player), url_))
+}
+
+// MediaPlayerClose: Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+func MediaPlayerClose(player ID) {
+	C.Rmedia_player_close(C.Rid(player))
+}
+
+// MediaPlayerGetSource: Returns: The file or address loaded, "" when none.
+func MediaPlayerGetSource(player ID) string {
+	return C.GoString(C.Rmedia_player_get_source(C.Rid(player)))
+}
+
+// MediaPlayerPlay: Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+func MediaPlayerPlay(player ID) {
+	C.Rmedia_player_play(C.Rid(player))
+}
+
+func MediaPlayerPause(player ID) {
+	C.Rmedia_player_pause(C.Rid(player))
+}
+
+// MediaPlayerStop: Pauses and goes back to the start.
+func MediaPlayerStop(player ID) {
+	C.Rmedia_player_stop(C.Rid(player))
+}
+
+// MediaPlayerSeek: Goes to a time, in seconds from the start (playing or paused, it stays so).
+func MediaPlayerSeek(player ID, seconds float64) {
+	C.Rmedia_player_seek(C.Rid(player), C.double(seconds))
+}
+
+func MediaPlayerGetState(player ID) RMediaState {
+	return RMediaState(C.Rmedia_player_get_state(C.Rid(player)))
+}
+
+// MediaPlayerGetPosition: Returns: Seconds from the start.
+func MediaPlayerGetPosition(player ID) float64 {
+	return float64(C.Rmedia_player_get_position(C.Rid(player)))
+}
+
+// MediaPlayerGetDuration: Returns: Seconds; 0 while it loads, and for a live stream.
+func MediaPlayerGetDuration(player ID) float64 {
+	return float64(C.Rmedia_player_get_duration(C.Rid(player)))
+}
+
+// MediaPlayerGetVideoSize: Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive
+// its size in pixels.
+func MediaPlayerGetVideoSize(player ID) (result int, width int, height int) {
+	var width_ C.int
+	var height_ C.int
+	result = int(C.Rmedia_player_get_video_size(C.Rid(player), &width_, &height_))
+	width = int(width_)
+	height = int(height_)
+	return
+}
+
+func MediaPlayerHasAudio(player ID) int {
+	return int(C.Rmedia_player_has_audio(C.Rid(player)))
+}
+
+// MediaPlayerGetError: Returns: Why it cannot be played, "" when all is well.
+func MediaPlayerGetError(player ID) string {
+	return C.GoString(C.Rmedia_player_get_error(C.Rid(player)))
+}
+
+// MediaPlayerSetVolume: The loudness, 0 (silent) to 1 (as recorded, the default).
+func MediaPlayerSetVolume(player ID, volume float32) {
+	C.Rmedia_player_set_volume(C.Rid(player), C.float(volume))
+}
+
+func MediaPlayerGetVolume(player ID) float32 {
+	return float32(C.Rmedia_player_get_volume(C.Rid(player)))
+}
+
+func MediaPlayerSetMuted(player ID, muted int) {
+	C.Rmedia_player_set_muted(C.Rid(player), C.int(muted))
+}
+
+func MediaPlayerIsMuted(player ID) int {
+	return int(C.Rmedia_player_is_muted(C.Rid(player)))
+}
+
+// MediaPlayerSetLoop: R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+func MediaPlayerSetLoop(player ID, loop int) {
+	C.Rmedia_player_set_loop(C.Rid(player), C.int(loop))
+}
+
+func MediaPlayerGetLoop(player ID) int {
+	return int(C.Rmedia_player_get_loop(C.Rid(player)))
+}
+
+// MediaPlayerSetRate: The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system
+// can).
+func MediaPlayerSetRate(player ID, rate float32) {
+	C.Rmedia_player_set_rate(C.Rid(player), C.float(rate))
+}
+
+func MediaPlayerGetRate(player ID) float32 {
+	return float32(C.Rmedia_player_get_rate(C.Rid(player)))
+}
+
+// MediaPlayerGetTexture: The picture of now, as a texture to draw (Rdraw_image, an Image): brought up to date
+// by this call, so call it each time you draw, from the UI thread. The same texture all along, while the size
+// of the picture stays the same. R_INVALID_ID before the first picture.
+func MediaPlayerGetTexture(player ID) ID {
+	return ID(C.Rmedia_player_get_texture(C.Rid(player)))
+}
+
+// MediaPlayerGetFrameCount: Returns: The pictures taken from the stream since it was loaded (a measure of the
+// frame rate, a test).
+func MediaPlayerGetFrameCount(player ID) int {
+	return int(C.Rmedia_player_get_frame_count(C.Rid(player)))
+}
+
+// SoundPlay: Plays a sound once, for the interface (a click, a chime), and forgets it: the player it makes
+// deletes itself at the end, or on an error. Several play at once. volume 0 to 1. Returns: That player, valid
+// until the sound ends (to stop it sooner); R_INVALID_ID when it cannot be played.
+func SoundPlay(path string, volume float32) ID {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return ID(C.Rsound_play(path_, C.float(volume)))
+}
+
+// SoundStopAll: Stops every sound of Rsound_play.
+func SoundStopAll() {
+	C.Rsound_stop_all()
+}
+
+// VideoViewCreate: VideoView: the picture of a media player, fitted in the widget as an Image
+// (Rvideo_view_set_stretch), with controls over it when asked: play / pause, the time, a bar to go anywhere
+// in it, the sound and its loudness, and full screen when the application handles it. The keyboard: Space or
+// K plays and pauses, Left / Right go 5 seconds back and forth, Home / End to the start and the end, Up /
+// Down change the loudness, M turns the sound off and on. A sound without picture shows its name. Where media
+// cannot be played (Rmedia_is_supported) it shows why. The action of the widget (Rwidget_set_action,
+// OnChanged in XML) is fired each time its state changes.
+func VideoViewCreate() ID {
+	return ID(C.Rvideo_view_create())
+}
+
+// VideoViewGetPlayer: Returns: Its player, for every Rmedia_player_* function (they also take the VideoView
+// itself).
+func VideoViewGetPlayer(view ID) ID {
+	return ID(C.Rvideo_view_get_player(C.Rid(view)))
+}
+
+// VideoViewLoadFile: Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it
+// plays.
+func VideoViewLoadFile(view ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rvideo_view_load_file(C.Rid(view), path_))
+}
+
+func VideoViewLoadUrl(view ID, url string) int {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	return int(C.Rvideo_view_load_url(C.Rid(view), url_))
+}
+
+// VideoViewSetAutoplay: R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+func VideoViewSetAutoplay(view ID, autoplay int) {
+	C.Rvideo_view_set_autoplay(C.Rid(view), C.int(autoplay))
+}
+
+func VideoViewGetAutoplay(view ID) int {
+	return int(C.Rvideo_view_get_autoplay(C.Rid(view)))
+}
+
+// VideoViewSetStretch: How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all
+// of it.
+func VideoViewSetStretch(view ID, stretch RStretch) {
+	C.Rvideo_view_set_stretch(C.Rid(view), C.RStretch(stretch))
+}
+
+func VideoViewGetStretch(view ID) RStretch {
+	return RStretch(C.Rvideo_view_get_stretch(C.Rid(view)))
+}
+
+// VideoViewSetControls: R_TRUE shows the controls over the bottom of the picture (XML Controls): always while
+// it does not play, while the pointer moves over it or the keyboard uses them; they hide 3 seconds after.
+// Default R_FALSE.
+func VideoViewSetControls(view ID, shown int) {
+	C.Rvideo_view_set_controls(C.Rid(view), C.int(shown))
+}
+
+func VideoViewGetControls(view ID) int {
+	return int(C.Rvideo_view_get_controls(C.Rid(view)))
+}
+
+// VideoViewAreControlsVisible: Returns: R_TRUE while the controls are shown (they hide while it plays).
+func VideoViewAreControlsVisible(view ID) int {
+	return int(C.Rvideo_view_are_controls_visible(C.Rid(view)))
+}
+
+// VideoViewSetFullscreen: The state the button shows (also set by its clicks).
+func VideoViewSetFullscreen(view ID, fullscreen int) {
+	C.Rvideo_view_set_fullscreen(C.Rid(view), C.int(fullscreen))
+}
+
+func VideoViewIsFullscreen(view ID) int {
+	return int(C.Rvideo_view_is_fullscreen(C.Rid(view)))
+}
+
 func PdfDocumentCreate() ID {
 	return ID(C.Rpdf_document_create())
 }
@@ -9357,6 +9625,17 @@ func TestIsDeterministic() int {
 	return int(C.Rtest_is_deterministic())
 }
 
+// TestSetFakeMedia: Media players (raven_controls.h, VIDEO AND SOUND) made from now on play a fake clip
+// instead of their file: `duration` seconds of `width` x `height` pictures, `fps` per second, computed from
+// the time (the red channel of the top-left pixel is the number of the picture, modulo 256), with a sound
+// track. It plays on the clock of the animations, so with Rtest_set_deterministic each frame is 1/60 s of it.
+// It opens at the first frame after the load; a source whose name contains "invalid" fails then, one that
+// ends in .wav, .mp3, .m4a, .aac, .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE. A
+// duration of 0 or less gives the media of the system back.
+func TestSetFakeMedia(duration float64, width int, height int, fps float64) {
+	C.Rtest_set_fake_media(C.double(duration), C.int(width), C.int(height), C.double(fps))
+}
+
 // TestGetPlatformTag: Returns: What the goldens of this run are made with, "OS-backend": "macos-metal",
 // "linux-vulkan", "windows-vulkan", "web-webgl"... and "null" with the null backend.
 func TestGetPlatformTag() string {
@@ -9569,31 +9848,32 @@ func TestGetScriptError() string {
 // Rpdf_view_print, Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
 // Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback
 // Rsystem_web_view_run_javascript, Rsystem_web_view_set_message_callback
-// Rsystem_web_view_set_event_callback, Rsystem_web_view_get_native_handle, Rpdf_document_draw_image
-// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
-// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_float_window, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdiff_unified
-// Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc
-// Rnotification_set_callback, Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async
-// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line
-// Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
+// Rsystem_web_view_set_event_callback, Rsystem_web_view_get_native_handle, Rmedia_player_set_event_callback
+// Rvideo_view_set_fullscreen_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
+// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
+// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
+// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdiff_unified, Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open
+// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
+// Rnotification_set_clicked_callback, Rnotification_show_desc, Rnotification_set_callback
+// Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async, Rfile_select_folder_async
+// Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
+// Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image
+// Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
+// Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
+// Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
 // Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
 // Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rhost_service_complete

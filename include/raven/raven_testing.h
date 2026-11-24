@@ -108,6 +108,19 @@ extern "C" {
 	 */
 	RAVEN_API void Rtest_set_deterministic(int enabled);
 	RAVEN_API int Rtest_is_deterministic(void);
+	/**
+	 * @brief Media players (raven_controls.h, VIDEO AND SOUND) made from now
+	 * on play a fake clip instead of their file: `duration` seconds of
+	 * `width` x `height` pictures, `fps` per second, computed from the time
+	 * (the red channel of the top-left pixel is the number of the picture,
+	 * modulo 256), with a sound track. It plays on the clock of the
+	 * animations, so with Rtest_set_deterministic each frame is 1/60 s of
+	 * it. It opens at the first frame after the load; a source whose name
+	 * contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+	 * .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+	 * A duration of 0 or less gives the media of the system back.
+	 */
+	RAVEN_API void Rtest_set_fake_media(double duration, int width, int height, double fps);
 
 	/**
 	 * @return What the goldens of this run are made with, "OS-backend":

@@ -493,6 +493,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CAROUSEL = 566,
 	R_WIDGET_SYSTEM_WEB_VIEW = 567,
 	R_WIDGET_DIFF_VIEW = 568,
+	R_WIDGET_VIDEO_VIEW = 569,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -661,6 +662,21 @@ typedef enum RSystemWebViewEvent {
 	R_SYSTEM_WEB_VIEW_LOADED = 2963,
 	R_SYSTEM_WEB_VIEW_FAILED = 2964,
 } RSystemWebViewEvent;
+typedef enum RMediaState {
+	R_MEDIA_EMPTY = 3280,
+	R_MEDIA_LOADING = 3281,
+	R_MEDIA_PAUSED = 3282,
+	R_MEDIA_PLAYING = 3283,
+	R_MEDIA_ENDED = 3284,
+	R_MEDIA_ERROR = 3285,
+} RMediaState;
+typedef enum RMediaEvent {
+	R_MEDIA_EVENT_STATE = 3288,
+	R_MEDIA_EVENT_LOADED = 3289,
+	R_MEDIA_EVENT_TIME = 3290,
+	R_MEDIA_EVENT_ENDED = 3291,
+	R_MEDIA_EVENT_ERROR = 3292,
+} RMediaEvent;
 typedef enum RTableSelectionMode {
 	R_TABLE_SELECTION_SINGLE = 3008,
 	R_TABLE_SELECTION_MULTIPLE = 3009,
@@ -1064,6 +1080,8 @@ typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, dou
 typedef void (*RSystemWebViewResultCallback)(Rid view, const char* result, const char* error, void* user_data);
 typedef void (*RSystemWebViewMessageCallback)(Rid view, const char* message, void* user_data);
 typedef void (*RSystemWebViewEventCallback)(Rid view, RSystemWebViewEvent event, void* user_data);
+typedef void (*RMediaEventCallback)(Rid player, RMediaEvent event, void* user_data);
+typedef void (*RVideoViewFullscreenCallback)(Rid view, int fullscreen, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -2378,6 +2396,52 @@ void Rsystem_web_view_run_javascript(Rid view, const char* script, RSystemWebVie
 void Rsystem_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallback callback, void* user_data);
 void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
 void* Rsystem_web_view_get_native_handle(Rid view);
+int Rmedia_is_supported(void);
+const char* Rmedia_get_backend_name(void);
+Rid Rmedia_player_create(void);
+void Rmedia_player_destroy(Rid player);
+int Rmedia_player_is_valid(Rid player);
+int Rmedia_player_load_file(Rid player, const char* path);
+int Rmedia_player_load_url(Rid player, const char* url);
+void Rmedia_player_close(Rid player);
+const char* Rmedia_player_get_source(Rid player);
+void Rmedia_player_play(Rid player);
+void Rmedia_player_pause(Rid player);
+void Rmedia_player_stop(Rid player);
+void Rmedia_player_seek(Rid player, double seconds);
+RMediaState Rmedia_player_get_state(Rid player);
+double Rmedia_player_get_position(Rid player);
+double Rmedia_player_get_duration(Rid player);
+int Rmedia_player_get_video_size(Rid player, int* width, int* height);
+int Rmedia_player_has_audio(Rid player);
+const char* Rmedia_player_get_error(Rid player);
+void Rmedia_player_set_volume(Rid player, float volume);
+float Rmedia_player_get_volume(Rid player);
+void Rmedia_player_set_muted(Rid player, int muted);
+int Rmedia_player_is_muted(Rid player);
+void Rmedia_player_set_loop(Rid player, int loop);
+int Rmedia_player_get_loop(Rid player);
+void Rmedia_player_set_rate(Rid player, float rate);
+float Rmedia_player_get_rate(Rid player);
+Rid Rmedia_player_get_texture(Rid player);
+int Rmedia_player_get_frame_count(Rid player);
+void Rmedia_player_set_event_callback(Rid player, RMediaEventCallback callback, void* user_data);
+Rid Rsound_play(const char* path, float volume);
+void Rsound_stop_all(void);
+Rid Rvideo_view_create(void);
+Rid Rvideo_view_get_player(Rid view);
+int Rvideo_view_load_file(Rid view, const char* path);
+int Rvideo_view_load_url(Rid view, const char* url);
+void Rvideo_view_set_autoplay(Rid view, int autoplay);
+int Rvideo_view_get_autoplay(Rid view);
+void Rvideo_view_set_stretch(Rid view, RStretch stretch);
+RStretch Rvideo_view_get_stretch(Rid view);
+void Rvideo_view_set_controls(Rid view, int shown);
+int Rvideo_view_get_controls(Rid view);
+int Rvideo_view_are_controls_visible(Rid view);
+void Rvideo_view_set_fullscreen_callback(Rid view, RVideoViewFullscreenCallback callback, void* user_data);
+void Rvideo_view_set_fullscreen(Rid view, int fullscreen);
+int Rvideo_view_is_fullscreen(Rid view);
 Rid Rpdf_document_create(void);
 void Rpdf_document_delete(Rid document);
 void Rpdf_document_set_title(Rid document, const char* title);
@@ -3038,6 +3102,7 @@ void Rhost_permission_answer(RPermission permission, RPermissionStatus status);
 void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count);
 void Rtest_set_deterministic(int enabled);
 int Rtest_is_deterministic(void);
+void Rtest_set_fake_media(double duration, int width, int height, double fps);
 const char* Rtest_get_platform_tag(void);
 Rid Rtest_find(Rid scope, const char* path);
 int Rtest_click(Rid widget);

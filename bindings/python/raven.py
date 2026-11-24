@@ -998,6 +998,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CAROUSEL = 0x0236
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
     R_WIDGET_DIFF_VIEW = 0x0238
+    R_WIDGET_VIDEO_VIEW = 0x0239
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1056,6 +1057,7 @@ R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
 R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
+R_WIDGET_VIDEO_VIEW = RWidgetType.R_WIDGET_VIDEO_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1383,6 +1385,36 @@ R_SYSTEM_WEB_VIEW_TITLE = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_TITLE
 R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADING
 R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED
 R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED
+
+class RMediaState(enum.IntEnum):
+    """Where a media player is (Rmedia_player_get_state)."""
+    R_MEDIA_EMPTY = 0x0CD0
+    R_MEDIA_LOADING = 0x0CD1
+    R_MEDIA_PAUSED = 0x0CD2
+    R_MEDIA_PLAYING = 0x0CD3
+    R_MEDIA_ENDED = 0x0CD4
+    R_MEDIA_ERROR = 0x0CD5
+
+R_MEDIA_EMPTY = RMediaState.R_MEDIA_EMPTY
+R_MEDIA_LOADING = RMediaState.R_MEDIA_LOADING
+R_MEDIA_PAUSED = RMediaState.R_MEDIA_PAUSED
+R_MEDIA_PLAYING = RMediaState.R_MEDIA_PLAYING
+R_MEDIA_ENDED = RMediaState.R_MEDIA_ENDED
+R_MEDIA_ERROR = RMediaState.R_MEDIA_ERROR
+
+class RMediaEvent(enum.IntEnum):
+    """What a media player tells (Rmedia_player_set_event_callback)."""
+    R_MEDIA_EVENT_STATE = 0x0CD8
+    R_MEDIA_EVENT_LOADED = 0x0CD9
+    R_MEDIA_EVENT_TIME = 0x0CDA
+    R_MEDIA_EVENT_ENDED = 0x0CDB
+    R_MEDIA_EVENT_ERROR = 0x0CDC
+
+R_MEDIA_EVENT_STATE = RMediaEvent.R_MEDIA_EVENT_STATE
+R_MEDIA_EVENT_LOADED = RMediaEvent.R_MEDIA_EVENT_LOADED
+R_MEDIA_EVENT_TIME = RMediaEvent.R_MEDIA_EVENT_TIME
+R_MEDIA_EVENT_ENDED = RMediaEvent.R_MEDIA_EVENT_ENDED
+R_MEDIA_EVENT_ERROR = RMediaEvent.R_MEDIA_EVENT_ERROR
 
 class RTableSelectionMode(enum.IntEnum):
     """How the rows of a Table are selected (Rtable_set_selection_mode)."""
@@ -3050,6 +3082,22 @@ RSystemWebViewEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_i
 def _adapt_RSystemWebViewEventCallback(function):
     def call(view, event, user_data):
         function(view, _e(RSystemWebViewEvent, event), user_data)
+    return call
+
+RMediaEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RMediaEventCallback(function):
+    def call(player, event, user_data):
+        function(player, _e(RMediaEvent, event), user_data)
+    return call
+
+RVideoViewFullscreenCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RVideoViewFullscreenCallback(function):
+    def call(view, fullscreen, user_data):
+        function(view, fullscreen, user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -11998,6 +12046,436 @@ def Rsystem_web_view_get_native_handle(view):
     return _lib.Rsystem_web_view_get_native_handle(view)
 
 
+_lib.Rmedia_is_supported.argtypes = []
+_lib.Rmedia_is_supported.restype = ctypes.c_int
+
+
+def Rmedia_is_supported():
+    """Returns: R_TRUE when the system can play media here (the framework is there)."""
+    return _lib.Rmedia_is_supported()
+
+
+_lib.Rmedia_get_backend_name.argtypes = []
+_lib.Rmedia_get_backend_name.restype = ctypes.c_char_p
+
+
+def Rmedia_get_backend_name():
+    """Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none."""
+    return _r(_lib.Rmedia_get_backend_name())
+
+
+_lib.Rmedia_player_create.argtypes = []
+_lib.Rmedia_player_create.restype = ctypes.c_uint32
+
+
+def Rmedia_player_create():
+    """A player with nothing loaded, for sound or for pictures drawn by the application."""
+    return _lib.Rmedia_player_create()
+
+
+_lib.Rmedia_player_destroy.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_destroy.restype = None
+
+
+def Rmedia_player_destroy(player):
+    """Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it)."""
+    _lib.Rmedia_player_destroy(player)
+
+
+_lib.Rmedia_player_is_valid.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_is_valid.restype = ctypes.c_int
+
+
+def Rmedia_player_is_valid(player):
+    """Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended)."""
+    return _lib.Rmedia_player_is_valid(player)
+
+
+_lib.Rmedia_player_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmedia_player_load_file.restype = ctypes.c_int
+
+
+def Rmedia_player_load_file(player, path):
+    """Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+    then R_MEDIA_PAUSED). What was loaded before is stopped.
+    Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR)."""
+    return _lib.Rmedia_player_load_file(player, _s(path))
+
+
+_lib.Rmedia_player_load_url.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmedia_player_load_url.restype = ctypes.c_int
+
+
+def Rmedia_player_load_url(player, url):
+    """Opens an address ("https://...", "file:///..."), where the system streams it."""
+    return _lib.Rmedia_player_load_url(player, _s(url))
+
+
+_lib.Rmedia_player_close.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_close.restype = None
+
+
+def Rmedia_player_close(player):
+    """Stops and lets go of what is loaded (R_MEDIA_EMPTY)."""
+    _lib.Rmedia_player_close(player)
+
+
+_lib.Rmedia_player_get_source.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_source.restype = ctypes.c_char_p
+
+
+def Rmedia_player_get_source(player):
+    """Returns: The file or address loaded, "" when none."""
+    return _r(_lib.Rmedia_player_get_source(player))
+
+
+_lib.Rmedia_player_play.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_play.restype = None
+
+
+def Rmedia_player_play(player):
+    """Plays. While it loads, it plays as soon as it can; at its end, it starts again."""
+    _lib.Rmedia_player_play(player)
+
+
+_lib.Rmedia_player_pause.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_pause.restype = None
+
+
+def Rmedia_player_pause(player):
+    _lib.Rmedia_player_pause(player)
+
+
+_lib.Rmedia_player_stop.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_stop.restype = None
+
+
+def Rmedia_player_stop(player):
+    """Pauses and goes back to the start."""
+    _lib.Rmedia_player_stop(player)
+
+
+_lib.Rmedia_player_seek.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rmedia_player_seek.restype = None
+
+
+def Rmedia_player_seek(player, seconds):
+    """Goes to a time, in seconds from the start (playing or paused, it stays so)."""
+    _lib.Rmedia_player_seek(player, seconds)
+
+
+_lib.Rmedia_player_get_state.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_state.restype = ctypes.c_int
+
+
+def Rmedia_player_get_state(player):
+    return _e(RMediaState, _lib.Rmedia_player_get_state(player))
+
+
+_lib.Rmedia_player_get_position.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_position.restype = ctypes.c_double
+
+
+def Rmedia_player_get_position(player):
+    """Returns: Seconds from the start."""
+    return _lib.Rmedia_player_get_position(player)
+
+
+_lib.Rmedia_player_get_duration.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_duration.restype = ctypes.c_double
+
+
+def Rmedia_player_get_duration(player):
+    """Returns: Seconds; 0 while it loads, and for a live stream."""
+    return _lib.Rmedia_player_get_duration(player)
+
+
+_lib.Rmedia_player_get_video_size.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rmedia_player_get_video_size.restype = ctypes.c_int
+
+
+def Rmedia_player_get_video_size(player):
+    """Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels."""
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    result = _lib.Rmedia_player_get_video_size(player, ctypes.byref(width_), ctypes.byref(height_))
+    return (result, width_.value, height_.value)
+
+
+_lib.Rmedia_player_has_audio.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_has_audio.restype = ctypes.c_int
+
+
+def Rmedia_player_has_audio(player):
+    return _lib.Rmedia_player_has_audio(player)
+
+
+_lib.Rmedia_player_get_error.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_error.restype = ctypes.c_char_p
+
+
+def Rmedia_player_get_error(player):
+    """Returns: Why it cannot be played, "" when all is well."""
+    return _r(_lib.Rmedia_player_get_error(player))
+
+
+_lib.Rmedia_player_set_volume.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rmedia_player_set_volume.restype = None
+
+
+def Rmedia_player_set_volume(player, volume):
+    """The loudness, 0 (silent) to 1 (as recorded, the default)."""
+    _lib.Rmedia_player_set_volume(player, volume)
+
+
+_lib.Rmedia_player_get_volume.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_volume.restype = ctypes.c_float
+
+
+def Rmedia_player_get_volume(player):
+    return _lib.Rmedia_player_get_volume(player)
+
+
+_lib.Rmedia_player_set_muted.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmedia_player_set_muted.restype = None
+
+
+def Rmedia_player_set_muted(player, muted):
+    _lib.Rmedia_player_set_muted(player, muted)
+
+
+_lib.Rmedia_player_is_muted.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_is_muted.restype = ctypes.c_int
+
+
+def Rmedia_player_is_muted(player):
+    return _lib.Rmedia_player_is_muted(player)
+
+
+_lib.Rmedia_player_set_loop.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmedia_player_set_loop.restype = None
+
+
+def Rmedia_player_set_loop(player, loop):
+    """R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent)."""
+    _lib.Rmedia_player_set_loop(player, loop)
+
+
+_lib.Rmedia_player_get_loop.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_loop.restype = ctypes.c_int
+
+
+def Rmedia_player_get_loop(player):
+    return _lib.Rmedia_player_get_loop(player)
+
+
+_lib.Rmedia_player_set_rate.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rmedia_player_set_rate.restype = None
+
+
+def Rmedia_player_set_rate(player, rate):
+    """The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can)."""
+    _lib.Rmedia_player_set_rate(player, rate)
+
+
+_lib.Rmedia_player_get_rate.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_rate.restype = ctypes.c_float
+
+
+def Rmedia_player_get_rate(player):
+    return _lib.Rmedia_player_get_rate(player)
+
+
+_lib.Rmedia_player_get_texture.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_texture.restype = ctypes.c_uint32
+
+
+def Rmedia_player_get_texture(player):
+    """The picture of now, as a texture to draw (Rdraw_image, an
+    Image): brought up to date by this call, so call it each time you
+    draw, from the UI thread. The same texture all along, while the size of
+    the picture stays the same. R_INVALID_ID before the first picture."""
+    return _lib.Rmedia_player_get_texture(player)
+
+
+_lib.Rmedia_player_get_frame_count.argtypes = [ctypes.c_uint32]
+_lib.Rmedia_player_get_frame_count.restype = ctypes.c_int
+
+
+def Rmedia_player_get_frame_count(player):
+    """Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test)."""
+    return _lib.Rmedia_player_get_frame_count(player)
+
+
+_lib.Rmedia_player_set_event_callback.argtypes = [ctypes.c_uint32, RMediaEventCallback, ctypes.c_void_p]
+_lib.Rmedia_player_set_event_callback.restype = None
+
+
+def Rmedia_player_set_event_callback(player, callback, user_data=None):
+    """Called when the player changes; `player` is the player itself, even for the player of a VideoView."""
+    _lib.Rmedia_player_set_event_callback(player, _callback(RMediaEventCallback, _adapt_RMediaEventCallback, callback), user_data)
+
+
+_lib.Rsound_play.argtypes = [ctypes.c_char_p, ctypes.c_float]
+_lib.Rsound_play.restype = ctypes.c_uint32
+
+
+def Rsound_play(path, volume):
+    """Plays a sound once, for the interface (a click, a chime), and
+    forgets it: the player it makes deletes itself at the end, or on an
+    error. Several play at once.
+    volume 0 to 1.
+    Returns: That player, valid until the sound ends (to stop it sooner);
+    R_INVALID_ID when it cannot be played."""
+    return _lib.Rsound_play(_s(path), volume)
+
+
+_lib.Rsound_stop_all.argtypes = []
+_lib.Rsound_stop_all.restype = None
+
+
+def Rsound_stop_all():
+    """Stops every sound of Rsound_play."""
+    _lib.Rsound_stop_all()
+
+
+_lib.Rvideo_view_create.argtypes = []
+_lib.Rvideo_view_create.restype = ctypes.c_uint32
+
+
+def Rvideo_view_create():
+    """VideoView: the picture of a media player, fitted in the widget as an
+    Image (Rvideo_view_set_stretch), with controls over it when asked:
+    play / pause, the time, a bar to go anywhere in it, the sound and its
+    loudness, and full screen when the application handles it. The
+    keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+    and forth, Home / End to the start and the end, Up / Down change the
+    loudness, M turns the sound off and on. A sound without picture shows
+    its name. Where media cannot be played (Rmedia_is_supported) it shows
+    why.
+    
+    The action of the widget (Rwidget_set_action, OnChanged in XML) is
+    fired each time its state changes."""
+    return _lib.Rvideo_view_create()
+
+
+_lib.Rvideo_view_get_player.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_get_player.restype = ctypes.c_uint32
+
+
+def Rvideo_view_get_player(view):
+    """Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself)."""
+    return _lib.Rvideo_view_get_player(view)
+
+
+_lib.Rvideo_view_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rvideo_view_load_file.restype = ctypes.c_int
+
+
+def Rvideo_view_load_file(view, path):
+    """Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays."""
+    return _lib.Rvideo_view_load_file(view, _s(path))
+
+
+_lib.Rvideo_view_load_url.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rvideo_view_load_url.restype = ctypes.c_int
+
+
+def Rvideo_view_load_url(view, url):
+    return _lib.Rvideo_view_load_url(view, _s(url))
+
+
+_lib.Rvideo_view_set_autoplay.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rvideo_view_set_autoplay.restype = None
+
+
+def Rvideo_view_set_autoplay(view, autoplay):
+    """R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE."""
+    _lib.Rvideo_view_set_autoplay(view, autoplay)
+
+
+_lib.Rvideo_view_get_autoplay.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_get_autoplay.restype = ctypes.c_int
+
+
+def Rvideo_view_get_autoplay(view):
+    return _lib.Rvideo_view_get_autoplay(view)
+
+
+_lib.Rvideo_view_set_stretch.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rvideo_view_set_stretch.restype = None
+
+
+def Rvideo_view_set_stretch(view, stretch):
+    """How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it."""
+    _lib.Rvideo_view_set_stretch(view, int(stretch))
+
+
+_lib.Rvideo_view_get_stretch.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_get_stretch.restype = ctypes.c_int
+
+
+def Rvideo_view_get_stretch(view):
+    return _e(RStretch, _lib.Rvideo_view_get_stretch(view))
+
+
+_lib.Rvideo_view_set_controls.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rvideo_view_set_controls.restype = None
+
+
+def Rvideo_view_set_controls(view, shown):
+    """R_TRUE shows the controls over the bottom of the picture (XML
+    Controls): always while it does not play, while the pointer moves
+    over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE."""
+    _lib.Rvideo_view_set_controls(view, shown)
+
+
+_lib.Rvideo_view_get_controls.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_get_controls.restype = ctypes.c_int
+
+
+def Rvideo_view_get_controls(view):
+    return _lib.Rvideo_view_get_controls(view)
+
+
+_lib.Rvideo_view_are_controls_visible.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_are_controls_visible.restype = ctypes.c_int
+
+
+def Rvideo_view_are_controls_visible(view):
+    """Returns: R_TRUE while the controls are shown (they hide while it plays)."""
+    return _lib.Rvideo_view_are_controls_visible(view)
+
+
+_lib.Rvideo_view_set_fullscreen_callback.argtypes = [ctypes.c_uint32, RVideoViewFullscreenCallback, ctypes.c_void_p]
+_lib.Rvideo_view_set_fullscreen_callback.restype = None
+
+
+def Rvideo_view_set_fullscreen_callback(view, callback, user_data=None):
+    """The controls get a full screen button, which calls this with
+    the state asked for: the application gives the view the room (hides
+    what is around it, makes its window fill the screen) and the button
+    shows the way back. NULL removes the button."""
+    _lib.Rvideo_view_set_fullscreen_callback(view, _callback(RVideoViewFullscreenCallback, _adapt_RVideoViewFullscreenCallback, callback), user_data)
+
+
+_lib.Rvideo_view_set_fullscreen.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rvideo_view_set_fullscreen.restype = None
+
+
+def Rvideo_view_set_fullscreen(view, fullscreen):
+    """The state the button shows (also set by its clicks)."""
+    _lib.Rvideo_view_set_fullscreen(view, fullscreen)
+
+
+_lib.Rvideo_view_is_fullscreen.argtypes = [ctypes.c_uint32]
+_lib.Rvideo_view_is_fullscreen.restype = ctypes.c_int
+
+
+def Rvideo_view_is_fullscreen(view):
+    return _lib.Rvideo_view_is_fullscreen(view)
+
+
 _lib.Rpdf_document_create.argtypes = []
 _lib.Rpdf_document_create.restype = ctypes.c_uint32
 
@@ -18338,6 +18816,24 @@ _lib.Rtest_is_deterministic.restype = ctypes.c_int
 
 def Rtest_is_deterministic():
     return _lib.Rtest_is_deterministic()
+
+
+_lib.Rtest_set_fake_media.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.c_int, ctypes.c_double]
+_lib.Rtest_set_fake_media.restype = None
+
+
+def Rtest_set_fake_media(duration, width, height, fps):
+    """Media players (raven_controls.h, VIDEO AND SOUND) made from now
+    on play a fake clip instead of their file: `duration` seconds of
+    `width` x `height` pictures, `fps` per second, computed from the time
+    (the red channel of the top-left pixel is the number of the picture,
+    modulo 256), with a sound track. It plays on the clock of the
+    animations, so with Rtest_set_deterministic each frame is 1/60 s of
+    it. It opens at the first frame after the load; a source whose name
+    contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+    .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+    A duration of 0 or less gives the media of the system back."""
+    _lib.Rtest_set_fake_media(duration, width, height, fps)
 
 
 _lib.Rtest_get_platform_tag.argtypes = []
