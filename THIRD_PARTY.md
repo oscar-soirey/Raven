@@ -34,8 +34,9 @@ pixel, which a damaged file could otherwise make it draw for minutes. Its
 changes are marked `Raven:`. In `nanosvgrast.h`, the active edges are sorted
 with a stable merge sort and the new edges of a row merged in a batch (the
 original took O(n^2) on a path of many points), in the order the original
-gave, so the pixels stay the same; and the slope of an edge, and where an
-edge starts on its first row, are kept in the range of an int. In
+gave, so the pixels stay the same; and the slope of an edge, where an edge
+starts on its first row and where it is at each following row are kept
+within a million pixels, so that they stay in the range of an int. In
 `nanosvg.h`, an arc whose angle is not a number (from coordinates of 1e38)
 is drawn as a line, and a fill or a stroke of `currentColor` (in any
 case, as an attribute or in `style`) is flagged on its shape
