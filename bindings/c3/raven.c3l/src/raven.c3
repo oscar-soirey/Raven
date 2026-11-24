@@ -941,6 +941,8 @@ constset WidgetType : CInt
 	SYSTEM_WEB_VIEW = 0x0237,
 	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 	DIFF_VIEW = 0x0238,
+	<* A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h). *>
+	TREE_TABLE = 0x0239,
 }
 
 constset HAlign : CInt
@@ -2104,6 +2106,18 @@ alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* 
  Without a callback, a stored table keeps every text.
 *>
 alias TableCellEditedCallback = fn CInt(Id table, CInt row, CInt column, ZString text, void* user_data);
+<* Called when a node opens (before its children are asked: they can be added or loaded then) or closes. *>
+alias TreeTableExpandCallback = fn void(Id tree_table, CInt node, CInt expanded, void* user_data);
+<* Virtual tree: how many children `node` has (0: the top-level nodes). *>
+alias TreeTableChildCountCallback = fn CInt(Id tree_table, CInt node, void* user_data);
+<* Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it. *>
+alias TreeTableChildCallback = fn CInt(Id tree_table, CInt parent, CInt index, void* user_data);
+<* Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron. *>
+alias TreeTableHasChildrenCallback = fn CInt(Id tree_table, CInt node, void* user_data);
+<* Virtual tree: the text of a cell of `node`. NULL is "". *>
+alias TreeTableNodeTextCallback = fn ZString(Id tree_table, CInt node, CInt column, void* user_data);
+<* Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID. *>
+alias TreeTableNodeIconCallback = fn Id(Id tree_table, CInt node, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias DateChangedCallback = fn void(Id date_picker, CInt year, CInt month, CInt day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
@@ -7069,6 +7083,123 @@ fn ZString DiffView.get_selected_text(self) @inline => (ZString)c::r_diff_view_g
 
 <* Called when a line or its number is clicked (the action of the widget is fired too). *>
 fn void DiffView.set_line_clicked_callback(self, DiffViewLineCallback callback, void* user_data) @inline => c::r_diff_view_set_line_clicked_callback((c::Rid)self, (c::RDiffViewLineCallback)callback, user_data);
+
+// ---- TreeTable
+
+typedef TreeTable = inline Widget;
+
+<* A new TreeTable (widget_create(WidgetType.TREE_TABLE)). *>
+fn TreeTable tree_table_create() @inline => (TreeTable)c::r_widget_create(c::R_WIDGET_TREE_TABLE);
+
+<*
+ Adds a node at the end of the children of `parent` (0: the top
+ level), with its cells separated by '|' as in Rtable_add_row (NULL:
+ empty). @return The number naming the node (> 0), or 0 on error.
+*>
+fn CInt TreeTable.add_node(self, CInt parent, ZString cells) @inline => c::r_tree_table_add_node((c::Rid)self, parent, (char*)cells);
+
+<* Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last). *>
+fn CInt TreeTable.insert_node(self, CInt parent, CInt index, ZString cells) @inline => c::r_tree_table_insert_node((c::Rid)self, parent, index, (char*)cells);
+
+<* Removes a node and every node under it. *>
+fn void TreeTable.remove_node(self, CInt node) @inline => c::r_tree_table_remove_node((c::Rid)self, node);
+
+<*
+ Moves a node, with its subtree, among the children of `parent` at
+ `index` (-1: last). A node cannot go under itself. @return R_TRUE when moved.
+*>
+fn bool TreeTable.move_node(self, CInt node, CInt parent, CInt index) @inline => c::r_tree_table_move_node((c::Rid)self, node, parent, index) != 0;
+
+<* R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown. *>
+fn bool TreeTable.is_node_valid(self, CInt node) @inline => c::r_tree_table_is_node_valid((c::Rid)self, node) != 0;
+
+<* Stored nodes, shown or not (the root not counted). *>
+fn CInt TreeTable.get_node_count(self) @inline => c::r_tree_table_get_node_count((c::Rid)self);
+
+<* The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown. *>
+fn CInt TreeTable.get_parent(self, CInt node) @inline => c::r_tree_table_get_parent((c::Rid)self, node);
+
+<* Children of a node (0: the top-level nodes). Virtual: asks the application. *>
+fn CInt TreeTable.get_child_count(self, CInt node) @inline => c::r_tree_table_get_child_count((c::Rid)self, node);
+
+<* The child of a node at `index`, or 0. Virtual: asks the application. *>
+fn CInt TreeTable.get_child(self, CInt node, CInt index) @inline => c::r_tree_table_get_child((c::Rid)self, node, index);
+
+<* Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown. *>
+fn CInt TreeTable.get_depth(self, CInt node) @inline => c::r_tree_table_get_depth((c::Rid)self, node);
+
+<* The text of a cell of a stored node, shown or not. *>
+fn void TreeTable.set_node_cell(self, CInt node, CInt column, ZString text) @inline => c::r_tree_table_set_node_cell((c::Rid)self, node, column, (char*)text);
+
+<* The text of a cell of a node (virtual: asks the application). "" for none. *>
+fn ZString TreeTable.get_node_cell(self, CInt node, CInt column) @inline => (ZString)c::r_tree_table_get_node_cell((c::Rid)self, node, column);
+
+<* An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none. *>
+fn void TreeTable.set_node_icon(self, CInt node, Id texture) @inline => c::r_tree_table_set_node_icon((c::Rid)self, node, (c::Rid)texture);
+
+fn Id TreeTable.get_node_icon(self, CInt node) @inline => (Id)c::r_tree_table_get_node_icon((c::Rid)self, node);
+
+<*
+ A stored node shows a chevron before it has children
+ (HasChildren="true"): opening it calls the expanded callback, where the
+ application adds them (now, or later when they are loaded).
+*>
+fn void TreeTable.set_node_has_children(self, CInt node, CInt has_children) @inline => c::r_tree_table_set_node_has_children((c::Rid)self, node, has_children);
+
+<* Opens or closes a node (a node inside a closed one keeps the state it is given). *>
+fn void TreeTable.set_expanded(self, CInt node, bool expanded) @inline => c::r_tree_table_set_expanded((c::Rid)self, node, (CInt)expanded);
+
+fn bool TreeTable.is_expanded(self, CInt node) @inline => c::r_tree_table_is_expanded((c::Rid)self, node) != 0;
+
+<* Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it. *>
+fn void TreeTable.expand_all(self, CInt node) @inline => c::r_tree_table_expand_all((c::Rid)self, node);
+
+<* Closes a node and every node under it (0: the whole tree). *>
+fn void TreeTable.collapse_all(self, CInt node) @inline => c::r_tree_table_collapse_all((c::Rid)self, node);
+
+<* The node shown at a row, 0 for none. *>
+fn CInt TreeTable.get_row_node(self, CInt row) @inline => c::r_tree_table_get_row_node((c::Rid)self, row);
+
+<* The row a node is shown at, -1 when it is inside a closed node (or does not exist). *>
+fn CInt TreeTable.get_node_row(self, CInt node) @inline => c::r_tree_table_get_node_row((c::Rid)self, node);
+
+<* Opens the parents of a stored node and scrolls to it. *>
+fn void TreeTable.reveal_node(self, CInt node) @inline => c::r_tree_table_reveal_node((c::Rid)self, node);
+
+<* Reveals a node and makes it the selection (0: none); the selection callback is not called. *>
+fn void TreeTable.select_node(self, CInt node) @inline => c::r_tree_table_select_node((c::Rid)self, node);
+
+<* The node of the selected row (the last one clicked in multiple selection), 0 for none. *>
+fn CInt TreeTable.get_selected_node(self) @inline => c::r_tree_table_get_selected_node((c::Rid)self);
+
+<* Called when the user or the application opens or closes a node (lazy loading). *>
+fn void TreeTable.set_expanded_callback(self, TreeTableExpandCallback callback, void* user_data) @inline => c::r_tree_table_set_expanded_callback((c::Rid)self, (c::RTreeTableExpandCallback)callback, user_data);
+
+<*
+ Makes the tree virtual: the stored nodes are removed and the
+ application gives the tree with the callbacks, asked for the rows
+ drawn only. `has_children` may be NULL (the count is asked then).
+ `child_count` NULL makes the tree stored again, empty.
+*>
+fn void TreeTable.set_virtual(self, TreeTableChildCountCallback child_count, TreeTableChildCallback child, TreeTableHasChildrenCallback has_children, TreeTableNodeTextCallback cell_text, void* user_data) @inline => c::r_tree_table_set_virtual((c::Rid)self, (c::RTreeTableChildCountCallback)child_count, (c::RTreeTableChildCallback)child, (c::RTreeTableHasChildrenCallback)has_children, (c::RTreeTableNodeTextCallback)cell_text, user_data);
+
+<* Virtual tree: the icons of the nodes. *>
+fn void TreeTable.set_icon_callback(self, TreeTableNodeIconCallback callback, void* user_data) @inline => c::r_tree_table_set_icon_callback((c::Rid)self, (c::RTreeTableNodeIconCallback)callback, user_data);
+
+<*
+ Virtual tree: the children of `node` changed (0: anything, after a
+ sort for instance). Their counts are asked again; the nodes that were
+ open stay open, found again by their numbers.
+*>
+fn void TreeTable.refresh(self, CInt node) @inline => c::r_tree_table_refresh((c::Rid)self, node);
+
+<* Vertical lines that join the children of a node (GuideLines="true"). *>
+fn void TreeTable.set_guide_lines(self, bool visible) @inline => c::r_tree_table_set_guide_lines((c::Rid)self, (CInt)visible);
+
+fn CInt TreeTable.get_guide_lines(self) @inline => c::r_tree_table_get_guide_lines((c::Rid)self);
+
+<* Typing the first letters of a name goes to it (TypeSearch, on by default). *>
+fn void TreeTable.set_type_search(self, bool enabled) @inline => c::r_tree_table_set_type_search((c::Rid)self, (CInt)enabled);
 
 // ---- Window
 

@@ -1135,6 +1135,10 @@ namespace Raven
         /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
         /// </summary>
         R_WIDGET_DIFF_VIEW = 0x0238,
+        /// <summary>
+        /// A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+        /// </summary>
+        R_WIDGET_TREE_TABLE = 0x0239,
     }
 
     public enum RHAlign : int
@@ -4009,6 +4013,42 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RTableCellEditedCallback(uint table, int row, int column, IntPtr text, IntPtr user_data);
+
+    /// <summary>
+    /// Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTreeTableExpandCallback(uint tree_table, int node, int expanded, IntPtr user_data);
+
+    /// <summary>
+    /// Virtual tree: how many children `node` has (0: the top-level nodes).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTreeTableChildCountCallback(uint tree_table, int node, IntPtr user_data);
+
+    /// <summary>
+    /// Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTreeTableChildCallback(uint tree_table, int parent, int index, IntPtr user_data);
+
+    /// <summary>
+    /// Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTreeTableHasChildrenCallback(uint tree_table, int node, IntPtr user_data);
+
+    /// <summary>
+    /// Virtual tree: the text of a cell of `node`. NULL is "".
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate IntPtr RTreeTableNodeTextCallback(uint tree_table, int node, int column, IntPtr user_data);
+
+    /// <summary>
+    /// Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate uint RTreeTableNodeIconCallback(uint tree_table, int node, IntPtr user_data);
 
     /// <summary>
     /// Called when the user chooses a date. This also fires the action of the widget.
@@ -8347,6 +8387,194 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_cell_checked(uint table, int row, int column, int @checked);
+
+        /// <summary>
+        /// Adds a node at the end of the children of `parent` (0: the top
+        /// level), with its cells separated by '|' as in Rtable_add_row (NULL:
+        /// empty). Returns: The number naming the node (&gt; 0), or 0 on error.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_add_node(uint tree_table, int parent, [MarshalAs(Utf8.Str)] string cells);
+
+        /// <summary>
+        /// Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_insert_node(uint tree_table, int parent, int index, [MarshalAs(Utf8.Str)] string cells);
+
+        /// <summary>
+        /// Removes a node and every node under it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_remove_node(uint tree_table, int node);
+
+        /// <summary>
+        /// Moves a node, with its subtree, among the children of `parent` at
+        /// `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_move_node(uint tree_table, int node, int parent, int index);
+
+        /// <summary>
+        /// R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_is_node_valid(uint tree_table, int node);
+
+        /// <summary>
+        /// Stored nodes, shown or not (the root not counted).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_node_count(uint tree_table);
+
+        /// <summary>
+        /// The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_parent(uint tree_table, int node);
+
+        /// <summary>
+        /// Children of a node (0: the top-level nodes). Virtual: asks the application.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_child_count(uint tree_table, int node);
+
+        /// <summary>
+        /// The child of a node at `index`, or 0. Virtual: asks the application.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_child(uint tree_table, int node, int index);
+
+        /// <summary>
+        /// Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_depth(uint tree_table, int node);
+
+        /// <summary>
+        /// The text of a cell of a stored node, shown or not.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_node_cell(uint tree_table, int node, int column, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The text of a cell of a node (virtual: asks the application). "" for none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rtree_table_get_node_cell", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtree_table_get_node_cell_(uint tree_table, int node, int column);
+        public static string Rtree_table_get_node_cell(uint tree_table, int node, int column) { return Text(Rtree_table_get_node_cell_(tree_table, node, column)); }
+
+        /// <summary>
+        /// An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_node_icon(uint tree_table, int node, uint texture);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtree_table_get_node_icon(uint tree_table, int node);
+
+        /// <summary>
+        /// A stored node shows a chevron before it has children
+        /// (HasChildren="true"): opening it calls the expanded callback, where the
+        /// application adds them (now, or later when they are loaded).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_node_has_children(uint tree_table, int node, int has_children);
+
+        /// <summary>
+        /// Opens or closes a node (a node inside a closed one keeps the state it is given).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_expanded(uint tree_table, int node, int expanded);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_is_expanded(uint tree_table, int node);
+
+        /// <summary>
+        /// Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_expand_all(uint tree_table, int node);
+
+        /// <summary>
+        /// Closes a node and every node under it (0: the whole tree).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_collapse_all(uint tree_table, int node);
+
+        /// <summary>
+        /// The node shown at a row, 0 for none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_row_node(uint tree_table, int row);
+
+        /// <summary>
+        /// The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_node_row(uint tree_table, int node);
+
+        /// <summary>
+        /// Opens the parents of a stored node and scrolls to it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_reveal_node(uint tree_table, int node);
+
+        /// <summary>
+        /// Reveals a node and makes it the selection (0: none); the selection callback is not called.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_select_node(uint tree_table, int node);
+
+        /// <summary>
+        /// The node of the selected row (the last one clicked in multiple selection), 0 for none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_selected_node(uint tree_table);
+
+        /// <summary>
+        /// Called when the user or the application opens or closes a node (lazy loading).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_expanded_callback(uint tree_table, RTreeTableExpandCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Makes the tree virtual: the stored nodes are removed and the
+        /// application gives the tree with the callbacks, asked for the rows
+        /// drawn only. `has_children` may be NULL (the count is asked then).
+        /// `child_count` NULL makes the tree stored again, empty.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_virtual(uint tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, IntPtr user_data);
+
+        /// <summary>
+        /// Virtual tree: the icons of the nodes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_icon_callback(uint tree_table, RTreeTableNodeIconCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Virtual tree: the children of `node` changed (0: anything, after a
+        /// sort for instance). Their counts are asked again; the nodes that were
+        /// open stay open, found again by their numbers.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_refresh(uint tree_table, int node);
+
+        /// <summary>
+        /// Vertical lines that join the children of a node (GuideLines="true").
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_guide_lines(uint tree_table, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtree_table_get_guide_lines(uint tree_table);
+
+        /// <summary>
+        /// Typing the first letters of a name goes to it (TypeSearch, on by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtree_table_set_type_search(uint tree_table, int enabled);
 
         /// <summary>
         /// Sets the date (today when the picker is created). An invalid date is refused.

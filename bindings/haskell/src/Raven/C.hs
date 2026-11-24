@@ -1217,6 +1217,9 @@ pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 -- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pattern R_WIDGET_DIFF_VIEW :: RWidgetType
 pattern R_WIDGET_DIFF_VIEW = RWidgetType 568
+-- | A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+pattern R_WIDGET_TREE_TABLE :: RWidgetType
+pattern R_WIDGET_TREE_TABLE = RWidgetType 569
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -2810,6 +2813,48 @@ type RTableCellEditedCallback = FunPtr (Rid -> CInt -> CInt -> CString -> Ptr ()
 -- | Makes a 'RTableCellEditedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRTableCellEditedCallback :: (Rid -> CInt -> CInt -> CString -> Ptr () -> IO CInt) -> IO RTableCellEditedCallback
+
+-- | Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+type RTreeTableExpandCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RTreeTableExpandCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableExpandCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO ()) -> IO RTreeTableExpandCallback
+
+-- | Virtual tree: how many children `node` has (0: the top-level nodes).
+type RTreeTableChildCountCallback = FunPtr (Rid -> CInt -> Ptr () -> IO CInt)
+
+-- | Makes a 'RTreeTableChildCountCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableChildCountCallback :: (Rid -> CInt -> Ptr () -> IO CInt) -> IO RTreeTableChildCountCallback
+
+-- | Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+type RTreeTableChildCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO CInt)
+
+-- | Makes a 'RTreeTableChildCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableChildCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO CInt) -> IO RTreeTableChildCallback
+
+-- | Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+type RTreeTableHasChildrenCallback = FunPtr (Rid -> CInt -> Ptr () -> IO CInt)
+
+-- | Makes a 'RTreeTableHasChildrenCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableHasChildrenCallback :: (Rid -> CInt -> Ptr () -> IO CInt) -> IO RTreeTableHasChildrenCallback
+
+-- | Virtual tree: the text of a cell of `node`. NULL is "".
+type RTreeTableNodeTextCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO CString)
+
+-- | Makes a 'RTreeTableNodeTextCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableNodeTextCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO CString) -> IO RTreeTableNodeTextCallback
+
+-- | Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
+type RTreeTableNodeIconCallback = FunPtr (Rid -> CInt -> Ptr () -> IO Rid)
+
+-- | Makes a 'RTreeTableNodeIconCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTreeTableNodeIconCallback :: (Rid -> CInt -> Ptr () -> IO Rid) -> IO RTreeTableNodeIconCallback
 
 -- | Called when the user chooses a date. This also fires the action of the widget.
 type RDateChangedCallback = FunPtr (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO ())
@@ -7167,6 +7212,106 @@ foreign import ccall safe "Rtable_is_cell_checked" rtable_is_cell_checked :: Rid
 
 -- | Stored rows: writes "1" or "0" in the cell (no callback is called).
 foreign import ccall safe "Rtable_set_cell_checked" rtable_set_cell_checked :: Rid -> CInt -> CInt -> CInt -> IO ()
+
+-- | Adds a node at the end of the children of `parent` (0: the top
+-- level), with its cells separated by '|' as in Rtable_add_row (NULL:
+-- empty). Returns: The number naming the node (> 0), or 0 on error.
+foreign import ccall safe "Rtree_table_add_node" rtree_table_add_node :: Rid -> CInt -> CString -> IO CInt
+
+-- | Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+foreign import ccall safe "Rtree_table_insert_node" rtree_table_insert_node :: Rid -> CInt -> CInt -> CString -> IO CInt
+
+-- | Removes a node and every node under it.
+foreign import ccall safe "Rtree_table_remove_node" rtree_table_remove_node :: Rid -> CInt -> IO ()
+
+-- | Moves a node, with its subtree, among the children of `parent` at
+-- `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+foreign import ccall safe "Rtree_table_move_node" rtree_table_move_node :: Rid -> CInt -> CInt -> CInt -> IO CInt
+
+-- | R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+foreign import ccall safe "Rtree_table_is_node_valid" rtree_table_is_node_valid :: Rid -> CInt -> IO CInt
+
+-- | Stored nodes, shown or not (the root not counted).
+foreign import ccall safe "Rtree_table_get_node_count" rtree_table_get_node_count :: Rid -> IO CInt
+
+-- | The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+foreign import ccall safe "Rtree_table_get_parent" rtree_table_get_parent :: Rid -> CInt -> IO CInt
+
+-- | Children of a node (0: the top-level nodes). Virtual: asks the application.
+foreign import ccall safe "Rtree_table_get_child_count" rtree_table_get_child_count :: Rid -> CInt -> IO CInt
+
+-- | The child of a node at `index`, or 0. Virtual: asks the application.
+foreign import ccall safe "Rtree_table_get_child" rtree_table_get_child :: Rid -> CInt -> CInt -> IO CInt
+
+-- | Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+foreign import ccall safe "Rtree_table_get_depth" rtree_table_get_depth :: Rid -> CInt -> IO CInt
+
+-- | The text of a cell of a stored node, shown or not.
+foreign import ccall safe "Rtree_table_set_node_cell" rtree_table_set_node_cell :: Rid -> CInt -> CInt -> CString -> IO ()
+
+-- | The text of a cell of a node (virtual: asks the application). "" for none.
+foreign import ccall safe "Rtree_table_get_node_cell" rtree_table_get_node_cell :: Rid -> CInt -> CInt -> IO CString
+
+-- | An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+foreign import ccall safe "Rtree_table_set_node_icon" rtree_table_set_node_icon :: Rid -> CInt -> Rid -> IO ()
+
+foreign import ccall safe "Rtree_table_get_node_icon" rtree_table_get_node_icon :: Rid -> CInt -> IO Rid
+
+-- | A stored node shows a chevron before it has children
+-- (HasChildren="true"): opening it calls the expanded callback, where the
+-- application adds them (now, or later when they are loaded).
+foreign import ccall safe "Rtree_table_set_node_has_children" rtree_table_set_node_has_children :: Rid -> CInt -> CInt -> IO ()
+
+-- | Opens or closes a node (a node inside a closed one keeps the state it is given).
+foreign import ccall safe "Rtree_table_set_expanded" rtree_table_set_expanded :: Rid -> CInt -> CInt -> IO ()
+
+foreign import ccall safe "Rtree_table_is_expanded" rtree_table_is_expanded :: Rid -> CInt -> IO CInt
+
+-- | Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+foreign import ccall safe "Rtree_table_expand_all" rtree_table_expand_all :: Rid -> CInt -> IO ()
+
+-- | Closes a node and every node under it (0: the whole tree).
+foreign import ccall safe "Rtree_table_collapse_all" rtree_table_collapse_all :: Rid -> CInt -> IO ()
+
+-- | The node shown at a row, 0 for none.
+foreign import ccall safe "Rtree_table_get_row_node" rtree_table_get_row_node :: Rid -> CInt -> IO CInt
+
+-- | The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+foreign import ccall safe "Rtree_table_get_node_row" rtree_table_get_node_row :: Rid -> CInt -> IO CInt
+
+-- | Opens the parents of a stored node and scrolls to it.
+foreign import ccall safe "Rtree_table_reveal_node" rtree_table_reveal_node :: Rid -> CInt -> IO ()
+
+-- | Reveals a node and makes it the selection (0: none); the selection callback is not called.
+foreign import ccall safe "Rtree_table_select_node" rtree_table_select_node :: Rid -> CInt -> IO ()
+
+-- | The node of the selected row (the last one clicked in multiple selection), 0 for none.
+foreign import ccall safe "Rtree_table_get_selected_node" rtree_table_get_selected_node :: Rid -> IO CInt
+
+-- | Called when the user or the application opens or closes a node (lazy loading).
+foreign import ccall safe "Rtree_table_set_expanded_callback" rtree_table_set_expanded_callback :: Rid -> RTreeTableExpandCallback -> Ptr () -> IO ()
+
+-- | Makes the tree virtual: the stored nodes are removed and the
+-- application gives the tree with the callbacks, asked for the rows
+-- drawn only. `has_children` may be NULL (the count is asked then).
+-- `child_count` NULL makes the tree stored again, empty.
+foreign import ccall safe "Rtree_table_set_virtual" rtree_table_set_virtual :: Rid -> RTreeTableChildCountCallback -> RTreeTableChildCallback -> RTreeTableHasChildrenCallback -> RTreeTableNodeTextCallback -> Ptr () -> IO ()
+
+-- | Virtual tree: the icons of the nodes.
+foreign import ccall safe "Rtree_table_set_icon_callback" rtree_table_set_icon_callback :: Rid -> RTreeTableNodeIconCallback -> Ptr () -> IO ()
+
+-- | Virtual tree: the children of `node` changed (0: anything, after a
+-- sort for instance). Their counts are asked again; the nodes that were
+-- open stay open, found again by their numbers.
+foreign import ccall safe "Rtree_table_refresh" rtree_table_refresh :: Rid -> CInt -> IO ()
+
+-- | Vertical lines that join the children of a node (GuideLines="true").
+foreign import ccall safe "Rtree_table_set_guide_lines" rtree_table_set_guide_lines :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rtree_table_get_guide_lines" rtree_table_get_guide_lines :: Rid -> IO CInt
+
+-- | Typing the first letters of a name goes to it (TypeSearch, on by default).
+foreign import ccall safe "Rtree_table_set_type_search" rtree_table_set_type_search :: Rid -> CInt -> IO ()
 
 -- | Sets the date (today when the picker is created). An invalid date is refused.
 foreign import ccall safe "Rdate_picker_set_date" rdate_picker_set_date :: Rid -> CInt -> CInt -> CInt -> IO ()

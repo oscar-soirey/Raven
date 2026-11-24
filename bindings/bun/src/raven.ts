@@ -821,6 +821,37 @@ const _symbols = {
 	Rtable_get_column_kind: { args: ["u32", "i32"], returns: "i32" },
 	Rtable_is_cell_checked: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rtable_set_cell_checked: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rtree_table_add_node: { args: ["u32", "i32", "ptr"], returns: "i32" },
+	Rtree_table_insert_node: { args: ["u32", "i32", "i32", "ptr"], returns: "i32" },
+	Rtree_table_remove_node: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_move_node: { args: ["u32", "i32", "i32", "i32"], returns: "i32" },
+	Rtree_table_is_node_valid: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_get_node_count: { args: ["u32"], returns: "i32" },
+	Rtree_table_get_parent: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_get_child_count: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_get_child: { args: ["u32", "i32", "i32"], returns: "i32" },
+	Rtree_table_get_depth: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_set_node_cell: { args: ["u32", "i32", "i32", "ptr"], returns: "void" },
+	Rtree_table_get_node_cell: { args: ["u32", "i32", "i32"], returns: "cstring" },
+	Rtree_table_set_node_icon: { args: ["u32", "i32", "u32"], returns: "void" },
+	Rtree_table_get_node_icon: { args: ["u32", "i32"], returns: "u32" },
+	Rtree_table_set_node_has_children: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtree_table_set_expanded: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtree_table_is_expanded: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_expand_all: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_collapse_all: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_get_row_node: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_get_node_row: { args: ["u32", "i32"], returns: "i32" },
+	Rtree_table_reveal_node: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_select_node: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_get_selected_node: { args: ["u32"], returns: "i32" },
+	Rtree_table_set_expanded_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtree_table_set_virtual: { args: ["u32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtree_table_set_icon_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtree_table_refresh: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_set_guide_lines: { args: ["u32", "i32"], returns: "void" },
+	Rtree_table_get_guide_lines: { args: ["u32"], returns: "i32" },
+	Rtree_table_set_type_search: { args: ["u32", "i32"], returns: "void" },
 	Rdate_picker_set_date: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rdate_picker_get_date: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rdate_picker_set_range: { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
@@ -2935,6 +2966,8 @@ export enum RWidgetType {
 	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW = 0x0238,
+	/** A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h). */
+	R_WIDGET_TREE_TABLE = 0x0239,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2994,6 +3027,7 @@ export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
 export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
+export const R_WIDGET_TREE_TABLE = RWidgetType.R_WIDGET_TREE_TABLE;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -7927,6 +7961,109 @@ function _adapt_RTableCellEditedCallback(function_: RTableCellEditedCallback | P
 			return 0;
 		}
 	}, { args: ["u32", "i32", "i32", "ptr", "ptr"], returns: "i32", threadsafe }));
+}
+
+/** Called when a node opens (before its children are asked: they can be added or loaded then) or closes. */
+export type RTreeTableExpandCallback = (tree_table: Rid, node: number, expanded: number, user_data: Pointer | null) => void;
+
+function _adapt_RTreeTableExpandCallback(function_: RTreeTableExpandCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tree_table: number, node: number, expanded: number, user_data: Pointer | null): void => {
+		try {
+			function_(tree_table, node, expanded, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Virtual tree: how many children `node` has (0: the top-level nodes). */
+export type RTreeTableChildCountCallback = (tree_table: Rid, node: number, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTreeTableChildCountCallback(function_: RTreeTableChildCountCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tree_table: number, node: number, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(tree_table, node, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "i32", threadsafe }));
+}
+
+/** Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it. */
+export type RTreeTableChildCallback = (tree_table: Rid, parent: number, index: number, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTreeTableChildCallback(function_: RTreeTableChildCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tree_table: number, parent: number, index: number, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(tree_table, parent, index, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "i32", threadsafe }));
+}
+
+/** Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron. */
+export type RTreeTableHasChildrenCallback = (tree_table: Rid, node: number, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTreeTableHasChildrenCallback(function_: RTreeTableHasChildrenCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tree_table: number, node: number, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(tree_table, node, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "i32", threadsafe }));
+}
+
+/** Virtual tree: the text of a cell of `node`. NULL is "". */
+export type RTreeTableNodeTextCallback = (tree_table: Rid, node: number, column: number, user_data: Pointer | null) => string | null;
+
+function _adapt_RTreeTableNodeTextCallback(function_: RTreeTableNodeTextCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	let text: Buffer = Buffer.from([0]);
+	return _keep(new _JSCallback((tree_table: number, node: number, column: number, user_data: Pointer | null): Pointer | null => {
+		try {
+			text = Buffer.from((function_(tree_table, node, column, user_data) ?? "") + "\0");
+			return _ptr(text);
+		} catch (error) {
+			_report(error as Error);
+			return _ptr(text);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/** Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID. */
+export type RTreeTableNodeIconCallback = (tree_table: Rid, node: number, user_data: Pointer | null) => Rid;
+
+function _adapt_RTreeTableNodeIconCallback(function_: RTreeTableNodeIconCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tree_table: number, node: number, user_data: Pointer | null): number => {
+		try {
+			return function_(tree_table, node, user_data) ?? R_INVALID_ID;
+		} catch (error) {
+			_report(error as Error);
+			return R_INVALID_ID;
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "u32", threadsafe }));
 }
 
 /** Called when the user chooses a date. This also fires the action of the widget. */
@@ -12968,6 +13105,178 @@ export function Rtable_is_cell_checked(table: Rid, row: number, column: number):
 /** Stored rows: writes "1" or "0" in the cell (no callback is called). */
 export function Rtable_set_cell_checked(table: Rid, row: number, column: number, checked: number): void {
 	_lib.Rtable_set_cell_checked(table, row, column, checked);
+}
+
+/**
+ * Adds a node at the end of the children of `parent` (0: the top
+ * level), with its cells separated by '|' as in Rtable_add_row (NULL:
+ * empty). Returns: The number naming the node (> 0), or 0 on error.
+ */
+export function Rtree_table_add_node(tree_table: Rid, parent: number, cells: string | null): number {
+	return _lib.Rtree_table_add_node(tree_table, parent, _s(cells));
+}
+
+/** Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last). */
+export function Rtree_table_insert_node(tree_table: Rid, parent: number, index: number, cells: string | null): number {
+	return _lib.Rtree_table_insert_node(tree_table, parent, index, _s(cells));
+}
+
+/** Removes a node and every node under it. */
+export function Rtree_table_remove_node(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_remove_node(tree_table, node);
+}
+
+/**
+ * Moves a node, with its subtree, among the children of `parent` at
+ * `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+ */
+export function Rtree_table_move_node(tree_table: Rid, node: number, parent: number, index: number): number {
+	return _lib.Rtree_table_move_node(tree_table, node, parent, index);
+}
+
+/** R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown. */
+export function Rtree_table_is_node_valid(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_is_node_valid(tree_table, node);
+}
+
+/** Stored nodes, shown or not (the root not counted). */
+export function Rtree_table_get_node_count(tree_table: Rid): number {
+	return _lib.Rtree_table_get_node_count(tree_table);
+}
+
+/** The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown. */
+export function Rtree_table_get_parent(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_get_parent(tree_table, node);
+}
+
+/** Children of a node (0: the top-level nodes). Virtual: asks the application. */
+export function Rtree_table_get_child_count(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_get_child_count(tree_table, node);
+}
+
+/** The child of a node at `index`, or 0. Virtual: asks the application. */
+export function Rtree_table_get_child(tree_table: Rid, node: number, index: number): number {
+	return _lib.Rtree_table_get_child(tree_table, node, index);
+}
+
+/** Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown. */
+export function Rtree_table_get_depth(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_get_depth(tree_table, node);
+}
+
+/** The text of a cell of a stored node, shown or not. */
+export function Rtree_table_set_node_cell(tree_table: Rid, node: number, column: number, text: string | null): void {
+	_lib.Rtree_table_set_node_cell(tree_table, node, column, _s(text));
+}
+
+/** The text of a cell of a node (virtual: asks the application). "" for none. */
+export function Rtree_table_get_node_cell(tree_table: Rid, node: number, column: number): string | null {
+	return _lib.Rtree_table_get_node_cell(tree_table, node, column);
+}
+
+/** An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none. */
+export function Rtree_table_set_node_icon(tree_table: Rid, node: number, texture: Rid): void {
+	_lib.Rtree_table_set_node_icon(tree_table, node, texture);
+}
+
+export function Rtree_table_get_node_icon(tree_table: Rid, node: number): Rid {
+	return _lib.Rtree_table_get_node_icon(tree_table, node);
+}
+
+/**
+ * A stored node shows a chevron before it has children
+ * (HasChildren="true"): opening it calls the expanded callback, where the
+ * application adds them (now, or later when they are loaded).
+ */
+export function Rtree_table_set_node_has_children(tree_table: Rid, node: number, has_children: number): void {
+	_lib.Rtree_table_set_node_has_children(tree_table, node, has_children);
+}
+
+/** Opens or closes a node (a node inside a closed one keeps the state it is given). */
+export function Rtree_table_set_expanded(tree_table: Rid, node: number, expanded: number): void {
+	_lib.Rtree_table_set_expanded(tree_table, node, expanded);
+}
+
+export function Rtree_table_is_expanded(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_is_expanded(tree_table, node);
+}
+
+/** Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it. */
+export function Rtree_table_expand_all(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_expand_all(tree_table, node);
+}
+
+/** Closes a node and every node under it (0: the whole tree). */
+export function Rtree_table_collapse_all(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_collapse_all(tree_table, node);
+}
+
+/** The node shown at a row, 0 for none. */
+export function Rtree_table_get_row_node(tree_table: Rid, row: number): number {
+	return _lib.Rtree_table_get_row_node(tree_table, row);
+}
+
+/** The row a node is shown at, -1 when it is inside a closed node (or does not exist). */
+export function Rtree_table_get_node_row(tree_table: Rid, node: number): number {
+	return _lib.Rtree_table_get_node_row(tree_table, node);
+}
+
+/** Opens the parents of a stored node and scrolls to it. */
+export function Rtree_table_reveal_node(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_reveal_node(tree_table, node);
+}
+
+/** Reveals a node and makes it the selection (0: none); the selection callback is not called. */
+export function Rtree_table_select_node(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_select_node(tree_table, node);
+}
+
+/** The node of the selected row (the last one clicked in multiple selection), 0 for none. */
+export function Rtree_table_get_selected_node(tree_table: Rid): number {
+	return _lib.Rtree_table_get_selected_node(tree_table);
+}
+
+/** Called when the user or the application opens or closes a node (lazy loading). */
+export function Rtree_table_set_expanded_callback(tree_table: Rid, callback: RTreeTableExpandCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtree_table_set_expanded_callback(tree_table, _adapt_RTreeTableExpandCallback(callback), user_data);
+}
+
+/**
+ * Makes the tree virtual: the stored nodes are removed and the
+ * application gives the tree with the callbacks, asked for the rows
+ * drawn only. `has_children` may be NULL (the count is asked then).
+ * `child_count` NULL makes the tree stored again, empty.
+ */
+export function Rtree_table_set_virtual(tree_table: Rid, child_count: RTreeTableChildCountCallback | Pointer | null, child: RTreeTableChildCallback | Pointer | null, has_children: RTreeTableHasChildrenCallback | Pointer | null, cell_text: RTreeTableNodeTextCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtree_table_set_virtual(tree_table, _adapt_RTreeTableChildCountCallback(child_count), _adapt_RTreeTableChildCallback(child), _adapt_RTreeTableHasChildrenCallback(has_children), _adapt_RTreeTableNodeTextCallback(cell_text), user_data);
+}
+
+/** Virtual tree: the icons of the nodes. */
+export function Rtree_table_set_icon_callback(tree_table: Rid, callback: RTreeTableNodeIconCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtree_table_set_icon_callback(tree_table, _adapt_RTreeTableNodeIconCallback(callback), user_data);
+}
+
+/**
+ * Virtual tree: the children of `node` changed (0: anything, after a
+ * sort for instance). Their counts are asked again; the nodes that were
+ * open stay open, found again by their numbers.
+ */
+export function Rtree_table_refresh(tree_table: Rid, node: number): void {
+	_lib.Rtree_table_refresh(tree_table, node);
+}
+
+/** Vertical lines that join the children of a node (GuideLines="true"). */
+export function Rtree_table_set_guide_lines(tree_table: Rid, visible: number): void {
+	_lib.Rtree_table_set_guide_lines(tree_table, visible);
+}
+
+export function Rtree_table_get_guide_lines(tree_table: Rid): number {
+	return _lib.Rtree_table_get_guide_lines(tree_table);
+}
+
+/** Typing the first letters of a name goes to it (TypeSearch, on by default). */
+export function Rtree_table_set_type_search(tree_table: Rid, enabled: number): void {
+	_lib.Rtree_table_set_type_search(tree_table, enabled);
 }
 
 /** Sets the date (today when the picker is created). An invalid date is refused. */

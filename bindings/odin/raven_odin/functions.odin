@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1203 of the 1637 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 402 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (169):
@@ -63,7 +63,7 @@
 //     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
 //     Rtest_save_png
 //
-//   a callback (113):
+//   a callback (116):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -82,7 +82,8 @@
 //     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
 //     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
 //     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
-//     Rtable_set_cell_edited_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
+//     Rtable_set_cell_edited_callback Rtree_table_set_expanded_callback Rtree_table_set_virtual
+//     Rtree_table_set_icon_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
 //     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
 //     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
 //     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
@@ -107,10 +108,10 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (12):
+//   a handle result that is not known (13):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
-//     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
-//     Rpdf_document_create Rdiff_view_create Rtest_find
+//     Rmenu_bar_add_divider Rtree_table_get_node_icon Rchart_create Rcarousel_create Rmap_view_create
+//     Rsystem_web_view_create Rpdf_document_create Rdiff_view_create Rtest_find
 //
 //   a parameter of type const uint8_t* (10):
 //     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
@@ -3293,6 +3294,148 @@ table_is_cell_checked :: proc(table: Widget, row: i32, column: i32) -> bool {
 // Stored rows: writes "1" or "0" in the cell (no callback is called).
 table_set_cell_checked :: proc(table: Widget, row: i32, column: i32, checked: bool) {
 	raw.Rtable_set_cell_checked(raw.Rid(table), row, column, (1 if checked else 0))
+}
+
+// Adds a node at the end of the children of `parent` (0: the top
+// level), with its cells separated by '|' as in Rtable_add_row (NULL:
+// empty). Returns: The number naming the node (> 0), or 0 on error.
+tree_table_add_node :: proc(tree_table: Widget, parent: i32, cells: cstring) -> i32 {
+	return raw.Rtree_table_add_node(raw.Rid(tree_table), parent, cells)
+}
+
+// Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+tree_table_insert_node :: proc(tree_table: Widget, parent: i32, index: i32, cells: string) -> i32 {
+	buffer_cells: [cstring_buffer_size]u8
+	return raw.Rtree_table_insert_node(raw.Rid(tree_table), parent, index, to_cstring(cells, &buffer_cells))
+}
+
+// Removes a node and every node under it.
+tree_table_remove_node :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_remove_node(raw.Rid(tree_table), node)
+}
+
+// Moves a node, with its subtree, among the children of `parent` at
+// `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+tree_table_move_node :: proc(tree_table: Widget, node: i32, parent: i32, index: i32) -> bool {
+	return raw.Rtree_table_move_node(raw.Rid(tree_table), node, parent, index) != 0
+}
+
+// R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+tree_table_is_node_valid :: proc(tree_table: Widget, node: i32) -> bool {
+	return raw.Rtree_table_is_node_valid(raw.Rid(tree_table), node) != 0
+}
+
+// Stored nodes, shown or not (the root not counted).
+tree_table_get_node_count :: proc(tree_table: Widget) -> i32 {
+	return raw.Rtree_table_get_node_count(raw.Rid(tree_table))
+}
+
+// The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+tree_table_get_parent :: proc(tree_table: Widget, node: i32) -> i32 {
+	return raw.Rtree_table_get_parent(raw.Rid(tree_table), node)
+}
+
+// Children of a node (0: the top-level nodes). Virtual: asks the application.
+tree_table_get_child_count :: proc(tree_table: Widget, node: i32) -> i32 {
+	return raw.Rtree_table_get_child_count(raw.Rid(tree_table), node)
+}
+
+// The child of a node at `index`, or 0. Virtual: asks the application.
+tree_table_get_child :: proc(tree_table: Widget, node: i32, index: i32) -> i32 {
+	return raw.Rtree_table_get_child(raw.Rid(tree_table), node, index)
+}
+
+// Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+tree_table_get_depth :: proc(tree_table: Widget, node: i32) -> i32 {
+	return raw.Rtree_table_get_depth(raw.Rid(tree_table), node)
+}
+
+// The text of a cell of a stored node, shown or not.
+tree_table_set_node_cell :: proc(tree_table: Widget, node: i32, column: i32, text: string) {
+	buffer_text: [cstring_buffer_size]u8
+	raw.Rtree_table_set_node_cell(raw.Rid(tree_table), node, column, to_cstring(text, &buffer_text))
+}
+
+// The text of a cell of a node (virtual: asks the application). "" for none.
+tree_table_get_node_cell :: proc(tree_table: Widget, node: i32, column: i32) -> string {
+	return string(raw.Rtree_table_get_node_cell(raw.Rid(tree_table), node, column))
+}
+
+// An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+tree_table_set_node_icon :: proc(tree_table: Widget, node: i32, texture: Texture) {
+	raw.Rtree_table_set_node_icon(raw.Rid(tree_table), node, raw.Rid(texture))
+}
+
+// A stored node shows a chevron before it has children
+// (HasChildren="true"): opening it calls the expanded callback, where the
+// application adds them (now, or later when they are loaded).
+tree_table_set_node_has_children :: proc(tree_table: Widget, node: i32, has_children: i32) {
+	raw.Rtree_table_set_node_has_children(raw.Rid(tree_table), node, has_children)
+}
+
+// Opens or closes a node (a node inside a closed one keeps the state it is given).
+tree_table_set_expanded :: proc(tree_table: Widget, node: i32, expanded: bool) {
+	raw.Rtree_table_set_expanded(raw.Rid(tree_table), node, (1 if expanded else 0))
+}
+
+tree_table_is_expanded :: proc(tree_table: Widget, node: i32) -> bool {
+	return raw.Rtree_table_is_expanded(raw.Rid(tree_table), node) != 0
+}
+
+// Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+tree_table_expand_all :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_expand_all(raw.Rid(tree_table), node)
+}
+
+// Closes a node and every node under it (0: the whole tree).
+tree_table_collapse_all :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_collapse_all(raw.Rid(tree_table), node)
+}
+
+// The node shown at a row, 0 for none.
+tree_table_get_row_node :: proc(tree_table: Widget, row: i32) -> i32 {
+	return raw.Rtree_table_get_row_node(raw.Rid(tree_table), row)
+}
+
+// The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+tree_table_get_node_row :: proc(tree_table: Widget, node: i32) -> i32 {
+	return raw.Rtree_table_get_node_row(raw.Rid(tree_table), node)
+}
+
+// Opens the parents of a stored node and scrolls to it.
+tree_table_reveal_node :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_reveal_node(raw.Rid(tree_table), node)
+}
+
+// Reveals a node and makes it the selection (0: none); the selection callback is not called.
+tree_table_select_node :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_select_node(raw.Rid(tree_table), node)
+}
+
+// The node of the selected row (the last one clicked in multiple selection), 0 for none.
+tree_table_get_selected_node :: proc(tree_table: Widget) -> i32 {
+	return raw.Rtree_table_get_selected_node(raw.Rid(tree_table))
+}
+
+// Virtual tree: the children of `node` changed (0: anything, after a
+// sort for instance). Their counts are asked again; the nodes that were
+// open stay open, found again by their numbers.
+tree_table_refresh :: proc(tree_table: Widget, node: i32) {
+	raw.Rtree_table_refresh(raw.Rid(tree_table), node)
+}
+
+// Vertical lines that join the children of a node (GuideLines="true").
+tree_table_set_guide_lines :: proc(tree_table: Widget, visible: bool) {
+	raw.Rtree_table_set_guide_lines(raw.Rid(tree_table), (1 if visible else 0))
+}
+
+tree_table_get_guide_lines :: proc(tree_table: Widget) -> bool {
+	return raw.Rtree_table_get_guide_lines(raw.Rid(tree_table)) != 0
+}
+
+// Typing the first letters of a name goes to it (TypeSearch, on by default).
+tree_table_set_type_search :: proc(tree_table: Widget, enabled: bool) {
+	raw.Rtree_table_set_type_search(raw.Rid(tree_table), (1 if enabled else 0))
 }
 
 // Sets the date (today when the picker is created). An invalid date is refused.
