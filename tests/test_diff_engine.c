@@ -12,6 +12,19 @@
 #include "test.h"
 #include "../src/core/diff.h"
 
+/* The time bounds below hold for a build without sanitizers, even unoptimized; AddressSanitizer and
+ * UBSan (the job of CI that runs every test with them) make the comparison a few times slower. */
+#if defined(__SANITIZE_ADDRESS__)
+#define TIME_FACTOR 4.0
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TIME_FACTOR 4.0
+#endif
+#endif
+#ifndef TIME_FACTOR
+#define TIME_FACTOR 1.0
+#endif
+
 #include <stdlib.h>
 
 /* ---- helpers ---- */
@@ -530,7 +543,7 @@ static void test_performance(void) {
 	rvn_diff_split(right.data, right.length, &b);
 	t = best_of(3, &a, &b, &coarse, &edits);
 	printf("  50k lines, 1%% edited: %.1f ms, %d lines removed or added%s\n", t * 1000.0, edits, coarse ? " (coarse)" : "");
-	CHECK(t < 0.150);
+	CHECK(t < 0.150 * TIME_FACTOR);
 	CHECK(!coarse);
 	rvn_diff_lines_free(&a);
 	rvn_diff_lines_free(&b);
@@ -551,7 +564,7 @@ static void test_performance(void) {
 	t = best_of(1, &a, &b, &coarse, &edits);
 	printf("  50k lines, all different: %.1f ms\n", t * 1000.0);
 	CHECK(edits == 100000);
-	CHECK(t < 0.150);
+	CHECK(t < 0.150 * TIME_FACTOR);
 	rvn_diff_lines_free(&a);
 	rvn_diff_lines_free(&b);
 	free(left.data);
@@ -572,7 +585,7 @@ static void test_performance(void) {
 	t = best_of(1, &a, &b, &coarse, &edits);
 	printf("  50k lines, three lines shuffled: %.1f ms, %d edits%s\n", t * 1000.0, edits, coarse ? " (coarse)" : "");
 	/* bounded: well under a second even unoptimized */
-	CHECK(t < 1.5);
+	CHECK(t < 1.5 * TIME_FACTOR);
 	rvn_diff_lines_free(&a);
 	rvn_diff_lines_free(&b);
 	free(left.data);

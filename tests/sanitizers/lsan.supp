@@ -1,0 +1,19 @@
+# LeakSanitizer: what is not Raven's (CI, job "sanitizers": LSAN_OPTIONS=suppressions=...).
+#
+# The libraries of the system that Raven opens at run time (dlopen) keep
+# caches and state of their own until the process ends; what they hold is
+# not a leak of Raven. Raven's own blocks are never suppressed: the tests also
+# check, after Rshutdown, that the library freed everything it allocated.
+leak:libdbus-1.so
+leak:libX11.so
+leak:libXi.so
+leak:libxkbcommon.so
+leak:libwayland-client.so
+leak:libdecor-0.so
+leak:libfontconfig.so
+leak:libenchant-2.so
+leak:libhunspell
+leak:libglib-2.0.so
+leak:libgobject-2.0.so
+leak:libvulkan.so
+leak:libatspi.so
