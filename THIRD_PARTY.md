@@ -67,6 +67,10 @@ TrueType glyph before stb reads them, since stb trusts the offsets of the file
 (and leaves out a glyph whose last contour is one point off the curve: stb
 would read the point after it, past its array).
 
+`stb_image.h` is unchanged; `image_decode.c` gives it `STBI_MAX_DIMENSIONS`
+(16384) and refuses, before decoding, an image of more than 2^26 pixels or
+of more pixels than its file can hold (stb fills what is missing with zeros).
+
 On Linux and BSD, the Wayland platform opens `libwayland-client`,
 `libxkbcommon` and, when they are installed, `libwayland-cursor` and
 `libdecor` at run time (all MIT); none of them is needed to build.
