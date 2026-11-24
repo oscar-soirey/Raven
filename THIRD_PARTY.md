@@ -58,7 +58,9 @@ and a font of color bitmaps without outlines (CBDT or sbix, such as Noto
 Color Emoji) is opened, for its character map and metrics: Raven reads the
 bitmaps itself.
 `font_raster.c` also checks the tables of every font and each
-TrueType glyph before stb reads them, since stb trusts the offsets of the file.
+TrueType glyph before stb reads them, since stb trusts the offsets of the file
+(and leaves out a glyph whose last contour is one point off the curve: stb
+would read the point after it, past its array).
 
 On Linux and BSD, the Wayland platform opens `libwayland-client`,
 `libxkbcommon` and, when they are installed, `libwayland-cursor` and
