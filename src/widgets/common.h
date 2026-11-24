@@ -71,6 +71,7 @@ extern const rvn_widget_class_t rvn_class_map_view;
 extern const rvn_widget_class_t rvn_class_carousel;
 extern const rvn_widget_class_t rvn_class_system_web_view;
 extern const rvn_widget_class_t rvn_class_diff_view;
+extern const rvn_widget_class_t rvn_class_tree_table;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))

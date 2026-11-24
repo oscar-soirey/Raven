@@ -1152,6 +1152,148 @@ extern "C" {
 	/** @brief Stored rows: writes "1" or "0" in the cell (no callback is called). */
 	RAVEN_API void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
 
+	/* ============================================================================
+	 *  TREE TABLE (a table whose rows nest: files and folders, an outline)
+	 *
+	 *      <TreeTable Name="files" SortColumn="0" GuideLines="true">
+	 *          <Column Header="Name" Width="240"/>
+	 *          <Column Header="Size" Width="80" Align="Right"/>
+	 *          <Row Cells="src|" Icon="raven:folder" Expanded="true">
+	 *              <Row Cells="main.c|12 KB" Icon="raven:file"/>
+	 *          </Row>
+	 *          <Row Cells="README.md|3 KB" Icon="raven:file"/>
+	 *      </TreeTable>
+	 *
+	 * R_WIDGET_TREE_TABLE is a Table whose rows are the nodes of a tree. It
+	 * is the same widget: every Rtable_* function works on it (columns,
+	 * kinds, frozen columns, cells edited in place, sorting, selection,
+	 * callbacks), where a row is a row shown: the nodes whose parents are all
+	 * expanded, from the top. Rtable_add_row adds a node at the top level,
+	 * Rtable_remove_row removes the node of a row with all it holds, and the
+	 * selection (Rtable_get_selection, ranges in multiple selection) is in
+	 * rows shown; it follows its nodes when the rows move.
+	 *
+	 * The nodes are named by numbers that never change while they exist
+	 * (expanded, collapsed, sorted, moved): 0 is the invisible root above
+	 * the top-level nodes. The first column shows the hierarchy: the
+	 * indentation, a chevron that opens and closes the node, an optional
+	 * icon (Rtree_table_set_node_icon, Icon="raven:folder") and optional
+	 * guide lines. Sorting a column sorts the children of each node among
+	 * themselves: the hierarchy stays.
+	 *
+	 * The user opens and closes a node with its chevron or a double click;
+	 * with the keyboard, Right opens it or goes to its first child, Left
+	 * closes it or goes to its parent, + and - open and close it, * opens
+	 * everything under it, and typing the first letters of a name goes to
+	 * the next row of the first column that starts with them (when the
+	 * current cell is not edited by typing). With editable columns, Left and
+	 * Right act on the tree in the first column and move the current cell in
+	 * the others.
+	 *
+	 * Huge trees are virtual (Rtree_table_set_virtual): the table stores no
+	 * node and asks the application how many children a node has, which one
+	 * is at an index, whether it has any, and the text of its cells, only
+	 * for the rows drawn. The application names its nodes by positive
+	 * numbers of its own (an index in its data). Opening a node asks for its
+	 * children then, so an explorer of 100 000 files costs only what it
+	 * shows. In both modes the expanded callback is called before a node
+	 * opens, so its children can be loaded then (lazy loading).
+	 * ============================================================================ */
+
+	/** @brief Called when a node opens (before its children are asked: they can be added or loaded then) or closes. */
+	typedef void (*RTreeTableExpandCallback)(Rid tree_table, int node, int expanded, void* user_data);
+	/** @brief Virtual tree: how many children `node` has (0: the top-level nodes). */
+	typedef int (*RTreeTableChildCountCallback)(Rid tree_table, int node, void* user_data);
+	/** @brief Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it. */
+	typedef int (*RTreeTableChildCallback)(Rid tree_table, int parent, int index, void* user_data);
+	/** @brief Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron. */
+	typedef int (*RTreeTableHasChildrenCallback)(Rid tree_table, int node, void* user_data);
+	/** @brief Virtual tree: the text of a cell of `node`. NULL is "". */
+	typedef const char* (*RTreeTableNodeTextCallback)(Rid tree_table, int node, int column, void* user_data);
+	/** @brief Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID. */
+	typedef Rid (*RTreeTableNodeIconCallback)(Rid tree_table, int node, void* user_data);
+
+	/**
+	 * @brief Adds a node at the end of the children of `parent` (0: the top
+	 * level), with its cells separated by '|' as in Rtable_add_row (NULL:
+	 * empty). @return The number naming the node (> 0), or 0 on error.
+	 */
+	RAVEN_API int Rtree_table_add_node(Rid tree_table, int parent, const char* cells);
+	/** @brief Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last). */
+	RAVEN_API int Rtree_table_insert_node(Rid tree_table, int parent, int index, const char* cells);
+	/** @brief Removes a node and every node under it. */
+	RAVEN_API void Rtree_table_remove_node(Rid tree_table, int node);
+	/**
+	 * @brief Moves a node, with its subtree, among the children of `parent` at
+	 * `index` (-1: last). A node cannot go under itself. @return R_TRUE when moved.
+	 */
+	RAVEN_API int Rtree_table_move_node(Rid tree_table, int node, int parent, int index);
+	/** @brief R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown. */
+	RAVEN_API int Rtree_table_is_node_valid(Rid tree_table, int node);
+	/** @brief Stored nodes, shown or not (the root not counted). */
+	RAVEN_API int Rtree_table_get_node_count(Rid tree_table);
+	/** @brief The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown. */
+	RAVEN_API int Rtree_table_get_parent(Rid tree_table, int node);
+	/** @brief Children of a node (0: the top-level nodes). Virtual: asks the application. */
+	RAVEN_API int Rtree_table_get_child_count(Rid tree_table, int node);
+	/** @brief The child of a node at `index`, or 0. Virtual: asks the application. */
+	RAVEN_API int Rtree_table_get_child(Rid tree_table, int node, int index);
+	/** @brief Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown. */
+	RAVEN_API int Rtree_table_get_depth(Rid tree_table, int node);
+	/** @brief The text of a cell of a stored node, shown or not. */
+	RAVEN_API void Rtree_table_set_node_cell(Rid tree_table, int node, int column, const char* text);
+	/** @brief The text of a cell of a node (virtual: asks the application). "" for none. */
+	RAVEN_API const char* Rtree_table_get_node_cell(Rid tree_table, int node, int column);
+	/** @brief An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none. */
+	RAVEN_API void Rtree_table_set_node_icon(Rid tree_table, int node, Rid texture);
+	RAVEN_API Rid Rtree_table_get_node_icon(Rid tree_table, int node);
+	/**
+	 * @brief A stored node shows a chevron before it has children
+	 * (HasChildren="true"): opening it calls the expanded callback, where the
+	 * application adds them (now, or later when they are loaded).
+	 */
+	RAVEN_API void Rtree_table_set_node_has_children(Rid tree_table, int node, int has_children);
+	/** @brief Opens or closes a node (a node inside a closed one keeps the state it is given). */
+	RAVEN_API void Rtree_table_set_expanded(Rid tree_table, int node, int expanded);
+	RAVEN_API int Rtree_table_is_expanded(Rid tree_table, int node);
+	/** @brief Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it. */
+	RAVEN_API void Rtree_table_expand_all(Rid tree_table, int node);
+	/** @brief Closes a node and every node under it (0: the whole tree). */
+	RAVEN_API void Rtree_table_collapse_all(Rid tree_table, int node);
+	/** @brief The node shown at a row, 0 for none. */
+	RAVEN_API int Rtree_table_get_row_node(Rid tree_table, int row);
+	/** @brief The row a node is shown at, -1 when it is inside a closed node (or does not exist). */
+	RAVEN_API int Rtree_table_get_node_row(Rid tree_table, int node);
+	/** @brief Opens the parents of a stored node and scrolls to it. */
+	RAVEN_API void Rtree_table_reveal_node(Rid tree_table, int node);
+	/** @brief Reveals a node and makes it the selection (0: none); the selection callback is not called. */
+	RAVEN_API void Rtree_table_select_node(Rid tree_table, int node);
+	/** @brief The node of the selected row (the last one clicked in multiple selection), 0 for none. */
+	RAVEN_API int Rtree_table_get_selected_node(Rid tree_table);
+	/** @brief Called when the user or the application opens or closes a node (lazy loading). */
+	RAVEN_API void Rtree_table_set_expanded_callback(Rid tree_table, RTreeTableExpandCallback callback, void* user_data);
+	/**
+	 * @brief Makes the tree virtual: the stored nodes are removed and the
+	 * application gives the tree with the callbacks, asked for the rows
+	 * drawn only. `has_children` may be NULL (the count is asked then).
+	 * `child_count` NULL makes the tree stored again, empty.
+	 */
+	RAVEN_API void Rtree_table_set_virtual(Rid tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child,
+		RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, void* user_data);
+	/** @brief Virtual tree: the icons of the nodes. */
+	RAVEN_API void Rtree_table_set_icon_callback(Rid tree_table, RTreeTableNodeIconCallback callback, void* user_data);
+	/**
+	 * @brief Virtual tree: the children of `node` changed (0: anything, after a
+	 * sort for instance). Their counts are asked again; the nodes that were
+	 * open stay open, found again by their numbers.
+	 */
+	RAVEN_API void Rtree_table_refresh(Rid tree_table, int node);
+	/** @brief Vertical lines that join the children of a node (GuideLines="true"). */
+	RAVEN_API void Rtree_table_set_guide_lines(Rid tree_table, int visible);
+	RAVEN_API int Rtree_table_get_guide_lines(Rid tree_table);
+	/** @brief Typing the first letters of a name goes to it (TypeSearch, on by default). */
+	RAVEN_API void Rtree_table_set_type_search(Rid tree_table, int enabled);
+
 
 	/* ============================================================================
 	 *  DATE PICKER (a date and the calendar that drops down from it)

@@ -5,7 +5,7 @@
 #   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_notifications,
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
 #   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
-#   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
+#   test_testing, test_table_edit, test_tree_table, test_combo_search, test_transfer, test_device, test_preedit,
 #   test_icons, test_spell, test_headless, test_web_input
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
@@ -164,6 +164,8 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_table_features)
 	# cells edited in place, frozen columns; editable and searchable combo boxes (the screen reader tree is internal)
 	raven_add_test(test_table_edit)
+	# TreeTable: the nodes, the rows shown, sorting within parents, keys, a virtual tree of 100 000 nodes (the screen reader tree is internal)
+	raven_add_test(test_tree_table)
 	raven_add_test(test_combo_search)
 endif()
 # the icons shipped with Raven and SVGs in currentColor, tinted by the widgets (a backend of the test records what is drawn)

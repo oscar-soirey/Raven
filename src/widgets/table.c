@@ -22,10 +22,15 @@
  * a million virtual rows is one range, and asking whether a row is selected
  * is a binary search. A column may draw its cells as a check box or a
  * progress bar, from their texts; nothing is made per cell.
+ *
+ * A TreeTable (R_WIDGET_TREE_TABLE) is this same widget with rows that nest:
+ * the rows are the nodes shown, which widgets/tree_table.c keeps (the
+ * `tree` of the table). Everything here works on rows; the few places where
+ * a row of a tree differs (where its cells are, the first column that
+ * shows the hierarchy, the keys that open and close) ask the tree.
  */
 
-#include "common.h"
-#include "../xml/xml.h"
+#include "table.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -36,93 +41,6 @@
 #define RVN_TABLE_DEFAULT_COLUMN 120.0f
 /* Rows measured when a column is fitted to its content (double click on its edge). */
 #define RVN_TABLE_FIT_ROWS 2000
-
-typedef struct rvn_table_column_t {
-	char* header;
-	/** Width given (> 0), or the width it had when the user last dragged it. */
-	float width;
-	/** > 0: share of the room left by the other columns (Fill in XML); the width is then a minimum. */
-	float fill;
-	/** Width as laid out. */
-	float shown;
-	/** 0 = left, 0.5 = center, 1 = right. */
-	float align;
-	int sortable;
-	int editable;
-	/** RTableColumnKind (0: text). */
-	int kind;
-} rvn_table_column_t;
-
-/* Rows first..last, both included. */
-typedef struct rvn_table_range_t {
-	int first, last;
-} rvn_table_range_t;
-
-typedef struct rvn_table_t {
-	rvn_widget_t base;
-	rvn_table_column_t* columns;
-	uint32_t column_count;
-	uint32_t column_cap;
-	/* stored mode: row_count rows of column_count cells, row after row (NULL: empty) */
-	char** cells;
-	uint32_t row_count;
-	uint32_t row_cap;
-	rvn_color_t* row_colors;
-	rvn_color_t* cell_colors;
-	/* virtual mode */
-	int is_virtual;
-	int virtual_count;
-	RTableCellTextCallback cell_callback;
-	void* cell_user;
-	/* the color of the text of a cell, asked of the application (NULL: the theme's) */
-	RTableCellColorCallback color_callback;
-	void* color_user;
-	/** RTableSelectionMode; `multi` caches mode == MULTIPLE. */
-	int mode;
-	int multi;
-	int anchor;
-	/** Multiple selection: the row the keyboard is on (Space toggles it), selected or not. */
-	int focus;
-	/* multiple selection: sorted ranges that neither overlap nor touch */
-	rvn_table_range_t* ranges;
-	uint32_t range_count;
-	uint32_t range_cap;
-
-	int selected;
-	int hot;
-	int hot_header;
-	int pressed_header;
-	/** Column whose right edge is being dragged, or -1. */
-	int resizing;
-	float resize_from_x, resize_from_width;
-	int sort_column;
-	int sort_descending;
-	int show_header;
-	int grid_lines;
-	int striped;
-	rvn_scrollbar_t bar;
-	rvn_scrollbar_t hbar;
-	RSpring select_y;
-	RTableEventCallback selection_callback;
-	void* selection_user;
-	RTableEventCallback activated_callback;
-	void* activated_user;
-	RTableSortCallback sort_callback;
-	void* sort_user;
-
-	/** The first columns that do not scroll sideways. */
-	uint32_t frozen;
-	/** Column of the current cell (on the selected row), -1: the first editable one. */
-	int column;
-	/* ---- the editor of a cell: a TextInput over it, made the first time ---- */
-	rvn_widget_t* editor;
-	int editing;
-	int edit_row, edit_column;
-	/** The edited callback is running: the focus it moves does not close the editor again. */
-	int committing;
-	RTableCellEditedCallback edited_callback;
-	void* edited_user;
-} rvn_table_t;
 
 /* Where the parts of the table are, in the coordinates of the widget. */
 typedef struct rvn_table_geometry_t {
@@ -163,10 +81,16 @@ static void rvn_table_destroy(rvn_widget_t* widget) {
 	rvn_free(table->row_colors);
 	rvn_free(table->cell_colors);
 	rvn_free(table->ranges);
+	rvn_tree_free(table);
 }
 
-static int rvn_table_count(const rvn_table_t* table) {
+int rvn_table_count(rvn_table_t* table) {
+	if (table->tree) return rvn_tree_count(table);
 	return table->is_virtual ? table->virtual_count : (int)table->row_count;
+}
+
+int rvn_table_is_tree(const rvn_widget_t* widget) {
+	return widget->cls->type == R_WIDGET_TREE_TABLE;
 }
 
 int rvn_table_multi_select(const rvn_widget_t* widget) {
@@ -219,7 +143,7 @@ static void rvn_table_range_close(rvn_table_t* table, uint32_t at, uint32_t coun
 }
 
 /* Adds first..last, merged with the ranges it overlaps or touches. */
-static void rvn_table_range_add(rvn_table_t* table, int first, int last) {
+void rvn_table_range_add(rvn_table_t* table, int first, int last) {
 	uint32_t i, j;
 	if (first > last) return;
 	i = rvn_table_range_lower(table, first - 1);
@@ -293,7 +217,7 @@ static void rvn_table_range_delete_row(rvn_table_t* table, int row) {
 	}
 }
 
-static int rvn_table_is_selected(const rvn_table_t* table, int row) {
+int rvn_table_is_selected(rvn_table_t* table, int row) {
 	if (row < 0 || row >= rvn_table_count(table)) return R_FALSE;
 	return table->multi ? rvn_table_range_has(table, row) : row == table->selected;
 }
@@ -324,9 +248,17 @@ static rvn_color_t* rvn_table_repack_colors(rvn_color_t* colors, uint32_t old_co
 	return grown;
 }
 
+/* The stored text of a cell, to be replaced (NULL: a virtual table, or no such cell). */
+static char** rvn_table_cell_slot(rvn_table_t* table, int row, int column) {
+	if (table->tree) return rvn_tree_cell_slot(table, row, column);
+	if (table->is_virtual || row < 0 || row >= (int)table->row_count || column < 0 || column >= (int)table->column_count) return NULL;
+	return &table->cells[(size_t)row * table->column_count + (size_t)column];
+}
+
 static const char* rvn_table_cell(rvn_table_t* table, int row, int column) {
 	const char* text;
 	if (row < 0 || row >= rvn_table_count(table) || column < 0 || column >= (int)table->column_count) return "";
+	if (table->tree) return rvn_tree_cell(table, row, column);
 	if (!table->is_virtual) {
 		text = table->cells[(size_t)row * table->column_count + (size_t)column];
 		return text ? text : "";
@@ -342,7 +274,10 @@ static rvn_color_t rvn_table_cell_color(rvn_table_t* table, int row, int column,
 	rvn_color_t color = 0;
 	if (table->color_callback && table->color_callback(table->base.id, row, column, &r, &g, &b, &a, table->color_user) && a > 0.0f)
 		return rvn_rgba(r, g, b, a);
-	if (!table->is_virtual) {
+	if (table->tree) {
+		color = rvn_tree_cell_color(table, row, column);
+		if (!rvn_color_a(color)) color = rvn_tree_cell_color(table, row, -1);
+	} else if (!table->is_virtual) {
 		if (table->cell_colors) color = table->cell_colors[(size_t)row * table->column_count + (size_t)column];
 		if (!rvn_color_a(color) && table->row_colors) color = table->row_colors[row];
 	}
@@ -454,16 +389,18 @@ static int rvn_table_column_at(const rvn_table_t* table, const rvn_table_geometr
 	return -1;
 }
 
-static int rvn_table_has_editable(const rvn_table_t* table) {
+int rvn_table_has_editable(const rvn_table_t* table) {
 	uint32_t i;
 	for (i = 0; i < table->column_count; i++) if (table->columns[i].editable) return R_TRUE;
 	return R_FALSE;
 }
 
 /* The column of the current cell: the one chosen, else the first editable one (-1: none). */
-static int rvn_table_current_column(const rvn_table_t* table) {
+int rvn_table_current_column(const rvn_table_t* table) {
 	uint32_t i;
 	if (table->column >= 0 && table->column < (int)table->column_count) return table->column;
+	/* (a tree starts in its own column, where Left and Right open and close) */
+	if (table->tree && table->column_count > 0 && rvn_table_has_editable(table)) return 0;
 	for (i = 0; i < table->column_count; i++) if (table->columns[i].editable) return (int)i;
 	return -1;
 }
@@ -552,7 +489,7 @@ static void rvn_table_reveal_column(rvn_widget_t* widget, int column) {
 	rvn_widget_invalidate_paint(widget);
 }
 
-static void rvn_table_reveal(rvn_widget_t* widget, int row) {
+void rvn_table_reveal(rvn_widget_t* widget, int row) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	rvn_table_geometry_t geometry;
 	float height = rvn_table_row_height(widget), top = height * (float)row;
@@ -564,7 +501,7 @@ static void rvn_table_reveal(rvn_widget_t* widget, int row) {
 	rvn_widget_invalidate_paint(widget);
 }
 
-static void rvn_table_select(rvn_widget_t* widget, int index, int notify) {
+void rvn_table_select(rvn_widget_t* widget, int index, int notify) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (index < -1 || index >= rvn_table_count(table)) index = -1;
 	/* (with no selection, the user selects nothing; -1 still clears) */
@@ -591,7 +528,7 @@ static void rvn_table_selection_changed(rvn_widget_t* widget, int reveal, int no
  * extends from the anchor to the row (keeping the other rows with Ctrl/Cmd
  * too), Ctrl/Cmd alone toggles the row.
  */
-static void rvn_table_select_input(rvn_widget_t* widget, int row, uint32_t modifiers) {
+void rvn_table_select_input(rvn_widget_t* widget, int row, uint32_t modifiers) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (table->mode == R_TABLE_SELECTION_NONE) return;
 	if (!table->multi || !(modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER))) {
@@ -625,7 +562,7 @@ static void rvn_table_select_all(rvn_widget_t* widget, int notify) {
 	rvn_table_selection_changed(widget, -1, notify);
 }
 
-static void rvn_table_activate(rvn_widget_t* widget) {
+void rvn_table_activate(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	int row = rvn_table_cursor(table);
 	if (row < 0) return;
@@ -679,9 +616,8 @@ static void rvn_table_toggle_cell(rvn_widget_t* widget, int row, int column) {
 		}
 	}
 	/* (the callback may have cleared the rows, or written the cell itself) */
-	if (accepted && !table->is_virtual && row < (int)table->row_count && column < (int)table->column_count &&
-		strcmp(rvn_table_cell(table, row, column), before) == 0)
-		rvn_str_set(&table->cells[(size_t)row * table->column_count + (size_t)column], text);
+	if (accepted && rvn_table_cell_slot(table, row, column) && strcmp(rvn_table_cell(table, row, column), before) == 0)
+		rvn_str_set(rvn_table_cell_slot(table, row, column), text);
 	rvn_free(before);
 	rvn_a11y_structure_changed();
 	rvn_widget_invalidate_paint(widget);
@@ -703,6 +639,12 @@ static int rvn_table_cell_rect(rvn_widget_t* widget, int row, int column, rvn_re
 	left = rvn_table_column_left(table, &geometry, column, table->hbar.offset);
 	rvn_table_column_span(table, &geometry, column, &from, &to);
 	cell = rvn_rect(left, geometry.body.y + height * (float)row - table->bar.offset, table->columns[column].shown, height);
+	if (table->tree && column == 0) {
+		/* (the editor of the first column of a tree leaves its chevron and its icon) */
+		float inset = rvn_minf(rvn_tree_inset(widget, row), rvn_maxf(0.0f, cell.w - RVN_TABLE_MIN_COLUMN));
+		cell.x += inset;
+		cell.w -= inset;
+	}
 	*out = rvn_rect_intersect(cell, rvn_rect(from, geometry.body.y, rvn_maxf(0.0f, to - from), geometry.body.h));
 	return out->w > 1.0f && out->h > 1.0f;
 }
@@ -720,7 +662,7 @@ static void rvn_table_place_editor(rvn_widget_t* widget) {
 }
 
 /* Hides the editor; `refocus`: the keyboard comes back to the table. */
-static void rvn_table_close_editor(rvn_widget_t* widget, int refocus) {
+void rvn_table_close_editor(rvn_widget_t* widget, int refocus) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (!table->editing) return;
 	table->editing = R_FALSE;
@@ -758,10 +700,9 @@ static int rvn_table_commit_edit(rvn_widget_t* widget, int refocus) {
 	}
 	/* (the callback may have closed the editor, or cleared the rows) */
 	if (!table->editing) accepted = R_FALSE;
-	if (accepted && !table->is_virtual && row < (int)table->row_count && column < (int)table->column_count) {
+	if (accepted && rvn_table_cell_slot(table, row, column)) {
 		/* a stored cell takes the text, unless the callback already wrote what it keeps */
-		if (strcmp(rvn_table_cell(table, row, column), before) == 0)
-			rvn_str_set(&table->cells[(size_t)row * table->column_count + (size_t)column], text);
+		if (strcmp(rvn_table_cell(table, row, column), before) == 0) rvn_str_set(rvn_table_cell_slot(table, row, column), text);
 	}
 	rvn_free(text);
 	rvn_free(before);
@@ -778,7 +719,7 @@ static int rvn_table_commit_edit(rvn_widget_t* widget, int refocus) {
 /* The table an editor belongs to (NULL once it is gone). */
 static rvn_widget_t* rvn_table_of(void* user) {
 	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user);
-	return widget && !(widget->flags & RVN_WF_DEAD) && widget->cls->type == R_WIDGET_TABLE ? widget : NULL;
+	return widget && !(widget->flags & RVN_WF_DEAD) && (widget->cls->type == R_WIDGET_TABLE || rvn_table_is_tree(widget)) ? widget : NULL;
 }
 
 /* Enter in the editor: keep the text, and go down a row. */
@@ -847,7 +788,7 @@ static int rvn_table_begin_edit(rvn_widget_t* widget, int row, int column, const
 }
 
 /* The next editable cell after the one edited (`step` 1), or before it (-1), row after row. */
-static int rvn_table_next_editable(const rvn_table_t* table, int step, int* row, int* column) {
+static int rvn_table_next_editable(rvn_table_t* table, int step, int* row, int* column) {
 	int r = table->edit_row, c = table->edit_column, count = rvn_table_count(table), columns = (int)table->column_count;
 	for (;;) {
 		c += step;
@@ -896,13 +837,6 @@ static int rvn_table_editing_key(rvn_widget_t* widget, const REvent* event) {
  *  Sorting
  * ------------------------------------------------------------------------- */
 
-typedef struct rvn_table_sort_key_t {
-	const char* text;
-	double number;
-	int is_number;
-	uint32_t row;
-} rvn_table_sort_key_t;
-
 /* A plain decimal number ("12", "-3.5", "1e3", "40 %"): words strtod also reads, such as "Nan" or
  * "Inf", and values that do not fit stay texts. */
 static int rvn_table_parse_number(const char* text, double* number) {
@@ -937,6 +871,25 @@ static int rvn_table_compare_keys(const void* a, const void* b) {
 	return order;
 }
 
+void rvn_table_sort_key(const rvn_table_t* table, int column, const char* text, rvn_table_sort_key_t* key) {
+	key->text = text ? text : "";
+	if (table->columns[column].kind == R_TABLE_COLUMN_CHECK) {
+		/* unchecked before checked, whatever the texts say it with */
+		key->is_number = R_TRUE;
+		key->number = rvn_table_text_checked(key->text);
+	} else if (table->columns[column].kind == R_TABLE_COLUMN_PROGRESS) {
+		key->number = rvn_table_text_progress(key->text);
+		key->is_number = key->number >= 0.0;
+	} else {
+		key->is_number = rvn_table_parse_number(key->text, &key->number);
+	}
+}
+
+void rvn_table_sort_keys(rvn_table_sort_key_t* keys, uint32_t count, int descending) {
+	g_rvn_table_descending = descending;
+	qsort(keys, count, sizeof(rvn_table_sort_key_t), rvn_table_compare_keys);
+}
+
 /* Stored rows: puts them in the order of `column`; the selection stays on its row. */
 static void rvn_table_sort_rows(rvn_table_t* table, int column, int descending) {
 	uint32_t i, n = table->row_count, columns = table->column_count;
@@ -950,22 +903,10 @@ static void rvn_table_sort_rows(rvn_table_t* table, int column, int descending) 
 	rvn_color_t* cell_colors = table->cell_colors ? (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * (size_t)table->row_cap * columns) : NULL;
 	keys = (rvn_table_sort_key_t*)rvn_alloc(sizeof(rvn_table_sort_key_t) * n);
 	for (i = 0; i < n; i++) {
-		const char* text = table->cells[(size_t)i * columns + (size_t)column];
-		keys[i].text = text ? text : "";
-		if (table->columns[column].kind == R_TABLE_COLUMN_CHECK) {
-			/* unchecked before checked, whatever the texts say it with */
-			keys[i].is_number = R_TRUE;
-			keys[i].number = rvn_table_text_checked(keys[i].text);
-		} else if (table->columns[column].kind == R_TABLE_COLUMN_PROGRESS) {
-			keys[i].number = rvn_table_text_progress(keys[i].text);
-			keys[i].is_number = keys[i].number >= 0.0;
-		} else {
-			keys[i].is_number = rvn_table_parse_number(keys[i].text, &keys[i].number);
-		}
+		rvn_table_sort_key(table, column, table->cells[(size_t)i * columns + (size_t)column], &keys[i]);
 		keys[i].row = i;
 	}
-	g_rvn_table_descending = descending;
-	qsort(keys, n, sizeof(rvn_table_sort_key_t), rvn_table_compare_keys);
+	rvn_table_sort_keys(keys, n, descending);
 	sorted = (char**)rvn_calloc(sizeof(char*) * (size_t)table->row_cap * columns);
 	for (i = 0; i < n; i++) {
 		memcpy(&sorted[(size_t)i * columns], &table->cells[(size_t)keys[i].row * columns], sizeof(char*) * columns);
@@ -1008,11 +949,14 @@ static void rvn_table_sort(rvn_widget_t* widget, int column, int descending, int
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (column < -1 || column >= (int)table->column_count) column = -1;
 	/* (the rows move under the editor) */
-	if (!table->is_virtual && column >= 0) rvn_table_close_editor(widget, R_TRUE);
+	int stored = table->tree ? !rvn_tree_is_virtual(table) : !table->is_virtual;
+	if (stored && column >= 0) rvn_table_close_editor(widget, R_TRUE);
 	table->sort_column = column;
 	table->sort_descending = descending ? R_TRUE : R_FALSE;
 	rvn_a11y_structure_changed();
-	if (!table->is_virtual && column >= 0) rvn_table_sort_rows(table, column, table->sort_descending);
+	/* (a tree sorts the children of each node: the hierarchy stays) */
+	if (stored && column >= 0 && table->tree) rvn_tree_sort(table, column, table->sort_descending);
+	else if (stored && column >= 0) rvn_table_sort_rows(table, column, table->sort_descending);
 	rvn_table_reveal(widget, table->selected);
 	rvn_widget_invalidate_paint(widget);
 	if (notify && table->sort_callback) table->sort_callback(widget->id, column, table->sort_descending, table->sort_user);
@@ -1025,7 +969,10 @@ static void rvn_table_fit_column(rvn_widget_t* widget, int column) {
 	int i, count = rvn_mini(rvn_table_count(table), RVN_TABLE_FIT_ROWS);
 	rvn_table_column_t* col = &table->columns[column];
 	width = rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, col->header ? col->header : "") + (col->sortable ? 14.0f : 0.0f);
-	for (i = 0; i < count; i++) width = rvn_maxf(width, rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_table_cell(table, i, column)));
+	for (i = 0; i < count; i++) {
+		float inset = table->tree && column == 0 ? rvn_tree_inset(widget, i) : 0.0f;
+		width = rvn_maxf(width, inset + rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_table_cell(table, i, column)));
+	}
 	col->width = ceilf(width + padding * 2.0f + 2.0f);
 	col->fill = 0.0f;
 	rvn_widget_invalidate_layout(widget);
@@ -1197,6 +1144,15 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 			float x = rvn_table_column_left(table, &geometry, (int)c, hoffset), from, to;
 			rvn_rect_t cell = rvn_rect(x + padding, y, rvn_maxf(0.0f, column->shown - padding * 2.0f), row);
 			rvn_table_column_span(table, &geometry, (int)c, &from, &to);
+			if (table->tree && c == 0 && x + column->shown > from && x < to) {
+				/* the first column of a tree: the guides, the chevron and the icon, then the text */
+				float inset = rvn_tree_inset(widget, i);
+				rvn_paint_push_clip(painter, rvn_rect_intersect(rvn_rect(x, y, column->shown, row), rvn_rect(from, y, rvn_maxf(0.0f, to - from), row)));
+				rvn_tree_paint_row(widget, painter, i, x, y, row, color);
+				rvn_paint_pop_clip(painter);
+				cell.x = x + inset;
+				cell.w = rvn_maxf(0.0f, column->shown - inset - padding);
+			}
 			/* (the cell being edited is under its editor) */
 			if (x + column->shown > from && x < to && !(table->editing && i == table->edit_row && (int)c == table->edit_column)) {
 				rvn_paint_push_clip(painter, rvn_rect_intersect(cell, rvn_rect(from, y, rvn_maxf(0.0f, to - from), row)));
@@ -1275,6 +1231,7 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	rvn_table_geometry_t geometry;
+	/* (first: the rows of a tree that changed are made again) */
 	int count = rvn_table_count(table), changed = R_FALSE, row, page, edge, header;
 
 	if (table->resizing < 0 && (event->type == R_EVENT_MOUSE_DOWN || event->type == R_EVENT_MOUSE_MOVE || event->type == R_EVENT_MOUSE_UP)) {
@@ -1341,6 +1298,10 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 				uint32_t modifiers = event->modifiers;
 				rvn_table_geometry(widget, &geometry);
 				column = rvn_table_column_at(table, &geometry, event->local_x, table->hbar.offset);
+				/* the chevron of a node opens and closes it, and does nothing else */
+				if (table->tree && column == 0 && !(modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER)) &&
+					rvn_tree_press(widget, row, event->local_x - rvn_table_column_left(table, &geometry, 0, table->hbar.offset)))
+					return R_TRUE;
 				if (column >= 0) table->column = column;
 				/* a click on a check box toggles it (each click of a double click too), and leaves the selection as it is */
 				if (rvn_table_is_toggle(table, column) && !(modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER))) {
@@ -1355,7 +1316,11 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 					return R_TRUE;
 				}
 				rvn_table_select_input(widget, row, modifiers);
-				if (event->clicks == 2 && rvn_widget_alive(widget)) rvn_table_activate(widget);
+				if (event->clicks == 2 && rvn_widget_alive(widget)) {
+					/* a double click on a node opens or closes it too */
+					if (table->tree && !(modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER))) rvn_tree_toggle_row(widget, row, R_TRUE);
+					if (rvn_widget_alive(widget)) rvn_table_activate(widget);
+				}
 			}
 			return R_TRUE;
 		case R_EVENT_MOUSE_UP:
@@ -1400,7 +1365,10 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 			return R_FALSE;
 		case R_EVENT_TEXT:
 			/* a character typed on an editable current cell starts editing it with that character */
-			if (table->editing || event->codepoint < 32 || event->codepoint == 127 || rvn_table_cursor(table) < 0) return R_FALSE;
+			if (table->editing || event->codepoint < 32 || event->codepoint == 127) return R_FALSE;
+			/* a tree: + - * open and close, letters search, on a cell that is not edited */
+			if (table->tree && rvn_tree_text(widget, event)) return R_TRUE;
+			if (rvn_table_cursor(table) < 0) return R_FALSE;
 			{
 				int column = rvn_table_current_column(table);
 				char typed[5] = { 0 };
@@ -1414,6 +1382,8 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 			}
 		case R_EVENT_KEY_DOWN:
 			if (table->editing) return rvn_table_editing_key(widget, event);
+			/* a tree: Left and Right close, open and move in the hierarchy */
+			if (table->tree && rvn_tree_key(widget, event)) return R_TRUE;
 			rvn_table_geometry(widget, &geometry);
 			if (rvn_table_has_editable(table)) {
 				/* a table with editable cells has a current cell: Left and Right move it, F2 and Enter edit it */
@@ -1561,6 +1531,7 @@ static int rvn_table_add_column(rvn_widget_t* widget, const char* header, float 
 	column->width = width > 0.0f ? width : RVN_TABLE_DEFAULT_COLUMN;
 	column->sortable = R_TRUE;
 	table->cell_colors = rvn_table_repack_colors(table->cell_colors, old, table->column_count, table->row_count, table->row_cap);
+	if (table->tree) rvn_tree_columns_changed(table);
 	/* the stored rows get an empty cell in the new column */
 	if (table->row_count > 0) {
 		char** cells = (char**)rvn_calloc(sizeof(char*) * (size_t)table->row_cap * table->column_count);
@@ -1578,6 +1549,7 @@ static int rvn_table_add_column(rvn_widget_t* widget, const char* header, float 
 
 static void rvn_table_clear_rows(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
+	if (table->tree) rvn_tree_clear(table);
 	rvn_table_free_rows(table);
 	rvn_free(table->row_colors);
 	rvn_free(table->cell_colors);
@@ -1693,6 +1665,8 @@ static int rvn_table_set_attribute(rvn_widget_t* widget, const char* name, const
 	} else if (RVN_ATTR("FrozenColumns")) {
 		if (!rvn_parse_int(value, &number) || number < 0) return R_FALSE;
 		table->frozen = (uint32_t)number;
+	} else if (table->tree) {
+		return rvn_tree_set_attribute(widget, name, value);
 	} else {
 		return R_FALSE;
 	}
@@ -1730,6 +1704,8 @@ static int rvn_table_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* node)
 		if (value && !rvn_parse_bool(value, &column->editable)) return R_FALSE;
 		return R_TRUE;
 	}
+	/* a tree: rows that hold rows (Item is another name) */
+	if (table->tree && (rvn_stricmp(node->name, "Row") == 0 || rvn_stricmp(node->name, "Item") == 0)) return rvn_tree_xml_row(widget, node);
 	if (rvn_stricmp(node->name, "Row") == 0) {
 		const rvn_xml_node_t* cell;
 		int row;
@@ -1806,12 +1782,134 @@ const rvn_widget_class_t rvn_class_table = {
 	.xml_child = rvn_table_xml_child
 };
 
+static void rvn_tree_table_init(rvn_widget_t* widget) {
+	rvn_table_init(widget);
+	((rvn_table_t*)widget)->tree = rvn_tree_create();
+}
+
+/* The same widget, its rows nested (widgets/tree_table.c). */
+const rvn_widget_class_t rvn_class_tree_table = {
+	.type = R_WIDGET_TREE_TABLE,
+	.name = "TreeTable",
+	.size = sizeof(rvn_table_t),
+	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_UI_PAINT | RVN_CF_SURFACE,
+	.init = rvn_tree_table_init,
+	.destroy = rvn_table_destroy,
+	.measure = rvn_table_measure,
+	.arrange = rvn_table_arrange,
+	.paint = rvn_table_paint,
+	.event = rvn_table_event,
+	.pan = rvn_table_pan,
+	.set_attribute = rvn_table_set_attribute,
+	.xml_child = rvn_table_xml_child
+};
+
+/* ---------------------------------------------------------------------------
+ *  Rows shown and hidden by a tree
+ * ------------------------------------------------------------------------- */
+
+/* A row index after `count` rows were put at `at`. */
+static int rvn_table_shift_down(int row, int at, int count) {
+	return row >= at ? row + count : row;
+}
+
+void rvn_table_rows_inserted(rvn_table_t* table, int at, int count) {
+	uint32_t i;
+	if (count <= 0) return;
+	if (table->multi) {
+		/* a range across `at` is cut in two: the new rows are not selected */
+		i = rvn_table_range_lower(table, at);
+		if (i < table->range_count && table->ranges[i].first < at) {
+			rvn_table_range_open(table, i + 1, 1);
+			table->ranges[i + 1].first = at;
+			table->ranges[i + 1].last = table->ranges[i].last;
+			table->ranges[i].last = at - 1;
+			i++;
+		}
+		for (; i < table->range_count; i++) {
+			table->ranges[i].first += count;
+			table->ranges[i].last += count;
+		}
+	}
+	table->selected = rvn_table_shift_down(table->selected, at, count);
+	table->anchor = rvn_table_shift_down(table->anchor, at, count);
+	table->focus = rvn_table_shift_down(table->focus, at, count);
+	if (table->editing) table->edit_row = rvn_table_shift_down(table->edit_row, at, count);
+	table->hot = -1;
+	table->select_y.started = R_FALSE;
+}
+
+void rvn_table_rows_refreshed(rvn_widget_t* widget) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int count = rvn_table_count(table);
+	if (table->editing && table->edit_row >= count) rvn_table_close_editor(widget, R_TRUE);
+	rvn_table_selection_truncate(table, count);
+	if (table->multi && table->selected < 0) table->selected = rvn_table_range_nth(table, 0);
+	table->hot = -1;
+	rvn_a11y_structure_changed();
+	rvn_widget_invalidate_layout(widget);
+}
+
+int rvn_table_rows_collapsed(rvn_table_t* table, int row, int count) {
+	int first = row + 1, last = row + count, inside = R_FALSE, changed = R_FALSE;
+	uint32_t i;
+	if (count <= 0) return R_FALSE;
+	if (table->multi) {
+		i = rvn_table_range_lower(table, first);
+		inside = i < table->range_count && table->ranges[i].first <= last;
+		rvn_table_range_remove(table, first, last);
+		for (i = rvn_table_range_lower(table, first); i < table->range_count; i++) {
+			table->ranges[i].first -= count;
+			table->ranges[i].last -= count;
+		}
+		/* the ranges on both sides of the hidden rows may touch now */
+		if (row >= 0) {
+			i = rvn_table_range_lower(table, row);
+			if (i + 1 < table->range_count && table->ranges[i].last + 1 >= table->ranges[i + 1].first) {
+				table->ranges[i].last = table->ranges[i + 1].last;
+				rvn_table_range_close(table, i + 1, 1);
+			}
+		}
+		/* what was selected inside goes to the node that closed */
+		if (inside && !rvn_table_range_has(table, row)) rvn_table_range_add(table, row, row);
+		changed = inside;
+	} else if (table->selected >= first && table->selected <= last) {
+		inside = changed = R_TRUE;
+	}
+	if (table->selected >= first && table->selected <= last) table->selected = row;
+	else if (table->selected > last) table->selected -= count;
+	if (table->anchor >= first && table->anchor <= last) table->anchor = row;
+	else if (table->anchor > last) table->anchor -= count;
+	if (table->focus >= first && table->focus <= last) table->focus = row;
+	else if (table->focus > last) table->focus -= count;
+	if (table->editing && table->edit_row > last) table->edit_row -= count;
+	table->hot = -1;
+	table->select_y.started = R_FALSE;
+	return changed;
+}
+
 /* ---------------------------------------------------------------------------
  *  Public API
  * ------------------------------------------------------------------------- */
 
 /* Reports a column that does not exist, and returns `fallback` (RVN_NOTHING in a void function). */
 #define RVN_NOTHING
+
+/* A Table or a TreeTable: every Rtable_* function works on both. */
+static rvn_widget_t* rvn_table_check(Rid id, const char* function) {
+	rvn_widget_t* widget = rvn_widget_check(id, (RWidgetType)0, function);
+	if (widget && widget->cls->type != R_WIDGET_TABLE && widget->cls->type != R_WIDGET_TREE_TABLE) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "%s: expected a Table or a TreeTable, got a %s", function, widget->cls->name);
+		return NULL;
+	}
+	/* (the rows of a tree that changed are made again, and its selection put back in rows) */
+	if (widget && ((rvn_table_t*)widget)->tree) rvn_tree_count((rvn_table_t*)widget);
+	return widget;
+}
+
+#define RVN_TABLE_WIDGET(variable, id, result) \
+	rvn_widget_t* variable = rvn_table_check((id), __func__); \
+	if (!variable) return result
 #define RVN_TABLE_COLUMN(table, column, function, fallback) \
 	if ((column) < 0 || (column) >= (int)(table)->column_count) { \
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, function ": invalid column %d", (column)); \
@@ -1819,36 +1917,36 @@ const rvn_widget_class_t rvn_class_table = {
 	}
 
 int Rtable_add_column(Rid id, const char* header, float width) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	return rvn_table_add_column(widget, header, width);
 }
 
 int Rtable_get_column_count(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	RVN_TABLE_WIDGET(widget, id, 0);
 	return (int)((rvn_table_t*)widget)->column_count;
 }
 
 void Rtable_clear_columns(Rid id) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_clear_columns(widget);
 }
 
 void Rtable_set_column_header(Rid id, int column, const char* header) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_header", RVN_NOTHING)
 	if (rvn_str_set(&table->columns[column].header, header ? header : "")) rvn_widget_invalidate_paint(widget);
 }
 
 const char* Rtable_get_column_header(Rid id, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, "");
+	RVN_TABLE_WIDGET(widget, id, "");
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_get_column_header", "")
 	return table->columns[column].header ? table->columns[column].header : "";
 }
 
 void Rtable_set_column_width(Rid id, int column, float width) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_width", RVN_NOTHING)
 	table->columns[column].width = rvn_maxf(width, RVN_TABLE_MIN_COLUMN);
@@ -1856,7 +1954,7 @@ void Rtable_set_column_width(Rid id, int column, float width) {
 }
 
 float Rtable_get_column_width(Rid id, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0.0f);
+	RVN_TABLE_WIDGET(widget, id, 0.0f);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_get_column_width", 0.0f)
 	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
@@ -1864,7 +1962,7 @@ float Rtable_get_column_width(Rid id, int column) {
 }
 
 void Rtable_set_column_fill(Rid id, int column, float fill) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_fill", RVN_NOTHING)
 	table->columns[column].fill = fill > 0.0f ? fill : 0.0f;
@@ -1872,7 +1970,7 @@ void Rtable_set_column_fill(Rid id, int column, float fill) {
 }
 
 void Rtable_set_column_sortable(Rid id, int column, int sortable) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_sortable", RVN_NOTHING)
 	table->columns[column].sortable = sortable ? R_TRUE : R_FALSE;
@@ -1880,7 +1978,7 @@ void Rtable_set_column_sortable(Rid id, int column, int sortable) {
 }
 
 void Rtable_set_column_align(Rid id, int column, float align) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_align", RVN_NOTHING)
 	table->columns[column].align = rvn_clampf(align, 0.0f, 1.0f);
@@ -1888,7 +1986,7 @@ void Rtable_set_column_align(Rid id, int column, float align) {
 }
 
 int Rtable_add_row(Rid id, const char* cells) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (table->is_virtual) {
 		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rtable_add_row: the table is in virtual mode");
@@ -1898,30 +1996,44 @@ int Rtable_add_row(Rid id, const char* cells) {
 		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rtable_add_row: the table has no column");
 		return -1;
 	}
+	if (table->tree) {
+		if (rvn_tree_is_virtual(table)) {
+			rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rtable_add_row: the tree table is in virtual mode");
+			return -1;
+		}
+		return rvn_tree_add_top(table, cells);
+	}
 	return rvn_table_add_row(widget, cells);
 }
 
 void Rtable_set_cell(Rid id, int row, int column, const char* text) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
+	char** slot;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_cell", RVN_NOTHING)
-	if (table->is_virtual || row < 0 || row >= (int)table->row_count) {
+	slot = rvn_table_cell_slot(table, row, column);
+	if (!slot) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_cell: invalid row %d", row);
 		return;
 	}
-	if (rvn_str_set(&table->cells[(size_t)row * table->column_count + (size_t)column], text ? text : "")) rvn_widget_invalidate_paint(widget);
+	if (rvn_str_set(slot, text ? text : "")) rvn_widget_invalidate_paint(widget);
 }
 
 const char* Rtable_get_cell(Rid id, int row, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, "");
+	RVN_TABLE_WIDGET(widget, id, "");
 	return rvn_table_cell((rvn_table_t*)widget, row, column);
 }
 
 void Rtable_remove_row(Rid id, int row) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	uint32_t columns = table->column_count, c;
-	if (table->is_virtual || row < 0 || row >= (int)table->row_count) {
+	if (table->tree && !rvn_tree_is_virtual(table) && row >= 0 && row < rvn_table_count(table)) {
+		/* the node of the row and everything under it */
+		rvn_tree_remove_row(table, row);
+		return;
+	}
+	if (table->tree || table->is_virtual || row < 0 || row >= (int)table->row_count) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_remove_row: invalid row %d", row);
 		return;
 	}
@@ -1957,22 +2069,27 @@ void Rtable_remove_row(Rid id, int row) {
 }
 
 void Rtable_clear_rows(Rid id) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_close_editor(widget, R_TRUE);
 	rvn_table_clear_rows(widget);
 	((rvn_table_t*)widget)->virtual_count = 0;
 }
 
 int Rtable_get_row_count(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	RVN_TABLE_WIDGET(widget, id, 0);
 	return rvn_table_count((rvn_table_t*)widget);
 }
 
 void Rtable_set_virtual_rows(Rid id, int count, RTableCellTextCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	int selected = table->selected, anchor = table->anchor, focus = table->focus;
-	int keep = rvn_mini(rvn_table_count(table), callback && count > 0 ? count : 0);
+	int keep;
+	if (table->tree) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rtable_set_virtual_rows: a TreeTable is made virtual with Rtree_table_set_virtual");
+		return;
+	}
+	keep = rvn_mini(rvn_table_count(table), callback && count > 0 ? count : 0);
 	/* (the ranges are kept aside while the rows are cleared) */
 	rvn_table_range_t* ranges = table->ranges;
 	uint32_t range_count = table->range_count, range_cap = table->range_cap;
@@ -2002,23 +2119,28 @@ void Rtable_set_virtual_rows(Rid id, int count, RTableCellTextCallback callback,
 }
 
 void Rtable_set_cell_color_callback(Rid id, RTableCellColorCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->color_callback = callback;
 	((rvn_table_t*)widget)->color_user = user_data;
 	rvn_widget_invalidate_paint(widget);
 }
 
 void Rtable_set_selected(Rid id, int row) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_select(widget, row, R_FALSE);
 }
 
 void Rtable_set_cell_text_color(Rid id, int row, int column, float r, float g, float b, float a) {
 	rvn_color_t** colors;
 	size_t index, count;
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
-	if (table->is_virtual || row < 0 || row >= (int)table->row_count || column < -1 || column >= (int)table->column_count) {
+	if (table->tree && !rvn_tree_is_virtual(table) && row >= 0 && row < rvn_table_count(table) && column >= -1 && column < (int)table->column_count) {
+		rvn_tree_set_cell_color(table, row, column, a > 0 ? rvn_rgba(r, g, b, a) : 0);
+		rvn_widget_invalidate_paint(widget);
+		return;
+	}
+	if (table->tree || table->is_virtual || row < 0 || row >= (int)table->row_count || column < -1 || column >= (int)table->column_count) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_cell_text_color: invalid stored cell");
 		return;
 	}
@@ -2048,12 +2170,12 @@ static void rvn_table_set_mode(rvn_widget_t* widget, int mode) {
 }
 
 void Rtable_set_multi_select(Rid id, int enabled) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_set_mode(widget, enabled ? R_TABLE_SELECTION_MULTIPLE : R_TABLE_SELECTION_SINGLE);
 }
 
 void Rtable_set_selection_mode(Rid id, RTableSelectionMode mode) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	if (mode != R_TABLE_SELECTION_SINGLE && mode != R_TABLE_SELECTION_MULTIPLE && mode != R_TABLE_SELECTION_NONE) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_selection_mode: invalid mode %d", (int)mode);
 		return;
@@ -2062,12 +2184,12 @@ void Rtable_set_selection_mode(Rid id, RTableSelectionMode mode) {
 }
 
 RTableSelectionMode Rtable_get_selection_mode(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_TABLE_SELECTION_SINGLE);
+	RVN_TABLE_WIDGET(widget, id, R_TABLE_SELECTION_SINGLE);
 	return (RTableSelectionMode)((rvn_table_t*)widget)->mode;
 }
 
 void Rtable_select_range(Rid id, int first, int last, int selected) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	int count = rvn_table_count(table);
 	if (first < 0 || last < first || last >= count) {
@@ -2091,19 +2213,19 @@ void Rtable_select_range(Rid id, int first, int last, int selected) {
 }
 
 void Rtable_select_all(Rid id) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_select_all(widget, R_FALSE);
 }
 
 int Rtable_get_selection_range_count(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	RVN_TABLE_WIDGET(widget, id, 0);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (!table->multi) return table->selected >= 0 ? 1 : 0;
 	return (int)table->range_count;
 }
 
 int Rtable_get_selection_range(Rid id, int index, int* first, int* last) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	int from = -1, to = -1, found = R_FALSE;
 	if (!table->multi && index == 0 && table->selected >= 0) {
@@ -2120,24 +2242,24 @@ int Rtable_get_selection_range(Rid id, int index, int* first, int* last) {
 }
 
 int Rtable_get_current_row(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	return rvn_table_cursor((rvn_table_t*)widget);
 }
 
 int Rtable_is_row_selected(Rid id, int row) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
-	return rvn_table_is_selected((const rvn_table_t*)widget, row);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
+	return rvn_table_is_selected((rvn_table_t*)widget, row);
 }
 
 int Rtable_get_selection_count(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	RVN_TABLE_WIDGET(widget, id, 0);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (!table->multi) return table->selected >= 0 ? 1 : 0;
 	return rvn_table_range_rows(table);
 }
 
 int Rtable_get_selection(Rid id, int index) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (index < 0) return -1;
 	if (!table->multi) return index == 0 ? table->selected : -1;
@@ -2145,7 +2267,7 @@ int Rtable_get_selection(Rid id, int index) {
 }
 
 void Rtable_set_row_selected(Rid id, int row, int selected) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (row < 0 || row >= rvn_table_count(table)) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_row_selected: invalid row");
@@ -2167,24 +2289,24 @@ void Rtable_set_row_selected(Rid id, int row, int selected) {
 }
 
 void Rtable_clear_selection(Rid id) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_select(widget, -1, R_FALSE);
 }
 
 int Rtable_get_selected(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	return ((rvn_table_t*)widget)->selected;
 }
 
 void Rtable_scroll_to_row(Rid id, int row) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	if (row < 0 || row >= rvn_table_count((rvn_table_t*)widget)) return;
 	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
 	rvn_table_reveal(widget, row);
 }
 
 void Rtable_sort(Rid id, int column, int descending) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	if (column < -1 || column >= (int)((rvn_table_t*)widget)->column_count) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_sort: invalid column %d", column);
 		return;
@@ -2193,53 +2315,53 @@ void Rtable_sort(Rid id, int column, int descending) {
 }
 
 int Rtable_get_sort_column(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	RVN_TABLE_WIDGET(widget, id, -1);
 	return ((rvn_table_t*)widget)->sort_column;
 }
 
 int Rtable_is_sort_descending(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	return ((rvn_table_t*)widget)->sort_descending;
 }
 
 void Rtable_set_header_visible(Rid id, int visible) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->show_header = visible ? R_TRUE : R_FALSE;
 	rvn_widget_invalidate_layout(widget);
 }
 
 void Rtable_set_grid_lines(Rid id, int visible) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->grid_lines = visible ? R_TRUE : R_FALSE;
 	rvn_widget_invalidate_paint(widget);
 }
 
 void Rtable_set_striped(Rid id, int striped) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->striped = striped ? R_TRUE : R_FALSE;
 	rvn_widget_invalidate_paint(widget);
 }
 
 void Rtable_set_selection_changed_callback(Rid id, RTableEventCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->selection_callback = callback;
 	((rvn_table_t*)widget)->selection_user = user_data;
 }
 
 void Rtable_set_activated_callback(Rid id, RTableEventCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->activated_callback = callback;
 	((rvn_table_t*)widget)->activated_user = user_data;
 }
 
 void Rtable_set_sort_callback(Rid id, RTableSortCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->sort_callback = callback;
 	((rvn_table_t*)widget)->sort_user = user_data;
 }
 
 void Rtable_set_column_editable(Rid id, int column, int editable) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_editable", RVN_NOTHING)
 	table->columns[column].editable = editable ? R_TRUE : R_FALSE;
@@ -2247,20 +2369,20 @@ void Rtable_set_column_editable(Rid id, int column, int editable) {
 }
 
 int Rtable_is_column_editable(Rid id, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_is_column_editable", R_FALSE)
 	return table->columns[column].editable;
 }
 
 void Rtable_set_cell_edited_callback(Rid id, RTableCellEditedCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	((rvn_table_t*)widget)->edited_callback = callback;
 	((rvn_table_t*)widget)->edited_user = user_data;
 }
 
 int Rtable_edit_cell(Rid id, int row, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_edit_cell", R_FALSE)
 	if (row < 0 || row >= rvn_table_count(table)) {
@@ -2272,12 +2394,12 @@ int Rtable_edit_cell(Rid id, int row, int column) {
 }
 
 int Rtable_is_editing(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	return ((rvn_table_t*)widget)->editing;
 }
 
 int Rtable_end_edit(Rid id, int commit) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_TRUE);
+	RVN_TABLE_WIDGET(widget, id, R_TRUE);
 	if (!((rvn_table_t*)widget)->editing) return R_TRUE;
 	if (commit) return rvn_table_commit_edit(widget, R_TRUE);
 	rvn_table_close_editor(widget, R_TRUE);
@@ -2285,7 +2407,7 @@ int Rtable_end_edit(Rid id, int commit) {
 }
 
 void Rtable_set_frozen_columns(Rid id, int count) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	if (count < 0) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_frozen_columns: invalid count %d", count);
 		return;
@@ -2295,12 +2417,12 @@ void Rtable_set_frozen_columns(Rid id, int count) {
 }
 
 int Rtable_get_frozen_columns(Rid id) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	RVN_TABLE_WIDGET(widget, id, 0);
 	return (int)((rvn_table_t*)widget)->frozen;
 }
 
 void Rtable_set_column_kind(Rid id, int column, RTableColumnKind kind) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	RVN_TABLE_WIDGET(widget, id, RVN_NOTHING);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_kind", RVN_NOTHING)
 	if (kind != R_TABLE_COLUMN_TEXT && kind != R_TABLE_COLUMN_CHECK && kind != R_TABLE_COLUMN_PROGRESS) {
@@ -2311,14 +2433,14 @@ void Rtable_set_column_kind(Rid id, int column, RTableColumnKind kind) {
 }
 
 RTableColumnKind Rtable_get_column_kind(Rid id, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_TABLE_COLUMN_TEXT);
+	RVN_TABLE_WIDGET(widget, id, R_TABLE_COLUMN_TEXT);
 	rvn_table_t* table = (rvn_table_t*)widget;
 	RVN_TABLE_COLUMN(table, column, "Rtable_get_column_kind", R_TABLE_COLUMN_TEXT)
 	return table->columns[column].kind ? (RTableColumnKind)table->columns[column].kind : R_TABLE_COLUMN_TEXT;
 }
 
 int Rtable_is_cell_checked(Rid id, int row, int column) {
-	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	RVN_TABLE_WIDGET(widget, id, R_FALSE);
 	return rvn_table_text_checked(rvn_table_cell((rvn_table_t*)widget, row, column));
 }
 
