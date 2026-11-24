@@ -1,0 +1,24 @@
+<!-- A file explorer made of a TreeTable. main.c makes the folders and the files (a generated disk), loads the network share when it is opened, and follows the selection. -->
+<Window Title="Raven tree table" Width="1040" Height="660">
+	<VBox Spacing="12" Slot.Padding="18">
+		<HBox Spacing="10">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Files" TextSize="24"/>
+				<Label Name="status" Text="" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="guides" Text="Guide lines" Style="Switch" Checked="true" OnChanged="files.guides" Slot.VAlign="Center"/>
+			<Button Text="Collapse all" OnClicked="files.collapse" Slot.VAlign="Center"/>
+			<Button Text="Expand all" Class="primary" OnClicked="files.expand" Slot.VAlign="Center"/>
+		</HBox>
+
+		<TreeTable Name="files" SelectionMode="Multiple" GuideLines="true" FrozenColumns="1" Striped="true" Slot.Fill="1">
+			<Column Header="Name" Width="300"/>
+			<Column Header="Size (KB)" Width="100" Align="Right"/>
+			<Column Header="Kind" Width="140"/>
+			<Column Header="Modified" Width="150"/>
+			<Column Header="Share of its folder" Kind="Progress" Fill="1"/>
+		</TreeTable>
+
+		<Label Text="Right / Left: open / close or go in / out  -  * opens everything under  -  type a name to go to it  -  click a header to sort each folder" Opacity="0.5"/>
+	</VBox>
+</Window>

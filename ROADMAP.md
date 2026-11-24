@@ -113,6 +113,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 - [x] Diff view: two texts or a patch, unified or side by side, folds,
   words that changed, notes on lines, virtualized.
+- [x] Tree table (`R_WIDGET_TREE_TABLE`, `<TreeTable>`): a Table whose rows
+  nest, with every feature of the table (columns, kinds, editing, frozen
+  columns, ranges of selected rows), sorting within each folder, icons,
+  guide lines, stored nodes or a virtual tree of any size, lazy loading.
+  Not yet: dragging rows to move nodes.
 - [x] Table: several selected rows (`SelectionMode="Multiple"`, kept as
   ranges: a million virtual rows cost nothing), cells that are edited in place
   (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`), frozen
