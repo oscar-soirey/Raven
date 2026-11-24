@@ -9,6 +9,7 @@
  *            the colors of its language, --- rules, | tables | with the
  *            alignment of their columns, images alone on their line
  *   inline   **strong**, *emphasis*, ***both***, `code`, ~~struck~~,
+ *            <u>underlined</u>,
  *            [links](url), <url>, bare http(s) addresses, \escapes, two
  *            spaces or a backslash at the end of a line for a line break,
  *            the usual &entities;
@@ -21,12 +22,7 @@
 #include "common.h"
 #include "../render/renderer.h"
 
-#define RVN_MD_BOLD   (1u << 0)
-#define RVN_MD_ITALIC (1u << 1)
-#define RVN_MD_CODE   (1u << 2)
-#define RVN_MD_STRIKE (1u << 3)
-/** The line ends after this span. */
-#define RVN_MD_BREAK  (1u << 4)
+/* (the flags of the spans, RVN_MD_BOLD..., are in common.h: the rich text editor reads them too) */
 
 typedef enum rvn_md_block_type_t {
 	RVN_MD_PARAGRAPH,
@@ -505,6 +501,19 @@ static void rvn_md_inline(rvn_md_inline_t* in, const char* p, const char* end, i
 
 		if (c == '<') {
 			const char* close = p + 1;
+			/* <u>underlined</u>: the one tag of HTML read in a line (Markdown has no underline) */
+			if (end - p >= 3 && (p[1] == 'u' || p[1] == 'U') && p[2] == '>') {
+				rvn_md_flush(in, 0);
+				in->flags |= RVN_MD_UNDERLINE;
+				p += 3;
+				continue;
+			}
+			if (end - p >= 4 && p[1] == '/' && (p[2] == 'u' || p[2] == 'U') && p[3] == '>') {
+				rvn_md_flush(in, 0);
+				in->flags &= ~RVN_MD_UNDERLINE;
+				p += 4;
+				continue;
+			}
 			while (close < end && *close != '>' && !rvn_md_is_space(*close)) close++;
 			if (close < end && *close == '>' && close - p > 4 && (memchr(p + 1, ':', (size_t)(close - p - 1)) || memchr(p + 1, '@', (size_t)(close - p - 1)))) {
 				int outer = in->link;
@@ -1242,7 +1251,7 @@ static float rvn_md_flow(rvn_md_layout_t* layout, uint32_t first_span, uint32_t 
 				run->start = at;
 				run->font = font->id;
 				run->size = font->size;
-				run->flags = (uint8_t)(span->flags & (RVN_MD_CODE | RVN_MD_STRIKE));
+				run->flags = (uint8_t)(span->flags & (RVN_MD_CODE | RVN_MD_STRIKE | RVN_MD_UNDERLINE));
 				run->link = span->link;
 				run->color = (uint8_t)(span->link >= 0 ? RVN_MD_COLOR_LINK : color);
 				bases[md->run_count - 1 - line_first] = font->base;
@@ -1636,8 +1645,8 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 		if (run->flags & RVN_MD_STRIKE) {
 			rvn_paint_rect(painter, rvn_rect(ox + run->x, oy + run->line_y + floorf(run->line_h * 0.54f), run->w, 1.0f), run_color);
 		}
-		/* the link under the pointer is underlined */
-		if (run->link >= 0 && run->link == hot_link) {
+		/* the link under the pointer is underlined, and what was written <u>so</u> */
+		if ((run->link >= 0 && run->link == hot_link) || (run->flags & RVN_MD_UNDERLINE)) {
 			rvn_paint_rect(painter, rvn_rect(ox + run->x, oy + run->line_y + run->line_h - floorf(run->line_h * 0.2f), run->w, 1.0f), run_color);
 		}
 	}
@@ -1828,4 +1837,68 @@ void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out) {
 		}
 	}
 	if (!out->data) rvn_text_append(out, "", 0);
+}
+
+/* ---------------------------------------------------------------------------
+ *  The parsed blocks, read by the rich text editor (widgets/rich_text_doc.c)
+ * ------------------------------------------------------------------------- */
+
+int rvn_md_block_count(const rvn_md_t* md) {
+	return md ? (int)md->block_count : 0;
+}
+
+int rvn_md_block_info(const rvn_md_t* md, int index, rvn_md_block_info_t* info) {
+	const rvn_md_block_t* block;
+	memset(info, 0, sizeof(*info));
+	if (!md || index < 0 || (uint32_t)index >= md->block_count) return R_FALSE;
+	block = &md->blocks[index];
+	switch (block->type) {
+		case RVN_MD_HEADING: info->type = RVN_MD_INFO_HEADING; break;
+		case RVN_MD_CODE_BLOCK: info->type = RVN_MD_INFO_CODE; break;
+		case RVN_MD_RULE: info->type = RVN_MD_INFO_RULE; break;
+		case RVN_MD_TABLE: info->type = RVN_MD_INFO_TABLE; break;
+		case RVN_MD_IMAGE: info->type = RVN_MD_INFO_IMAGE; break;
+		default: info->type = RVN_MD_INFO_PARAGRAPH; break;
+	}
+	info->level = block->level;
+	info->quote = block->quote;
+	info->list = block->list;
+	info->marker = block->marker == RVN_MD_BULLET || block->marker == RVN_MD_TASK || block->marker == RVN_MD_TASK_DONE ? 1
+		: (block->marker == RVN_MD_NUMBER ? 2 : 0);
+	info->number = block->number;
+	if (block->type == RVN_MD_CODE_BLOCK) {
+		info->code = md->text.data + block->code_start;
+		info->code_length = (int)block->code_length;
+	}
+	if (block->type == RVN_MD_TABLE) {
+		info->columns = block->columns;
+		info->rows = (int)block->rows;
+	} else {
+		info->span_count = (int)block->span_count;
+	}
+	return R_TRUE;
+}
+
+int rvn_md_block_span(const rvn_md_t* md, int index, int cell, int span, const char** text, int* length, uint32_t* flags, const char** link) {
+	const rvn_md_block_t* block;
+	const rvn_md_span_t* s;
+	uint32_t first, count;
+	if (!md || index < 0 || (uint32_t)index >= md->block_count) return -1;
+	block = &md->blocks[index];
+	if (block->type == RVN_MD_TABLE) {
+		if (cell < 0 || (uint32_t)cell >= (uint32_t)block->columns * block->rows) return -1;
+		first = md->cells[block->first_cell + (uint32_t)cell].first_span;
+		count = md->cells[block->first_cell + (uint32_t)cell].span_count;
+	} else {
+		first = block->first_span;
+		count = block->span_count;
+	}
+	if (span < 0) return (int)count;
+	if ((uint32_t)span >= count) return -1;
+	s = &md->spans[first + (uint32_t)span];
+	if (text) *text = md->text.data + s->start;
+	if (length) *length = (int)s->length;
+	if (flags) *flags = s->flags;
+	if (link) *link = s->link >= 0 ? md->links[s->link] : NULL;
+	return (int)count;
 }

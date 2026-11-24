@@ -343,6 +343,16 @@ int rvn_cocoa_print_pdf(const char* data, size_t size, const char* title, const 
 /** A Markdown text, parsed, and laid out for a width. */
 typedef struct rvn_md_t rvn_md_t;
 
+/* The looks of a span of text. */
+#define RVN_MD_BOLD      (1u << 0)
+#define RVN_MD_ITALIC    (1u << 1)
+#define RVN_MD_CODE      (1u << 2)
+#define RVN_MD_STRIKE    (1u << 3)
+/** The line ends after this span. */
+#define RVN_MD_BREAK     (1u << 4)
+/** <u>...</u> */
+#define RVN_MD_UNDERLINE (1u << 5)
+
 rvn_md_t* rvn_md_parse(const char* source);
 void rvn_md_free(rvn_md_t* md);
 /**
@@ -372,6 +382,34 @@ int rvn_md_offset_at(const rvn_md_t* md, float x, float y);
 void rvn_md_paint_selection(const rvn_md_t* md, RPainter* painter, float x, float y, int from, int to, rvn_color_t color);
 void rvn_md_selected_text(const rvn_md_t* md, int from, int to, rvn_text_t* out);
 void rvn_md_paragraph_at(const rvn_md_t* md, int offset, int* from, int* to);
+
+/* The blocks of a parsed text, as they were read (the rich text editor imports them). */
+enum { RVN_MD_INFO_PARAGRAPH, RVN_MD_INFO_HEADING, RVN_MD_INFO_CODE, RVN_MD_INFO_RULE, RVN_MD_INFO_TABLE, RVN_MD_INFO_IMAGE };
+typedef struct rvn_md_block_info_t {
+	int type;
+	/** Title: 1 to 6. */
+	int level;
+	/** How many quotes and lists it is in. */
+	int quote;
+	int list;
+	/** It starts a list item: 0 no, 1 a bullet (or a task), 2 a number. */
+	int marker;
+	int number;
+	/** Code: its lines, '\n' between them. */
+	const char* code;
+	int code_length;
+	/** The spans of a paragraph, a title, the alternative text of an image; a table: its columns and rows. */
+	int span_count;
+	int columns, rows;
+} rvn_md_block_info_t;
+int rvn_md_block_count(const rvn_md_t* md);
+int rvn_md_block_info(const rvn_md_t* md, int block, rvn_md_block_info_t* info);
+/**
+ * A span of a block (`cell`: of a cell of a table, row after row; else
+ * ignored): its text (not ended by a '\0'), its flags (RVN_MD_...), its
+ * link or NULL. `span` -1 only counts. Returns the number of spans, -1 out of range.
+ */
+int rvn_md_block_span(const rvn_md_t* md, int block, int cell, int span, const char** text, int* length, uint32_t* flags, const char** link);
 
 /* ---------------------------------------------------------------------------
  *  Syntax colors (widgets/syntax.c), used by the text editor
