@@ -36,7 +36,8 @@ with a stable merge sort and the new edges of a row merged in a batch (the
 original took O(n^2) on a path of many points), in the order the original
 gave, so the pixels stay the same; and the slope of an edge, and where an
 edge starts on its first row, are kept in the range of an int. In
-`nanosvg.h`, a fill or a stroke of `currentColor` (in any
+`nanosvg.h`, an arc whose angle is not a number (from coordinates of 1e38)
+is drawn as a line, and a fill or a stroke of `currentColor` (in any
 case, as an attribute or in `style`) is flagged on its shape
 (`NSVG_FLAGS_FILL_CURRENT_COLOR`, `NSVG_FLAGS_STROKE_CURRENT_COLOR`) and
 parsed as black, where the original read it as an unknown color name (grey);

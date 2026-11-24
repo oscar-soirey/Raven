@@ -2327,6 +2327,14 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 	else if (fs == 1 && da < 0)
 		da += 2 * NSVG_PI;
 
+	// Raven: an angle that is not a number (a radius or a point of 1e38 in a damaged file): a line, as for an arc of no radius
+	if (!(fabsf(da) <= 4.0f * NSVG_PI)) {
+		nsvg__lineTo(p, x2, y2);
+		*cpx = x2;
+		*cpy = y2;
+		return;
+	}
+
 	// Approximate the arc using cubic spline segments.
 	t[0] = cosrx; t[1] = sinrx;
 	t[2] = -sinrx; t[3] = cosrx;
