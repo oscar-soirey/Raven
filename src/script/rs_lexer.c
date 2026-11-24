@@ -153,7 +153,9 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 			if (zero) return rs_error_token(start, lexer->cursor, RS_LEXER_ZERO_BYTE);
 			if (lexer->keep_comments) {
 				uint32_t end = lexer->cursor;
-				if (end > start && lexer->text[end - 1] == '\r') end--;
+				/* (every carriage return before the line feed: "//\r\r" kept one, which the formatter then
+				 * wrote back and the next formatting took away) */
+				while (end > start && lexer->text[end - 1] == '\r') end--;
 				return rs_make(TK_COMMENT, start, end);
 			}
 			continue;
