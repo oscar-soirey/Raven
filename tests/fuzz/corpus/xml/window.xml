@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window Title="Fuzz" Width="320" Height="200">
+	<Grid Columns="2" Rows="2">
+		<Label Text="A" Grid.Column="0"/>
+		<Label Text="B" Grid.Column="1" Grid.Row="1"/>
+	</Grid>
+</Window>

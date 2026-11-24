@@ -1,0 +1,5 @@
+let counter: number = 0;
+fn app.increment() {
+    counter += 1;
+    ui.setText("counter", counter.toString());
+}

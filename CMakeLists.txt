@@ -35,6 +35,7 @@ option(RAVEN_BUILD_EXAMPLES "Build the example programs" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TESTS "Build the tests and the benchmark" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
+option(RAVEN_BUILD_FUZZERS "Build the libFuzzer programs of tests/fuzz (clang; the whole build is instrumented with ASan and UBSan)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
 option(RAVEN_BACKEND_METAL "Compile the Metal backend (macOS, iOS)" ${APPLE})
@@ -72,6 +73,19 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RavenCompilerOptions)
+
+if(RAVEN_BUILD_FUZZERS)
+	# libFuzzer comes with clang (not with Apple's: on macOS, the clang of Homebrew's llvm);
+	# the library is linked into each fuzzer, so it is static
+	if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR MSVC OR RAVEN_BUILD_SHARED)
+		message(FATAL_ERROR "RAVEN_BUILD_FUZZERS needs clang with libFuzzer (not Apple clang, not clang-cl) and RAVEN_BUILD_SHARED=OFF")
+	endif()
+	# every file is instrumented for the coverage of libFuzzer and for the sanitizers, the library
+	# included; RAVEN_FUZZING: nothing is downloaded or opened outside (core/fs.c)
+	add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g)
+	add_link_options(-fsanitize=address,undefined)
+	add_compile_definitions(RAVEN_FUZZING)
+endif()
 
 if(EMSCRIPTEN)
     if(RAVEN_BACKEND_VULKAN OR RAVEN_BUILD_WEB OR RAVEN_BUILD_SHARED)
@@ -657,6 +671,13 @@ if(RAVEN_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
 	add_subdirectory(bindings)
+endif()
+
+# the fuzzers (tests/fuzz): libFuzzer programs, or, in the tests of a static library, programs
+# that run their corpus (the fuzzers reach internal functions, which a shared library hides)
+if(RAVEN_BUILD_FUZZERS OR (RAVEN_BUILD_TESTS AND NOT RAVEN_BUILD_SHARED))
+	enable_testing()
+	add_subdirectory(tests/fuzz)
 endif()
 
 # (before the examples: one of them shows web pages; after enable_testing: it has a test)

@@ -1,0 +1,10 @@
+let s = "a,b,c";
+fn app.text(): string {
+    let parts = s.split(",");
+    return parts[0].toUpperCase() + s.substring(1, 3) + number.parse("4").toString();
+}
+// a comment
+/* and another */
+fn app.flags(on: bool, name: string, values: number[]): bool {
+    return !on || name == "x" && values.length != 0x10 || 1e3 > 2.5;
+}
