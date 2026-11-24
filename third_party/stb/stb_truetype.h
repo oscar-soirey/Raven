@@ -1285,8 +1285,9 @@ static stbtt__buf stbtt__cff_index_get(stbtt__buf b, int i)
 
 static stbtt_uint16 ttUSHORT(stbtt_uint8 *p) { return p[0]*256 + p[1]; }
 static stbtt_int16 ttSHORT(stbtt_uint8 *p)   { return p[0]*256 + p[1]; }
-static stbtt_uint32 ttULONG(stbtt_uint8 *p)  { return (p[0]<<24) + (p[1]<<16) + (p[2]<<8) + p[3]; }
-static stbtt_int32 ttLONG(stbtt_uint8 *p)    { return (p[0]<<24) + (p[1]<<16) + (p[2]<<8) + p[3]; }
+// Raven: shifted as unsigned (p[0] << 24 is an int: past its range when p[0] >= 128, which is undefined)
+static stbtt_uint32 ttULONG(stbtt_uint8 *p)  { return ((stbtt_uint32)p[0]<<24) + ((stbtt_uint32)p[1]<<16) + ((stbtt_uint32)p[2]<<8) + p[3]; }
+static stbtt_int32 ttLONG(stbtt_uint8 *p)    { return (stbtt_int32)ttULONG(p); }
 
 #define stbtt_tag4(p,c0,c1,c2,c3) ((p)[0] == (c0) && (p)[1] == (c1) && (p)[2] == (c2) && (p)[3] == (c3))
 #define stbtt_tag(p,str)           stbtt_tag4(p,str[0],str[1],str[2],str[3])
