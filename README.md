@@ -1637,14 +1637,14 @@ for (int i = 0; i < Ricon_get_count(); i++)     /* "add", "arrow-down"... in ord
     printf("%s\n", Ricon_get_name(i));
 ```
 
-Raven ships a set of 63 icons for the usual actions: add, remove, close,
+Raven ships a set of 67 icons for the usual actions: add, remove, close,
 check, chevrons and arrows, menu, search, settings, edit, delete, copy, cut,
 paste, undo, redo, save, open, folder, file, home, user, info, warning, error,
 help, refresh, download, upload, share, link, lock, eye, star, heart,
-calendar, clock, bell, mail, play, pause, stop, filter, sort, more,
+calendar, clock, bell, mail, play, pause, stop, volume, maximize, filter, sort, more,
 external-link, zoom, print, sun, moon... They are the icons of
 [Lucide](https://lucide.dev) (ISC License), drawn with lines on a grid of
-24 x 24, and take 7 KB in the library. `Ricon_get` gives one by its name, and
+24 x 24, and take 8 KB in the library. `Ricon_get` gives one by its name, and
 XML names one with `raven:` wherever an image goes: `Image Source`,
 `MenuItem Icon`, the `Icon` of a `TreeView` item, `Slot.Icon` (the tab of a
 `TabView` with `Documents="true"`, a docked panel), a `Node Icon`, a Markdown
@@ -2453,7 +2453,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 `stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
 (zlib, Mikko Mononen), a subset
 of the Roboto font (Apache 2.0, Google), a subset of Roboto Mono (SIL Open
-Font License 1.1) and 63 icons of Lucide (ISC, some MIT from Feather) are
+Font License 1.1) and 67 icons of Lucide (ISC, some MIT from Feather) are
 included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
 Khronos) are needed to build but are not part of this repository.
