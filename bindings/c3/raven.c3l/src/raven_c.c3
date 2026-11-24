@@ -782,7 +782,7 @@ const RWidgetType R_WIDGET_CHART = 0x0234;
 const RWidgetType R_WIDGET_MAP_VIEW = 0x0235;
 <* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
-<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+<* A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget. *>
 const RWidgetType R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 <* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 const RWidgetType R_WIDGET_DIFF_VIEW = 0x0238;
@@ -6294,7 +6294,9 @@ extern fn void r_system_web_view_set_event_callback(Rid view, RSystemWebViewEven
 
 <*
  The view of the system, to go further than these functions:
- a WKWebView* on macOS and iOS. NULL where unsupported.
+ a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+ until WebView2 has made the view, a moment after it is created). NULL
+ where unsupported.
 *>
 extern fn void* r_system_web_view_get_native_handle(Rid view) @cname("Rsystem_web_view_get_native_handle");
 

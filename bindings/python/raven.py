@@ -11994,7 +11994,9 @@ _lib.Rsystem_web_view_get_native_handle.restype = ctypes.c_void_p
 
 def Rsystem_web_view_get_native_handle(view):
     """The view of the system, to go further than these functions:
-    a WKWebView* on macOS and iOS. NULL where unsupported."""
+    a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+    until WebView2 has made the view, a moment after it is created). NULL
+    where unsupported."""
     return _lib.Rsystem_web_view_get_native_handle(view)
 
 

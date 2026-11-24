@@ -1,8 +1,8 @@
 /**
  * Raven - widgets/system_web_view.c
  * SystemWebView: a web page shown by the engine of the system (WKWebView on
- * macOS and iOS) in a view of its own, kept over the widget as the native
- * child window of a Viewport is (see raven_controls.h).
+ * macOS and iOS, WebView2 on Windows) in a view of its own, kept over the
+ * widget as the native child window of a Viewport is (see raven_controls.h).
  *
  * The widget holds what the application sees (address, title, loading, the
  * callbacks, the scripts waiting for their result); the platform holds the
