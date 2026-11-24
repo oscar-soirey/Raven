@@ -337,6 +337,7 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Viewport", "<Viewport Width=\"160\" Height=\"100\"/>" },
 	{ "Custom", "<Custom Width=\"80\" Height=\"40\"/>" },
 	{ "TextEditor", "<TextEditor Height=\"110\" Placeholder=\"Notes\"/>" },
+	{ "MermaidView", "<MermaidView Height=\"160\" Text=\"flowchart LR&#10;  A[Start] --&gt; B{Ready?}&#10;  B --&gt;|yes| C([Go])&#10;  B --&gt;|no| A\"/>" },
 	{ "DiffView", "<DiffView Height=\"160\" Mode=\"Split\" LeftName=\"Before\" RightName=\"After\" Left=\"int count = 1;&#10;int total = 0;&#10;\" Right=\"int count = 2;&#10;int total = 0;&#10;\"/>" },
 	{ "HeaderBar", "<HeaderBar Title=\"Title\"/>" },
 	{ "FileBrowser", "<FileBrowser Height=\"300\"/>" },

@@ -674,6 +674,7 @@ The build trees are in `build\dist\`.
 | `examples/icons` | every icon shipped with Raven, and some in buttons, tabs and a tree, in the color of the text; a button switches between the dark and the light theme |
 | `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
+| `examples/mermaid` | a Markdown document with Mermaid diagrams (a flowchart with subgraphs and decisions, a sequence diagram with a loop, alternatives and notes, a state diagram, a pie) and a live editor whose diagram follows the text; SVG and PNG export |
 | `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
@@ -1334,6 +1335,54 @@ keys: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow`; links:
 On a label the text is rendered (headings, lists, quotes, code blocks, tables,
 links that open or fire actions); on the text editor it stays as typed and is
 styled where it stands.
+
+#### Mermaid diagrams
+
+A block of code whose language is `mermaid` is drawn as a diagram, by Raven
+itself: no browser, no JavaScript, no dependency. Flowcharts (`flowchart` /
+`graph`: every direction, the shapes, the kinds of links with their texts,
+chains, `&`, subgraphs, `classDef` / `class` / `style`), sequence diagrams
+(participants and actors, the arrows, activations, notes, `loop`, `alt` /
+`else`, `opt`, `par`, `critical`, `break`, `rect`, `autonumber`), state
+diagrams (`[*]`, composite states, choices, forks, notes) and pies.
+
+````markdown
+```mermaid
+flowchart LR
+    A[Start] --> B{Ready?}
+    B -->|yes| C([Go])
+    B -->|no| A
+```
+````
+
+The graphs are laid out in layers (cycles broken, crossings reduced, long
+links kept straight, subgraphs kept together), the same text always giving
+the same picture; 200 nodes take about a millisecond. The colors are those of
+the theme (or of a Mermaid theme given by `%%{init: {"theme": "forest"}}%%`),
+and a diagram wider than the label is scaled down, sharp at any scale. A text
+with an error is drawn as a box that tells the error and its line.
+`Mermaid="false"` (`Rlabel_set_mermaid`) shows the blocks as code again.
+
+The same diagrams in a widget of their own, for a diagram given as a string:
+
+```xml
+<MermaidView Fit="Width"><![CDATA[
+    sequenceDiagram
+        Alice->>+Bob: Hello
+        Bob-->>-Alice: Hi
+]]></MermaidView>
+```
+
+`Rmermaid_view_create`, `Rmermaid_view_set_source` (or `load_file`), the kind,
+the error and its line, the nodes and links with their places, the fit
+(`Width`, `None` in a ScrollBox to scroll, `Contain`) and the zoom,
+`Rmermaid_view_save_svg` / `to_svg`, `Rmermaid_view_save_png` (the view as
+shown), and `Rmermaid_check` to check a text without drawing it. For screen
+readers a diagram is an image named by its summary ("flowchart with 12 nodes
+and 11 links"), described by its text. `examples/mermaid`: a document with a
+flowchart, a sequence diagram, a state diagram and a pie, and a live editor.
+
+![A Markdown document with a flowchart and a sequence diagram, and a live editor of a state diagram](docs/images/mermaid.png)
 
 ### PDF documents
 

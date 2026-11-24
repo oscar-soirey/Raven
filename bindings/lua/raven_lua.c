@@ -492,6 +492,8 @@ typedef struct rl_table {
 	void (*Rlabel_set_color)(Rid, float, float, float, float);
 	void (*Rlabel_set_markdown)(Rid, int);
 	int (*Rlabel_get_markdown)(Rid);
+	void (*Rlabel_set_mermaid)(Rid, int);
+	int (*Rlabel_get_mermaid)(Rid);
 	void (*Rlabel_set_link_callback)(Rid, RLabelLinkCallback, void*);
 	const char* (*Rlabel_get_plain_text)(Rid);
 	void (*Rlabel_set_selectable)(Rid, int);
@@ -1403,6 +1405,29 @@ typedef struct rl_table {
 	void (*Rdiff_view_clear_annotations)(Rid);
 	const char* (*Rdiff_view_get_selected_text)(Rid);
 	void (*Rdiff_view_set_line_clicked_callback)(Rid, RDiffViewLineCallback, void*);
+	Rid (*Rmermaid_view_create)(const char*);
+	void (*Rmermaid_view_set_source)(Rid, const char*);
+	const char* (*Rmermaid_view_get_source)(Rid);
+	int (*Rmermaid_view_load_file)(Rid, const char*);
+	RMermaidKind (*Rmermaid_view_get_kind)(Rid);
+	int (*Rmermaid_view_get_error_line)(Rid);
+	const char* (*Rmermaid_view_get_error)(Rid);
+	const char* (*Rmermaid_view_get_summary)(Rid);
+	int (*Rmermaid_view_get_node_count)(Rid);
+	int (*Rmermaid_view_get_node)(Rid, int, const char**, const char**, float*, float*, float*, float*);
+	int (*Rmermaid_view_get_edge_count)(Rid);
+	int (*Rmermaid_view_get_edge)(Rid, int, int*, int*, const char**);
+	void (*Rmermaid_view_get_diagram_size)(Rid, float*, float*);
+	void (*Rmermaid_view_set_fit)(Rid, RMermaidFit);
+	RMermaidFit (*Rmermaid_view_get_fit)(Rid);
+	void (*Rmermaid_view_set_zoom)(Rid, float);
+	float (*Rmermaid_view_get_zoom)(Rid);
+	float (*Rmermaid_view_get_scale)(Rid);
+	int (*Rmermaid_view_save_png)(Rid, const char*);
+	int (*Rmermaid_view_save_svg)(Rid, const char*);
+	char* (*Rmermaid_view_to_svg)(Rid, size_t*);
+	RMermaidKind (*Rmermaid_check)(const char*, int*);
+	char* (*Rmermaid_check_message)(const char*, size_t*);
 	void (*Rdialog_open)(Rid, Rid, RDialogClosedCallback, void*);
 	void (*Rdialog_close)(Rid, int);
 	int (*Rdialog_run)(Rid, Rid);
@@ -2106,6 +2131,8 @@ static const struct {
 	{"Rlabel_set_color", offsetof(rl_table, Rlabel_set_color)},
 	{"Rlabel_set_markdown", offsetof(rl_table, Rlabel_set_markdown)},
 	{"Rlabel_get_markdown", offsetof(rl_table, Rlabel_get_markdown)},
+	{"Rlabel_set_mermaid", offsetof(rl_table, Rlabel_set_mermaid)},
+	{"Rlabel_get_mermaid", offsetof(rl_table, Rlabel_get_mermaid)},
 	{"Rlabel_set_link_callback", offsetof(rl_table, Rlabel_set_link_callback)},
 	{"Rlabel_get_plain_text", offsetof(rl_table, Rlabel_get_plain_text)},
 	{"Rlabel_set_selectable", offsetof(rl_table, Rlabel_set_selectable)},
@@ -3017,6 +3044,29 @@ static const struct {
 	{"Rdiff_view_clear_annotations", offsetof(rl_table, Rdiff_view_clear_annotations)},
 	{"Rdiff_view_get_selected_text", offsetof(rl_table, Rdiff_view_get_selected_text)},
 	{"Rdiff_view_set_line_clicked_callback", offsetof(rl_table, Rdiff_view_set_line_clicked_callback)},
+	{"Rmermaid_view_create", offsetof(rl_table, Rmermaid_view_create)},
+	{"Rmermaid_view_set_source", offsetof(rl_table, Rmermaid_view_set_source)},
+	{"Rmermaid_view_get_source", offsetof(rl_table, Rmermaid_view_get_source)},
+	{"Rmermaid_view_load_file", offsetof(rl_table, Rmermaid_view_load_file)},
+	{"Rmermaid_view_get_kind", offsetof(rl_table, Rmermaid_view_get_kind)},
+	{"Rmermaid_view_get_error_line", offsetof(rl_table, Rmermaid_view_get_error_line)},
+	{"Rmermaid_view_get_error", offsetof(rl_table, Rmermaid_view_get_error)},
+	{"Rmermaid_view_get_summary", offsetof(rl_table, Rmermaid_view_get_summary)},
+	{"Rmermaid_view_get_node_count", offsetof(rl_table, Rmermaid_view_get_node_count)},
+	{"Rmermaid_view_get_node", offsetof(rl_table, Rmermaid_view_get_node)},
+	{"Rmermaid_view_get_edge_count", offsetof(rl_table, Rmermaid_view_get_edge_count)},
+	{"Rmermaid_view_get_edge", offsetof(rl_table, Rmermaid_view_get_edge)},
+	{"Rmermaid_view_get_diagram_size", offsetof(rl_table, Rmermaid_view_get_diagram_size)},
+	{"Rmermaid_view_set_fit", offsetof(rl_table, Rmermaid_view_set_fit)},
+	{"Rmermaid_view_get_fit", offsetof(rl_table, Rmermaid_view_get_fit)},
+	{"Rmermaid_view_set_zoom", offsetof(rl_table, Rmermaid_view_set_zoom)},
+	{"Rmermaid_view_get_zoom", offsetof(rl_table, Rmermaid_view_get_zoom)},
+	{"Rmermaid_view_get_scale", offsetof(rl_table, Rmermaid_view_get_scale)},
+	{"Rmermaid_view_save_png", offsetof(rl_table, Rmermaid_view_save_png)},
+	{"Rmermaid_view_save_svg", offsetof(rl_table, Rmermaid_view_save_svg)},
+	{"Rmermaid_view_to_svg", offsetof(rl_table, Rmermaid_view_to_svg)},
+	{"Rmermaid_check", offsetof(rl_table, Rmermaid_check)},
+	{"Rmermaid_check_message", offsetof(rl_table, Rmermaid_check_message)},
 	{"Rdialog_open", offsetof(rl_table, Rdialog_open)},
 	{"Rdialog_close", offsetof(rl_table, Rdialog_close)},
 	{"Rdialog_run", offsetof(rl_table, Rdialog_run)},
@@ -15028,6 +15078,32 @@ static int rl_w_Rlabel_get_markdown(lua_State* L) {
 	a0 = rl_u32(L, 1, NULL);
 	{
 		int value_ = RL(Rlabel_get_markdown)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rlabel_set_mermaid(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rlabel_set_mermaid)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rlabel_get_mermaid(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rlabel_get_mermaid)((Rid)a0);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -28830,6 +28906,391 @@ static int rl_w_Rdiff_view_set_line_clicked_callback(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rmermaid_view_create(lua_State* L) {
+	const char* a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	{
+		Rid value_ = RL(Rmermaid_view_create)(a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_set_source(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rmermaid_view_set_source)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_source(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rmermaid_view_get_source)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_load_file(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rmermaid_view_load_file)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_kind(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RMermaidKind value_ = RL(Rmermaid_view_get_kind)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_error_line(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmermaid_view_get_error_line)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_error(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rmermaid_view_get_error)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_summary(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rmermaid_view_get_summary)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_node_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmermaid_view_get_node_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_node(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	const char* a2 = NULL;
+	const char* a3 = NULL;
+	float a4;
+	float a5;
+	float a6;
+	float a7;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a4, 0, sizeof(a4));
+	memset(&a5, 0, sizeof(a5));
+	memset(&a6, 0, sizeof(a6));
+	memset(&a7, 0, sizeof(a7));
+	{
+		int value_ = RL(Rmermaid_view_get_node)((Rid)a0, (int)a1, &a2, &a3, &a4, &a5, &a6, &a7);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 8, "raven");
+	rl_push_text(L, a2);
+	results_++;
+	rl_push_text(L, a3);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a4);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a5);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a6);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a7);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_edge_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rmermaid_view_get_edge_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_edge(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	const char* a4 = NULL;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	{
+		int value_ = RL(Rmermaid_view_get_edge)((Rid)a0, (int)a1, &a2, &a3, &a4);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 5, "raven");
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	rl_push_text(L, a4);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_diagram_size(lua_State* L) {
+	uint32_t a0;
+	float a1;
+	float a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	memset(&a2, 0, sizeof(a2));
+	RL(Rmermaid_view_get_diagram_size)((Rid)a0, &a1, &a2);
+	luaL_checkstack(L, 4, "raven");
+	lua_pushnumber(L, (lua_Number)a1);
+	results_++;
+	lua_pushnumber(L, (lua_Number)a2);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_set_fit(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rmermaid_view_set_fit)((Rid)a0, (RMermaidFit)a1);
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_fit(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RMermaidFit value_ = RL(Rmermaid_view_get_fit)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_set_zoom(lua_State* L) {
+	uint32_t a0;
+	float a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = (float)rl_number(L, 2, NULL);
+	RL(Rmermaid_view_set_zoom)((Rid)a0, (float)a1);
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_zoom(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		float value_ = RL(Rmermaid_view_get_zoom)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_get_scale(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		float value_ = RL(Rmermaid_view_get_scale)((Rid)a0);
+		lua_pushnumber(L, (lua_Number)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_save_png(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rmermaid_view_save_png)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_save_svg(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	{
+		int value_ = RL(Rmermaid_view_save_svg)((Rid)a0, a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_view_to_svg(lua_State* L) {
+	uint32_t a0;
+	size_t a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	{
+		char* value_ = RL(Rmermaid_view_to_svg)((Rid)a0, &a1);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (size_t)a1);
+			RL(Rmemory_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rmermaid_check(lua_State* L) {
+	const char* a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	{
+		RMermaidKind value_ = RL(Rmermaid_check)(a0, &a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	luaL_checkstack(L, 3, "raven");
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rmermaid_check_message(lua_State* L) {
+	const char* a0;
+	size_t a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_str(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	{
+		char* value_ = RL(Rmermaid_check_message)(a0, &a1);
+		if (value_) {
+			lua_pushlstring(L, (const char*)value_, (size_t)a1);
+			RL(Rmemory_free)(value_);
+		} else {
+			lua_pushnil(L);
+		}
+		results_++;
+	}
+	return results_;
+}
+
 static int rl_w_Rdialog_open(lua_State* L) {
 	uint32_t a0;
 	uint32_t a1;
@@ -33712,6 +34173,8 @@ static const luaL_Reg rl_functions[] = {
 	{"Rlabel_set_color", rl_w_Rlabel_set_color},
 	{"Rlabel_set_markdown", rl_w_Rlabel_set_markdown},
 	{"Rlabel_get_markdown", rl_w_Rlabel_get_markdown},
+	{"Rlabel_set_mermaid", rl_w_Rlabel_set_mermaid},
+	{"Rlabel_get_mermaid", rl_w_Rlabel_get_mermaid},
 	{"Rlabel_set_link_callback", rl_w_Rlabel_set_link_callback},
 	{"Rlabel_get_plain_text", rl_w_Rlabel_get_plain_text},
 	{"Rlabel_set_selectable", rl_w_Rlabel_set_selectable},
@@ -34623,6 +35086,29 @@ static const luaL_Reg rl_functions[] = {
 	{"Rdiff_view_clear_annotations", rl_w_Rdiff_view_clear_annotations},
 	{"Rdiff_view_get_selected_text", rl_w_Rdiff_view_get_selected_text},
 	{"Rdiff_view_set_line_clicked_callback", rl_w_Rdiff_view_set_line_clicked_callback},
+	{"Rmermaid_view_create", rl_w_Rmermaid_view_create},
+	{"Rmermaid_view_set_source", rl_w_Rmermaid_view_set_source},
+	{"Rmermaid_view_get_source", rl_w_Rmermaid_view_get_source},
+	{"Rmermaid_view_load_file", rl_w_Rmermaid_view_load_file},
+	{"Rmermaid_view_get_kind", rl_w_Rmermaid_view_get_kind},
+	{"Rmermaid_view_get_error_line", rl_w_Rmermaid_view_get_error_line},
+	{"Rmermaid_view_get_error", rl_w_Rmermaid_view_get_error},
+	{"Rmermaid_view_get_summary", rl_w_Rmermaid_view_get_summary},
+	{"Rmermaid_view_get_node_count", rl_w_Rmermaid_view_get_node_count},
+	{"Rmermaid_view_get_node", rl_w_Rmermaid_view_get_node},
+	{"Rmermaid_view_get_edge_count", rl_w_Rmermaid_view_get_edge_count},
+	{"Rmermaid_view_get_edge", rl_w_Rmermaid_view_get_edge},
+	{"Rmermaid_view_get_diagram_size", rl_w_Rmermaid_view_get_diagram_size},
+	{"Rmermaid_view_set_fit", rl_w_Rmermaid_view_set_fit},
+	{"Rmermaid_view_get_fit", rl_w_Rmermaid_view_get_fit},
+	{"Rmermaid_view_set_zoom", rl_w_Rmermaid_view_set_zoom},
+	{"Rmermaid_view_get_zoom", rl_w_Rmermaid_view_get_zoom},
+	{"Rmermaid_view_get_scale", rl_w_Rmermaid_view_get_scale},
+	{"Rmermaid_view_save_png", rl_w_Rmermaid_view_save_png},
+	{"Rmermaid_view_save_svg", rl_w_Rmermaid_view_save_svg},
+	{"Rmermaid_view_to_svg", rl_w_Rmermaid_view_to_svg},
+	{"Rmermaid_check", rl_w_Rmermaid_check},
+	{"Rmermaid_check_message", rl_w_Rmermaid_check_message},
 	{"Rdialog_open", rl_w_Rdialog_open},
 	{"Rdialog_close", rl_w_Rdialog_close},
 	{"Rdialog_run", rl_w_Rdialog_run},
@@ -35431,6 +35917,7 @@ static const rl_constant rl_constants[] = {
 	{"R_WIDGET_CAROUSEL", 566.0},
 	{"R_WIDGET_SYSTEM_WEB_VIEW", 567.0},
 	{"R_WIDGET_DIFF_VIEW", 568.0},
+	{"R_WIDGET_MERMAID_VIEW", 569.0},
 	{"R_HALIGN_FILL", 576.0},
 	{"R_HALIGN_LEFT", 577.0},
 	{"R_HALIGN_CENTER", 578.0},
@@ -35631,6 +36118,14 @@ static const rl_constant rl_constants[] = {
 	{"R_DIFF_IGNORE_TRAILING_SPACE", 1.0},
 	{"R_DIFF_IGNORE_SPACE", 2.0},
 	{"R_DIFF_IGNORE_CASE", 4.0},
+	{"R_MERMAID_NONE", 3312.0},
+	{"R_MERMAID_FLOWCHART", 3313.0},
+	{"R_MERMAID_SEQUENCE", 3314.0},
+	{"R_MERMAID_STATE", 3315.0},
+	{"R_MERMAID_PIE", 3316.0},
+	{"R_MERMAID_FIT_WIDTH", 3320.0},
+	{"R_MERMAID_FIT_NONE", 3321.0},
+	{"R_MERMAID_FIT_CONTAIN", 3322.0},
 	{"R_NOTIFICATION_LOW", 1264.0},
 	{"R_NOTIFICATION_NORMAL", 1265.0},
 	{"R_NOTIFICATION_CRITICAL", 1266.0},

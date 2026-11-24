@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1179 of the 1631 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 420 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (169):
+//   a handle that is not known (189):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -59,9 +59,14 @@
 //     Rdiff_view_get_current_change Rdiff_view_next_change Rdiff_view_prev_change Rdiff_view_get_row_count
 //     Rdiff_view_get_row Rdiff_view_get_row_text Rdiff_view_expand Rdiff_view_get_first_visible_row
 //     Rdiff_view_scroll_to_row Rdiff_view_add_annotation Rdiff_view_clear_annotations
-//     Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback Rtest_click_at Rtest_hover_at
-//     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
-//     Rtest_save_png
+//     Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback Rmermaid_view_set_source
+//     Rmermaid_view_get_source Rmermaid_view_load_file Rmermaid_view_get_kind Rmermaid_view_get_error_line
+//     Rmermaid_view_get_error Rmermaid_view_get_summary Rmermaid_view_get_node_count Rmermaid_view_get_node
+//     Rmermaid_view_get_edge_count Rmermaid_view_get_edge Rmermaid_view_get_diagram_size
+//     Rmermaid_view_set_fit Rmermaid_view_get_fit Rmermaid_view_set_zoom Rmermaid_view_get_zoom
+//     Rmermaid_view_get_scale Rmermaid_view_save_png Rmermaid_view_save_svg Rmermaid_view_to_svg
+//     Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden
+//     Rtest_dump_tree Rtest_save_tree Rtest_save_png
 //
 //   a callback (113):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
@@ -107,10 +112,10 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (12):
+//   a handle result that is not known (13):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
 //     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
-//     Rpdf_document_create Rdiff_view_create Rtest_find
+//     Rpdf_document_create Rdiff_view_create Rmermaid_view_create Rtest_find
 //
 //   a parameter of type const uint8_t* (10):
 //     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
@@ -131,15 +136,15 @@
 //     Rmemory_realloc Rmemory_free Rwindow_set_user_handle Rwidget_set_user_handle
 //     Rtree_item_set_user_handle Rnode_graph_set_node_user_data
 //
+//   a result of type char* (5):
+//     Rclipboard_get_data Rpdf_document_save_memory Rdiff_unified Rmermaid_check_message Rfile_read
+//
 //   a result of type void* (5):
 //     Rmemory_alloc Rwindow_get_user_handle Rwidget_get_user_handle Rtree_item_get_user_handle
 //     Rnode_graph_get_node_user_data
 //
 //   a parameter of type RActionContext* (4):
 //     Raction_return_number Raction_return_string Raction_return_bool Raction_fail
-//
-//   a result of type char* (4):
-//     Rclipboard_get_data Rpdf_document_save_memory Rdiff_unified Rfile_read
 //
 //   a parameter of type RShaderLook* (3):
 //     Reffect_get_defaults Rshader_look_init Rshader_look_defaults
@@ -2196,6 +2201,17 @@ label_set_markdown :: proc(label: Widget, enabled: bool) {
 
 label_get_markdown :: proc(label: Widget) -> bool {
 	return raw.Rlabel_get_markdown(raw.Rid(label)) != 0
+}
+
+// Markdown: draws the blocks of code whose language is "mermaid"
+// as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+// they are shown as code. A diagram wider than the label is scaled down.
+label_set_mermaid :: proc(label: Widget, enabled: bool) {
+	raw.Rlabel_set_mermaid(raw.Rid(label), (1 if enabled else 0))
+}
+
+label_get_mermaid :: proc(label: Widget) -> bool {
+	return raw.Rlabel_get_mermaid(raw.Rid(label)) != 0
 }
 
 // The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
@@ -5723,6 +5739,15 @@ diff_count_changes :: proc(left: string, right: string, flags: u32) -> i32 {
 	buffer_left: [cstring_buffer_size]u8
 	buffer_right: [cstring_buffer_size]u8
 	return raw.Rdiff_count_changes(to_cstring(left, &buffer_left), to_cstring(right, &buffer_right), flags)
+}
+
+// Reads a text without drawing it: what an editor checks as the
+// user types. Callable from any thread.
+// error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+// Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+mermaid_check :: proc(source: cstring) -> (result: Mermaid_Kind, error_line: i32) {
+	result = Mermaid_Kind(raw.Rmermaid_check(source, &error_line))
+	return
 }
 
 // Closes the dialog that contains a widget (the content itself or

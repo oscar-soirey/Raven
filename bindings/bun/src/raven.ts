@@ -570,6 +570,8 @@ const _symbols = {
 	Rlabel_set_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rlabel_set_markdown: { args: ["u32", "i32"], returns: "void" },
 	Rlabel_get_markdown: { args: ["u32"], returns: "i32" },
+	Rlabel_set_mermaid: { args: ["u32", "i32"], returns: "void" },
+	Rlabel_get_mermaid: { args: ["u32"], returns: "i32" },
 	Rlabel_set_link_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rlabel_get_plain_text: { args: ["u32"], returns: "cstring" },
 	Rlabel_set_selectable: { args: ["u32", "i32"], returns: "void" },
@@ -1481,6 +1483,29 @@ const _symbols = {
 	Rdiff_view_clear_annotations: { args: ["u32"], returns: "void" },
 	Rdiff_view_get_selected_text: { args: ["u32"], returns: "cstring" },
 	Rdiff_view_set_line_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmermaid_view_create: { args: ["ptr"], returns: "u32" },
+	Rmermaid_view_set_source: { args: ["u32", "ptr"], returns: "void" },
+	Rmermaid_view_get_source: { args: ["u32"], returns: "cstring" },
+	Rmermaid_view_load_file: { args: ["u32", "ptr"], returns: "i32" },
+	Rmermaid_view_get_kind: { args: ["u32"], returns: "i32" },
+	Rmermaid_view_get_error_line: { args: ["u32"], returns: "i32" },
+	Rmermaid_view_get_error: { args: ["u32"], returns: "cstring" },
+	Rmermaid_view_get_summary: { args: ["u32"], returns: "cstring" },
+	Rmermaid_view_get_node_count: { args: ["u32"], returns: "i32" },
+	Rmermaid_view_get_node: { args: ["u32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rmermaid_view_get_edge_count: { args: ["u32"], returns: "i32" },
+	Rmermaid_view_get_edge: { args: ["u32", "i32", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rmermaid_view_get_diagram_size: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmermaid_view_set_fit: { args: ["u32", "i32"], returns: "void" },
+	Rmermaid_view_get_fit: { args: ["u32"], returns: "i32" },
+	Rmermaid_view_set_zoom: { args: ["u32", "f32"], returns: "void" },
+	Rmermaid_view_get_zoom: { args: ["u32"], returns: "f32" },
+	Rmermaid_view_get_scale: { args: ["u32"], returns: "f32" },
+	Rmermaid_view_save_png: { args: ["u32", "ptr"], returns: "i32" },
+	Rmermaid_view_save_svg: { args: ["u32", "ptr"], returns: "i32" },
+	Rmermaid_view_to_svg: { args: ["u32", "ptr"], returns: "ptr" },
+	Rmermaid_check: { args: ["ptr", "ptr"], returns: "i32" },
+	Rmermaid_check_message: { args: ["ptr", "ptr"], returns: "ptr" },
 	Rdialog_open: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_close: { args: ["u32", "i32"], returns: "void" },
 	Rdialog_run: { args: ["u32", "u32"], returns: "i32" },
@@ -2935,6 +2960,8 @@ export enum RWidgetType {
 	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW = 0x0238,
+	/** A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h). */
+	R_WIDGET_MERMAID_VIEW = 0x0239,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2994,6 +3021,7 @@ export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
 export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
+export const R_WIDGET_MERMAID_VIEW = RWidgetType.R_WIDGET_MERMAID_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3758,6 +3786,34 @@ export enum RDiffFlags {
 export const R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE;
 export const R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE;
 export const R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE;
+
+export enum RMermaidKind {
+	/** No diagram: the text is empty, or could not be read (Rmermaid_view_get_error). */
+	R_MERMAID_NONE = 0x0CF0,
+	R_MERMAID_FLOWCHART = 0x0CF1,
+	R_MERMAID_SEQUENCE = 0x0CF2,
+	R_MERMAID_STATE = 0x0CF3,
+	R_MERMAID_PIE = 0x0CF4,
+}
+
+export const R_MERMAID_NONE = RMermaidKind.R_MERMAID_NONE;
+export const R_MERMAID_FLOWCHART = RMermaidKind.R_MERMAID_FLOWCHART;
+export const R_MERMAID_SEQUENCE = RMermaidKind.R_MERMAID_SEQUENCE;
+export const R_MERMAID_STATE = RMermaidKind.R_MERMAID_STATE;
+export const R_MERMAID_PIE = RMermaidKind.R_MERMAID_PIE;
+
+export enum RMermaidFit {
+	/** Scaled down to the width of the widget, never up (the default). */
+	R_MERMAID_FIT_WIDTH = 0x0CF8,
+	/** Its own size (times the zoom); put it in a ScrollBox to scroll. */
+	R_MERMAID_FIT_NONE = 0x0CF9,
+	/** Scaled up or down to fill the widget, its proportions kept. */
+	R_MERMAID_FIT_CONTAIN = 0x0CFA,
+}
+
+export const R_MERMAID_FIT_WIDTH = RMermaidFit.R_MERMAID_FIT_WIDTH;
+export const R_MERMAID_FIT_NONE = RMermaidFit.R_MERMAID_FIT_NONE;
+export const R_MERMAID_FIT_CONTAIN = RMermaidFit.R_MERMAID_FIT_CONTAIN;
 
 /** How much a notification of the system asks for attention (Rnotification_show). */
 export enum RNotificationUrgency {
@@ -11678,6 +11734,19 @@ export function Rlabel_get_markdown(label: Rid): number {
 	return _lib.Rlabel_get_markdown(label);
 }
 
+/**
+ * Markdown: draws the blocks of code whose language is "mermaid"
+ * as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+ * they are shown as code. A diagram wider than the label is scaled down.
+ */
+export function Rlabel_set_mermaid(label: Rid, enabled: number): void {
+	_lib.Rlabel_set_mermaid(label, enabled);
+}
+
+export function Rlabel_get_mermaid(label: Rid): number {
+	return _lib.Rlabel_get_mermaid(label);
+}
+
 export function Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rlabel_set_link_callback(label, _adapt_RLabelLinkCallback(callback), user_data);
 }
@@ -16722,6 +16791,173 @@ export function Rdiff_view_get_selected_text(diff_view: Rid): string | null {
 /** Called when a line or its number is clicked (the action of the widget is fired too). */
 export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rdiff_view_set_line_clicked_callback(diff_view, _adapt_RDiffViewLineCallback(callback), user_data);
+}
+
+export function Rmermaid_view_create(source: string | null): Rid {
+	return _lib.Rmermaid_view_create(_s(source));
+}
+
+/** The text of the diagram (NULL: none). It is read and laid out again. */
+export function Rmermaid_view_set_source(view: Rid, source: string | null): void {
+	_lib.Rmermaid_view_set_source(view, _s(source));
+}
+
+export function Rmermaid_view_get_source(view: Rid): string | null {
+	return _lib.Rmermaid_view_get_source(view);
+}
+
+/** Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read. */
+export function Rmermaid_view_load_file(view: Rid, path: string | null): number {
+	return _lib.Rmermaid_view_load_file(view, _s(path));
+}
+
+/** The kind of diagram read; R_MERMAID_NONE for an empty text or an error. */
+export function Rmermaid_view_get_kind(view: Rid): RMermaidKind {
+	return _lib.Rmermaid_view_get_kind(view) as RMermaidKind;
+}
+
+/** The line (from 1) of the first error of the text; 0 when it was read. */
+export function Rmermaid_view_get_error_line(view: Rid): number {
+	return _lib.Rmermaid_view_get_error_line(view);
+}
+
+/** What the error is ("unknown statement \"foo\""); "" when none. */
+export function Rmermaid_view_get_error(view: Rid): string | null {
+	return _lib.Rmermaid_view_get_error(view);
+}
+
+/** "flowchart with 12 nodes and 11 links": the accessible name of the view. */
+export function Rmermaid_view_get_summary(view: Rid): string | null {
+	return _lib.Rmermaid_view_get_summary(view);
+}
+
+/**
+ * The nodes of a flowchart or a state diagram (states, the start
+ * and end points), the participants of a sequence diagram, the slices of
+ * a pie.
+ */
+export function Rmermaid_view_get_node_count(view: Rid): number {
+	return _lib.Rmermaid_view_get_node_count(view);
+}
+
+/**
+ * A node: its name in the text, its label, and its rectangle in the
+ * units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+ * Any pointer may be NULL. The texts are valid until the source changes.
+ * Returns: R_FALSE when `index` is out of range.
+ */
+export function Rmermaid_view_get_node(view: Rid, index: number): [result: number, id: string | null, label: string | null, x: number, y: number, width: number, height: number] {
+	const id_ = new BigUint64Array(1);
+	const label_ = new BigUint64Array(1);
+	const x_ = new Float32Array(1);
+	const y_ = new Float32Array(1);
+	const width_ = new Float32Array(1);
+	const height_ = new Float32Array(1);
+	const result_ = _lib.Rmermaid_view_get_node(view, index, id_, label_, x_, y_, width_, height_);
+	return [result_, _text(_address(id_[0]!)), _text(_address(label_[0]!)), x_[0]!, y_[0]!, width_[0]!, height_[0]!];
+}
+
+/** Links of a graph, transitions of a state diagram, messages of a sequence diagram. */
+export function Rmermaid_view_get_edge_count(view: Rid): number {
+	return _lib.Rmermaid_view_get_edge_count(view);
+}
+
+/** The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label. */
+export function Rmermaid_view_get_edge(view: Rid, index: number): [result: number, from: number, to: number, label: string | null] {
+	const from_ = new Int32Array(1);
+	const to_ = new Int32Array(1);
+	const label_ = new BigUint64Array(1);
+	const result_ = _lib.Rmermaid_view_get_edge(view, index, from_, to_, label_);
+	return [result_, from_[0]!, to_[0]!, _text(_address(label_[0]!))];
+}
+
+/** The size of the diagram in its own units (at the font size of the widget). */
+export function Rmermaid_view_get_diagram_size(view: Rid): [width: number, height: number] {
+	const width_ = new Float32Array(1);
+	const height_ = new Float32Array(1);
+	_lib.Rmermaid_view_get_diagram_size(view, width_, height_);
+	return [width_[0]!, height_[0]!];
+}
+
+export function Rmermaid_view_set_fit(view: Rid, fit: RMermaidFit): void {
+	_lib.Rmermaid_view_set_fit(view, fit);
+}
+
+export function Rmermaid_view_get_fit(view: Rid): RMermaidFit {
+	return _lib.Rmermaid_view_get_fit(view) as RMermaidFit;
+}
+
+/** A factor applied to the size of the diagram (1 by default; 0.25 to 8). */
+export function Rmermaid_view_set_zoom(view: Rid, zoom: number): void {
+	_lib.Rmermaid_view_set_zoom(view, zoom);
+}
+
+export function Rmermaid_view_get_zoom(view: Rid): number {
+	return _lib.Rmermaid_view_get_zoom(view);
+}
+
+/** The scale the diagram is drawn at: the zoom, and what the fit made of it. */
+export function Rmermaid_view_get_scale(view: Rid): number {
+	return _lib.Rmermaid_view_get_scale(view);
+}
+
+/**
+ * Writes the view as shown as a PNG file (the window is captured,
+ * Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+ * window, the backend cannot capture, or the file cannot be written.
+ */
+export function Rmermaid_view_save_png(view: Rid, path: string | null): number {
+	return _lib.Rmermaid_view_save_png(view, _s(path));
+}
+
+/** Writes the diagram as an SVG file, in the colors of the theme. */
+export function Rmermaid_view_save_svg(view: Rid, path: string | null): number {
+	return _lib.Rmermaid_view_save_svg(view, _s(path));
+}
+
+/**
+ * The diagram as an SVG document, to release with Rmemory_free.
+ * `size` receives its length in bytes, and may be NULL.
+ */
+export function Rmermaid_view_to_svg(view: Rid): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rmermaid_view_to_svg(view, size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/**
+ * Reads a text without drawing it: what an editor checks as the
+ * user types. Callable from any thread.
+ * error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+ * Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+ */
+export function Rmermaid_check(source: string | null): [result: RMermaidKind, error_line: number] {
+	const error_line_ = new Int32Array(1);
+	const result_ = _lib.Rmermaid_check(_s(source), error_line_) as RMermaidKind;
+	return [result_, error_line_[0]!];
+}
+
+/**
+ * What the first error of a text is ("unknown statement \"foo\""),
+ * to release with Rmemory_free; NULL when the text has none. `size`
+ * receives its length in bytes, and may be NULL. Callable from any thread.
+ */
+export function Rmermaid_check_message(source: string | null): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rmermaid_check_message(_s(source), size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
 }
 
 /**

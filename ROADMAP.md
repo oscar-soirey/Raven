@@ -131,7 +131,11 @@ is a plan, not a promise: issues and pull requests can change the order.
   Not yet: buttons on Windows (WinRT toasts), xdg-activation on Wayland.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
 - [ ] Timeline: nested tracks, curves between keys.
-- [ ] Markdown: images from the network, HTML, footnotes.
+- [x] Markdown: Mermaid diagrams drawn natively (flowchart, sequence, state,
+  pie) in ```mermaid blocks and in a `MermaidView`, with a layered layout,
+  theme colors, SVG and PNG export.
+- [ ] Markdown: images from the network, HTML, footnotes; Mermaid class,
+  entity-relationship and Gantt diagrams.
 
 ### Images
 

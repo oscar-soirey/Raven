@@ -998,6 +998,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CAROUSEL = 0x0236
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
     R_WIDGET_DIFF_VIEW = 0x0238
+    R_WIDGET_MERMAID_VIEW = 0x0239
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1056,6 +1057,7 @@ R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
 R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
+R_WIDGET_MERMAID_VIEW = RWidgetType.R_WIDGET_MERMAID_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1625,6 +1627,28 @@ class RDiffFlags(enum.IntFlag):
 R_DIFF_IGNORE_TRAILING_SPACE = RDiffFlags.R_DIFF_IGNORE_TRAILING_SPACE
 R_DIFF_IGNORE_SPACE = RDiffFlags.R_DIFF_IGNORE_SPACE
 R_DIFF_IGNORE_CASE = RDiffFlags.R_DIFF_IGNORE_CASE
+
+class RMermaidKind(enum.IntEnum):
+    R_MERMAID_NONE = 0x0CF0
+    R_MERMAID_FLOWCHART = 0x0CF1
+    R_MERMAID_SEQUENCE = 0x0CF2
+    R_MERMAID_STATE = 0x0CF3
+    R_MERMAID_PIE = 0x0CF4
+
+R_MERMAID_NONE = RMermaidKind.R_MERMAID_NONE
+R_MERMAID_FLOWCHART = RMermaidKind.R_MERMAID_FLOWCHART
+R_MERMAID_SEQUENCE = RMermaidKind.R_MERMAID_SEQUENCE
+R_MERMAID_STATE = RMermaidKind.R_MERMAID_STATE
+R_MERMAID_PIE = RMermaidKind.R_MERMAID_PIE
+
+class RMermaidFit(enum.IntEnum):
+    R_MERMAID_FIT_WIDTH = 0x0CF8
+    R_MERMAID_FIT_NONE = 0x0CF9
+    R_MERMAID_FIT_CONTAIN = 0x0CFA
+
+R_MERMAID_FIT_WIDTH = RMermaidFit.R_MERMAID_FIT_WIDTH
+R_MERMAID_FIT_NONE = RMermaidFit.R_MERMAID_FIT_NONE
+R_MERMAID_FIT_CONTAIN = RMermaidFit.R_MERMAID_FIT_CONTAIN
 
 class RNotificationUrgency(enum.IntEnum):
     """How much a notification of the system asks for attention (Rnotification_show)."""
@@ -7520,6 +7544,25 @@ _lib.Rlabel_get_markdown.restype = ctypes.c_int
 
 def Rlabel_get_markdown(label):
     return _lib.Rlabel_get_markdown(label)
+
+
+_lib.Rlabel_set_mermaid.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rlabel_set_mermaid.restype = None
+
+
+def Rlabel_set_mermaid(label, enabled):
+    """Markdown: draws the blocks of code whose language is "mermaid"
+    as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+    they are shown as code. A diagram wider than the label is scaled down."""
+    _lib.Rlabel_set_mermaid(label, enabled)
+
+
+_lib.Rlabel_get_mermaid.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_get_mermaid.restype = ctypes.c_int
+
+
+def Rlabel_get_mermaid(label):
+    return _lib.Rlabel_get_mermaid(label)
 
 
 _lib.Rlabel_set_link_callback.argtypes = [ctypes.c_uint32, RLabelLinkCallback, ctypes.c_void_p]
@@ -15905,6 +15948,249 @@ _lib.Rdiff_view_set_line_clicked_callback.restype = None
 def Rdiff_view_set_line_clicked_callback(diff_view, callback, user_data=None):
     """Called when a line or its number is clicked (the action of the widget is fired too)."""
     _lib.Rdiff_view_set_line_clicked_callback(diff_view, _callback(RDiffViewLineCallback, _adapt_RDiffViewLineCallback, callback), user_data)
+
+
+_lib.Rmermaid_view_create.argtypes = [ctypes.c_char_p]
+_lib.Rmermaid_view_create.restype = ctypes.c_uint32
+
+
+def Rmermaid_view_create(source):
+    return _lib.Rmermaid_view_create(_s(source))
+
+
+_lib.Rmermaid_view_set_source.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmermaid_view_set_source.restype = None
+
+
+def Rmermaid_view_set_source(view, source):
+    """The text of the diagram (NULL: none). It is read and laid out again."""
+    _lib.Rmermaid_view_set_source(view, _s(source))
+
+
+_lib.Rmermaid_view_get_source.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_source.restype = ctypes.c_char_p
+
+
+def Rmermaid_view_get_source(view):
+    return _r(_lib.Rmermaid_view_get_source(view))
+
+
+_lib.Rmermaid_view_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmermaid_view_load_file.restype = ctypes.c_int
+
+
+def Rmermaid_view_load_file(view, path):
+    """Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read."""
+    return _lib.Rmermaid_view_load_file(view, _s(path))
+
+
+_lib.Rmermaid_view_get_kind.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_kind.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_kind(view):
+    """The kind of diagram read; R_MERMAID_NONE for an empty text or an error."""
+    return _e(RMermaidKind, _lib.Rmermaid_view_get_kind(view))
+
+
+_lib.Rmermaid_view_get_error_line.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_error_line.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_error_line(view):
+    """The line (from 1) of the first error of the text; 0 when it was read."""
+    return _lib.Rmermaid_view_get_error_line(view)
+
+
+_lib.Rmermaid_view_get_error.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_error.restype = ctypes.c_char_p
+
+
+def Rmermaid_view_get_error(view):
+    """What the error is ("unknown statement \\"foo\\""); "" when none."""
+    return _r(_lib.Rmermaid_view_get_error(view))
+
+
+_lib.Rmermaid_view_get_summary.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_summary.restype = ctypes.c_char_p
+
+
+def Rmermaid_view_get_summary(view):
+    """"flowchart with 12 nodes and 11 links": the accessible name of the view."""
+    return _r(_lib.Rmermaid_view_get_summary(view))
+
+
+_lib.Rmermaid_view_get_node_count.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_node_count.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_node_count(view):
+    """The nodes of a flowchart or a state diagram (states, the start
+    and end points), the participants of a sequence diagram, the slices of
+    a pie."""
+    return _lib.Rmermaid_view_get_node_count(view)
+
+
+_lib.Rmermaid_view_get_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rmermaid_view_get_node.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_node(view, index):
+    """A node: its name in the text, its label, and its rectangle in the
+    units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+    Any pointer may be NULL. The texts are valid until the source changes.
+    Returns: R_FALSE when `index` is out of range."""
+    id__ = ctypes.c_char_p()
+    label_ = ctypes.c_char_p()
+    x_ = ctypes.c_float()
+    y_ = ctypes.c_float()
+    width_ = ctypes.c_float()
+    height_ = ctypes.c_float()
+    result = _lib.Rmermaid_view_get_node(view, index, ctypes.byref(id__), ctypes.byref(label_), ctypes.byref(x_), ctypes.byref(y_), ctypes.byref(width_), ctypes.byref(height_))
+    return (result, _r(id__.value), _r(label_.value), x_.value, y_.value, width_.value, height_.value)
+
+
+_lib.Rmermaid_view_get_edge_count.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_edge_count.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_edge_count(view):
+    """Links of a graph, transitions of a state diagram, messages of a sequence diagram."""
+    return _lib.Rmermaid_view_get_edge_count(view)
+
+
+_lib.Rmermaid_view_get_edge.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_char_p)]
+_lib.Rmermaid_view_get_edge.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_edge(view, index):
+    """The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label."""
+    from__ = ctypes.c_int()
+    to_ = ctypes.c_int()
+    label_ = ctypes.c_char_p()
+    result = _lib.Rmermaid_view_get_edge(view, index, ctypes.byref(from__), ctypes.byref(to_), ctypes.byref(label_))
+    return (result, from__.value, to_.value, _r(label_.value))
+
+
+_lib.Rmermaid_view_get_diagram_size.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rmermaid_view_get_diagram_size.restype = None
+
+
+def Rmermaid_view_get_diagram_size(view):
+    """The size of the diagram in its own units (at the font size of the widget)."""
+    width_ = ctypes.c_float()
+    height_ = ctypes.c_float()
+    _lib.Rmermaid_view_get_diagram_size(view, ctypes.byref(width_), ctypes.byref(height_))
+    return (width_.value, height_.value)
+
+
+_lib.Rmermaid_view_set_fit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmermaid_view_set_fit.restype = None
+
+
+def Rmermaid_view_set_fit(view, fit):
+    _lib.Rmermaid_view_set_fit(view, int(fit))
+
+
+_lib.Rmermaid_view_get_fit.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_fit.restype = ctypes.c_int
+
+
+def Rmermaid_view_get_fit(view):
+    return _e(RMermaidFit, _lib.Rmermaid_view_get_fit(view))
+
+
+_lib.Rmermaid_view_set_zoom.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rmermaid_view_set_zoom.restype = None
+
+
+def Rmermaid_view_set_zoom(view, zoom):
+    """A factor applied to the size of the diagram (1 by default; 0.25 to 8)."""
+    _lib.Rmermaid_view_set_zoom(view, zoom)
+
+
+_lib.Rmermaid_view_get_zoom.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_zoom.restype = ctypes.c_float
+
+
+def Rmermaid_view_get_zoom(view):
+    return _lib.Rmermaid_view_get_zoom(view)
+
+
+_lib.Rmermaid_view_get_scale.argtypes = [ctypes.c_uint32]
+_lib.Rmermaid_view_get_scale.restype = ctypes.c_float
+
+
+def Rmermaid_view_get_scale(view):
+    """The scale the diagram is drawn at: the zoom, and what the fit made of it."""
+    return _lib.Rmermaid_view_get_scale(view)
+
+
+_lib.Rmermaid_view_save_png.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmermaid_view_save_png.restype = ctypes.c_int
+
+
+def Rmermaid_view_save_png(view, path):
+    """Writes the view as shown as a PNG file (the window is captured,
+    Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+    window, the backend cannot capture, or the file cannot be written."""
+    return _lib.Rmermaid_view_save_png(view, _s(path))
+
+
+_lib.Rmermaid_view_save_svg.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmermaid_view_save_svg.restype = ctypes.c_int
+
+
+def Rmermaid_view_save_svg(view, path):
+    """Writes the diagram as an SVG file, in the colors of the theme."""
+    return _lib.Rmermaid_view_save_svg(view, _s(path))
+
+
+_lib.Rmermaid_view_to_svg.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rmermaid_view_to_svg.restype = ctypes.c_void_p
+
+
+def Rmermaid_view_to_svg(view):
+    """The diagram as an SVG document, to release with Rmemory_free.
+    `size` receives its length in bytes, and may be NULL."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rmermaid_view_to_svg(view, ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
+
+
+_lib.Rmermaid_check.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+_lib.Rmermaid_check.restype = ctypes.c_int
+
+
+def Rmermaid_check(source):
+    """Reads a text without drawing it: what an editor checks as the
+    user types. Callable from any thread.
+    error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+    Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error."""
+    error_line_ = ctypes.c_int()
+    result = _e(RMermaidKind, _lib.Rmermaid_check(_s(source), ctypes.byref(error_line_)))
+    return (result, error_line_.value)
+
+
+_lib.Rmermaid_check_message.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rmermaid_check_message.restype = ctypes.c_void_p
+
+
+def Rmermaid_check_message(source):
+    """What the first error of a text is ("unknown statement \\"foo\\""),
+    to release with Rmemory_free; NULL when the text has none. `size`
+    receives its length in bytes, and may be NULL. Callable from any thread."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rmermaid_check_message(_s(source), ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
 
 
 _lib.Rdialog_open.argtypes = [ctypes.c_uint32, ctypes.c_uint32, RDialogClosedCallback, ctypes.c_void_p]

@@ -493,6 +493,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CAROUSEL = 566,
 	R_WIDGET_SYSTEM_WEB_VIEW = 567,
 	R_WIDGET_DIFF_VIEW = 568,
+	R_WIDGET_MERMAID_VIEW = 569,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -786,6 +787,18 @@ typedef enum RDiffFlags {
 	R_DIFF_IGNORE_SPACE = 2,
 	R_DIFF_IGNORE_CASE = 4,
 } RDiffFlags;
+typedef enum RMermaidKind {
+	R_MERMAID_NONE = 3312,
+	R_MERMAID_FLOWCHART = 3313,
+	R_MERMAID_SEQUENCE = 3314,
+	R_MERMAID_STATE = 3315,
+	R_MERMAID_PIE = 3316,
+} RMermaidKind;
+typedef enum RMermaidFit {
+	R_MERMAID_FIT_WIDTH = 3320,
+	R_MERMAID_FIT_NONE = 3321,
+	R_MERMAID_FIT_CONTAIN = 3322,
+} RMermaidFit;
 typedef enum RNotificationUrgency {
 	R_NOTIFICATION_LOW = 1264,
 	R_NOTIFICATION_NORMAL = 1265,
@@ -1876,6 +1889,8 @@ void Rlabel_set_wrap(Rid label, int wrap);
 void Rlabel_set_color(Rid label, float r, float g, float b, float a);
 void Rlabel_set_markdown(Rid label, int enabled);
 int Rlabel_get_markdown(Rid label);
+void Rlabel_set_mermaid(Rid label, int enabled);
+int Rlabel_get_mermaid(Rid label);
 void Rlabel_set_link_callback(Rid label, RLabelLinkCallback callback, void* user_data);
 const char* Rlabel_get_plain_text(Rid label);
 void Rlabel_set_selectable(Rid label, int selectable);
@@ -2787,6 +2802,29 @@ void Rdiff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const ch
 void Rdiff_view_clear_annotations(Rid diff_view);
 const char* Rdiff_view_get_selected_text(Rid diff_view);
 void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
+Rid Rmermaid_view_create(const char* source);
+void Rmermaid_view_set_source(Rid view, const char* source);
+const char* Rmermaid_view_get_source(Rid view);
+int Rmermaid_view_load_file(Rid view, const char* path);
+RMermaidKind Rmermaid_view_get_kind(Rid view);
+int Rmermaid_view_get_error_line(Rid view);
+const char* Rmermaid_view_get_error(Rid view);
+const char* Rmermaid_view_get_summary(Rid view);
+int Rmermaid_view_get_node_count(Rid view);
+int Rmermaid_view_get_node(Rid view, int index, const char** id, const char** label, float* x, float* y, float* width, float* height);
+int Rmermaid_view_get_edge_count(Rid view);
+int Rmermaid_view_get_edge(Rid view, int index, int* from, int* to, const char** label);
+void Rmermaid_view_get_diagram_size(Rid view, float* width, float* height);
+void Rmermaid_view_set_fit(Rid view, RMermaidFit fit);
+RMermaidFit Rmermaid_view_get_fit(Rid view);
+void Rmermaid_view_set_zoom(Rid view, float zoom);
+float Rmermaid_view_get_zoom(Rid view);
+float Rmermaid_view_get_scale(Rid view);
+int Rmermaid_view_save_png(Rid view, const char* path);
+int Rmermaid_view_save_svg(Rid view, const char* path);
+char* Rmermaid_view_to_svg(Rid view, size_t* size);
+RMermaidKind Rmermaid_check(const char* source, int* error_line);
+char* Rmermaid_check_message(const char* source, size_t* size);
 void Rdialog_open(Rid window, Rid content, RDialogClosedCallback closed, void* user_data);
 void Rdialog_close(Rid widget, int result);
 int Rdialog_run(Rid window, Rid content);
