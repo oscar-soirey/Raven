@@ -7,7 +7,8 @@
 #   Windows (MinGW-w64)    libraven.a            raven.dll + libraven.dll.a
 #
 # Every package is a CMake install prefix (include/, lib/, bin/ with
-# raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it.
+# raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it,
+# or pkg-config with PKG_CONFIG_PATH set to its lib/pkgconfig (raven.pc).
 #
 # The tests run on Linux, macOS and Windows (Visual C++): the headless ones,
 # and those of the platform of each runner (Cocoa, Win32); test_web drives the
@@ -475,6 +476,73 @@ jobs:
             ${{ env.PACKAGE }}.tar.gz
           if-no-files-found: error
 
+  # ---------------------------------------------------------------------------
+  #  Packages (Linux, macOS): the installed library used from outside, static
+  #  and shared: tests/package/consumer.c built with pkg-config (raven.pc) and
+  #  with find_package(raven), run headless (ctest package_pkgconfig,
+  #  package_cmake). Only the library is built. On macOS, the Homebrew formula
+  #  is also checked (brew style, brew audit; packaging/README.md).
+  #  The tests job runs the same two tests on its static Debug build.
+  # ---------------------------------------------------------------------------
+  packages:
+    name: packages (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest }
+          - { name: macos, os: macos-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build pkg-config
+
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja pkgconf
+
+      - name: Library, install, consumers (static and shared)
+        run: |
+          for shared in OFF ON; do
+            echo "::group::RAVEN_BUILD_SHARED=$shared"
+            cmake -S . -B "build-$shared" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DRAVEN_BUILD_SHARED=$shared \
+              -DRAVEN_BUILD_TESTS=ON \
+              -DRAVEN_BUILD_EXAMPLES=OFF \
+              -DRAVEN_BUILD_TOOLS=OFF \
+              -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+            cmake --build "build-$shared" --target raven --parallel
+            ctest --test-dir "build-$shared" -R '^package_' --output-on-failure --verbose
+            echo "::endgroup::"
+          done
+
+      - name: Homebrew formula (brew style, brew audit)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          # brew checks formulae of a tap: a temporary one holds the formula
+          brew tap-new --no-git local/raven-ci
+          # (Homebrew versions that ask for it: the formulae of a tap that is not official are trusted first)
+          if brew commands | grep -qx trust; then brew trust --tap local/raven-ci; fi
+          cp packaging/homebrew/raven-gui.rb "$(brew --repository local/raven-ci)/Formula/"
+          brew style local/raven-ci/raven-gui
+          brew audit --new --strict --formula local/raven-ci/raven-gui
+
   # The addon of the Node.js binding links node.lib on Windows, which CMake downloads
   # for the node of the runner; then binding_node runs its example with the DLL.
   node-windows:
@@ -697,7 +765,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, build, mingw, installer, android]
+    needs: [test, build, packages, mingw, installer, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
