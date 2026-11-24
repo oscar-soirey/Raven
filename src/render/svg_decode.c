@@ -87,8 +87,10 @@ int rvn_svg_detect(const uint8_t* data, size_t size) {
 
 /*
  * What nanosvg would take forever to draw, from a damaged or hostile file:
- * shapes far outside the picture (a coordinate of 2e10), dashes much smaller
- * than a pixel along a long path. They are left out; the rest is drawn.
+ * shapes far outside the picture (a coordinate of 2e10, or a control point
+ * of a curve that far: the box of a shape leaves control points out), dashes
+ * much smaller than a pixel or too many along a long path. They are left out;
+ * the rest is drawn.
  * A stroke many times wider than the largest picture (1e30) is drawn at that width.
  */
 static void rvn_svg_tame(NSVGimage* image, float scale) {
@@ -97,8 +99,18 @@ static void rvn_svg_tame(NSVGimage* image, float scale) {
 	if (limit * scale > RVN_SVG_MAX_REACH) limit = RVN_SVG_MAX_REACH / scale;
 	for (shape = image->shapes; shape; shape = shape->next) {
 		float period = 0.0f, width = shape->bounds[2] - shape->bounds[0], height = shape->bounds[3] - shape->bounds[1];
-		int i;
-		if (!(shape->bounds[0] > -limit && shape->bounds[1] > -limit && shape->bounds[2] < limit && shape->bounds[3] < limit)) {
+		/* the length of the control polygons: a curve is never longer, whatever its control points */
+		double length = 0.0;
+		int i, far = !(shape->bounds[0] > -limit && shape->bounds[1] > -limit && shape->bounds[2] < limit && shape->bounds[3] < limit);
+		NSVGpath* path;
+		for (path = shape->paths; path && !far; path = path->next) {
+			for (i = 0; i < path->npts; i++) {
+				float x = path->pts[i * 2], y = path->pts[i * 2 + 1];
+				if (!(x > -limit && x < limit && y > -limit && y < limit)) { far = 1; break; }
+				if (i > 0) length += hypot((double)x - path->pts[i * 2 - 2], (double)y - path->pts[i * 2 - 1]);
+			}
+		}
+		if (far) {
 			shape->flags &= (unsigned char)~NSVG_FLAGS_VISIBLE;
 			continue;
 		}
@@ -107,6 +119,7 @@ static void rvn_svg_tame(NSVGimage* image, float scale) {
 		/* (the length of a path is not known here; its box and its points tell enough) */
 		if (shape->strokeDashCount > 0 && period * scale < 0.25f) shape->strokeDashCount = 0;
 		else if (shape->strokeDashCount > 0 && (width + height) * 64.0f / period > 1.0e6f) shape->strokeDashCount = 0;
+		else if (shape->strokeDashCount > 0 && length / period > 1.0e6) shape->strokeDashCount = 0;
 	}
 }
 
