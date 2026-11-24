@@ -6,7 +6,7 @@
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
 #   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
-#   test_icons, test_spell, test_headless, test_web_input
+#   test_icons, test_spell, test_headless, test_web_input, test_script
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
@@ -25,6 +25,11 @@
 #       renders a form with the GPU backend of the platform and compares it with
 #       the golden images of tests/goldens/ (one per OS and backend); skipped
 #       without a GPU or without goldens for this OS and backend.
+#
+#   test_script_core
+#       the core of Raven Script (lexer, parser, type checker, bytecode, virtual
+#       machine, formatter, analysis) without the library; it ends with a short
+#       fuzzing of mutated scripts (RS_FUZZ_ROUNDS and RS_FUZZ_SEED run it longer).
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -53,6 +58,18 @@ function(raven_add_test name)
 endfunction()
 
 raven_add_test(test_layout)
+raven_add_test(test_script)
+
+# the core of Raven Script alone (src/script/rs_*.c): no library, no window
+add_executable(test_script_core test_script_core.c ${RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE})
+set_target_properties(test_script_core PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
+if(NOT WIN32)
+	target_link_libraries(test_script_core PRIVATE m)
+endif()
+if(MSVC)
+	target_compile_definitions(test_script_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+add_test(NAME test_script_core COMMAND test_script_core)
 raven_add_test(test_widgets)
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_menu_decorations)
