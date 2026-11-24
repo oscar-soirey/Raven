@@ -143,8 +143,8 @@ const root = context.Module.ravenAccessRoot;
 assert.equal(root.hidden, true, 'new hidden window must hide its ARIA tree');
 function render(states, description = '') {
     run(accessibility, 'rvn_web_access_node',
-        'lo,hi,parent_lo,parent_hi,role,name,description,value,states,number,minimum,maximum',
-        [1,0,0,0,'button','Name',description,'',states,0,0,0]);
+        'lo,hi,parent_lo,parent_hi,role,name,description,value,states,number,minimum,maximum,level,position,set_size',
+        [1,0,0,0,'button','Name',description,'',states,0,0,0,0,0,0]);
 }
 render(3, 'Old description');
 let node = nodes.get('raven-node-0-1');
