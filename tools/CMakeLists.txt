@@ -62,6 +62,17 @@ else()
 endif()
 
 include(GNUInstallDirs)
+if(RAVEN_BUILD_SHARED AND NOT WIN32 AND NOT IS_ABSOLUTE "${CMAKE_INSTALL_BINDIR}" AND NOT IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+	# installed, the tools find libraven.so / libraven.dylib in the lib folder beside bin, wherever
+	# the prefix is (a package of a release unpacked anywhere, Homebrew, vcpkg)
+	file(RELATIVE_PATH _raven_bin_to_lib "/prefix/${CMAKE_INSTALL_BINDIR}" "/prefix/${CMAKE_INSTALL_LIBDIR}")
+	if(APPLE)
+		set(_raven_origin "@loader_path")
+	else()
+		set(_raven_origin "$ORIGIN")
+	endif()
+	set_target_properties(raven_designer raven_theme_editor PROPERTIES INSTALL_RPATH "${_raven_origin}/${_raven_bin_to_lib}")
+endif()
 install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(RAVEN_BUILD_TESTS)
