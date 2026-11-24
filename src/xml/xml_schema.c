@@ -219,6 +219,7 @@ static const rvn_schema_attribute_t g_label[] = {
 	F("Font", "Font file, or \"monospace\"."),
 	B("Markdown", "The text is Markdown: headings, emphasis, lists, quotes, code, tables, links."),
 	B("Selectable", "The text can be selected with the mouse and copied, as on a web page."),
+	B("Mermaid", "Markdown: the ```mermaid blocks are drawn as diagrams (default true); false shows them as code."),
 };
 static const rvn_schema_attribute_t g_button[] = {
 	T("Text", "The text of the button."),
@@ -495,6 +496,12 @@ static const rvn_schema_attribute_t g_diff_view[] = {
 	C("Language", "None|C|C++|C#|Java|JavaScript|TypeScript|Python|Rust|GLSL|JSON|CSS|XML|HTML", "Colors the code; by default guessed from the extension of the names."),
 	A("OnClicked", "Action fired when a line or its number is clicked."),
 };
+static const rvn_schema_attribute_t g_mermaid_view[] = {
+	T("Text", "The diagram, in the language of Mermaid (or the text inside the element, best in a CDATA section)."),
+	F("Source", "A file holding the diagram (.mmd)."),
+	C("Fit", "Width|None|Contain", "Scaled down to the width (Width, the default), its own size (None), or scaled to fill the widget (Contain)."),
+	N("Zoom", "A factor on the size of the diagram (1)."),
+};
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
 	C("Buttons", "All|None|Close|Close,Minimize|Close,Maximize", "The window buttons the bar shows."),
@@ -644,6 +651,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("SystemWebView", g_system_web_view, "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
+	TAG("MermaidView", g_mermaid_view, "A diagram written in Mermaid (flowchart, sequence, state, pie), drawn natively."),
 	TAG("DiffView", g_diff_view, "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked."),
 	TAG("HeaderBar", g_header_bar, "The title bar of a window with a custom header; holds any widgets."),
 	TAG("FileBrowser", g_file_browser, "Folders and files to choose from."),

@@ -7,6 +7,7 @@
  *   R_WIDGET_NODE_GRAPH     nodes linked by wires
  *   R_WIDGET_BLOCK_EDITOR   blocks that snap into each other (Scratch)
  *   R_WIDGET_DIFF_VIEW      the differences between two texts, or a patch
+ *   R_WIDGET_MERMAID_VIEW   a diagram written in Mermaid (flowchart, sequence, state, pie)
  *
  * Each of them holds a small model (a color; tracks, clips and keys; nodes,
  * pins and links) that the application fills and reads through the
@@ -907,6 +908,149 @@ extern "C" {
 	RAVEN_API const char* Rdiff_view_get_selected_text(Rid diff_view);
 	/** @brief Called when a line or its number is clicked (the action of the widget is fired too). */
 	RAVEN_API void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
+
+	/* ============================================================================
+	 *  Mermaid view
+	 *
+	 *  A diagram written as text in the language of Mermaid, drawn by Raven
+	 *  itself (no browser, no JavaScript): flowcharts, sequence diagrams,
+	 *  state diagrams and pie charts.
+	 *
+	 *    <MermaidView><![CDATA[
+	 *      flowchart LR
+	 *        A[Start] --> B{Ready?}
+	 *        B -->|yes| C([Go])
+	 *        B -->|no| A
+	 *    ]]></MermaidView>
+	 *
+	 *  The same diagrams are drawn in Markdown (Rlabel_set_markdown) for each
+	 *  block of code whose language is "mermaid" (Rlabel_set_mermaid turns it
+	 *  off: the block is then shown as code).
+	 *
+	 *  What is read:
+	 *    flowchart / graph   TD TB BT LR RL; the shapes [rect] (round) ([stadium])
+	 *                        [[subroutine]] [(cylinder)] ((circle)) (((double)))
+	 *                        {rhombus} {{hexagon}} [/parallelogram/] [\alt\]
+	 *                        [/trapezoid\] [\alt/] >flag]; the links --> --- -.->
+	 *                        ==> ~~~ <--> --x --o, longer ones (--->), with a text
+	 *                        (-->|text| or -- text -->), chains (A --> B --> C),
+	 *                        A & B --> C & D, subgraph ... end, classDef, class,
+	 *                        A:::name, style (fill, stroke, stroke-width, color,
+	 *                        stroke-dasharray)
+	 *    sequenceDiagram     participant / actor (as), the messages ->> -->> ->
+	 *                        --> -x --x -) --) with +/- activations, activate,
+	 *                        deactivate, notes left of / right of / over,
+	 *                        loop, alt / else, opt, par / and, critical / option,
+	 *                        break, rect, autonumber
+	 *    stateDiagram(-v2)   [*], transitions with a text, state "a" as b,
+	 *                        b : text, composite states { }, <<choice>>,
+	 *                        <<fork>>, <<join>>, notes, direction
+	 *    pie                 title, showData, "label" : value
+	 *  and everywhere %% comments, accTitle, accDescr, a title in front matter
+	 *  (--- title: ... ---) and %%{init: {"theme": "forest"}}%% (default,
+	 *  dark, forest, neutral; without it the colors are those of the theme of
+	 *  Raven: panel, border, accent, text). A text that cannot be read is
+	 *  drawn as a box that tells the error and its line.
+	 *
+	 *  Graphs are laid out in layers (cycles broken, layers by longest path,
+	 *  crossings reduced by barycenters, positions balanced, the subgraphs
+	 *  kept together): the same text always gives the same picture, and a
+	 *  graph of 200 nodes is laid out in a few milliseconds. The diagram is
+	 *  scaled down to the width it gets (R_MERMAID_FIT_WIDTH, the default);
+	 *  with R_MERMAID_FIT_NONE it keeps its size (in a ScrollBox to scroll).
+	 *  For screen readers it is an image named by a summary ("flowchart with
+	 *  12 nodes and 11 links") whose description is the text of the diagram.
+	 * ============================================================================ */
+
+	typedef enum RMermaidKind {
+		/** No diagram: the text is empty, or could not be read (Rmermaid_view_get_error). */
+		R_MERMAID_NONE = 0x0CF0,
+		R_MERMAID_FLOWCHART,
+		R_MERMAID_SEQUENCE,
+		R_MERMAID_STATE,
+		R_MERMAID_PIE
+	} RMermaidKind;
+
+	typedef enum RMermaidFit {
+		/** Scaled down to the width of the widget, never up (the default). */
+		R_MERMAID_FIT_WIDTH = 0x0CF8,
+		/** Its own size (times the zoom); put it in a ScrollBox to scroll. */
+		R_MERMAID_FIT_NONE,
+		/** Scaled up or down to fill the widget, its proportions kept. */
+		R_MERMAID_FIT_CONTAIN
+	} RMermaidFit;
+
+	RAVEN_API Rid Rmermaid_view_create(const char* source);
+	/** @brief The text of the diagram (NULL: none). It is read and laid out again. */
+	RAVEN_API void Rmermaid_view_set_source(Rid view, const char* source);
+	RAVEN_API const char* Rmermaid_view_get_source(Rid view);
+	/** @brief Reads the text of a file (a .mmd) as the diagram. @return R_FALSE when it cannot be read. */
+	RAVEN_API int Rmermaid_view_load_file(Rid view, const char* path);
+	/** @brief The kind of diagram read; R_MERMAID_NONE for an empty text or an error. */
+	RAVEN_API RMermaidKind Rmermaid_view_get_kind(Rid view);
+	/** @brief The line (from 1) of the first error of the text; 0 when it was read. */
+	RAVEN_API int Rmermaid_view_get_error_line(Rid view);
+	/** @brief What the error is ("unknown statement \"foo\""); "" when none. */
+	RAVEN_API const char* Rmermaid_view_get_error(Rid view);
+	/** @brief "flowchart with 12 nodes and 11 links": the accessible name of the view. */
+	RAVEN_API const char* Rmermaid_view_get_summary(Rid view);
+
+	/**
+	 * @brief The nodes of a flowchart or a state diagram (states, the start
+	 * and end points), the participants of a sequence diagram, the slices of
+	 * a pie.
+	 */
+	RAVEN_API int Rmermaid_view_get_node_count(Rid view);
+	/**
+	 * @brief A node: its name in the text, its label, and its rectangle in the
+	 * units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+	 * Any pointer may be NULL. The texts are valid until the source changes.
+	 * @return R_FALSE when `index` is out of range.
+	 */
+	RAVEN_API int Rmermaid_view_get_node(Rid view, int index, const char** id, const char** label,
+		float* x, float* y, float* width, float* height);
+	/** @brief Links of a graph, transitions of a state diagram, messages of a sequence diagram. */
+	RAVEN_API int Rmermaid_view_get_edge_count(Rid view);
+	/** @brief The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label. */
+	RAVEN_API int Rmermaid_view_get_edge(Rid view, int index, int* from, int* to, const char** label);
+	/** @brief The size of the diagram in its own units (at the font size of the widget). */
+	RAVEN_API void Rmermaid_view_get_diagram_size(Rid view, float* width, float* height);
+
+	RAVEN_API void Rmermaid_view_set_fit(Rid view, RMermaidFit fit);
+	RAVEN_API RMermaidFit Rmermaid_view_get_fit(Rid view);
+	/** @brief A factor applied to the size of the diagram (1 by default; 0.25 to 8). */
+	RAVEN_API void Rmermaid_view_set_zoom(Rid view, float zoom);
+	RAVEN_API float Rmermaid_view_get_zoom(Rid view);
+	/** @brief The scale the diagram is drawn at: the zoom, and what the fit made of it. */
+	RAVEN_API float Rmermaid_view_get_scale(Rid view);
+
+	/**
+	 * @brief Writes the view as shown as a PNG file (the window is captured,
+	 * Rwindow_capture). @return R_FALSE when the view is not in a shown
+	 * window, the backend cannot capture, or the file cannot be written.
+	 */
+	RAVEN_API int Rmermaid_view_save_png(Rid view, const char* path);
+	/** @brief Writes the diagram as an SVG file, in the colors of the theme. */
+	RAVEN_API int Rmermaid_view_save_svg(Rid view, const char* path);
+	/**
+	 * @brief The diagram as an SVG document, to release with Rmemory_free.
+	 * `size` receives its length in bytes, and may be NULL.
+	 */
+	RAVEN_API char* Rmermaid_view_to_svg(Rid view, size_t* size);
+
+	/**
+	 * @brief Reads a text without drawing it: what an editor checks as the
+	 * user types. Callable from any thread.
+	 * @param error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+	 * @return The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+	 */
+	RAVEN_API RMermaidKind Rmermaid_check(const char* source, int* error_line);
+	/**
+	 * @brief What the first error of a text is ("unknown statement \"foo\""),
+	 * to release with Rmemory_free; NULL when the text has none. `size`
+	 * receives its length in bytes, and may be NULL. Callable from any thread.
+	 */
+	RAVEN_API char* Rmermaid_check_message(const char* source, size_t* size);
 
 #ifdef __cplusplus
 } /* extern "C" */

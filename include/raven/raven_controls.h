@@ -289,6 +289,13 @@ extern "C" {
 	RAVEN_API void Rlabel_set_markdown(Rid label, int enabled);
 	RAVEN_API int Rlabel_get_markdown(Rid label);
 	/**
+	 * @brief Markdown: draws the blocks of code whose language is "mermaid"
+	 * as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+	 * they are shown as code. A diagram wider than the label is scaled down.
+	 */
+	RAVEN_API void Rlabel_set_mermaid(Rid label, int enabled);
+	RAVEN_API int Rlabel_get_mermaid(Rid label);
+	/**
 	 * @brief Called when the user clicks a link of a Markdown label.
 	 *
 	 * Without a callback, a link written [Save](action:file.save) fires the

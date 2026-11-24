@@ -4,7 +4,7 @@
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_notifications,
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
-#   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
+#   test_diff_engine, test_mermaid, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
 #   test_icons, test_spell, test_headless, test_web_input
 #       run headless (null platform + null backend): no display and no GPU are
@@ -148,6 +148,8 @@ raven_add_test(test_diff_view)
 if(NOT RAVEN_BUILD_SHARED)
 	# the comparison itself (core/diff.c), through its internal header
 	raven_add_test(test_diff_engine)
+	# Mermaid diagrams: the reader and the layouts through their internal header, the widget, the Markdown
+	raven_add_test(test_mermaid)
 endif()
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped

@@ -288,6 +288,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
 		case R_WIDGET_DIFF_VIEW: return R_ROLE_LIST;
+		case R_WIDGET_MERMAID_VIEW: return R_ROLE_IMAGE;
 		case R_WIDGET_DATE_PICKER: return R_ROLE_COMBO_BOX;
 		case R_WIDGET_TIME_PICKER: return R_ROLE_SPIN_BUTTON;
 		case R_WIDGET_TOAST: return Rtoast_is_shown(widget->id) ? R_ROLE_ALERT : R_ROLE_NONE;
@@ -667,6 +668,7 @@ static void rvn_a11y_name_of(const rvn_widget_t* widget, RAccessibleRole role, r
 		case R_WIDGET_MENU_ITEM: rvn_text_add(out, Rmenu_item_get_text(widget->id)); break;
 		case R_WIDGET_EXPANDER: rvn_text_add(out, Rexpander_get_title(widget->id)); break;
 		case R_WIDGET_CHART: rvn_text_add(out, Rchart_get_title(widget->id)); break;
+		case R_WIDGET_MERMAID_VIEW: rvn_text_add(out, Rmermaid_view_get_summary(widget->id)); break;
 		default: break;
 	}
 	if (out->length) return;
@@ -860,6 +862,8 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 	rvn_a11y_name_of(widget, node->role, &g_a11y.name);
 	if (widget->a11y && widget->a11y->description) rvn_text_add(&g_a11y.description, widget->a11y->description);
 	else if (widget->tooltip && strcmp(widget->tooltip, rvn_a11y_str(&g_a11y.name)) != 0) rvn_text_add(&g_a11y.description, widget->tooltip);
+	/* a diagram is described by its text */
+	else if (widget->cls->type == R_WIDGET_MERMAID_VIEW) rvn_text_add(&g_a11y.description, Rmermaid_view_get_source(widget->id));
 	if (widget->flags & RVN_WF_FOCUSABLE) node->states |= RVN_A11Y_FOCUSABLE;
 	if (widget->flags & RVN_WF_FOCUSED) node->states |= RVN_A11Y_FOCUSED;
 

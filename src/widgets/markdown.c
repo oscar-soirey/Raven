@@ -7,7 +7,9 @@
  *   blocks   paragraphs, # titles (1 to 6), lists (-, *, +, 1.) and lists in
  *            lists, task lists (- [ ] and - [x]), > quotes, ``` code ``` with
  *            the colors of its language, --- rules, | tables | with the
- *            alignment of their columns, images alone on their line
+ *            alignment of their columns, images alone on their line, and
+ *            ```mermaid blocks drawn as diagrams (core/mermaid.c; turned off
+ *            with Rlabel_set_mermaid, they are code again)
  *   inline   **strong**, *emphasis*, ***both***, `code`, ~~struck~~,
  *            [links](url), <url>, bare http(s) addresses, \escapes, two
  *            spaces or a backslash at the end of a line for a line break,
@@ -20,6 +22,7 @@
 
 #include "common.h"
 #include "../render/renderer.h"
+#include "../core/mermaid.h"
 
 #define RVN_MD_BOLD   (1u << 0)
 #define RVN_MD_ITALIC (1u << 1)
@@ -71,7 +74,17 @@ typedef struct rvn_md_block_t {
 	uint32_t rows;
 	/** Image: its address, in rvn_md_t::links. */
 	int16_t link;
+	/** Code in Mermaid: its diagram in rvn_md_t::diagrams, or -1. */
+	int diagram;
 } rvn_md_block_t;
+
+/** A diagram of a ```mermaid block, read once, laid out again when the font changes. */
+typedef struct rvn_md_diagram_t {
+	rvn_mm_t* mm;
+	Rid font, bold;
+	float size;
+	uint32_t generation;
+} rvn_md_diagram_t;
 
 typedef struct rvn_md_cell_t {
 	uint32_t first_span;
@@ -113,7 +126,9 @@ enum {
 	RVN_MD_BOX_TASK_DONE,
 	RVN_MD_BOX_TABLE_HEADER,
 	RVN_MD_BOX_TABLE_LINE,
-	RVN_MD_BOX_IMAGE
+	RVN_MD_BOX_IMAGE,
+	/** A diagram: its index in rvn_md_t::diagrams in `texture`, drawn at the scale of the box. */
+	RVN_MD_BOX_DIAGRAM
 };
 
 typedef struct rvn_md_box_t {
@@ -135,6 +150,10 @@ struct rvn_md_t {
 	uint32_t cell_count, cell_cap;
 	char** links;
 	uint32_t link_count, link_cap;
+	rvn_md_diagram_t* diagrams;
+	uint32_t diagram_count, diagram_cap;
+	/** The ```mermaid blocks are drawn as diagrams (Rlabel_set_mermaid). */
+	int mermaid;
 
 	/* layout */
 	rvn_md_run_t* runs;
@@ -586,6 +605,7 @@ static rvn_md_block_t* rvn_md_add_block(rvn_md_t* md, int type) {
 	memset(block, 0, sizeof(*block));
 	block->type = (uint8_t)type;
 	block->link = -1;
+	block->diagram = -1;
 	return block;
 }
 
@@ -1071,7 +1091,38 @@ rvn_md_t* rvn_md_parse(const char* source) {
 	rvn_free(parser.paragraph.data);
 	rvn_free(dedented);
 	md->parsed_length = md->text.length;
+	md->mermaid = R_TRUE;
+	/* the blocks of Mermaid are read now (that is quick): the summary of each is known before it is drawn */
+	{
+		uint32_t b;
+		for (b = 0; b < md->block_count; b++) {
+			rvn_md_block_t* block = &md->blocks[b];
+			rvn_md_diagram_t* diagram;
+			if (block->type != RVN_MD_CODE_BLOCK || block->language_length != 7 ||
+				rvn_strnicmp(md->text.data + block->language_start, "mermaid", 7) != 0) continue;
+			RVN_ARRAY_RESERVE(md->diagrams, md->diagram_cap, md->diagram_count + 1);
+			diagram = &md->diagrams[md->diagram_count];
+			memset(diagram, 0, sizeof(*diagram));
+			diagram->mm = rvn_mm_parse(md->text.data + block->code_start, (int)block->code_length);
+			if (!diagram->mm) continue;
+			block->diagram = (int)md->diagram_count++;
+		}
+	}
 	return md;
+}
+
+void rvn_md_set_mermaid(rvn_md_t* md, int enabled) {
+	if (!md || md->mermaid == !!enabled) return;
+	md->mermaid = !!enabled;
+	md->laid = R_FALSE;
+}
+
+int rvn_md_diagram_count(const rvn_md_t* md) {
+	uint32_t i;
+	int count = 0;
+	if (!md || !md->mermaid) return 0;
+	for (i = 0; i < md->box_count; i++) count += md->boxes[i].kind == RVN_MD_BOX_DIAGRAM;
+	return count;
 }
 
 void rvn_md_free(rvn_md_t* md) {
@@ -1079,6 +1130,8 @@ void rvn_md_free(rvn_md_t* md) {
 	if (!md) return;
 	for (i = 0; i < md->link_count; i++) rvn_free(md->links[i]);
 	rvn_free(md->links);
+	for (i = 0; i < md->diagram_count; i++) rvn_mm_free(md->diagrams[i].mm);
+	rvn_free(md->diagrams);
 	rvn_free(md->text.data);
 	rvn_free(md->spans);
 	rvn_free(md->blocks);
@@ -1354,6 +1407,30 @@ static float rvn_md_code_block(rvn_md_layout_t* layout, const rvn_md_block_t* bl
 	return y - top;
 }
 
+/*
+ * A ```mermaid block: its diagram, laid out at the size of the text and
+ * scaled down to the width (never up). A text that is not a diagram is
+ * drawn as the box that tells its error.
+ */
+static float rvn_md_diagram(rvn_md_layout_t* layout, const rvn_md_block_t* block, float x0, float y, float width) {
+	rvn_md_t* md = layout->md;
+	rvn_md_diagram_t* diagram = &md->diagrams[block->diagram];
+	rvn_md_box_t* box;
+	float scale = 1.0f;
+	if (!diagram->mm->laid || diagram->font != layout->font || diagram->size != layout->size || diagram->generation != g_rvn.style_generation) {
+		rvn_mermaid_layout(diagram->mm, layout->font, layout->size, &diagram->bold);
+		diagram->font = layout->font;
+		diagram->size = layout->size;
+		diagram->generation = g_rvn.style_generation;
+	}
+	if (diagram->mm->width <= 0.0f || diagram->mm->height <= 0.0f) return 0.0f;
+	if (width > 0.0f && diagram->mm->width > width) scale = width / diagram->mm->width;
+	box = rvn_md_add_box(md, RVN_MD_BOX_DIAGRAM, x0, y, diagram->mm->width * scale, diagram->mm->height * scale);
+	box->texture = (Rid)block->diagram;
+	layout->widest = rvn_maxf(layout->widest, x0 + box->w);
+	return box->h;
+}
+
 static float rvn_md_table(rvn_md_layout_t* layout, const rvn_md_block_t* block, float x0, float y, float width) {
 	rvn_md_t* md = layout->md;
 	float widths[RVN_MD_MAX_COLUMNS];
@@ -1475,7 +1552,8 @@ rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, flo
 				break;
 			}
 			case RVN_MD_CODE_BLOCK:
-				height = rvn_md_code_block(&layout, block, x0, y, room);
+				if (md->mermaid && block->diagram >= 0) height = rvn_md_diagram(&layout, block, x0, y, room);
+				else height = rvn_md_code_block(&layout, block, x0, y, room);
 				break;
 			case RVN_MD_RULE:
 				rvn_md_add_box(md, RVN_MD_BOX_RULE, x0, y + floorf(size * 0.3f), room > 0.0f ? room : -1.0f, 1.0f);
@@ -1576,6 +1654,7 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 	rvn_color_t line = rvn_widget_color(widget, R_COLOR_SEPARATOR);
 	rvn_color_t code = rvn_widget_color(widget, R_COLOR_CODE);
 	rvn_color_t accent = rvn_widget_color(widget, R_COLOR_ACCENT);
+	rvn_color_t diagram_colors[RVN_MM_C_COUNT_];
 	uint32_t i;
 
 	for (i = 0; i < md->box_count; i++) {
@@ -1615,6 +1694,13 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 				/* (an icon in currentColor takes the color of the text) */
 				rvn_paint_image(painter, rect, box->texture, NULL, rvn_icon_tint(box->texture, R_FALSE, color, rvn_hex(0xFFFFFF, 255)), 6.0f);
 				break;
+			case RVN_MD_BOX_DIAGRAM: {
+				const rvn_md_diagram_t* diagram = &md->diagrams[(uint32_t)box->texture];
+				if (diagram->mm->width <= 0.0f) break;
+				rvn_mermaid_colors(widget, diagram->mm, diagram_colors);
+				rvn_mermaid_paint(diagram->mm, painter, rect.x, rect.y, rect.w / diagram->mm->width, diagram_colors, diagram->font, diagram->bold);
+				break;
+			}
 			default:
 				break;
 		}
@@ -1807,7 +1893,12 @@ void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out) {
 	for (b = 0; b < md->block_count; b++) {
 		const rvn_md_block_t* block = &md->blocks[b];
 		if (b > 0) rvn_text_append(out, "\n", 1);
-		if (block->type == RVN_MD_CODE_BLOCK) {
+		if (block->type == RVN_MD_CODE_BLOCK && md->mermaid && block->diagram >= 0) {
+			/* a diagram: what it is, then its text */
+			rvn_mm_summary(md->diagrams[block->diagram].mm, out);
+			rvn_text_append(out, "\n", 1);
+			rvn_text_append(out, md->text.data + block->code_start, block->code_length);
+		} else if (block->type == RVN_MD_CODE_BLOCK) {
 			rvn_text_append(out, md->text.data + block->code_start, block->code_length);
 		} else if (block->type == RVN_MD_TABLE) {
 			uint32_t c, cells = (uint32_t)block->columns * block->rows;
