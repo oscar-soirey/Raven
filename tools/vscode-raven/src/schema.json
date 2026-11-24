@@ -2008,6 +2008,81 @@
 			]
 		},
 		{
+			"name": "RichTextEditor",
+			"description": "Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, underlined, struck, links; read and written as Markdown, written as HTML.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The document, in Markdown (or the text inside the element)."
+				},
+				{
+					"name": "Markdown",
+					"kind": "text",
+					"description": "The document, in Markdown."
+				},
+				{
+					"name": "Html",
+					"kind": "text",
+					"description": "The document, in HTML (what it can hold of it)."
+				},
+				{
+					"name": "PlainText",
+					"kind": "text",
+					"description": "The document, as plain text: a paragraph per line."
+				},
+				{
+					"name": "Placeholder",
+					"kind": "text",
+					"description": "Shown, dimmed, while the document is empty."
+				},
+				{
+					"name": "ReadOnly",
+					"kind": "bool",
+					"description": "Can be scrolled, selected and copied, not changed; links follow on a click."
+				},
+				{
+					"name": "Toolbar",
+					"kind": "bool",
+					"description": "The toolbar of the looks and the kinds of paragraphs (on by default)."
+				},
+				{
+					"name": "MarkdownShortcuts",
+					"kind": "bool",
+					"description": "What is typed as Markdown (\"# \", \"- \", **bold**...) is formatted as it is typed (on by default)."
+				},
+				{
+					"name": "SpellCheck",
+					"kind": "bool",
+					"description": "Underlines the misspelled words, with corrections on a right click (off by default)."
+				},
+				{
+					"name": "SpellLanguage",
+					"kind": "text",
+					"description": "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."
+				},
+				{
+					"name": "TextSize",
+					"kind": "number",
+					"description": "Size of the text; 0 uses the theme."
+				},
+				{
+					"name": "Font",
+					"kind": "file",
+					"description": "Font file of the text (titles are made from it; code is monospace)."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired at each change."
+				}
+			],
+			"accepted": [
+				"FontSize"
+			]
+		},
+		{
 			"name": "DiffView",
 			"description": "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked.",
 			"children": "none",
@@ -3414,6 +3489,8 @@
 		"TileMap": "MapView",
 		"PageView": "Carousel",
 		"Slideshow": "Carousel",
-		"DiffViewer": "DiffView"
+		"DiffViewer": "DiffView",
+		"RichText": "RichTextEditor",
+		"RichTextBox": "RichTextEditor"
 	}
 }

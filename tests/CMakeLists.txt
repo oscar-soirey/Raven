@@ -145,6 +145,7 @@ raven_add_test(test_system_web_view)
 raven_add_test(test_animated_images)
 target_sources(test_animated_images PRIVATE anim_foreign_gif.h anim_foreign_expected.h)
 raven_add_test(test_diff_view)
+raven_add_test(test_rich_text)
 if(NOT RAVEN_BUILD_SHARED)
 	# the comparison itself (core/diff.c), through its internal header
 	raven_add_test(test_diff_engine)

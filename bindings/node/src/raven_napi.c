@@ -1066,6 +1066,52 @@ static struct {
 	void (*Rtheme_get_token_color)(RToken, float*, float*, float*, float*);
 	void (*Rtheme_clear_token_colors)(void);
 	void (*Rtext_editor_set_changed_callback)(Rid, RTextEditorChangedCallback, void*);
+	Rid (*Rrich_text_editor_create)(void);
+	void (*Rrich_text_editor_set_markdown)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_markdown)(Rid);
+	void (*Rrich_text_editor_set_html)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_html)(Rid);
+	void (*Rrich_text_editor_set_text)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_text)(Rid);
+	void (*Rrich_text_editor_insert_text)(Rid, const char*);
+	void (*Rrich_text_editor_insert_html)(Rid, const char*);
+	void (*Rrich_text_editor_insert_markdown)(Rid, const char*);
+	int (*Rrich_text_editor_get_paragraph_count)(Rid);
+	const char* (*Rrich_text_editor_get_paragraph_text)(Rid, int);
+	RRichTextBlock (*Rrich_text_editor_get_paragraph_block)(Rid, int);
+	int (*Rrich_text_editor_get_paragraph_indent)(Rid, int);
+	Ruint (*Rrich_text_editor_get_style_at)(Rid, int, int);
+	void (*Rrich_text_editor_set_selection)(Rid, int, int, int, int);
+	void (*Rrich_text_editor_get_selection)(Rid, int*, int*, int*, int*);
+	void (*Rrich_text_editor_select_all)(Rid);
+	const char* (*Rrich_text_editor_get_selected_text)(Rid);
+	void (*Rrich_text_editor_set_style)(Rid, Ruint, int);
+	void (*Rrich_text_editor_toggle_style)(Rid, Ruint);
+	Ruint (*Rrich_text_editor_get_style)(Rid);
+	void (*Rrich_text_editor_set_block)(Rid, RRichTextBlock);
+	RRichTextBlock (*Rrich_text_editor_get_block)(Rid);
+	void (*Rrich_text_editor_indent)(Rid, int);
+	void (*Rrich_text_editor_set_link)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_link)(Rid);
+	void (*Rrich_text_editor_edit_link)(Rid);
+	int (*Rrich_text_editor_undo)(Rid);
+	int (*Rrich_text_editor_redo)(Rid);
+	int (*Rrich_text_editor_can_undo)(Rid);
+	int (*Rrich_text_editor_can_redo)(Rid);
+	void (*Rrich_text_editor_clear_history)(Rid);
+	void (*Rrich_text_editor_set_read_only)(Rid, int);
+	int (*Rrich_text_editor_is_read_only)(Rid);
+	void (*Rrich_text_editor_set_placeholder)(Rid, const char*);
+	void (*Rrich_text_editor_set_toolbar)(Rid, int);
+	int (*Rrich_text_editor_get_toolbar)(Rid);
+	void (*Rrich_text_editor_set_markdown_shortcuts)(Rid, int);
+	void (*Rrich_text_editor_set_spell_check)(Rid, int);
+	void (*Rrich_text_editor_set_spell_language)(Rid, const char*);
+	void (*Rrich_text_editor_set_font)(Rid, Rid, float);
+	void (*Rrich_text_editor_scroll_to_caret)(Rid);
+	void (*Rrich_text_editor_set_changed_callback)(Rid, RRichTextChangedCallback, void*);
+	void (*Rrich_text_editor_set_selection_callback)(Rid, RRichTextChangedCallback, void*);
+	void (*Rrich_text_editor_set_link_callback)(Rid, RRichTextLinkCallback, void*);
 	Rid (*Rheader_bar_create)(const char*);
 	void (*Rheader_bar_set_title)(Rid, const char*);
 	void (*Rheader_bar_set_buttons)(Rid, Ruint);
@@ -2678,6 +2724,52 @@ static const struct {
 	{"Rtheme_get_token_color", offsetof(__typeof__(rn), Rtheme_get_token_color)},
 	{"Rtheme_clear_token_colors", offsetof(__typeof__(rn), Rtheme_clear_token_colors)},
 	{"Rtext_editor_set_changed_callback", offsetof(__typeof__(rn), Rtext_editor_set_changed_callback)},
+	{"Rrich_text_editor_create", offsetof(__typeof__(rn), Rrich_text_editor_create)},
+	{"Rrich_text_editor_set_markdown", offsetof(__typeof__(rn), Rrich_text_editor_set_markdown)},
+	{"Rrich_text_editor_get_markdown", offsetof(__typeof__(rn), Rrich_text_editor_get_markdown)},
+	{"Rrich_text_editor_set_html", offsetof(__typeof__(rn), Rrich_text_editor_set_html)},
+	{"Rrich_text_editor_get_html", offsetof(__typeof__(rn), Rrich_text_editor_get_html)},
+	{"Rrich_text_editor_set_text", offsetof(__typeof__(rn), Rrich_text_editor_set_text)},
+	{"Rrich_text_editor_get_text", offsetof(__typeof__(rn), Rrich_text_editor_get_text)},
+	{"Rrich_text_editor_insert_text", offsetof(__typeof__(rn), Rrich_text_editor_insert_text)},
+	{"Rrich_text_editor_insert_html", offsetof(__typeof__(rn), Rrich_text_editor_insert_html)},
+	{"Rrich_text_editor_insert_markdown", offsetof(__typeof__(rn), Rrich_text_editor_insert_markdown)},
+	{"Rrich_text_editor_get_paragraph_count", offsetof(__typeof__(rn), Rrich_text_editor_get_paragraph_count)},
+	{"Rrich_text_editor_get_paragraph_text", offsetof(__typeof__(rn), Rrich_text_editor_get_paragraph_text)},
+	{"Rrich_text_editor_get_paragraph_block", offsetof(__typeof__(rn), Rrich_text_editor_get_paragraph_block)},
+	{"Rrich_text_editor_get_paragraph_indent", offsetof(__typeof__(rn), Rrich_text_editor_get_paragraph_indent)},
+	{"Rrich_text_editor_get_style_at", offsetof(__typeof__(rn), Rrich_text_editor_get_style_at)},
+	{"Rrich_text_editor_set_selection", offsetof(__typeof__(rn), Rrich_text_editor_set_selection)},
+	{"Rrich_text_editor_get_selection", offsetof(__typeof__(rn), Rrich_text_editor_get_selection)},
+	{"Rrich_text_editor_select_all", offsetof(__typeof__(rn), Rrich_text_editor_select_all)},
+	{"Rrich_text_editor_get_selected_text", offsetof(__typeof__(rn), Rrich_text_editor_get_selected_text)},
+	{"Rrich_text_editor_set_style", offsetof(__typeof__(rn), Rrich_text_editor_set_style)},
+	{"Rrich_text_editor_toggle_style", offsetof(__typeof__(rn), Rrich_text_editor_toggle_style)},
+	{"Rrich_text_editor_get_style", offsetof(__typeof__(rn), Rrich_text_editor_get_style)},
+	{"Rrich_text_editor_set_block", offsetof(__typeof__(rn), Rrich_text_editor_set_block)},
+	{"Rrich_text_editor_get_block", offsetof(__typeof__(rn), Rrich_text_editor_get_block)},
+	{"Rrich_text_editor_indent", offsetof(__typeof__(rn), Rrich_text_editor_indent)},
+	{"Rrich_text_editor_set_link", offsetof(__typeof__(rn), Rrich_text_editor_set_link)},
+	{"Rrich_text_editor_get_link", offsetof(__typeof__(rn), Rrich_text_editor_get_link)},
+	{"Rrich_text_editor_edit_link", offsetof(__typeof__(rn), Rrich_text_editor_edit_link)},
+	{"Rrich_text_editor_undo", offsetof(__typeof__(rn), Rrich_text_editor_undo)},
+	{"Rrich_text_editor_redo", offsetof(__typeof__(rn), Rrich_text_editor_redo)},
+	{"Rrich_text_editor_can_undo", offsetof(__typeof__(rn), Rrich_text_editor_can_undo)},
+	{"Rrich_text_editor_can_redo", offsetof(__typeof__(rn), Rrich_text_editor_can_redo)},
+	{"Rrich_text_editor_clear_history", offsetof(__typeof__(rn), Rrich_text_editor_clear_history)},
+	{"Rrich_text_editor_set_read_only", offsetof(__typeof__(rn), Rrich_text_editor_set_read_only)},
+	{"Rrich_text_editor_is_read_only", offsetof(__typeof__(rn), Rrich_text_editor_is_read_only)},
+	{"Rrich_text_editor_set_placeholder", offsetof(__typeof__(rn), Rrich_text_editor_set_placeholder)},
+	{"Rrich_text_editor_set_toolbar", offsetof(__typeof__(rn), Rrich_text_editor_set_toolbar)},
+	{"Rrich_text_editor_get_toolbar", offsetof(__typeof__(rn), Rrich_text_editor_get_toolbar)},
+	{"Rrich_text_editor_set_markdown_shortcuts", offsetof(__typeof__(rn), Rrich_text_editor_set_markdown_shortcuts)},
+	{"Rrich_text_editor_set_spell_check", offsetof(__typeof__(rn), Rrich_text_editor_set_spell_check)},
+	{"Rrich_text_editor_set_spell_language", offsetof(__typeof__(rn), Rrich_text_editor_set_spell_language)},
+	{"Rrich_text_editor_set_font", offsetof(__typeof__(rn), Rrich_text_editor_set_font)},
+	{"Rrich_text_editor_scroll_to_caret", offsetof(__typeof__(rn), Rrich_text_editor_scroll_to_caret)},
+	{"Rrich_text_editor_set_changed_callback", offsetof(__typeof__(rn), Rrich_text_editor_set_changed_callback)},
+	{"Rrich_text_editor_set_selection_callback", offsetof(__typeof__(rn), Rrich_text_editor_set_selection_callback)},
+	{"Rrich_text_editor_set_link_callback", offsetof(__typeof__(rn), Rrich_text_editor_set_link_callback)},
 	{"Rheader_bar_create", offsetof(__typeof__(rn), Rheader_bar_create)},
 	{"Rheader_bar_set_title", offsetof(__typeof__(rn), Rheader_bar_set_title)},
 	{"Rheader_bar_set_buttons", offsetof(__typeof__(rn), Rheader_bar_set_buttons)},
@@ -4161,6 +4253,8 @@ static void rn_t_RTextEditorZoomCallback(Rid, float, void*);
 static void rn_t_RCompletionCallback(Rid, const char*, void*);
 static const char* rn_t_RTextEditorHoverCallback(Rid, int, int, void*);
 static void rn_t_RTextEditorChangedCallback(Rid, void*);
+static void rn_t_RRichTextChangedCallback(Rid, void*);
+static void rn_t_RRichTextLinkCallback(Rid, const char*, void*);
 static void rn_t_RTrayClickedCallback(Rid, RMouseButton, void*);
 static int rn_t_RDockCloseCallback(Rid, Rid, void*);
 static Rid rn_t_RDockFloatWindowCallback(Rid, Rid, Rid, Rid, void*);
@@ -5310,6 +5404,35 @@ static void rn_t_RTextEditorChangedCallback(Rid a0, void* a1) {
 	napi_create_uint32(env, a0, &argv[0]);
 	argv[1] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 2, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RRichTextChangedCallback(Rid a0, void* a1) {
+	rn_cb* cb = (rn_cb*)a1;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[2];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	argv[1] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 2, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RRichTextLinkCallback(Rid a0, const char* a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	argv[1] = rn_make_text(env, a1);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 3, argv);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 }
@@ -22527,6 +22650,713 @@ static napi_value rn_w_Rtext_editor_set_changed_callback(napi_env env, napi_call
 	return result_;
 }
 
+static napi_value rn_w_Rrich_text_editor_create(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	Rid value_ = rn.Rrich_text_editor_create();
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_markdown(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_markdown((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_markdown(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_markdown((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_html(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_html((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_html(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_html((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_text((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_text(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_text((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_insert_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_insert_text((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_insert_html(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_insert_html((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_insert_markdown(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_insert_markdown((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_paragraph_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_get_paragraph_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_paragraph_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_paragraph_text((Rid)a0, (int)a1));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_paragraph_block(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	{
+		int value_ = (int)rn.Rrich_text_editor_get_paragraph_block((Rid)a0, (int)a1);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_paragraph_indent(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rrich_text_editor_get_paragraph_indent((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_style_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	Ruint value_ = rn.Rrich_text_editor_get_style_at((Rid)a0, (int)a1, (int)a2);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_selection(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_int(env, argv[4], &a4)) return NULL;
+	rn.Rrich_text_editor_set_selection((Rid)a0, (int)a1, (int)a2, (int)a3, (int)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_selection(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1 = 0;
+	int a2 = 0;
+	int a3 = 0;
+	int a4 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rrich_text_editor_get_selection((Rid)a0, &a1, &a2, &a3, &a4);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a3, &o2_);
+		napi_value o3_;
+		napi_create_int32(env, (int32_t)a4, &o3_);
+		{
+			const napi_value values_[4] = {o0_, o1_, o2_, o3_};
+			result_ = rn_tuple(env, 4, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_select_all(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rrich_text_editor_select_all((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_selected_text(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_selected_text((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_style(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rrich_text_editor_set_style((Rid)a0, (Ruint)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_toggle_style(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_toggle_style((Rid)a0, (Ruint)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_style(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	Ruint value_ = rn.Rrich_text_editor_get_style((Rid)a0);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_block(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_set_block((Rid)a0, (RRichTextBlock)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_block(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rrich_text_editor_get_block((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_indent(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_indent((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_link(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_link((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_link(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rrich_text_editor_get_link((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_edit_link(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rrich_text_editor_edit_link((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_undo(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_undo((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_redo(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_redo((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_can_undo(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_can_undo((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_can_redo(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_can_redo((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_clear_history(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rrich_text_editor_clear_history((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_read_only(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_set_read_only((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_is_read_only(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_is_read_only((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_placeholder(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_placeholder((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_toolbar(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_set_toolbar((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_get_toolbar(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rrich_text_editor_get_toolbar((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_markdown_shortcuts(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_set_markdown_shortcuts((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_spell_check(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rrich_text_editor_set_spell_check((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_spell_language(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rrich_text_editor_set_spell_language((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_font(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	rn.Rrich_text_editor_set_font((Rid)a0, (Rid)a1, (float)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_scroll_to_caret(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rrich_text_editor_scroll_to_caret((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_changed_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rrich_text_editor_set_changed_callback((Rid)a0, cb_ ? (RRichTextChangedCallback)rn_t_RRichTextChangedCallback : (RRichTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_selection_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rrich_text_editor_set_selection_callback((Rid)a0, cb_ ? (RRichTextChangedCallback)rn_t_RRichTextChangedCallback : (RRichTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rrich_text_editor_set_link_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rrich_text_editor_set_link_callback((Rid)a0, cb_ ? (RRichTextLinkCallback)rn_t_RRichTextLinkCallback : (RRichTextLinkCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
+	return result_;
+}
+
 static napi_value rn_w_Rheader_bar_create(napi_env env, napi_callback_info info) {
 	size_t argc = 1;
 	napi_value argv[1];
@@ -22910,7 +23740,7 @@ static napi_value rn_w_Rdock_area_set_close_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_close_callback((Rid)a0, cb_ ? (RDockCloseCallback)rn_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
 	return result_;
 }
 
@@ -22978,7 +23808,7 @@ static napi_value rn_w_Rdock_area_set_float_window(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_float_window((Rid)a0, (Ruint)a1, cb_ ? (RDockFloatWindowCallback)rn_t_RDockFloatWindowCallback : (RDockFloatWindowCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 87, NULL, cb_);
 	return result_;
 }
 
@@ -23051,7 +23881,7 @@ static napi_value rn_w_Rdock_area_set_changed_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_changed_callback((Rid)a0, cb_ ? (RDockChangedCallback)rn_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
 	return result_;
 }
 
@@ -23208,7 +24038,7 @@ static napi_value rn_w_Risland_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Risland_set_changed_callback((Rid)a0, cb_ ? (RIslandChangedCallback)rn_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
 	return result_;
 }
 
@@ -23429,7 +24259,7 @@ static napi_value rn_w_Rtray_set_clicked_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rtray_set_clicked_callback((Rid)a0, cb_ ? (RTrayClickedCallback)rn_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_PLAIN, 87, NULL, cb_);
+	rn_bind(a0, RN_OWNER_PLAIN, 90, NULL, cb_);
 	return result_;
 }
 
@@ -23743,7 +24573,7 @@ static napi_value rn_w_Rcolor_picker_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rcolor_picker_set_changed_callback((Rid)a0, cb_ ? (RColorChangedCallback)rn_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
 	return result_;
 }
 
@@ -24670,7 +25500,7 @@ static napi_value rn_w_Rtimeline_set_time_callback(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_time_callback((Rid)a0, cb_ ? (RTimelineTimeCallback)rn_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 92, NULL, cb_);
 	return result_;
 }
 
@@ -24695,7 +25525,7 @@ static napi_value rn_w_Rtimeline_set_changed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_changed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 90, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 93, NULL, cb_);
 	return result_;
 }
 
@@ -24720,7 +25550,7 @@ static napi_value rn_w_Rtimeline_set_selection_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_selection_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 94, NULL, cb_);
 	return result_;
 }
 
@@ -24745,7 +25575,7 @@ static napi_value rn_w_Rtimeline_set_activated_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_activated_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 92, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 95, NULL, cb_);
 	return result_;
 }
 
@@ -24770,7 +25600,7 @@ static napi_value rn_w_Rtimeline_set_removed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_removed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 93, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
 	return result_;
 }
 
@@ -25790,7 +26620,7 @@ static napi_value rn_w_Rnode_graph_set_connect_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_connect_callback((Rid)a0, cb_ ? (RNodeGraphConnectCallback)rn_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 94, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 97, NULL, cb_);
 	return result_;
 }
 
@@ -25815,7 +26645,7 @@ static napi_value rn_w_Rnode_graph_set_linked_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_linked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 95, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 98, NULL, cb_);
 	return result_;
 }
 
@@ -25840,7 +26670,7 @@ static napi_value rn_w_Rnode_graph_set_unlinked_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_unlinked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 99, NULL, cb_);
 	return result_;
 }
 
@@ -25865,7 +26695,7 @@ static napi_value rn_w_Rnode_graph_set_moved_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_moved_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 97, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 100, NULL, cb_);
 	return result_;
 }
 
@@ -25890,7 +26720,7 @@ static napi_value rn_w_Rnode_graph_set_selection_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_selection_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 98, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 101, NULL, cb_);
 	return result_;
 }
 
@@ -25915,7 +26745,7 @@ static napi_value rn_w_Rnode_graph_set_removed_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_removed_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 99, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 102, NULL, cb_);
 	return result_;
 }
 
@@ -25940,7 +26770,7 @@ static napi_value rn_w_Rnode_graph_set_activated_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_activated_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 100, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 103, NULL, cb_);
 	return result_;
 }
 
@@ -25965,7 +26795,7 @@ static napi_value rn_w_Rnode_graph_set_context_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_context_callback((Rid)a0, cb_ ? (RNodeGraphContextCallback)rn_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 101, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 104, NULL, cb_);
 	return result_;
 }
 
@@ -25990,7 +26820,7 @@ static napi_value rn_w_Rnode_graph_set_canvas_activated_callback(napi_env env, n
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_canvas_activated_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 102, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 105, NULL, cb_);
 	return result_;
 }
 
@@ -26015,7 +26845,7 @@ static napi_value rn_w_Rnode_graph_set_wire_dropped_callback(napi_env env, napi_
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_wire_dropped_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 103, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 106, NULL, cb_);
 	return result_;
 }
 
@@ -26040,7 +26870,7 @@ static napi_value rn_w_Rnode_graph_set_pin_clicked_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_pin_clicked_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 104, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
 	return result_;
 }
 
@@ -26796,7 +27626,7 @@ static napi_value rn_w_Rblock_editor_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_changed_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 105, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
 	return result_;
 }
 
@@ -26821,7 +27651,7 @@ static napi_value rn_w_Rblock_editor_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_clicked_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 106, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 109, NULL, cb_);
 	return result_;
 }
 
@@ -26846,7 +27676,7 @@ static napi_value rn_w_Rblock_editor_set_context_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_context_callback((Rid)a0, cb_ ? (RBlockEditorContextCallback)rn_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 110, NULL, cb_);
 	return result_;
 }
 
@@ -27570,7 +28400,7 @@ static napi_value rn_w_Rdiff_view_set_line_clicked_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rdiff_view_set_line_clicked_callback((Rid)a0, cb_ ? (RDiffViewLineCallback)rn_t_RDiffViewLineCallback : (RDiffViewLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 111, NULL, cb_);
 	return result_;
 }
 
@@ -27592,14 +28422,14 @@ static napi_value rn_w_Rdialog_open(napi_env env, napi_callback_info info) {
 	k0_ = rn_callback_arg(env, argv[2], &n0_);
 	if (k0_ == RN_CALLBACK_THROWN) return NULL;
 	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
-	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 109)) {
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 112)) {
 		cb_ = rn_cb_new(env, &argv[2], 1, a3);
 		if (!cb_) return NULL;
 	}
 	rn.Rdialog_open((Rid)a0, (Rid)a1, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rn_bind(a1, RN_OWNER_WIDGET, 109, NULL, cb_);
+		rn_bind(a1, RN_OWNER_WIDGET, 112, NULL, cb_);
 	}
 	return result_;
 }
@@ -27660,7 +28490,7 @@ static napi_value rn_w_Rpopup_open(napi_env env, napi_callback_info info) {
 		if (!cb_) return NULL;
 	}
 	rn.Rpopup_open((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rn_bind(a0, RN_OWNER_WIDGET, 110, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 113, NULL, cb_);
 	return result_;
 }
 
@@ -28123,7 +28953,7 @@ static napi_value rn_w_Rfile_browser_set_accepted_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_accepted_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 111, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 114, NULL, cb_);
 	return result_;
 }
 
@@ -28148,7 +28978,7 @@ static napi_value rn_w_Rfile_browser_set_cancelled_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_cancelled_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 112, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 115, NULL, cb_);
 	return result_;
 }
 
@@ -28173,7 +29003,7 @@ static napi_value rn_w_Rfile_browser_set_selection_changed_callback(napi_env env
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_selection_changed_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 113, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 116, NULL, cb_);
 	return result_;
 }
 
@@ -28227,7 +29057,7 @@ static napi_value rn_w_Rnotification_set_fallback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_fallback(cb_ ? (RNotificationFallback)rn_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 114, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 117, NULL, cb_);
 	return result_;
 }
 
@@ -28250,7 +29080,7 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_clicked_callback(cb_ ? (RNotificationClickedCallback)rn_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 115, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 118, NULL, cb_);
 	return result_;
 }
 
@@ -28301,7 +29131,7 @@ static napi_value rn_w_Rnotification_set_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_callback(cb_ ? (RNotificationCallback)rn_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 116, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 119, NULL, cb_);
 	return result_;
 }
 
@@ -28784,7 +29614,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 125, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 128, NULL, cb_);
 	return result_;
 }
 
@@ -28823,7 +29653,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 126, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 129, NULL, cb_);
 	return result_;
 }
 
@@ -28848,7 +29678,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 127, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 130, NULL, cb_);
 	return result_;
 }
 
@@ -29590,7 +30420,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 128, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
 	return result_;
 }
 
@@ -29725,7 +30555,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 132, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -29742,7 +30572,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 132, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -30587,7 +31417,7 @@ static napi_value rn_w_Rscript_set_log_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_log_callback(cb_ ? (RScriptLogCallback)rn_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 130, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 133, NULL, cb_);
 	return result_;
 }
 
@@ -30610,7 +31440,7 @@ static napi_value rn_w_Rscript_set_diagnostic_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_diagnostic_callback(cb_ ? (RScriptDiagnosticCallback)rn_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 134, NULL, cb_);
 	return result_;
 }
 
@@ -30773,7 +31603,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 132, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 135, NULL, cb_);
 	return result_;
 }
 
@@ -31401,7 +32231,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 133, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 136, NULL, cb_);
 	return result_;
 }
 
@@ -33322,6 +34152,52 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtheme_get_token_color", NULL, rn_w_Rtheme_get_token_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtheme_clear_token_colors", NULL, rn_w_Rtheme_clear_token_colors, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_set_changed_callback", NULL, rn_w_Rtext_editor_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_create", NULL, rn_w_Rrich_text_editor_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_markdown", NULL, rn_w_Rrich_text_editor_set_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_markdown", NULL, rn_w_Rrich_text_editor_get_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_html", NULL, rn_w_Rrich_text_editor_set_html, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_html", NULL, rn_w_Rrich_text_editor_get_html, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_text", NULL, rn_w_Rrich_text_editor_set_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_text", NULL, rn_w_Rrich_text_editor_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_insert_text", NULL, rn_w_Rrich_text_editor_insert_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_insert_html", NULL, rn_w_Rrich_text_editor_insert_html, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_insert_markdown", NULL, rn_w_Rrich_text_editor_insert_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_paragraph_count", NULL, rn_w_Rrich_text_editor_get_paragraph_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_paragraph_text", NULL, rn_w_Rrich_text_editor_get_paragraph_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_paragraph_block", NULL, rn_w_Rrich_text_editor_get_paragraph_block, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_paragraph_indent", NULL, rn_w_Rrich_text_editor_get_paragraph_indent, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_style_at", NULL, rn_w_Rrich_text_editor_get_style_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_selection", NULL, rn_w_Rrich_text_editor_set_selection, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_selection", NULL, rn_w_Rrich_text_editor_get_selection, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_select_all", NULL, rn_w_Rrich_text_editor_select_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_selected_text", NULL, rn_w_Rrich_text_editor_get_selected_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_style", NULL, rn_w_Rrich_text_editor_set_style, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_toggle_style", NULL, rn_w_Rrich_text_editor_toggle_style, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_style", NULL, rn_w_Rrich_text_editor_get_style, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_block", NULL, rn_w_Rrich_text_editor_set_block, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_block", NULL, rn_w_Rrich_text_editor_get_block, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_indent", NULL, rn_w_Rrich_text_editor_indent, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_link", NULL, rn_w_Rrich_text_editor_set_link, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_link", NULL, rn_w_Rrich_text_editor_get_link, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_edit_link", NULL, rn_w_Rrich_text_editor_edit_link, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_undo", NULL, rn_w_Rrich_text_editor_undo, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_redo", NULL, rn_w_Rrich_text_editor_redo, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_can_undo", NULL, rn_w_Rrich_text_editor_can_undo, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_can_redo", NULL, rn_w_Rrich_text_editor_can_redo, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_clear_history", NULL, rn_w_Rrich_text_editor_clear_history, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_read_only", NULL, rn_w_Rrich_text_editor_set_read_only, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_is_read_only", NULL, rn_w_Rrich_text_editor_is_read_only, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_placeholder", NULL, rn_w_Rrich_text_editor_set_placeholder, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_toolbar", NULL, rn_w_Rrich_text_editor_set_toolbar, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_get_toolbar", NULL, rn_w_Rrich_text_editor_get_toolbar, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_markdown_shortcuts", NULL, rn_w_Rrich_text_editor_set_markdown_shortcuts, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_spell_check", NULL, rn_w_Rrich_text_editor_set_spell_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_spell_language", NULL, rn_w_Rrich_text_editor_set_spell_language, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_font", NULL, rn_w_Rrich_text_editor_set_font, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_scroll_to_caret", NULL, rn_w_Rrich_text_editor_scroll_to_caret, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_changed_callback", NULL, rn_w_Rrich_text_editor_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_selection_callback", NULL, rn_w_Rrich_text_editor_set_selection_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rrich_text_editor_set_link_callback", NULL, rn_w_Rrich_text_editor_set_link_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rheader_bar_create", NULL, rn_w_Rheader_bar_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rheader_bar_set_title", NULL, rn_w_Rheader_bar_set_title, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rheader_bar_set_buttons", NULL, rn_w_Rheader_bar_set_buttons, NULL, NULL, NULL, napi_enumerable, NULL},

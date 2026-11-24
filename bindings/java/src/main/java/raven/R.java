@@ -1135,6 +1135,10 @@ public final class R {
      * The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
      */
     public static final int R_WIDGET_DIFF_VIEW = 0x0238;
+    /**
+     * Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
+     */
+    public static final int R_WIDGET_RICH_TEXT_EDITOR = 0x0239;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1624,6 +1628,39 @@ public final class R {
     public static final int R_MARKER_ERROR = 0x0350;
     public static final int R_MARKER_WARNING = 0x0351;
     public static final int R_MARKER_INFO = 0x0352;
+
+    // RRichTextStyle: Looks of text: a bitmask.
+    public static final int R_RICH_TEXT_BOLD = 1;
+    public static final int R_RICH_TEXT_ITALIC = 2;
+    public static final int R_RICH_TEXT_UNDERLINE = 4;
+    public static final int R_RICH_TEXT_STRIKETHROUGH = 8;
+    /**
+     * Inline code: a monospace font on a tile.
+     */
+    public static final int R_RICH_TEXT_CODE = 0x0010;
+    /**
+     * Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+     */
+    public static final int R_RICH_TEXT_LINK = 0x0020;
+
+    // RRichTextBlock: Kinds of paragraphs.
+    public static final int R_RICH_TEXT_PARAGRAPH = 0x0CC0;
+    public static final int R_RICH_TEXT_HEADING_1 = 0x0CC1;
+    public static final int R_RICH_TEXT_HEADING_2 = 0x0CC2;
+    public static final int R_RICH_TEXT_HEADING_3 = 0x0CC3;
+    /**
+     * An item of a bulleted list.
+     */
+    public static final int R_RICH_TEXT_BULLET_LIST = 0x0CC4;
+    /**
+     * An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+     */
+    public static final int R_RICH_TEXT_NUMBERED_LIST = 0x0CC5;
+    public static final int R_RICH_TEXT_QUOTE = 0x0CC6;
+    /**
+     * A line of a block of code: monospace, kept as typed, no looks.
+     */
+    public static final int R_RICH_TEXT_CODE_BLOCK = 0x0CC7;
 
     // RHeaderButtons: Buttons of a header bar.
     public static final int R_HEADER_NO_BUTTONS = 0;
@@ -6800,6 +6837,51 @@ public final class R {
 
     private static MemorySegment upcall(RTextEditorChangedCallback f) {
         return stub(f, RTextEditorChangedCallback.class, "RTextEditorChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too.
+     */
+    @FunctionalInterface
+    public interface RRichTextChangedCallback {
+        void invoke(int editor, MemorySegment user_data);
+    }
+
+    private static void RRichTextChangedCallback$raw(RRichTextChangedCallback f, int editor, MemorySegment user_data) {
+        try {
+            f.invoke(editor, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RRichTextChangedCallback f) {
+        return stub(f, RRichTextChangedCallback.class, "RRichTextChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when a link is followed: Ctrl+click (Cmd+click), or a
+     * click when the editor is read-only. Without a callback, a link
+     * written action:name fires the action "name" and http, https and mailto
+     * links open in the browser (Ropen_url).
+     */
+    @FunctionalInterface
+    public interface RRichTextLinkCallback {
+        void invoke(int editor, String url, MemorySegment user_data);
+    }
+
+    private static void RRichTextLinkCallback$raw(RRichTextLinkCallback f, int editor, MemorySegment url, MemorySegment user_data) {
+        try {
+            f.invoke(editor, text(url), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RRichTextLinkCallback f) {
+        return stub(f, RRichTextLinkCallback.class, "RRichTextLinkCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
     }
 
     /**
@@ -23825,6 +23907,707 @@ public final class R {
 
     public static void Rtext_editor_set_changed_callback(int editor, RTextEditorChangedCallback callback) {
         Rtext_editor_set_changed_callback(editor, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rrich_text_editor_create$;
+
+    public static int Rrich_text_editor_create() {
+        MethodHandle $h = Rrich_text_editor_create$;
+        if ($h == null) Rrich_text_editor_create$ = $h = find("Rrich_text_editor_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_markdown$;
+
+    /**
+     * Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; &lt;u&gt; for underlined). Clears the history. XML: the text inside the element, or Markdown.
+     */
+    public static void Rrich_text_editor_set_markdown(int editor, String markdown) {
+        MethodHandle $h = Rrich_text_editor_set_markdown$;
+        if ($h == null) Rrich_text_editor_set_markdown$ = $h = find("Rrich_text_editor_set_markdown", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment markdown$ = markdown == null ? MemorySegment.NULL : utf8($a, markdown);
+            $h.invokeExact(editor, markdown$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_markdown$;
+
+    /**
+     * The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+     */
+    public static String Rrich_text_editor_get_markdown(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_markdown$;
+        if ($h == null) Rrich_text_editor_get_markdown$ = $h = find("Rrich_text_editor_get_markdown", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_html$;
+
+    /**
+     * Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+     */
+    public static void Rrich_text_editor_set_html(int editor, String html) {
+        MethodHandle $h = Rrich_text_editor_set_html$;
+        if ($h == null) Rrich_text_editor_set_html$ = $h = find("Rrich_text_editor_set_html", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment html$ = html == null ? MemorySegment.NULL : utf8($a, html);
+            $h.invokeExact(editor, html$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_html$;
+
+    /**
+     * The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+     */
+    public static String Rrich_text_editor_get_html(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_html$;
+        if ($h == null) Rrich_text_editor_get_html$ = $h = find("Rrich_text_editor_get_html", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_text$;
+
+    /**
+     * Replaces the document with plain text: a paragraph per line. Clears the history.
+     */
+    public static void Rrich_text_editor_set_text(int editor, String text) {
+        MethodHandle $h = Rrich_text_editor_set_text$;
+        if ($h == null) Rrich_text_editor_set_text$ = $h = find("Rrich_text_editor_set_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(editor, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_text$;
+
+    /**
+     * The text without its looks, a line per paragraph. Valid until the next call.
+     */
+    public static String Rrich_text_editor_get_text(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_text$;
+        if ($h == null) Rrich_text_editor_get_text$ = $h = find("Rrich_text_editor_get_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_insert_text$;
+
+    /**
+     * Types plain text in place of the selection, as one step of the history (the changed callback is called).
+     */
+    public static void Rrich_text_editor_insert_text(int editor, String text) {
+        MethodHandle $h = Rrich_text_editor_insert_text$;
+        if ($h == null) Rrich_text_editor_insert_text$ = $h = find("Rrich_text_editor_insert_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(editor, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_insert_html$;
+
+    /**
+     * Puts HTML in place of the selection, as pasting it would (one step of the history).
+     */
+    public static void Rrich_text_editor_insert_html(int editor, String html) {
+        MethodHandle $h = Rrich_text_editor_insert_html$;
+        if ($h == null) Rrich_text_editor_insert_html$ = $h = find("Rrich_text_editor_insert_html", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment html$ = html == null ? MemorySegment.NULL : utf8($a, html);
+            $h.invokeExact(editor, html$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_insert_markdown$;
+
+    /**
+     * Puts Markdown in place of the selection (one step of the history).
+     */
+    public static void Rrich_text_editor_insert_markdown(int editor, String markdown) {
+        MethodHandle $h = Rrich_text_editor_insert_markdown$;
+        if ($h == null) Rrich_text_editor_insert_markdown$ = $h = find("Rrich_text_editor_insert_markdown", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment markdown$ = markdown == null ? MemorySegment.NULL : utf8($a, markdown);
+            $h.invokeExact(editor, markdown$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_paragraph_count$;
+
+    public static int Rrich_text_editor_get_paragraph_count(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_paragraph_count$;
+        if ($h == null) Rrich_text_editor_get_paragraph_count$ = $h = find("Rrich_text_editor_get_paragraph_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_paragraph_text$;
+
+    /**
+     * The text of a paragraph, without its looks. Valid until the next call.
+     */
+    public static String Rrich_text_editor_get_paragraph_text(int editor, int paragraph) {
+        MethodHandle $h = Rrich_text_editor_get_paragraph_text$;
+        if ($h == null) Rrich_text_editor_get_paragraph_text$ = $h = find("Rrich_text_editor_get_paragraph_text", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor, paragraph);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_paragraph_block$;
+
+    public static int Rrich_text_editor_get_paragraph_block(int editor, int paragraph) {
+        MethodHandle $h = Rrich_text_editor_get_paragraph_block$;
+        if ($h == null) Rrich_text_editor_get_paragraph_block$ = $h = find("Rrich_text_editor_get_paragraph_block", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, paragraph);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_paragraph_indent$;
+
+    /**
+     * How deep an item of a list is (0: not in another list).
+     */
+    public static int Rrich_text_editor_get_paragraph_indent(int editor, int paragraph) {
+        MethodHandle $h = Rrich_text_editor_get_paragraph_indent$;
+        if ($h == null) Rrich_text_editor_get_paragraph_indent$ = $h = find("Rrich_text_editor_get_paragraph_indent", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, paragraph);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_style_at$;
+
+    /**
+     * The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+     */
+    public static int Rrich_text_editor_get_style_at(int editor, int paragraph, int offset) {
+        MethodHandle $h = Rrich_text_editor_get_style_at$;
+        if ($h == null) Rrich_text_editor_get_style_at$ = $h = find("Rrich_text_editor_get_style_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, paragraph, offset);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_selection$;
+
+    /**
+     * Selects from the anchor to the caret (equal: no selection, the caret there).
+     */
+    public static void Rrich_text_editor_set_selection(int editor, int anchor_paragraph, int anchor_offset, int caret_paragraph, int caret_offset) {
+        MethodHandle $h = Rrich_text_editor_set_selection$;
+        if ($h == null) Rrich_text_editor_set_selection$ = $h = find("Rrich_text_editor_set_selection", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_selection$;
+
+    public static void Rrich_text_editor_get_selection(int editor, int[] anchor_paragraph, int[] anchor_offset, int[] caret_paragraph, int[] caret_offset) {
+        MethodHandle $h = Rrich_text_editor_get_selection$;
+        if ($h == null) Rrich_text_editor_get_selection$ = $h = find("Rrich_text_editor_get_selection", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment anchor_paragraph$ = anchor_paragraph == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment anchor_offset$ = anchor_offset == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment caret_paragraph$ = caret_paragraph == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment caret_offset$ = caret_offset == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            $h.invokeExact(editor, anchor_paragraph$, anchor_offset$, caret_paragraph$, caret_offset$);
+            if (anchor_paragraph != null && anchor_paragraph.length > 0) anchor_paragraph[0] = anchor_paragraph$.get(JAVA_INT, 0);
+            if (anchor_offset != null && anchor_offset.length > 0) anchor_offset[0] = anchor_offset$.get(JAVA_INT, 0);
+            if (caret_paragraph != null && caret_paragraph.length > 0) caret_paragraph[0] = caret_paragraph$.get(JAVA_INT, 0);
+            if (caret_offset != null && caret_offset.length > 0) caret_offset[0] = caret_offset$.get(JAVA_INT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_select_all$;
+
+    public static void Rrich_text_editor_select_all(int editor) {
+        MethodHandle $h = Rrich_text_editor_select_all$;
+        if ($h == null) Rrich_text_editor_select_all$ = $h = find("Rrich_text_editor_select_all", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_selected_text$;
+
+    /**
+     * The selected text, without its looks. Valid until the next call.
+     */
+    public static String Rrich_text_editor_get_selected_text(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_selected_text$;
+        if ($h == null) Rrich_text_editor_get_selected_text$ = $h = find("Rrich_text_editor_get_selected_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_style$;
+
+    /**
+     * Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+     * over the selection; with no selection, for what is typed next at the
+     * caret.
+     */
+    public static void Rrich_text_editor_set_style(int editor, int style, int enabled) {
+        MethodHandle $h = Rrich_text_editor_set_style$;
+        if ($h == null) Rrich_text_editor_set_style$ = $h = find("Rrich_text_editor_set_style", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, style, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_toggle_style$;
+
+    /**
+     * Turns a look off where all the selection has it, else on (Ctrl+B...).
+     */
+    public static void Rrich_text_editor_toggle_style(int editor, int style) {
+        MethodHandle $h = Rrich_text_editor_toggle_style$;
+        if ($h == null) Rrich_text_editor_toggle_style$ = $h = find("Rrich_text_editor_toggle_style", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, style);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_style$;
+
+    /**
+     * The looks the whole selection has (with no selection: those
+     * that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+     */
+    public static int Rrich_text_editor_get_style(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_style$;
+        if ($h == null) Rrich_text_editor_get_style$ = $h = find("Rrich_text_editor_get_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_block$;
+
+    /**
+     * Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+     */
+    public static void Rrich_text_editor_set_block(int editor, int block) {
+        MethodHandle $h = Rrich_text_editor_set_block$;
+        if ($h == null) Rrich_text_editor_set_block$ = $h = find("Rrich_text_editor_set_block", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, block);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_block$;
+
+    /**
+     * The kind of the paragraph of the caret.
+     */
+    public static int Rrich_text_editor_get_block(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_block$;
+        if ($h == null) Rrich_text_editor_get_block$ = $h = find("Rrich_text_editor_get_block", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_indent$;
+
+    /**
+     * Indents (`levels` &gt; 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+     */
+    public static void Rrich_text_editor_indent(int editor, int levels) {
+        MethodHandle $h = Rrich_text_editor_indent$;
+        if ($h == null) Rrich_text_editor_indent$ = $h = find("Rrich_text_editor_indent", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, levels);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_link$;
+
+    /**
+     * Makes the selection a link to `url` (NULL or "": no link any
+     * more). With no selection: the link the caret is in; outside of any, the
+     * address is typed as a link.
+     */
+    public static void Rrich_text_editor_set_link(int editor, String url) {
+        MethodHandle $h = Rrich_text_editor_set_link$;
+        if ($h == null) Rrich_text_editor_set_link$ = $h = find("Rrich_text_editor_set_link", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment url$ = url == null ? MemorySegment.NULL : utf8($a, url);
+            $h.invokeExact(editor, url$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_link$;
+
+    /**
+     * The address of the link at the caret (or at the start of the selection), NULL when there is none.
+     */
+    public static String Rrich_text_editor_get_link(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_link$;
+        if ($h == null) Rrich_text_editor_get_link$ = $h = find("Rrich_text_editor_get_link", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_edit_link$;
+
+    /**
+     * Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+     */
+    public static void Rrich_text_editor_edit_link(int editor) {
+        MethodHandle $h = Rrich_text_editor_edit_link$;
+        if ($h == null) Rrich_text_editor_edit_link$ = $h = find("Rrich_text_editor_edit_link", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_undo$;
+
+    public static int Rrich_text_editor_undo(int editor) {
+        MethodHandle $h = Rrich_text_editor_undo$;
+        if ($h == null) Rrich_text_editor_undo$ = $h = find("Rrich_text_editor_undo", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_redo$;
+
+    public static int Rrich_text_editor_redo(int editor) {
+        MethodHandle $h = Rrich_text_editor_redo$;
+        if ($h == null) Rrich_text_editor_redo$ = $h = find("Rrich_text_editor_redo", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_can_undo$;
+
+    public static int Rrich_text_editor_can_undo(int editor) {
+        MethodHandle $h = Rrich_text_editor_can_undo$;
+        if ($h == null) Rrich_text_editor_can_undo$ = $h = find("Rrich_text_editor_can_undo", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_can_redo$;
+
+    public static int Rrich_text_editor_can_redo(int editor) {
+        MethodHandle $h = Rrich_text_editor_can_redo$;
+        if ($h == null) Rrich_text_editor_can_redo$ = $h = find("Rrich_text_editor_can_redo", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_clear_history$;
+
+    public static void Rrich_text_editor_clear_history(int editor) {
+        MethodHandle $h = Rrich_text_editor_clear_history$;
+        if ($h == null) Rrich_text_editor_clear_history$ = $h = find("Rrich_text_editor_clear_history", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_read_only$;
+
+    /**
+     * The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+     */
+    public static void Rrich_text_editor_set_read_only(int editor, int read_only) {
+        MethodHandle $h = Rrich_text_editor_set_read_only$;
+        if ($h == null) Rrich_text_editor_set_read_only$ = $h = find("Rrich_text_editor_set_read_only", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, read_only);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_is_read_only$;
+
+    public static int Rrich_text_editor_is_read_only(int editor) {
+        MethodHandle $h = Rrich_text_editor_is_read_only$;
+        if ($h == null) Rrich_text_editor_is_read_only$ = $h = find("Rrich_text_editor_is_read_only", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_placeholder$;
+
+    /**
+     * Text shown while the document is empty. XML: Placeholder.
+     */
+    public static void Rrich_text_editor_set_placeholder(int editor, String text) {
+        MethodHandle $h = Rrich_text_editor_set_placeholder$;
+        if ($h == null) Rrich_text_editor_set_placeholder$ = $h = find("Rrich_text_editor_set_placeholder", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(editor, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_toolbar$;
+
+    /**
+     * Shows or hides the toolbar (shown by default). XML: Toolbar.
+     */
+    public static void Rrich_text_editor_set_toolbar(int editor, int visible) {
+        MethodHandle $h = Rrich_text_editor_set_toolbar$;
+        if ($h == null) Rrich_text_editor_set_toolbar$ = $h = find("Rrich_text_editor_set_toolbar", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_get_toolbar$;
+
+    public static int Rrich_text_editor_get_toolbar(int editor) {
+        MethodHandle $h = Rrich_text_editor_get_toolbar$;
+        if ($h == null) Rrich_text_editor_get_toolbar$ = $h = find("Rrich_text_editor_get_toolbar", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_markdown_shortcuts$;
+
+    /**
+     * Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+     */
+    public static void Rrich_text_editor_set_markdown_shortcuts(int editor, int enabled) {
+        MethodHandle $h = Rrich_text_editor_set_markdown_shortcuts$;
+        if ($h == null) Rrich_text_editor_set_markdown_shortcuts$ = $h = find("Rrich_text_editor_set_markdown_shortcuts", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_spell_check$;
+
+    /**
+     * Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+     */
+    public static void Rrich_text_editor_set_spell_check(int editor, int enabled) {
+        MethodHandle $h = Rrich_text_editor_set_spell_check$;
+        if ($h == null) Rrich_text_editor_set_spell_check$ = $h = find("Rrich_text_editor_set_spell_check", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_spell_language$;
+
+    public static void Rrich_text_editor_set_spell_language(int editor, String language) {
+        MethodHandle $h = Rrich_text_editor_set_spell_language$;
+        if ($h == null) Rrich_text_editor_set_spell_language$ = $h = find("Rrich_text_editor_set_spell_language", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment language$ = language == null ? MemorySegment.NULL : utf8($a, language);
+            $h.invokeExact(editor, language$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_font$;
+
+    /**
+     * The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+     */
+    public static void Rrich_text_editor_set_font(int editor, int font, float size) {
+        MethodHandle $h = Rrich_text_editor_set_font$;
+        if ($h == null) Rrich_text_editor_set_font$ = $h = find("Rrich_text_editor_set_font", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(editor, font, size);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_scroll_to_caret$;
+
+    /**
+     * Scrolls so that the caret is seen.
+     */
+    public static void Rrich_text_editor_scroll_to_caret(int editor) {
+        MethodHandle $h = Rrich_text_editor_scroll_to_caret$;
+        if ($h == null) Rrich_text_editor_scroll_to_caret$ = $h = find("Rrich_text_editor_scroll_to_caret", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrich_text_editor_set_changed_callback$;
+
+    public static void Rrich_text_editor_set_changed_callback(int editor, RRichTextChangedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rrich_text_editor_set_changed_callback$;
+        if ($h == null) Rrich_text_editor_set_changed_callback$ = $h = find("Rrich_text_editor_set_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(editor, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rrich_text_editor_set_changed_callback(int editor, RRichTextChangedCallback callback) {
+        Rrich_text_editor_set_changed_callback(editor, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rrich_text_editor_set_selection_callback$;
+
+    /**
+     * Called when the selection or the caret moved (to update a toolbar of the application).
+     */
+    public static void Rrich_text_editor_set_selection_callback(int editor, RRichTextChangedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rrich_text_editor_set_selection_callback$;
+        if ($h == null) Rrich_text_editor_set_selection_callback$ = $h = find("Rrich_text_editor_set_selection_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(editor, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the selection or the caret moved (to update a toolbar of the application).
+     */
+    public static void Rrich_text_editor_set_selection_callback(int editor, RRichTextChangedCallback callback) {
+        Rrich_text_editor_set_selection_callback(editor, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rrich_text_editor_set_link_callback$;
+
+    public static void Rrich_text_editor_set_link_callback(int editor, RRichTextLinkCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rrich_text_editor_set_link_callback$;
+        if ($h == null) Rrich_text_editor_set_link_callback$ = $h = find("Rrich_text_editor_set_link_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(editor, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rrich_text_editor_set_link_callback(int editor, RRichTextLinkCallback callback) {
+        Rrich_text_editor_set_link_callback(editor, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rheader_bar_create$;

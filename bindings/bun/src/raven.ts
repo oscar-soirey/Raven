@@ -1190,6 +1190,52 @@ const _symbols = {
 	Rtheme_get_token_color: { args: ["i32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtheme_clear_token_colors: { args: [], returns: "void" },
 	Rtext_editor_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rrich_text_editor_create: { args: [], returns: "u32" },
+	Rrich_text_editor_set_markdown: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_get_markdown: { args: ["u32"], returns: "cstring" },
+	Rrich_text_editor_set_html: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_get_html: { args: ["u32"], returns: "cstring" },
+	Rrich_text_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_get_text: { args: ["u32"], returns: "cstring" },
+	Rrich_text_editor_insert_text: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_insert_html: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_insert_markdown: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_get_paragraph_count: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_get_paragraph_text: { args: ["u32", "i32"], returns: "cstring" },
+	Rrich_text_editor_get_paragraph_block: { args: ["u32", "i32"], returns: "i32" },
+	Rrich_text_editor_get_paragraph_indent: { args: ["u32", "i32"], returns: "i32" },
+	Rrich_text_editor_get_style_at: { args: ["u32", "i32", "i32"], returns: "u32" },
+	Rrich_text_editor_set_selection: { args: ["u32", "i32", "i32", "i32", "i32"], returns: "void" },
+	Rrich_text_editor_get_selection: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
+	Rrich_text_editor_select_all: { args: ["u32"], returns: "void" },
+	Rrich_text_editor_get_selected_text: { args: ["u32"], returns: "cstring" },
+	Rrich_text_editor_set_style: { args: ["u32", "u32", "i32"], returns: "void" },
+	Rrich_text_editor_toggle_style: { args: ["u32", "u32"], returns: "void" },
+	Rrich_text_editor_get_style: { args: ["u32"], returns: "u32" },
+	Rrich_text_editor_set_block: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_get_block: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_indent: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_set_link: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_get_link: { args: ["u32"], returns: "cstring" },
+	Rrich_text_editor_edit_link: { args: ["u32"], returns: "void" },
+	Rrich_text_editor_undo: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_redo: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_can_undo: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_can_redo: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_clear_history: { args: ["u32"], returns: "void" },
+	Rrich_text_editor_set_read_only: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_is_read_only: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_set_placeholder: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_set_toolbar: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_get_toolbar: { args: ["u32"], returns: "i32" },
+	Rrich_text_editor_set_markdown_shortcuts: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_set_spell_check: { args: ["u32", "i32"], returns: "void" },
+	Rrich_text_editor_set_spell_language: { args: ["u32", "ptr"], returns: "void" },
+	Rrich_text_editor_set_font: { args: ["u32", "u32", "f32"], returns: "void" },
+	Rrich_text_editor_scroll_to_caret: { args: ["u32"], returns: "void" },
+	Rrich_text_editor_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rrich_text_editor_set_selection_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rrich_text_editor_set_link_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rheader_bar_create: { args: ["ptr"], returns: "u32" },
 	Rheader_bar_set_title: { args: ["u32", "ptr"], returns: "void" },
 	Rheader_bar_set_buttons: { args: ["u32", "u32"], returns: "void" },
@@ -2935,6 +2981,8 @@ export enum RWidgetType {
 	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW = 0x0238,
+	/** Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h). */
+	R_WIDGET_RICH_TEXT_EDITOR = 0x0239,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2994,6 +3042,7 @@ export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
 export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
+export const R_WIDGET_RICH_TEXT_EDITOR = RWidgetType.R_WIDGET_RICH_TEXT_EDITOR;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3575,6 +3624,49 @@ export enum RMarkerKind {
 export const R_MARKER_ERROR = RMarkerKind.R_MARKER_ERROR;
 export const R_MARKER_WARNING = RMarkerKind.R_MARKER_WARNING;
 export const R_MARKER_INFO = RMarkerKind.R_MARKER_INFO;
+
+/** Looks of text: a bitmask. */
+export enum RRichTextStyle {
+	R_RICH_TEXT_BOLD = 1,
+	R_RICH_TEXT_ITALIC = 2,
+	R_RICH_TEXT_UNDERLINE = 4,
+	R_RICH_TEXT_STRIKETHROUGH = 8,
+	/** Inline code: a monospace font on a tile. */
+	R_RICH_TEXT_CODE = 0x0010,
+	/** Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it). */
+	R_RICH_TEXT_LINK = 0x0020,
+}
+
+export const R_RICH_TEXT_BOLD = RRichTextStyle.R_RICH_TEXT_BOLD;
+export const R_RICH_TEXT_ITALIC = RRichTextStyle.R_RICH_TEXT_ITALIC;
+export const R_RICH_TEXT_UNDERLINE = RRichTextStyle.R_RICH_TEXT_UNDERLINE;
+export const R_RICH_TEXT_STRIKETHROUGH = RRichTextStyle.R_RICH_TEXT_STRIKETHROUGH;
+export const R_RICH_TEXT_CODE = RRichTextStyle.R_RICH_TEXT_CODE;
+export const R_RICH_TEXT_LINK = RRichTextStyle.R_RICH_TEXT_LINK;
+
+/** Kinds of paragraphs. */
+export enum RRichTextBlock {
+	R_RICH_TEXT_PARAGRAPH = 0x0CC0,
+	R_RICH_TEXT_HEADING_1 = 0x0CC1,
+	R_RICH_TEXT_HEADING_2 = 0x0CC2,
+	R_RICH_TEXT_HEADING_3 = 0x0CC3,
+	/** An item of a bulleted list. */
+	R_RICH_TEXT_BULLET_LIST = 0x0CC4,
+	/** An item of a numbered list: numbered 1, 2, 3... in its list and its level. */
+	R_RICH_TEXT_NUMBERED_LIST = 0x0CC5,
+	R_RICH_TEXT_QUOTE = 0x0CC6,
+	/** A line of a block of code: monospace, kept as typed, no looks. */
+	R_RICH_TEXT_CODE_BLOCK = 0x0CC7,
+}
+
+export const R_RICH_TEXT_PARAGRAPH = RRichTextBlock.R_RICH_TEXT_PARAGRAPH;
+export const R_RICH_TEXT_HEADING_1 = RRichTextBlock.R_RICH_TEXT_HEADING_1;
+export const R_RICH_TEXT_HEADING_2 = RRichTextBlock.R_RICH_TEXT_HEADING_2;
+export const R_RICH_TEXT_HEADING_3 = RRichTextBlock.R_RICH_TEXT_HEADING_3;
+export const R_RICH_TEXT_BULLET_LIST = RRichTextBlock.R_RICH_TEXT_BULLET_LIST;
+export const R_RICH_TEXT_NUMBERED_LIST = RRichTextBlock.R_RICH_TEXT_NUMBERED_LIST;
+export const R_RICH_TEXT_QUOTE = RRichTextBlock.R_RICH_TEXT_QUOTE;
+export const R_RICH_TEXT_CODE_BLOCK = RRichTextBlock.R_RICH_TEXT_CODE_BLOCK;
 
 /** Buttons of a header bar. */
 export enum RHeaderButtons {
@@ -8324,6 +8416,43 @@ function _adapt_RTextEditorChangedCallback(function_: RTextEditorChangedCallback
 			_report(error as Error);
 		}
 	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too. */
+export type RRichTextChangedCallback = (editor: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RRichTextChangedCallback(function_: RRichTextChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((editor: number, user_data: Pointer | null): void => {
+		try {
+			function_(editor, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called when a link is followed: Ctrl+click (Cmd+click), or a
+ * click when the editor is read-only. Without a callback, a link
+ * written action:name fires the action "name" and http, https and mailto
+ * links open in the browser (Ropen_url).
+ */
+export type RRichTextLinkCallback = (editor: Rid, url: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RRichTextLinkCallback(function_: RRichTextLinkCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((editor: number, url: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(editor, _text(url), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the tray icon is clicked (Rtray_set_clicked_callback). */
@@ -15002,6 +15131,237 @@ export function Rtheme_clear_token_colors(): void {
 
 export function Rtext_editor_set_changed_callback(editor: Rid, callback: RTextEditorChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtext_editor_set_changed_callback(editor, _adapt_RTextEditorChangedCallback(callback), user_data);
+}
+
+export function Rrich_text_editor_create(): Rid {
+	return _lib.Rrich_text_editor_create();
+}
+
+/** Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown. */
+export function Rrich_text_editor_set_markdown(editor: Rid, markdown: string | null): void {
+	_lib.Rrich_text_editor_set_markdown(editor, _s(markdown));
+}
+
+/** The document as Markdown; set_markdown gives the same document back. Valid until the next call. */
+export function Rrich_text_editor_get_markdown(editor: Rid): string | null {
+	return _lib.Rrich_text_editor_get_markdown(editor);
+}
+
+/** Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html. */
+export function Rrich_text_editor_set_html(editor: Rid, html: string | null): void {
+	_lib.Rrich_text_editor_set_html(editor, _s(html));
+}
+
+/** The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call. */
+export function Rrich_text_editor_get_html(editor: Rid): string | null {
+	return _lib.Rrich_text_editor_get_html(editor);
+}
+
+/** Replaces the document with plain text: a paragraph per line. Clears the history. */
+export function Rrich_text_editor_set_text(editor: Rid, text: string | null): void {
+	_lib.Rrich_text_editor_set_text(editor, _s(text));
+}
+
+/** The text without its looks, a line per paragraph. Valid until the next call. */
+export function Rrich_text_editor_get_text(editor: Rid): string | null {
+	return _lib.Rrich_text_editor_get_text(editor);
+}
+
+/** Types plain text in place of the selection, as one step of the history (the changed callback is called). */
+export function Rrich_text_editor_insert_text(editor: Rid, text: string | null): void {
+	_lib.Rrich_text_editor_insert_text(editor, _s(text));
+}
+
+/** Puts HTML in place of the selection, as pasting it would (one step of the history). */
+export function Rrich_text_editor_insert_html(editor: Rid, html: string | null): void {
+	_lib.Rrich_text_editor_insert_html(editor, _s(html));
+}
+
+/** Puts Markdown in place of the selection (one step of the history). */
+export function Rrich_text_editor_insert_markdown(editor: Rid, markdown: string | null): void {
+	_lib.Rrich_text_editor_insert_markdown(editor, _s(markdown));
+}
+
+export function Rrich_text_editor_get_paragraph_count(editor: Rid): number {
+	return _lib.Rrich_text_editor_get_paragraph_count(editor);
+}
+
+/** The text of a paragraph, without its looks. Valid until the next call. */
+export function Rrich_text_editor_get_paragraph_text(editor: Rid, paragraph: number): string | null {
+	return _lib.Rrich_text_editor_get_paragraph_text(editor, paragraph);
+}
+
+export function Rrich_text_editor_get_paragraph_block(editor: Rid, paragraph: number): RRichTextBlock {
+	return _lib.Rrich_text_editor_get_paragraph_block(editor, paragraph) as RRichTextBlock;
+}
+
+/** How deep an item of a list is (0: not in another list). */
+export function Rrich_text_editor_get_paragraph_indent(editor: Rid, paragraph: number): number {
+	return _lib.Rrich_text_editor_get_paragraph_indent(editor, paragraph);
+}
+
+/** The looks (RRichTextStyle) of the character at `offset` of a paragraph. */
+export function Rrich_text_editor_get_style_at(editor: Rid, paragraph: number, offset: number): number {
+	return _lib.Rrich_text_editor_get_style_at(editor, paragraph, offset);
+}
+
+/** Selects from the anchor to the caret (equal: no selection, the caret there). */
+export function Rrich_text_editor_set_selection(editor: Rid, anchor_paragraph: number, anchor_offset: number, caret_paragraph: number, caret_offset: number): void {
+	_lib.Rrich_text_editor_set_selection(editor, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset);
+}
+
+export function Rrich_text_editor_get_selection(editor: Rid): [anchor_paragraph: number, anchor_offset: number, caret_paragraph: number, caret_offset: number] {
+	const anchor_paragraph_ = new Int32Array(1);
+	const anchor_offset_ = new Int32Array(1);
+	const caret_paragraph_ = new Int32Array(1);
+	const caret_offset_ = new Int32Array(1);
+	_lib.Rrich_text_editor_get_selection(editor, anchor_paragraph_, anchor_offset_, caret_paragraph_, caret_offset_);
+	return [anchor_paragraph_[0]!, anchor_offset_[0]!, caret_paragraph_[0]!, caret_offset_[0]!];
+}
+
+export function Rrich_text_editor_select_all(editor: Rid): void {
+	_lib.Rrich_text_editor_select_all(editor);
+}
+
+/** The selected text, without its looks. Valid until the next call. */
+export function Rrich_text_editor_get_selected_text(editor: Rid): string | null {
+	return _lib.Rrich_text_editor_get_selected_text(editor);
+}
+
+/**
+ * Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+ * over the selection; with no selection, for what is typed next at the
+ * caret.
+ */
+export function Rrich_text_editor_set_style(editor: Rid, style: number, enabled: number): void {
+	_lib.Rrich_text_editor_set_style(editor, style, enabled);
+}
+
+/** Turns a look off where all the selection has it, else on (Ctrl+B...). */
+export function Rrich_text_editor_toggle_style(editor: Rid, style: number): void {
+	_lib.Rrich_text_editor_toggle_style(editor, style);
+}
+
+/**
+ * The looks the whole selection has (with no selection: those
+ * that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+ */
+export function Rrich_text_editor_get_style(editor: Rid): number {
+	return _lib.Rrich_text_editor_get_style(editor);
+}
+
+/** Makes the paragraphs of the selection of a kind. Lines of code lose their looks. */
+export function Rrich_text_editor_set_block(editor: Rid, block: RRichTextBlock): void {
+	_lib.Rrich_text_editor_set_block(editor, block);
+}
+
+/** The kind of the paragraph of the caret. */
+export function Rrich_text_editor_get_block(editor: Rid): RRichTextBlock {
+	return _lib.Rrich_text_editor_get_block(editor) as RRichTextBlock;
+}
+
+/** Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab). */
+export function Rrich_text_editor_indent(editor: Rid, levels: number): void {
+	_lib.Rrich_text_editor_indent(editor, levels);
+}
+
+/**
+ * Makes the selection a link to `url` (NULL or "": no link any
+ * more). With no selection: the link the caret is in; outside of any, the
+ * address is typed as a link.
+ */
+export function Rrich_text_editor_set_link(editor: Rid, url: string | null): void {
+	_lib.Rrich_text_editor_set_link(editor, _s(url));
+}
+
+/** The address of the link at the caret (or at the start of the selection), NULL when there is none. */
+export function Rrich_text_editor_get_link(editor: Rid): string | null {
+	return _lib.Rrich_text_editor_get_link(editor);
+}
+
+/** Opens the bar where the address of the link of the selection is typed (Ctrl+K). */
+export function Rrich_text_editor_edit_link(editor: Rid): void {
+	_lib.Rrich_text_editor_edit_link(editor);
+}
+
+export function Rrich_text_editor_undo(editor: Rid): number {
+	return _lib.Rrich_text_editor_undo(editor);
+}
+
+export function Rrich_text_editor_redo(editor: Rid): number {
+	return _lib.Rrich_text_editor_redo(editor);
+}
+
+export function Rrich_text_editor_can_undo(editor: Rid): number {
+	return _lib.Rrich_text_editor_can_undo(editor);
+}
+
+export function Rrich_text_editor_can_redo(editor: Rid): number {
+	return _lib.Rrich_text_editor_can_redo(editor);
+}
+
+export function Rrich_text_editor_clear_history(editor: Rid): void {
+	_lib.Rrich_text_editor_clear_history(editor);
+}
+
+/** The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly. */
+export function Rrich_text_editor_set_read_only(editor: Rid, read_only: number): void {
+	_lib.Rrich_text_editor_set_read_only(editor, read_only);
+}
+
+export function Rrich_text_editor_is_read_only(editor: Rid): number {
+	return _lib.Rrich_text_editor_is_read_only(editor);
+}
+
+/** Text shown while the document is empty. XML: Placeholder. */
+export function Rrich_text_editor_set_placeholder(editor: Rid, text: string | null): void {
+	_lib.Rrich_text_editor_set_placeholder(editor, _s(text));
+}
+
+/** Shows or hides the toolbar (shown by default). XML: Toolbar. */
+export function Rrich_text_editor_set_toolbar(editor: Rid, visible: number): void {
+	_lib.Rrich_text_editor_set_toolbar(editor, visible);
+}
+
+export function Rrich_text_editor_get_toolbar(editor: Rid): number {
+	return _lib.Rrich_text_editor_get_toolbar(editor);
+}
+
+/** Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts. */
+export function Rrich_text_editor_set_markdown_shortcuts(editor: Rid, enabled: number): void {
+	_lib.Rrich_text_editor_set_markdown_shortcuts(editor, enabled);
+}
+
+/** Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage. */
+export function Rrich_text_editor_set_spell_check(editor: Rid, enabled: number): void {
+	_lib.Rrich_text_editor_set_spell_check(editor, enabled);
+}
+
+export function Rrich_text_editor_set_spell_language(editor: Rid, language: string | null): void {
+	_lib.Rrich_text_editor_set_spell_language(editor, _s(language));
+}
+
+/** The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize. */
+export function Rrich_text_editor_set_font(editor: Rid, font: Rid, size: number): void {
+	_lib.Rrich_text_editor_set_font(editor, font, size);
+}
+
+/** Scrolls so that the caret is seen. */
+export function Rrich_text_editor_scroll_to_caret(editor: Rid): void {
+	_lib.Rrich_text_editor_scroll_to_caret(editor);
+}
+
+export function Rrich_text_editor_set_changed_callback(editor: Rid, callback: RRichTextChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rrich_text_editor_set_changed_callback(editor, _adapt_RRichTextChangedCallback(callback), user_data);
+}
+
+/** Called when the selection or the caret moved (to update a toolbar of the application). */
+export function Rrich_text_editor_set_selection_callback(editor: Rid, callback: RRichTextChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rrich_text_editor_set_selection_callback(editor, _adapt_RRichTextChangedCallback(callback), user_data);
+}
+
+export function Rrich_text_editor_set_link_callback(editor: Rid, callback: RRichTextLinkCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rrich_text_editor_set_link_callback(editor, _adapt_RRichTextLinkCallback(callback), user_data);
 }
 
 /** title Text shown in the bar; NULL shows the title of the window. */

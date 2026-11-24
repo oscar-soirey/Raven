@@ -143,6 +143,8 @@ typedef enum RWidgetType{
 	R_WIDGET_SYSTEM_WEB_VIEW,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW,
+	/** Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h). */
+	R_WIDGET_RICH_TEXT_EDITOR,
 
 	R_WIDGET_LAST_
 }RWidgetType;

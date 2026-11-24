@@ -643,7 +643,7 @@ static void rvn_web_field_sync(rvn_pwindow_t* window) {
     if (wants && owner->focus) {
         RWidgetType type = owner->focus->cls->type;
         kind = type == R_WIDGET_TEXT_INPUT ? RVN_WEB_KIND_TEXT_INPUT :
-               type == R_WIDGET_TEXT_EDITOR ? RVN_WEB_KIND_TEXT_EDITOR :
+               (type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_RICH_TEXT_EDITOR) ? RVN_WEB_KIND_TEXT_EDITOR :
                type == R_WIDGET_SPIN_BOX ? RVN_WEB_KIND_SPIN_BOX : RVN_WEB_KIND_OTHER;
     }
     rvn_web_field_hints(wants, kind, has_info ? &info : NULL, &hints);

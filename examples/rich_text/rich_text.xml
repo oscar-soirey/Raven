@@ -1,0 +1,25 @@
+<!-- A small notes application: a RichTextEditor with its toolbar, and the Markdown of the note, kept up to date beside it. main.c writes the note and follows the changes. -->
+<Window Title="Raven notes" Width="1180" Height="760">
+	<VBox Spacing="12" Slot.Padding="18">
+		<HBox Spacing="10">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Notes" TextSize="24"/>
+				<Label Name="status" Text="" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="toolbar" Text="Toolbar" Style="Switch" Checked="true" OnChanged="notes.toolbar" Slot.VAlign="Center"/>
+			<Checkbox Name="readonly" Text="Read only" Style="Switch" OnChanged="notes.readonly" Slot.VAlign="Center"/>
+			<Button Text="Copy HTML" OnClicked="notes.html" Slot.VAlign="Center"/>
+			<Button Text="Clear" OnClicked="notes.clear" Slot.VAlign="Center"/>
+		</HBox>
+
+		<HBox Spacing="14" Slot.Fill="1">
+			<RichTextEditor Name="note" Placeholder="Write a note: # for a title, - for a list, **bold**..." SpellCheck="true" SpellLanguage="en_US" Slot.Fill="1"/>
+			<VBox Spacing="6" Width="380">
+				<Label Text="Markdown" Opacity="0.6"/>
+				<TextEditor Name="markdown" Language="Markdown" ReadOnly="true" Wrap="true" Slot.Fill="1"/>
+			</VBox>
+		</HBox>
+
+		<Label Text="Ctrl+B, I, U, E: bold, italic, underline, code  -  Ctrl+K: link  -  Tab / Shift+Tab: indent an item  -  Ctrl+click: follow a link" Opacity="0.5"/>
+	</VBox>
+</Window>

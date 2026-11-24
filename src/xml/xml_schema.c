@@ -495,6 +495,21 @@ static const rvn_schema_attribute_t g_diff_view[] = {
 	C("Language", "None|C|C++|C#|Java|JavaScript|TypeScript|Python|Rust|GLSL|JSON|CSS|XML|HTML", "Colors the code; by default guessed from the extension of the names."),
 	A("OnClicked", "Action fired when a line or its number is clicked."),
 };
+static const rvn_schema_attribute_t g_rich_text_editor[] = {
+	T("Text", "The document, in Markdown (or the text inside the element)."),
+	T("Markdown", "The document, in Markdown."),
+	T("Html", "The document, in HTML (what it can hold of it)."),
+	T("PlainText", "The document, as plain text: a paragraph per line."),
+	T("Placeholder", "Shown, dimmed, while the document is empty."),
+	B("ReadOnly", "Can be scrolled, selected and copied, not changed; links follow on a click."),
+	B("Toolbar", "The toolbar of the looks and the kinds of paragraphs (on by default)."),
+	B("MarkdownShortcuts", "What is typed as Markdown (\"# \", \"- \", **bold**...) is formatted as it is typed (on by default)."),
+	B("SpellCheck", "Underlines the misspelled words, with corrections on a right click (off by default)."),
+	T("SpellLanguage", "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."),
+	N("TextSize", "Size of the text; 0 uses the theme."),
+	F("Font", "Font file of the text (titles are made from it; code is monospace)."),
+	A("OnChanged", "Action fired at each change."),
+};
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
 	C("Buttons", "All|None|Close|Close,Minimize|Close,Maximize", "The window buttons the bar shows."),
@@ -644,6 +659,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("SystemWebView", g_system_web_view, "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
+	TAG("RichTextEditor", g_rich_text_editor, "Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, underlined, struck, links; read and written as Markdown, written as HTML."),
 	TAG("DiffView", g_diff_view, "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked."),
 	TAG("HeaderBar", g_header_bar, "The title bar of a window with a custom header; holds any widgets."),
 	TAG("FileBrowser", g_file_browser, "Folders and files to choose from."),

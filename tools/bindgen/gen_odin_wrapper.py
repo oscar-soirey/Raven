@@ -16,7 +16,7 @@ from gen_odin import emit_doc
 # flag group is in neither list, so a new one is looked at once.
 FLAGS = {"RWindowFlags", "RModifier", "RPenButton", "RLanguageFlags", "RHeaderButtons", "RFileDialogFlags",
          "RShaderFlags", "RPdfPaint", "RPdfTextStyle", "RPdfPrintFlags", "RDragOperation", "RSearchFlags",
-         "RDiffFlags"}
+         "RDiffFlags", "RRichTextStyle"}
 # (one value at a time: Rnotification_supports asks for one feature)
 NOT_FLAGS = {"RNotificationFeature"}
 

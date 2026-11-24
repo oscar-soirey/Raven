@@ -786,6 +786,8 @@ const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
 const RWidgetType R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 <* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 const RWidgetType R_WIDGET_DIFF_VIEW = 0x0238;
+<* Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h). *>
+const RWidgetType R_WIDGET_RICH_TEXT_EDITOR = 0x0239;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1149,6 +1151,31 @@ alias RMarkerKind = CInt;
 const RMarkerKind R_MARKER_ERROR = 0x0350;
 const RMarkerKind R_MARKER_WARNING = 0x0351;
 const RMarkerKind R_MARKER_INFO = 0x0352;
+
+<* Looks of text: a bitmask. *>
+alias RRichTextStyle = CInt;
+const RRichTextStyle R_RICH_TEXT_BOLD = 1;
+const RRichTextStyle R_RICH_TEXT_ITALIC = 2;
+const RRichTextStyle R_RICH_TEXT_UNDERLINE = 4;
+const RRichTextStyle R_RICH_TEXT_STRIKETHROUGH = 8;
+<* Inline code: a monospace font on a tile. *>
+const RRichTextStyle R_RICH_TEXT_CODE = 0x0010;
+<* Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it). *>
+const RRichTextStyle R_RICH_TEXT_LINK = 0x0020;
+
+<* Kinds of paragraphs. *>
+alias RRichTextBlock = CInt;
+const RRichTextBlock R_RICH_TEXT_PARAGRAPH = 0x0CC0;
+const RRichTextBlock R_RICH_TEXT_HEADING_1 = 0x0CC1;
+const RRichTextBlock R_RICH_TEXT_HEADING_2 = 0x0CC2;
+const RRichTextBlock R_RICH_TEXT_HEADING_3 = 0x0CC3;
+<* An item of a bulleted list. *>
+const RRichTextBlock R_RICH_TEXT_BULLET_LIST = 0x0CC4;
+<* An item of a numbered list: numbered 1, 2, 3... in its list and its level. *>
+const RRichTextBlock R_RICH_TEXT_NUMBERED_LIST = 0x0CC5;
+const RRichTextBlock R_RICH_TEXT_QUOTE = 0x0CC6;
+<* A line of a block of code: monospace, kept as typed, no looks. *>
+const RRichTextBlock R_RICH_TEXT_CODE_BLOCK = 0x0CC7;
 
 <* Buttons of a header bar. *>
 alias RHeaderButtons = CInt;
@@ -1857,6 +1884,15 @@ alias RTextEditorHoverCallback = fn char*(Rid editor, CInt line, CInt column, vo
  (OnChanged in XML) fires at the same time.
 *>
 alias RTextEditorChangedCallback = fn void(Rid editor, void* user_data);
+<* Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too. *>
+alias RRichTextChangedCallback = fn void(Rid editor, void* user_data);
+<*
+ Called when a link is followed: Ctrl+click (Cmd+click), or a
+ click when the editor is read-only. Without a callback, a link
+ written action:name fires the action "name" and http, https and mailto
+ links open in the browser (Ropen_url).
+*>
+alias RRichTextLinkCallback = fn void(Rid editor, char* url, void* user_data);
 <* Called when the tray icon is clicked (Rtray_set_clicked_callback). *>
 alias RTrayClickedCallback = fn void(Rid tray, RMouseButton button, void* user_data);
 <*
@@ -6765,6 +6801,140 @@ extern fn void r_theme_get_token_color(RToken token, float* r, float* g, float* 
 extern fn void r_theme_clear_token_colors() @cname("Rtheme_clear_token_colors");
 
 extern fn void r_text_editor_set_changed_callback(Rid editor, RTextEditorChangedCallback callback, void* user_data) @cname("Rtext_editor_set_changed_callback");
+
+extern fn Rid r_rich_text_editor_create() @cname("Rrich_text_editor_create");
+
+<* Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown. *>
+extern fn void r_rich_text_editor_set_markdown(Rid editor, char* markdown) @cname("Rrich_text_editor_set_markdown");
+
+<* The document as Markdown; set_markdown gives the same document back. Valid until the next call. *>
+extern fn char* r_rich_text_editor_get_markdown(Rid editor) @cname("Rrich_text_editor_get_markdown");
+
+<* Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html. *>
+extern fn void r_rich_text_editor_set_html(Rid editor, char* html) @cname("Rrich_text_editor_set_html");
+
+<* The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call. *>
+extern fn char* r_rich_text_editor_get_html(Rid editor) @cname("Rrich_text_editor_get_html");
+
+<* Replaces the document with plain text: a paragraph per line. Clears the history. *>
+extern fn void r_rich_text_editor_set_text(Rid editor, char* text) @cname("Rrich_text_editor_set_text");
+
+<* The text without its looks, a line per paragraph. Valid until the next call. *>
+extern fn char* r_rich_text_editor_get_text(Rid editor) @cname("Rrich_text_editor_get_text");
+
+<* Types plain text in place of the selection, as one step of the history (the changed callback is called). *>
+extern fn void r_rich_text_editor_insert_text(Rid editor, char* text) @cname("Rrich_text_editor_insert_text");
+
+<* Puts HTML in place of the selection, as pasting it would (one step of the history). *>
+extern fn void r_rich_text_editor_insert_html(Rid editor, char* html) @cname("Rrich_text_editor_insert_html");
+
+<* Puts Markdown in place of the selection (one step of the history). *>
+extern fn void r_rich_text_editor_insert_markdown(Rid editor, char* markdown) @cname("Rrich_text_editor_insert_markdown");
+
+extern fn CInt r_rich_text_editor_get_paragraph_count(Rid editor) @cname("Rrich_text_editor_get_paragraph_count");
+
+<* The text of a paragraph, without its looks. Valid until the next call. *>
+extern fn char* r_rich_text_editor_get_paragraph_text(Rid editor, CInt paragraph) @cname("Rrich_text_editor_get_paragraph_text");
+
+extern fn RRichTextBlock r_rich_text_editor_get_paragraph_block(Rid editor, CInt paragraph) @cname("Rrich_text_editor_get_paragraph_block");
+
+<* How deep an item of a list is (0: not in another list). *>
+extern fn CInt r_rich_text_editor_get_paragraph_indent(Rid editor, CInt paragraph) @cname("Rrich_text_editor_get_paragraph_indent");
+
+<* The looks (RRichTextStyle) of the character at `offset` of a paragraph. *>
+extern fn Ruint r_rich_text_editor_get_style_at(Rid editor, CInt paragraph, CInt offset) @cname("Rrich_text_editor_get_style_at");
+
+<* Selects from the anchor to the caret (equal: no selection, the caret there). *>
+extern fn void r_rich_text_editor_set_selection(Rid editor, CInt anchor_paragraph, CInt anchor_offset, CInt caret_paragraph, CInt caret_offset) @cname("Rrich_text_editor_set_selection");
+
+extern fn void r_rich_text_editor_get_selection(Rid editor, CInt* anchor_paragraph, CInt* anchor_offset, CInt* caret_paragraph, CInt* caret_offset) @cname("Rrich_text_editor_get_selection");
+
+extern fn void r_rich_text_editor_select_all(Rid editor) @cname("Rrich_text_editor_select_all");
+
+<* The selected text, without its looks. Valid until the next call. *>
+extern fn char* r_rich_text_editor_get_selected_text(Rid editor) @cname("Rrich_text_editor_get_selected_text");
+
+<*
+ Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+ over the selection; with no selection, for what is typed next at the
+ caret.
+*>
+extern fn void r_rich_text_editor_set_style(Rid editor, Ruint style, CInt enabled) @cname("Rrich_text_editor_set_style");
+
+<* Turns a look off where all the selection has it, else on (Ctrl+B...). *>
+extern fn void r_rich_text_editor_toggle_style(Rid editor, Ruint style) @cname("Rrich_text_editor_toggle_style");
+
+<*
+ The looks the whole selection has (with no selection: those
+ that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+*>
+extern fn Ruint r_rich_text_editor_get_style(Rid editor) @cname("Rrich_text_editor_get_style");
+
+<* Makes the paragraphs of the selection of a kind. Lines of code lose their looks. *>
+extern fn void r_rich_text_editor_set_block(Rid editor, RRichTextBlock block) @cname("Rrich_text_editor_set_block");
+
+<* The kind of the paragraph of the caret. *>
+extern fn RRichTextBlock r_rich_text_editor_get_block(Rid editor) @cname("Rrich_text_editor_get_block");
+
+<* Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab). *>
+extern fn void r_rich_text_editor_indent(Rid editor, CInt levels) @cname("Rrich_text_editor_indent");
+
+<*
+ Makes the selection a link to `url` (NULL or "": no link any
+ more). With no selection: the link the caret is in; outside of any, the
+ address is typed as a link.
+*>
+extern fn void r_rich_text_editor_set_link(Rid editor, char* url) @cname("Rrich_text_editor_set_link");
+
+<* The address of the link at the caret (or at the start of the selection), NULL when there is none. *>
+extern fn char* r_rich_text_editor_get_link(Rid editor) @cname("Rrich_text_editor_get_link");
+
+<* Opens the bar where the address of the link of the selection is typed (Ctrl+K). *>
+extern fn void r_rich_text_editor_edit_link(Rid editor) @cname("Rrich_text_editor_edit_link");
+
+extern fn CInt r_rich_text_editor_undo(Rid editor) @cname("Rrich_text_editor_undo");
+
+extern fn CInt r_rich_text_editor_redo(Rid editor) @cname("Rrich_text_editor_redo");
+
+extern fn CInt r_rich_text_editor_can_undo(Rid editor) @cname("Rrich_text_editor_can_undo");
+
+extern fn CInt r_rich_text_editor_can_redo(Rid editor) @cname("Rrich_text_editor_can_redo");
+
+extern fn void r_rich_text_editor_clear_history(Rid editor) @cname("Rrich_text_editor_clear_history");
+
+<* The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly. *>
+extern fn void r_rich_text_editor_set_read_only(Rid editor, CInt read_only) @cname("Rrich_text_editor_set_read_only");
+
+extern fn CInt r_rich_text_editor_is_read_only(Rid editor) @cname("Rrich_text_editor_is_read_only");
+
+<* Text shown while the document is empty. XML: Placeholder. *>
+extern fn void r_rich_text_editor_set_placeholder(Rid editor, char* text) @cname("Rrich_text_editor_set_placeholder");
+
+<* Shows or hides the toolbar (shown by default). XML: Toolbar. *>
+extern fn void r_rich_text_editor_set_toolbar(Rid editor, CInt visible) @cname("Rrich_text_editor_set_toolbar");
+
+extern fn CInt r_rich_text_editor_get_toolbar(Rid editor) @cname("Rrich_text_editor_get_toolbar");
+
+<* Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts. *>
+extern fn void r_rich_text_editor_set_markdown_shortcuts(Rid editor, CInt enabled) @cname("Rrich_text_editor_set_markdown_shortcuts");
+
+<* Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage. *>
+extern fn void r_rich_text_editor_set_spell_check(Rid editor, CInt enabled) @cname("Rrich_text_editor_set_spell_check");
+
+extern fn void r_rich_text_editor_set_spell_language(Rid editor, char* language) @cname("Rrich_text_editor_set_spell_language");
+
+<* The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize. *>
+extern fn void r_rich_text_editor_set_font(Rid editor, Rid font, float size) @cname("Rrich_text_editor_set_font");
+
+<* Scrolls so that the caret is seen. *>
+extern fn void r_rich_text_editor_scroll_to_caret(Rid editor) @cname("Rrich_text_editor_scroll_to_caret");
+
+extern fn void r_rich_text_editor_set_changed_callback(Rid editor, RRichTextChangedCallback callback, void* user_data) @cname("Rrich_text_editor_set_changed_callback");
+
+<* Called when the selection or the caret moved (to update a toolbar of the application). *>
+extern fn void r_rich_text_editor_set_selection_callback(Rid editor, RRichTextChangedCallback callback, void* user_data) @cname("Rrich_text_editor_set_selection_callback");
+
+extern fn void r_rich_text_editor_set_link_callback(Rid editor, RRichTextLinkCallback callback, void* user_data) @cname("Rrich_text_editor_set_link_callback");
 
 extern fn Rid r_header_bar_create(char* title) @cname("Rheader_bar_create");
 

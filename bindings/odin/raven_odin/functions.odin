@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1218 of the 1652 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 402 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (169):
@@ -63,7 +63,7 @@
 //     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
 //     Rtest_save_png
 //
-//   a callback (113):
+//   a callback (116):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -86,13 +86,15 @@
 //     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
 //     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
 //     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
-//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback Rdock_area_set_close_callback
-//     Rdock_area_set_float_window Rdock_area_set_changed_callback Risland_set_changed_callback
-//     Rtray_set_clicked_callback Rcolor_picker_set_changed_callback Rtimeline_set_time_callback
-//     Rtimeline_set_changed_callback Rtimeline_set_selection_callback Rtimeline_set_activated_callback
-//     Rtimeline_set_removed_callback Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback
-//     Rnode_graph_set_unlinked_callback Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback
-//     Rnode_graph_set_removed_callback Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
+//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback
+//     Rrich_text_editor_set_changed_callback Rrich_text_editor_set_selection_callback
+//     Rrich_text_editor_set_link_callback Rdock_area_set_close_callback Rdock_area_set_float_window
+//     Rdock_area_set_changed_callback Risland_set_changed_callback Rtray_set_clicked_callback
+//     Rcolor_picker_set_changed_callback Rtimeline_set_time_callback Rtimeline_set_changed_callback
+//     Rtimeline_set_selection_callback Rtimeline_set_activated_callback Rtimeline_set_removed_callback
+//     Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback Rnode_graph_set_unlinked_callback
+//     Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback Rnode_graph_set_removed_callback
+//     Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
 //     Rnode_graph_set_canvas_activated_callback Rnode_graph_set_wire_dropped_callback
 //     Rnode_graph_set_pin_clicked_callback Rblock_editor_set_changed_callback
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
@@ -107,10 +109,10 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (12):
+//   a handle result that is not known (13):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
 //     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
-//     Rpdf_document_create Rdiff_view_create Rtest_find
+//     Rpdf_document_create Rrich_text_editor_create Rdiff_view_create Rtest_find
 //
 //   a parameter of type const uint8_t* (10):
 //     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
@@ -4427,6 +4429,218 @@ theme_get_token_color :: proc(token: Token) -> (r: f32, g: f32, b: f32, a: f32) 
 // Back to the colors Raven picks.
 theme_clear_token_colors :: proc() {
 	raw.Rtheme_clear_token_colors()
+}
+
+// Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown.
+rich_text_editor_set_markdown :: proc(editor: Widget, markdown: string) {
+	buffer_markdown: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_set_markdown(raw.Rid(editor), to_cstring(markdown, &buffer_markdown))
+}
+
+// The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+rich_text_editor_get_markdown :: proc(editor: Widget) -> string {
+	return string(raw.Rrich_text_editor_get_markdown(raw.Rid(editor)))
+}
+
+// Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+rich_text_editor_set_html :: proc(editor: Widget, html: string) {
+	buffer_html: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_set_html(raw.Rid(editor), to_cstring(html, &buffer_html))
+}
+
+// The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+rich_text_editor_get_html :: proc(editor: Widget) -> string {
+	return string(raw.Rrich_text_editor_get_html(raw.Rid(editor)))
+}
+
+// Replaces the document with plain text: a paragraph per line. Clears the history.
+rich_text_editor_set_text :: proc(editor: Widget, text: string) {
+	buffer_text: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_set_text(raw.Rid(editor), to_cstring(text, &buffer_text))
+}
+
+// The text without its looks, a line per paragraph. Valid until the next call.
+rich_text_editor_get_text :: proc(editor: Widget) -> string {
+	return string(raw.Rrich_text_editor_get_text(raw.Rid(editor)))
+}
+
+// Types plain text in place of the selection, as one step of the history (the changed callback is called).
+rich_text_editor_insert_text :: proc(editor: Widget, text: string) {
+	buffer_text: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_insert_text(raw.Rid(editor), to_cstring(text, &buffer_text))
+}
+
+// Puts HTML in place of the selection, as pasting it would (one step of the history).
+rich_text_editor_insert_html :: proc(editor: Widget, html: string) {
+	buffer_html: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_insert_html(raw.Rid(editor), to_cstring(html, &buffer_html))
+}
+
+// Puts Markdown in place of the selection (one step of the history).
+rich_text_editor_insert_markdown :: proc(editor: Widget, markdown: string) {
+	buffer_markdown: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_insert_markdown(raw.Rid(editor), to_cstring(markdown, &buffer_markdown))
+}
+
+rich_text_editor_get_paragraph_count :: proc(editor: Widget) -> i32 {
+	return raw.Rrich_text_editor_get_paragraph_count(raw.Rid(editor))
+}
+
+// The text of a paragraph, without its looks. Valid until the next call.
+rich_text_editor_get_paragraph_text :: proc(editor: Widget, paragraph: i32) -> string {
+	return string(raw.Rrich_text_editor_get_paragraph_text(raw.Rid(editor), paragraph))
+}
+
+rich_text_editor_get_paragraph_block :: proc(editor: Widget, paragraph: i32) -> Rich_Text_Block {
+	return Rich_Text_Block(raw.Rrich_text_editor_get_paragraph_block(raw.Rid(editor), paragraph))
+}
+
+// How deep an item of a list is (0: not in another list).
+rich_text_editor_get_paragraph_indent :: proc(editor: Widget, paragraph: i32) -> i32 {
+	return raw.Rrich_text_editor_get_paragraph_indent(raw.Rid(editor), paragraph)
+}
+
+// The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+rich_text_editor_get_style_at :: proc(editor: Widget, paragraph: i32, offset: i32) -> u32 {
+	return raw.Rrich_text_editor_get_style_at(raw.Rid(editor), paragraph, offset)
+}
+
+// Selects from the anchor to the caret (equal: no selection, the caret there).
+rich_text_editor_set_selection :: proc(editor: Widget, anchor_paragraph: i32, anchor_offset: i32, caret_paragraph: i32, caret_offset: i32) {
+	raw.Rrich_text_editor_set_selection(raw.Rid(editor), anchor_paragraph, anchor_offset, caret_paragraph, caret_offset)
+}
+
+rich_text_editor_get_selection :: proc(editor: Widget) -> (anchor_paragraph: i32, anchor_offset: i32, caret_paragraph: i32, caret_offset: i32) {
+	raw.Rrich_text_editor_get_selection(raw.Rid(editor), &anchor_paragraph, &anchor_offset, &caret_paragraph, &caret_offset)
+	return
+}
+
+rich_text_editor_select_all :: proc(editor: Widget) {
+	raw.Rrich_text_editor_select_all(raw.Rid(editor))
+}
+
+// The selected text, without its looks. Valid until the next call.
+rich_text_editor_get_selected_text :: proc(editor: Widget) -> string {
+	return string(raw.Rrich_text_editor_get_selected_text(raw.Rid(editor)))
+}
+
+// Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+// over the selection; with no selection, for what is typed next at the
+// caret.
+rich_text_editor_set_style :: proc(editor: Widget, style: u32, enabled: bool) {
+	raw.Rrich_text_editor_set_style(raw.Rid(editor), style, (1 if enabled else 0))
+}
+
+// Turns a look off where all the selection has it, else on (Ctrl+B...).
+rich_text_editor_toggle_style :: proc(editor: Widget, style: u32) {
+	raw.Rrich_text_editor_toggle_style(raw.Rid(editor), style)
+}
+
+// The looks the whole selection has (with no selection: those
+// that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+rich_text_editor_get_style :: proc(editor: Widget) -> u32 {
+	return raw.Rrich_text_editor_get_style(raw.Rid(editor))
+}
+
+// Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+rich_text_editor_set_block :: proc(editor: Widget, block: Rich_Text_Block) {
+	raw.Rrich_text_editor_set_block(raw.Rid(editor), raw.RRichTextBlock(block))
+}
+
+// The kind of the paragraph of the caret.
+rich_text_editor_get_block :: proc(editor: Widget) -> Rich_Text_Block {
+	return Rich_Text_Block(raw.Rrich_text_editor_get_block(raw.Rid(editor)))
+}
+
+// Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+rich_text_editor_indent :: proc(editor: Widget, levels: i32) {
+	raw.Rrich_text_editor_indent(raw.Rid(editor), levels)
+}
+
+// Makes the selection a link to `url` (NULL or "": no link any
+// more). With no selection: the link the caret is in; outside of any, the
+// address is typed as a link.
+rich_text_editor_set_link :: proc(editor: Widget, url: cstring) {
+	raw.Rrich_text_editor_set_link(raw.Rid(editor), url)
+}
+
+// The address of the link at the caret (or at the start of the selection), NULL when there is none.
+rich_text_editor_get_link :: proc(editor: Widget) -> string {
+	return string(raw.Rrich_text_editor_get_link(raw.Rid(editor)))
+}
+
+// Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+rich_text_editor_edit_link :: proc(editor: Widget) {
+	raw.Rrich_text_editor_edit_link(raw.Rid(editor))
+}
+
+rich_text_editor_undo :: proc(editor: Widget) -> i32 {
+	return raw.Rrich_text_editor_undo(raw.Rid(editor))
+}
+
+rich_text_editor_redo :: proc(editor: Widget) -> i32 {
+	return raw.Rrich_text_editor_redo(raw.Rid(editor))
+}
+
+rich_text_editor_can_undo :: proc(editor: Widget) -> bool {
+	return raw.Rrich_text_editor_can_undo(raw.Rid(editor)) != 0
+}
+
+rich_text_editor_can_redo :: proc(editor: Widget) -> bool {
+	return raw.Rrich_text_editor_can_redo(raw.Rid(editor)) != 0
+}
+
+rich_text_editor_clear_history :: proc(editor: Widget) {
+	raw.Rrich_text_editor_clear_history(raw.Rid(editor))
+}
+
+// The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+rich_text_editor_set_read_only :: proc(editor: Widget, read_only: bool) {
+	raw.Rrich_text_editor_set_read_only(raw.Rid(editor), (1 if read_only else 0))
+}
+
+rich_text_editor_is_read_only :: proc(editor: Widget) -> bool {
+	return raw.Rrich_text_editor_is_read_only(raw.Rid(editor)) != 0
+}
+
+// Text shown while the document is empty. XML: Placeholder.
+rich_text_editor_set_placeholder :: proc(editor: Widget, text: string) {
+	buffer_text: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_set_placeholder(raw.Rid(editor), to_cstring(text, &buffer_text))
+}
+
+// Shows or hides the toolbar (shown by default). XML: Toolbar.
+rich_text_editor_set_toolbar :: proc(editor: Widget, visible: bool) {
+	raw.Rrich_text_editor_set_toolbar(raw.Rid(editor), (1 if visible else 0))
+}
+
+rich_text_editor_get_toolbar :: proc(editor: Widget) -> bool {
+	return raw.Rrich_text_editor_get_toolbar(raw.Rid(editor)) != 0
+}
+
+// Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+rich_text_editor_set_markdown_shortcuts :: proc(editor: Widget, enabled: bool) {
+	raw.Rrich_text_editor_set_markdown_shortcuts(raw.Rid(editor), (1 if enabled else 0))
+}
+
+// Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+rich_text_editor_set_spell_check :: proc(editor: Widget, enabled: bool) {
+	raw.Rrich_text_editor_set_spell_check(raw.Rid(editor), (1 if enabled else 0))
+}
+
+rich_text_editor_set_spell_language :: proc(editor: Widget, language: string) {
+	buffer_language: [cstring_buffer_size]u8
+	raw.Rrich_text_editor_set_spell_language(raw.Rid(editor), to_cstring(language, &buffer_language))
+}
+
+// The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+rich_text_editor_set_font :: proc(editor: Widget, font: Font, size: f32) {
+	raw.Rrich_text_editor_set_font(raw.Rid(editor), raw.Rid(font), size)
+}
+
+// Scrolls so that the caret is seen.
+rich_text_editor_scroll_to_caret :: proc(editor: Widget) {
+	raw.Rrich_text_editor_scroll_to_caret(raw.Rid(editor))
 }
 
 // title Text shown in the bar; NULL shows the title of the window.

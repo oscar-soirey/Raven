@@ -941,6 +941,8 @@ constset WidgetType : CInt
 	SYSTEM_WEB_VIEW = 0x0237,
 	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 	DIFF_VIEW = 0x0238,
+	<* Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h). *>
+	RICH_TEXT_EDITOR = 0x0239,
 }
 
 constset HAlign : CInt
@@ -1384,6 +1386,38 @@ constset MarkerKind : CInt
 	ERROR = 0x0350,
 	WARNING = 0x0351,
 	INFO = 0x0352,
+}
+
+<* Looks of text: a bitmask. *>
+constset RichTextStyle : CInt
+{
+	BOLD = 1,
+	ITALIC = 2,
+	UNDERLINE = 4,
+	STRIKETHROUGH = 8,
+	<* Inline code: a monospace font on a tile. *>
+	CODE = 0x0010,
+	<* Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it). *>
+	LINK = 0x0020,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool RichTextStyle.has(self, RichTextStyle flags) @inline => (self & flags) == flags;
+
+<* Kinds of paragraphs. *>
+constset RichTextBlock : CInt
+{
+	PARAGRAPH = 0x0CC0,
+	HEADING_1 = 0x0CC1,
+	HEADING_2 = 0x0CC2,
+	HEADING_3 = 0x0CC3,
+	<* An item of a bulleted list. *>
+	BULLET_LIST = 0x0CC4,
+	<* An item of a numbered list: numbered 1, 2, 3... in its list and its level. *>
+	NUMBERED_LIST = 0x0CC5,
+	QUOTE = 0x0CC6,
+	<* A line of a block of code: monospace, kept as typed, no looks. *>
+	CODE_BLOCK = 0x0CC7,
 }
 
 <* Buttons of a header bar. *>
@@ -2176,6 +2210,15 @@ alias TextEditorHoverCallback = fn ZString(Id editor, CInt line, CInt column, vo
  (OnChanged in XML) fires at the same time.
 *>
 alias TextEditorChangedCallback = fn void(Id editor, void* user_data);
+<* Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too. *>
+alias RichTextChangedCallback = fn void(Id editor, void* user_data);
+<*
+ Called when a link is followed: Ctrl+click (Cmd+click), or a
+ click when the editor is read-only. Without a callback, a link
+ written action:name fires the action "name" and http, https and mailto
+ links open in the browser (Ropen_url).
+*>
+alias RichTextLinkCallback = fn void(Id editor, ZString url, void* user_data);
 <* Called when the tray icon is clicked (Rtray_set_clicked_callback). *>
 alias TrayClickedCallback = fn void(Id tray, MouseButton button, void* user_data);
 <*
@@ -7069,6 +7112,144 @@ fn ZString DiffView.get_selected_text(self) @inline => (ZString)c::r_diff_view_g
 
 <* Called when a line or its number is clicked (the action of the widget is fired too). *>
 fn void DiffView.set_line_clicked_callback(self, DiffViewLineCallback callback, void* user_data) @inline => c::r_diff_view_set_line_clicked_callback((c::Rid)self, (c::RDiffViewLineCallback)callback, user_data);
+
+// ---- RichTextEditor
+
+typedef RichTextEditor = inline Widget;
+
+fn RichTextEditor rich_text_editor_create() @inline => (RichTextEditor)c::r_rich_text_editor_create();
+
+<* Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown. *>
+fn void RichTextEditor.set_markdown(self, ZString markdown) @inline => c::r_rich_text_editor_set_markdown((c::Rid)self, (char*)markdown);
+
+<* The document as Markdown; set_markdown gives the same document back. Valid until the next call. *>
+fn ZString RichTextEditor.get_markdown(self) @inline => (ZString)c::r_rich_text_editor_get_markdown((c::Rid)self);
+
+<* Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html. *>
+fn void RichTextEditor.set_html(self, ZString html) @inline => c::r_rich_text_editor_set_html((c::Rid)self, (char*)html);
+
+<* The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call. *>
+fn ZString RichTextEditor.get_html(self) @inline => (ZString)c::r_rich_text_editor_get_html((c::Rid)self);
+
+<* Replaces the document with plain text: a paragraph per line. Clears the history. *>
+fn void RichTextEditor.set_text(self, ZString text) @inline => c::r_rich_text_editor_set_text((c::Rid)self, (char*)text);
+
+<* The text without its looks, a line per paragraph. Valid until the next call. *>
+fn ZString RichTextEditor.get_text(self) @inline => (ZString)c::r_rich_text_editor_get_text((c::Rid)self);
+
+<* Types plain text in place of the selection, as one step of the history (the changed callback is called). *>
+fn void RichTextEditor.insert_text(self, ZString text) @inline => c::r_rich_text_editor_insert_text((c::Rid)self, (char*)text);
+
+<* Puts HTML in place of the selection, as pasting it would (one step of the history). *>
+fn void RichTextEditor.insert_html(self, ZString html) @inline => c::r_rich_text_editor_insert_html((c::Rid)self, (char*)html);
+
+<* Puts Markdown in place of the selection (one step of the history). *>
+fn void RichTextEditor.insert_markdown(self, ZString markdown) @inline => c::r_rich_text_editor_insert_markdown((c::Rid)self, (char*)markdown);
+
+fn CInt RichTextEditor.get_paragraph_count(self) @inline => c::r_rich_text_editor_get_paragraph_count((c::Rid)self);
+
+<* The text of a paragraph, without its looks. Valid until the next call. *>
+fn ZString RichTextEditor.get_paragraph_text(self, CInt paragraph) @inline => (ZString)c::r_rich_text_editor_get_paragraph_text((c::Rid)self, paragraph);
+
+fn RichTextBlock RichTextEditor.get_paragraph_block(self, CInt paragraph) @inline => (RichTextBlock)c::r_rich_text_editor_get_paragraph_block((c::Rid)self, paragraph);
+
+<* How deep an item of a list is (0: not in another list). *>
+fn CInt RichTextEditor.get_paragraph_indent(self, CInt paragraph) @inline => c::r_rich_text_editor_get_paragraph_indent((c::Rid)self, paragraph);
+
+<* The looks (RRichTextStyle) of the character at `offset` of a paragraph. *>
+fn uint RichTextEditor.get_style_at(self, CInt paragraph, CInt offset) @inline => c::r_rich_text_editor_get_style_at((c::Rid)self, paragraph, offset);
+
+<* Selects from the anchor to the caret (equal: no selection, the caret there). *>
+fn void RichTextEditor.set_selection(self, CInt anchor_paragraph, CInt anchor_offset, CInt caret_paragraph, CInt caret_offset) @inline => c::r_rich_text_editor_set_selection((c::Rid)self, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset);
+
+fn void RichTextEditor.get_selection(self, CInt* anchor_paragraph, CInt* anchor_offset, CInt* caret_paragraph, CInt* caret_offset) @inline => c::r_rich_text_editor_get_selection((c::Rid)self, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset);
+
+fn void RichTextEditor.select_all(self) @inline => c::r_rich_text_editor_select_all((c::Rid)self);
+
+<* The selected text, without its looks. Valid until the next call. *>
+fn ZString RichTextEditor.get_selected_text(self) @inline => (ZString)c::r_rich_text_editor_get_selected_text((c::Rid)self);
+
+<*
+ Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+ over the selection; with no selection, for what is typed next at the
+ caret.
+*>
+fn void RichTextEditor.set_style(self, uint style, bool enabled) @inline => c::r_rich_text_editor_set_style((c::Rid)self, style, (CInt)enabled);
+
+<* Turns a look off where all the selection has it, else on (Ctrl+B...). *>
+fn void RichTextEditor.toggle_style(self, uint style) @inline => c::r_rich_text_editor_toggle_style((c::Rid)self, style);
+
+<*
+ The looks the whole selection has (with no selection: those
+ that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+*>
+fn uint RichTextEditor.get_style(self) @inline => c::r_rich_text_editor_get_style((c::Rid)self);
+
+<* Makes the paragraphs of the selection of a kind. Lines of code lose their looks. *>
+fn void RichTextEditor.set_block(self, RichTextBlock block) @inline => c::r_rich_text_editor_set_block((c::Rid)self, (c::RRichTextBlock)block);
+
+<* The kind of the paragraph of the caret. *>
+fn RichTextBlock RichTextEditor.get_block(self) @inline => (RichTextBlock)c::r_rich_text_editor_get_block((c::Rid)self);
+
+<* Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab). *>
+fn void RichTextEditor.indent(self, CInt levels) @inline => c::r_rich_text_editor_indent((c::Rid)self, levels);
+
+<*
+ Makes the selection a link to `url` (NULL or "": no link any
+ more). With no selection: the link the caret is in; outside of any, the
+ address is typed as a link.
+*>
+fn void RichTextEditor.set_link(self, ZString url) @inline => c::r_rich_text_editor_set_link((c::Rid)self, (char*)url);
+
+<* The address of the link at the caret (or at the start of the selection), NULL when there is none. *>
+fn ZString RichTextEditor.get_link(self) @inline => (ZString)c::r_rich_text_editor_get_link((c::Rid)self);
+
+<* Opens the bar where the address of the link of the selection is typed (Ctrl+K). *>
+fn void RichTextEditor.edit_link(self) @inline => c::r_rich_text_editor_edit_link((c::Rid)self);
+
+fn CInt RichTextEditor.undo(self) @inline => c::r_rich_text_editor_undo((c::Rid)self);
+
+fn CInt RichTextEditor.redo(self) @inline => c::r_rich_text_editor_redo((c::Rid)self);
+
+fn bool RichTextEditor.can_undo(self) @inline => c::r_rich_text_editor_can_undo((c::Rid)self) != 0;
+
+fn bool RichTextEditor.can_redo(self) @inline => c::r_rich_text_editor_can_redo((c::Rid)self) != 0;
+
+fn void RichTextEditor.clear_history(self) @inline => c::r_rich_text_editor_clear_history((c::Rid)self);
+
+<* The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly. *>
+fn void RichTextEditor.set_read_only(self, bool read_only) @inline => c::r_rich_text_editor_set_read_only((c::Rid)self, (CInt)read_only);
+
+fn bool RichTextEditor.is_read_only(self) @inline => c::r_rich_text_editor_is_read_only((c::Rid)self) != 0;
+
+<* Text shown while the document is empty. XML: Placeholder. *>
+fn void RichTextEditor.set_placeholder(self, ZString text) @inline => c::r_rich_text_editor_set_placeholder((c::Rid)self, (char*)text);
+
+<* Shows or hides the toolbar (shown by default). XML: Toolbar. *>
+fn void RichTextEditor.set_toolbar(self, bool visible) @inline => c::r_rich_text_editor_set_toolbar((c::Rid)self, (CInt)visible);
+
+fn CInt RichTextEditor.get_toolbar(self) @inline => c::r_rich_text_editor_get_toolbar((c::Rid)self);
+
+<* Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts. *>
+fn void RichTextEditor.set_markdown_shortcuts(self, bool enabled) @inline => c::r_rich_text_editor_set_markdown_shortcuts((c::Rid)self, (CInt)enabled);
+
+<* Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage. *>
+fn void RichTextEditor.set_spell_check(self, bool enabled) @inline => c::r_rich_text_editor_set_spell_check((c::Rid)self, (CInt)enabled);
+
+fn void RichTextEditor.set_spell_language(self, ZString language) @inline => c::r_rich_text_editor_set_spell_language((c::Rid)self, (char*)language);
+
+<* The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize. *>
+fn void RichTextEditor.set_font(self, Id font, float size) @inline => c::r_rich_text_editor_set_font((c::Rid)self, (c::Rid)font, size);
+
+<* Scrolls so that the caret is seen. *>
+fn void RichTextEditor.scroll_to_caret(self) @inline => c::r_rich_text_editor_scroll_to_caret((c::Rid)self);
+
+fn void RichTextEditor.set_changed_callback(self, RichTextChangedCallback callback, void* user_data) @inline => c::r_rich_text_editor_set_changed_callback((c::Rid)self, (c::RRichTextChangedCallback)callback, user_data);
+
+<* Called when the selection or the caret moved (to update a toolbar of the application). *>
+fn void RichTextEditor.set_selection_callback(self, RichTextChangedCallback callback, void* user_data) @inline => c::r_rich_text_editor_set_selection_callback((c::Rid)self, (c::RRichTextChangedCallback)callback, user_data);
+
+fn void RichTextEditor.set_link_callback(self, RichTextLinkCallback callback, void* user_data) @inline => c::r_rich_text_editor_set_link_callback((c::Rid)self, (c::RRichTextLinkCallback)callback, user_data);
 
 // ---- Window
 

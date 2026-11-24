@@ -113,6 +113,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 - [x] Diff view: two texts or a patch, unified or side by side, folds,
   words that changed, notes on lines, virtualized.
+- [x] Rich text editor: paragraphs, titles, nested lists, quotes, code;
+  bold, italic, underline, strikethrough, inline code, links; a toolbar;
+  Markdown typed is formatted; Markdown in and out, HTML out and pasted in.
+- [ ] Rich text editor: images, tables, colors of text and highlights, a
+  caret that moves visually in right-to-left text.
 - [x] Table: several selected rows (`SelectionMode="Multiple"`, kept as
   ranges: a million virtual rows cost nothing), cells that are edited in place
   (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`), frozen

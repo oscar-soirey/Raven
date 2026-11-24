@@ -672,8 +672,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CAROUSEL: 566,
 	R_WIDGET_SYSTEM_WEB_VIEW: 567,
 	R_WIDGET_DIFF_VIEW: 568,
+	R_WIDGET_RICH_TEXT_EDITOR: 569,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW, R_WIDGET_RICH_TEXT_EDITOR } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -960,6 +961,28 @@ export const RMarkerKind = _enum({
 	R_MARKER_INFO: 850,
 });
 export const { R_MARKER_ERROR, R_MARKER_WARNING, R_MARKER_INFO } = RMarkerKind;
+
+export const RRichTextStyle = _enum({
+	R_RICH_TEXT_BOLD: 1,
+	R_RICH_TEXT_ITALIC: 2,
+	R_RICH_TEXT_UNDERLINE: 4,
+	R_RICH_TEXT_STRIKETHROUGH: 8,
+	R_RICH_TEXT_CODE: 16,
+	R_RICH_TEXT_LINK: 32,
+});
+export const { R_RICH_TEXT_BOLD, R_RICH_TEXT_ITALIC, R_RICH_TEXT_UNDERLINE, R_RICH_TEXT_STRIKETHROUGH, R_RICH_TEXT_CODE, R_RICH_TEXT_LINK } = RRichTextStyle;
+
+export const RRichTextBlock = _enum({
+	R_RICH_TEXT_PARAGRAPH: 3264,
+	R_RICH_TEXT_HEADING_1: 3265,
+	R_RICH_TEXT_HEADING_2: 3266,
+	R_RICH_TEXT_HEADING_3: 3267,
+	R_RICH_TEXT_BULLET_LIST: 3268,
+	R_RICH_TEXT_NUMBERED_LIST: 3269,
+	R_RICH_TEXT_QUOTE: 3270,
+	R_RICH_TEXT_CODE_BLOCK: 3271,
+});
+export const { R_RICH_TEXT_PARAGRAPH, R_RICH_TEXT_HEADING_1, R_RICH_TEXT_HEADING_2, R_RICH_TEXT_HEADING_3, R_RICH_TEXT_BULLET_LIST, R_RICH_TEXT_NUMBERED_LIST, R_RICH_TEXT_QUOTE, R_RICH_TEXT_CODE_BLOCK } = RRichTextBlock;
 
 export const RHeaderButtons = _enum({
 	R_HEADER_NO_BUTTONS: 0,
@@ -5023,6 +5046,52 @@ export const Rtheme_set_token_color = _lib.Rtheme_set_token_color;
 export const Rtheme_get_token_color = _lib.Rtheme_get_token_color;
 export const Rtheme_clear_token_colors = _lib.Rtheme_clear_token_colors;
 export const Rtext_editor_set_changed_callback = _lib.Rtext_editor_set_changed_callback;
+export const Rrich_text_editor_create = _lib.Rrich_text_editor_create;
+export const Rrich_text_editor_set_markdown = _lib.Rrich_text_editor_set_markdown;
+export const Rrich_text_editor_get_markdown = _lib.Rrich_text_editor_get_markdown;
+export const Rrich_text_editor_set_html = _lib.Rrich_text_editor_set_html;
+export const Rrich_text_editor_get_html = _lib.Rrich_text_editor_get_html;
+export const Rrich_text_editor_set_text = _lib.Rrich_text_editor_set_text;
+export const Rrich_text_editor_get_text = _lib.Rrich_text_editor_get_text;
+export const Rrich_text_editor_insert_text = _lib.Rrich_text_editor_insert_text;
+export const Rrich_text_editor_insert_html = _lib.Rrich_text_editor_insert_html;
+export const Rrich_text_editor_insert_markdown = _lib.Rrich_text_editor_insert_markdown;
+export const Rrich_text_editor_get_paragraph_count = _lib.Rrich_text_editor_get_paragraph_count;
+export const Rrich_text_editor_get_paragraph_text = _lib.Rrich_text_editor_get_paragraph_text;
+export const Rrich_text_editor_get_paragraph_block = _lib.Rrich_text_editor_get_paragraph_block;
+export const Rrich_text_editor_get_paragraph_indent = _lib.Rrich_text_editor_get_paragraph_indent;
+export const Rrich_text_editor_get_style_at = _lib.Rrich_text_editor_get_style_at;
+export const Rrich_text_editor_set_selection = _lib.Rrich_text_editor_set_selection;
+export const Rrich_text_editor_get_selection = _lib.Rrich_text_editor_get_selection;
+export const Rrich_text_editor_select_all = _lib.Rrich_text_editor_select_all;
+export const Rrich_text_editor_get_selected_text = _lib.Rrich_text_editor_get_selected_text;
+export const Rrich_text_editor_set_style = _lib.Rrich_text_editor_set_style;
+export const Rrich_text_editor_toggle_style = _lib.Rrich_text_editor_toggle_style;
+export const Rrich_text_editor_get_style = _lib.Rrich_text_editor_get_style;
+export const Rrich_text_editor_set_block = _lib.Rrich_text_editor_set_block;
+export const Rrich_text_editor_get_block = _lib.Rrich_text_editor_get_block;
+export const Rrich_text_editor_indent = _lib.Rrich_text_editor_indent;
+export const Rrich_text_editor_set_link = _lib.Rrich_text_editor_set_link;
+export const Rrich_text_editor_get_link = _lib.Rrich_text_editor_get_link;
+export const Rrich_text_editor_edit_link = _lib.Rrich_text_editor_edit_link;
+export const Rrich_text_editor_undo = _lib.Rrich_text_editor_undo;
+export const Rrich_text_editor_redo = _lib.Rrich_text_editor_redo;
+export const Rrich_text_editor_can_undo = _lib.Rrich_text_editor_can_undo;
+export const Rrich_text_editor_can_redo = _lib.Rrich_text_editor_can_redo;
+export const Rrich_text_editor_clear_history = _lib.Rrich_text_editor_clear_history;
+export const Rrich_text_editor_set_read_only = _lib.Rrich_text_editor_set_read_only;
+export const Rrich_text_editor_is_read_only = _lib.Rrich_text_editor_is_read_only;
+export const Rrich_text_editor_set_placeholder = _lib.Rrich_text_editor_set_placeholder;
+export const Rrich_text_editor_set_toolbar = _lib.Rrich_text_editor_set_toolbar;
+export const Rrich_text_editor_get_toolbar = _lib.Rrich_text_editor_get_toolbar;
+export const Rrich_text_editor_set_markdown_shortcuts = _lib.Rrich_text_editor_set_markdown_shortcuts;
+export const Rrich_text_editor_set_spell_check = _lib.Rrich_text_editor_set_spell_check;
+export const Rrich_text_editor_set_spell_language = _lib.Rrich_text_editor_set_spell_language;
+export const Rrich_text_editor_set_font = _lib.Rrich_text_editor_set_font;
+export const Rrich_text_editor_scroll_to_caret = _lib.Rrich_text_editor_scroll_to_caret;
+export const Rrich_text_editor_set_changed_callback = _lib.Rrich_text_editor_set_changed_callback;
+export const Rrich_text_editor_set_selection_callback = _lib.Rrich_text_editor_set_selection_callback;
+export const Rrich_text_editor_set_link_callback = _lib.Rrich_text_editor_set_link_callback;
 export const Rheader_bar_create = _lib.Rheader_bar_create;
 export const Rheader_bar_set_title = _lib.Rheader_bar_set_title;
 export const Rheader_bar_set_buttons = _lib.Rheader_bar_set_buttons;

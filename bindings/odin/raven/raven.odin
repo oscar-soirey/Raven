@@ -754,6 +754,8 @@ R_WIDGET_CAROUSEL :: 0x0236
 R_WIDGET_SYSTEM_WEB_VIEW :: 0x0237
 // The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 R_WIDGET_DIFF_VIEW :: 0x0238
+// Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
+R_WIDGET_RICH_TEXT_EDITOR :: 0x0239
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -1099,6 +1101,31 @@ RMarkerKind :: i32
 R_MARKER_ERROR :: 0x0350
 R_MARKER_WARNING :: 0x0351
 R_MARKER_INFO :: 0x0352
+
+// Looks of text: a bitmask.
+RRichTextStyle :: i32
+R_RICH_TEXT_BOLD :: 1
+R_RICH_TEXT_ITALIC :: 2
+R_RICH_TEXT_UNDERLINE :: 4
+R_RICH_TEXT_STRIKETHROUGH :: 8
+// Inline code: a monospace font on a tile.
+R_RICH_TEXT_CODE :: 0x0010
+// Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+R_RICH_TEXT_LINK :: 0x0020
+
+// Kinds of paragraphs.
+RRichTextBlock :: i32
+R_RICH_TEXT_PARAGRAPH :: 0x0CC0
+R_RICH_TEXT_HEADING_1 :: 0x0CC1
+R_RICH_TEXT_HEADING_2 :: 0x0CC2
+R_RICH_TEXT_HEADING_3 :: 0x0CC3
+// An item of a bulleted list.
+R_RICH_TEXT_BULLET_LIST :: 0x0CC4
+// An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+R_RICH_TEXT_NUMBERED_LIST :: 0x0CC5
+R_RICH_TEXT_QUOTE :: 0x0CC6
+// A line of a block of code: monospace, kept as typed, no looks.
+R_RICH_TEXT_CODE_BLOCK :: 0x0CC7
 
 // Buttons of a header bar.
 RHeaderButtons :: i32
@@ -1696,6 +1723,13 @@ RTextEditorHoverCallback :: #type proc "c" (editor: Rid, line: i32, column: i32,
 // undoing...) or by Rtext_editor_insert_text. The action of the widget
 // (OnChanged in XML) fires at the same time.
 RTextEditorChangedCallback :: #type proc "c" (editor: Rid, user_data: rawptr)
+// Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too.
+RRichTextChangedCallback :: #type proc "c" (editor: Rid, user_data: rawptr)
+// Called when a link is followed: Ctrl+click (Cmd+click), or a
+// click when the editor is read-only. Without a callback, a link
+// written action:name fires the action "name" and http, https and mailto
+// links open in the browser (Ropen_url).
+RRichTextLinkCallback :: #type proc "c" (editor: Rid, url: cstring, user_data: rawptr)
 // Called when the tray icon is clicked (Rtray_set_clicked_callback).
 RTrayClickedCallback :: #type proc "c" (tray: Rid, button: RMouseButton, user_data: rawptr)
 // Called when the user closes a panel, before it is deleted.
@@ -4860,6 +4894,88 @@ foreign lib {
 	// Back to the colors Raven picks.
 	Rtheme_clear_token_colors :: proc() ---
 	Rtext_editor_set_changed_callback :: proc(editor: Rid, callback: RTextEditorChangedCallback, user_data: rawptr) ---
+	Rrich_text_editor_create :: proc() -> Rid ---
+	// Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown.
+	Rrich_text_editor_set_markdown :: proc(editor: Rid, markdown: cstring) ---
+	// The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+	Rrich_text_editor_get_markdown :: proc(editor: Rid) -> cstring ---
+	// Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+	Rrich_text_editor_set_html :: proc(editor: Rid, html: cstring) ---
+	// The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+	Rrich_text_editor_get_html :: proc(editor: Rid) -> cstring ---
+	// Replaces the document with plain text: a paragraph per line. Clears the history.
+	Rrich_text_editor_set_text :: proc(editor: Rid, text: cstring) ---
+	// The text without its looks, a line per paragraph. Valid until the next call.
+	Rrich_text_editor_get_text :: proc(editor: Rid) -> cstring ---
+	// Types plain text in place of the selection, as one step of the history (the changed callback is called).
+	Rrich_text_editor_insert_text :: proc(editor: Rid, text: cstring) ---
+	// Puts HTML in place of the selection, as pasting it would (one step of the history).
+	Rrich_text_editor_insert_html :: proc(editor: Rid, html: cstring) ---
+	// Puts Markdown in place of the selection (one step of the history).
+	Rrich_text_editor_insert_markdown :: proc(editor: Rid, markdown: cstring) ---
+	Rrich_text_editor_get_paragraph_count :: proc(editor: Rid) -> i32 ---
+	// The text of a paragraph, without its looks. Valid until the next call.
+	Rrich_text_editor_get_paragraph_text :: proc(editor: Rid, paragraph: i32) -> cstring ---
+	Rrich_text_editor_get_paragraph_block :: proc(editor: Rid, paragraph: i32) -> RRichTextBlock ---
+	// How deep an item of a list is (0: not in another list).
+	Rrich_text_editor_get_paragraph_indent :: proc(editor: Rid, paragraph: i32) -> i32 ---
+	// The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+	Rrich_text_editor_get_style_at :: proc(editor: Rid, paragraph: i32, offset: i32) -> u32 ---
+	// Selects from the anchor to the caret (equal: no selection, the caret there).
+	Rrich_text_editor_set_selection :: proc(editor: Rid, anchor_paragraph: i32, anchor_offset: i32, caret_paragraph: i32, caret_offset: i32) ---
+	Rrich_text_editor_get_selection :: proc(editor: Rid, anchor_paragraph: ^i32, anchor_offset: ^i32, caret_paragraph: ^i32, caret_offset: ^i32) ---
+	Rrich_text_editor_select_all :: proc(editor: Rid) ---
+	// The selected text, without its looks. Valid until the next call.
+	Rrich_text_editor_get_selected_text :: proc(editor: Rid) -> cstring ---
+	// Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+	// over the selection; with no selection, for what is typed next at the
+	// caret.
+	Rrich_text_editor_set_style :: proc(editor: Rid, style: u32, enabled: i32) ---
+	// Turns a look off where all the selection has it, else on (Ctrl+B...).
+	Rrich_text_editor_toggle_style :: proc(editor: Rid, style: u32) ---
+	// The looks the whole selection has (with no selection: those
+	// that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+	Rrich_text_editor_get_style :: proc(editor: Rid) -> u32 ---
+	// Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+	Rrich_text_editor_set_block :: proc(editor: Rid, block: RRichTextBlock) ---
+	// The kind of the paragraph of the caret.
+	Rrich_text_editor_get_block :: proc(editor: Rid) -> RRichTextBlock ---
+	// Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+	Rrich_text_editor_indent :: proc(editor: Rid, levels: i32) ---
+	// Makes the selection a link to `url` (NULL or "": no link any
+	// more). With no selection: the link the caret is in; outside of any, the
+	// address is typed as a link.
+	Rrich_text_editor_set_link :: proc(editor: Rid, url: cstring) ---
+	// The address of the link at the caret (or at the start of the selection), NULL when there is none.
+	Rrich_text_editor_get_link :: proc(editor: Rid) -> cstring ---
+	// Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+	Rrich_text_editor_edit_link :: proc(editor: Rid) ---
+	Rrich_text_editor_undo :: proc(editor: Rid) -> i32 ---
+	Rrich_text_editor_redo :: proc(editor: Rid) -> i32 ---
+	Rrich_text_editor_can_undo :: proc(editor: Rid) -> i32 ---
+	Rrich_text_editor_can_redo :: proc(editor: Rid) -> i32 ---
+	Rrich_text_editor_clear_history :: proc(editor: Rid) ---
+	// The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+	Rrich_text_editor_set_read_only :: proc(editor: Rid, read_only: i32) ---
+	Rrich_text_editor_is_read_only :: proc(editor: Rid) -> i32 ---
+	// Text shown while the document is empty. XML: Placeholder.
+	Rrich_text_editor_set_placeholder :: proc(editor: Rid, text: cstring) ---
+	// Shows or hides the toolbar (shown by default). XML: Toolbar.
+	Rrich_text_editor_set_toolbar :: proc(editor: Rid, visible: i32) ---
+	Rrich_text_editor_get_toolbar :: proc(editor: Rid) -> i32 ---
+	// Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+	Rrich_text_editor_set_markdown_shortcuts :: proc(editor: Rid, enabled: i32) ---
+	// Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+	Rrich_text_editor_set_spell_check :: proc(editor: Rid, enabled: i32) ---
+	Rrich_text_editor_set_spell_language :: proc(editor: Rid, language: cstring) ---
+	// The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+	Rrich_text_editor_set_font :: proc(editor: Rid, font: Rid, size: f32) ---
+	// Scrolls so that the caret is seen.
+	Rrich_text_editor_scroll_to_caret :: proc(editor: Rid) ---
+	Rrich_text_editor_set_changed_callback :: proc(editor: Rid, callback: RRichTextChangedCallback, user_data: rawptr) ---
+	// Called when the selection or the caret moved (to update a toolbar of the application).
+	Rrich_text_editor_set_selection_callback :: proc(editor: Rid, callback: RRichTextChangedCallback, user_data: rawptr) ---
+	Rrich_text_editor_set_link_callback :: proc(editor: Rid, callback: RRichTextLinkCallback, user_data: rawptr) ---
 	// title Text shown in the bar; NULL shows the title of the window.
 	Rheader_bar_create :: proc(title: cstring) -> Rid ---
 	// title NULL shows the title of the window.

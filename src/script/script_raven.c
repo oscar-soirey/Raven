@@ -531,6 +531,7 @@ static rs_call_status rvn_script_ui(const char* name, const rs_value* args, int 
 			case R_WIDGET_LABEL: text = Rlabel_get_text(id); break;
 			case R_WIDGET_TEXT_INPUT: text = Rtext_input_get_text(id); break;
 			case R_WIDGET_TEXT_EDITOR: text = Rtext_editor_get_text(id); break;
+			case R_WIDGET_RICH_TEXT_EDITOR: text = Rrich_text_editor_get_text(id); break;
 			case R_WIDGET_CHECKBOX: text = Rcheckbox_get_text(id); break;
 			case R_WIDGET_MENU_ITEM: text = Rmenu_item_get_text(id); break;
 			case R_WIDGET_EXPANDER: text = Rexpander_get_title(id); break;

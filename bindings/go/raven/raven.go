@@ -654,63 +654,64 @@ const (
 type RWidgetType int32
 
 const (
-	R_WIDGET_VBOX            RWidgetType = 0x0200
-	R_WIDGET_HBOX            RWidgetType = 0x0201
-	R_WIDGET_GRID            RWidgetType = 0x0202
-	R_WIDGET_UNIFORM_GRID    RWidgetType = 0x0203
-	R_WIDGET_OVERLAY         RWidgetType = 0x0204
-	R_WIDGET_BORDER          RWidgetType = 0x0205
-	R_WIDGET_SIZE_BOX        RWidgetType = 0x0206
-	R_WIDGET_SPACER          RWidgetType = 0x0207
-	R_WIDGET_SCROLL_BOX      RWidgetType = 0x0208
-	R_WIDGET_SPLITTER        RWidgetType = 0x0209
-	R_WIDGET_WRAP_BOX        RWidgetType = 0x020A
-	R_WIDGET_CANVAS          RWidgetType = 0x020B
-	R_WIDGET_SWITCHER        RWidgetType = 0x020C
-	R_WIDGET_TAB_VIEW        RWidgetType = 0x020D
-	R_WIDGET_EXPANDER        RWidgetType = 0x020E
-	R_WIDGET_LABEL           RWidgetType = 0x020F
-	R_WIDGET_BUTTON          RWidgetType = 0x0210
-	R_WIDGET_CHECKBOX        RWidgetType = 0x0211
-	R_WIDGET_SLIDER          RWidgetType = 0x0212
-	R_WIDGET_PROGRESSBAR     RWidgetType = 0x0213
-	R_WIDGET_IMAGE           RWidgetType = 0x0214
-	R_WIDGET_TEXT_INPUT      RWidgetType = 0x0215
-	R_WIDGET_SPIN_BOX        RWidgetType = 0x0216
-	R_WIDGET_COMBO_BOX       RWidgetType = 0x0217
-	R_WIDGET_SEPARATOR       RWidgetType = 0x0218
-	R_WIDGET_LIST_VIEW       RWidgetType = 0x0219
-	R_WIDGET_TREE_VIEW       RWidgetType = 0x021A
-	R_WIDGET_MENU_BAR        RWidgetType = 0x021B
-	R_WIDGET_MENU            RWidgetType = 0x021C
-	R_WIDGET_MENU_ITEM       RWidgetType = 0x021D
-	R_WIDGET_VIEWPORT        RWidgetType = 0x021E
-	R_WIDGET_CUSTOM          RWidgetType = 0x021F
-	R_WIDGET_TEXT_EDITOR     RWidgetType = 0x0220
-	R_WIDGET_HEADER_BAR      RWidgetType = 0x0221
-	R_WIDGET_DOCK_AREA       RWidgetType = 0x0222
-	R_WIDGET_ISLAND          RWidgetType = 0x0223
-	R_WIDGET_FILE_BROWSER    RWidgetType = 0x0224
-	R_WIDGET_BACKGROUND_BLUR RWidgetType = 0x0225
-	R_WIDGET_COLOR_PICKER    RWidgetType = 0x0226
-	R_WIDGET_TIMELINE        RWidgetType = 0x0227
-	R_WIDGET_NODE_GRAPH      RWidgetType = 0x0228
-	R_WIDGET_TILE_VIEW       RWidgetType = 0x0229
-	R_WIDGET_BLOCK_EDITOR    RWidgetType = 0x022A
-	R_WIDGET_TABLE           RWidgetType = 0x022B
-	R_WIDGET_DATE_PICKER     RWidgetType = 0x022C
-	R_WIDGET_TIME_PICKER     RWidgetType = 0x022D
-	R_WIDGET_TOAST           RWidgetType = 0x022E
-	R_WIDGET_BREADCRUMB      RWidgetType = 0x022F
-	R_WIDGET_RATING          RWidgetType = 0x0230
-	R_WIDGET_PAGINATION      RWidgetType = 0x0231
-	R_WIDGET_PLOT            RWidgetType = 0x0232
-	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
-	R_WIDGET_CHART           RWidgetType = 0x0234
-	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
-	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
-	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
-	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0238
+	R_WIDGET_VBOX             RWidgetType = 0x0200
+	R_WIDGET_HBOX             RWidgetType = 0x0201
+	R_WIDGET_GRID             RWidgetType = 0x0202
+	R_WIDGET_UNIFORM_GRID     RWidgetType = 0x0203
+	R_WIDGET_OVERLAY          RWidgetType = 0x0204
+	R_WIDGET_BORDER           RWidgetType = 0x0205
+	R_WIDGET_SIZE_BOX         RWidgetType = 0x0206
+	R_WIDGET_SPACER           RWidgetType = 0x0207
+	R_WIDGET_SCROLL_BOX       RWidgetType = 0x0208
+	R_WIDGET_SPLITTER         RWidgetType = 0x0209
+	R_WIDGET_WRAP_BOX         RWidgetType = 0x020A
+	R_WIDGET_CANVAS           RWidgetType = 0x020B
+	R_WIDGET_SWITCHER         RWidgetType = 0x020C
+	R_WIDGET_TAB_VIEW         RWidgetType = 0x020D
+	R_WIDGET_EXPANDER         RWidgetType = 0x020E
+	R_WIDGET_LABEL            RWidgetType = 0x020F
+	R_WIDGET_BUTTON           RWidgetType = 0x0210
+	R_WIDGET_CHECKBOX         RWidgetType = 0x0211
+	R_WIDGET_SLIDER           RWidgetType = 0x0212
+	R_WIDGET_PROGRESSBAR      RWidgetType = 0x0213
+	R_WIDGET_IMAGE            RWidgetType = 0x0214
+	R_WIDGET_TEXT_INPUT       RWidgetType = 0x0215
+	R_WIDGET_SPIN_BOX         RWidgetType = 0x0216
+	R_WIDGET_COMBO_BOX        RWidgetType = 0x0217
+	R_WIDGET_SEPARATOR        RWidgetType = 0x0218
+	R_WIDGET_LIST_VIEW        RWidgetType = 0x0219
+	R_WIDGET_TREE_VIEW        RWidgetType = 0x021A
+	R_WIDGET_MENU_BAR         RWidgetType = 0x021B
+	R_WIDGET_MENU             RWidgetType = 0x021C
+	R_WIDGET_MENU_ITEM        RWidgetType = 0x021D
+	R_WIDGET_VIEWPORT         RWidgetType = 0x021E
+	R_WIDGET_CUSTOM           RWidgetType = 0x021F
+	R_WIDGET_TEXT_EDITOR      RWidgetType = 0x0220
+	R_WIDGET_HEADER_BAR       RWidgetType = 0x0221
+	R_WIDGET_DOCK_AREA        RWidgetType = 0x0222
+	R_WIDGET_ISLAND           RWidgetType = 0x0223
+	R_WIDGET_FILE_BROWSER     RWidgetType = 0x0224
+	R_WIDGET_BACKGROUND_BLUR  RWidgetType = 0x0225
+	R_WIDGET_COLOR_PICKER     RWidgetType = 0x0226
+	R_WIDGET_TIMELINE         RWidgetType = 0x0227
+	R_WIDGET_NODE_GRAPH       RWidgetType = 0x0228
+	R_WIDGET_TILE_VIEW        RWidgetType = 0x0229
+	R_WIDGET_BLOCK_EDITOR     RWidgetType = 0x022A
+	R_WIDGET_TABLE            RWidgetType = 0x022B
+	R_WIDGET_DATE_PICKER      RWidgetType = 0x022C
+	R_WIDGET_TIME_PICKER      RWidgetType = 0x022D
+	R_WIDGET_TOAST            RWidgetType = 0x022E
+	R_WIDGET_BREADCRUMB       RWidgetType = 0x022F
+	R_WIDGET_RATING           RWidgetType = 0x0230
+	R_WIDGET_PAGINATION       RWidgetType = 0x0231
+	R_WIDGET_PLOT             RWidgetType = 0x0232
+	R_WIDGET_PDF_VIEW         RWidgetType = 0x0233
+	R_WIDGET_CHART            RWidgetType = 0x0234
+	R_WIDGET_MAP_VIEW         RWidgetType = 0x0235
+	R_WIDGET_CAROUSEL         RWidgetType = 0x0236
+	R_WIDGET_SYSTEM_WEB_VIEW  RWidgetType = 0x0237
+	R_WIDGET_DIFF_VIEW        RWidgetType = 0x0238
+	R_WIDGET_RICH_TEXT_EDITOR RWidgetType = 0x0239
 )
 
 type RHAlign int32
@@ -1057,6 +1058,32 @@ const (
 	R_MARKER_ERROR   RMarkerKind = 0x0350
 	R_MARKER_WARNING RMarkerKind = 0x0351
 	R_MARKER_INFO    RMarkerKind = 0x0352
+)
+
+// RRichTextStyle: Looks of text: a bitmask.
+type RRichTextStyle int32
+
+const (
+	R_RICH_TEXT_BOLD          RRichTextStyle = 1
+	R_RICH_TEXT_ITALIC        RRichTextStyle = 2
+	R_RICH_TEXT_UNDERLINE     RRichTextStyle = 4
+	R_RICH_TEXT_STRIKETHROUGH RRichTextStyle = 8
+	R_RICH_TEXT_CODE          RRichTextStyle = 0x0010
+	R_RICH_TEXT_LINK          RRichTextStyle = 0x0020
+)
+
+// RRichTextBlock: Kinds of paragraphs.
+type RRichTextBlock int32
+
+const (
+	R_RICH_TEXT_PARAGRAPH     RRichTextBlock = 0x0CC0
+	R_RICH_TEXT_HEADING_1     RRichTextBlock = 0x0CC1
+	R_RICH_TEXT_HEADING_2     RRichTextBlock = 0x0CC2
+	R_RICH_TEXT_HEADING_3     RRichTextBlock = 0x0CC3
+	R_RICH_TEXT_BULLET_LIST   RRichTextBlock = 0x0CC4
+	R_RICH_TEXT_NUMBERED_LIST RRichTextBlock = 0x0CC5
+	R_RICH_TEXT_QUOTE         RRichTextBlock = 0x0CC6
+	R_RICH_TEXT_CODE_BLOCK    RRichTextBlock = 0x0CC7
 )
 
 // RHeaderButtons: Buttons of a header bar.
@@ -6586,6 +6613,250 @@ func ThemeClearTokenColors() {
 	C.Rtheme_clear_token_colors()
 }
 
+func RichTextEditorCreate() ID {
+	return ID(C.Rrich_text_editor_create())
+}
+
+// RichTextEditorSetMarkdown: Replaces the document with Markdown (CommonMark: titles, lists, quotes, code,
+// emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown.
+func RichTextEditorSetMarkdown(editor ID, markdown string) {
+	markdown_ := C.CString(markdown)
+	defer C.free(unsafe.Pointer(markdown_))
+	C.Rrich_text_editor_set_markdown(C.Rid(editor), markdown_)
+}
+
+// RichTextEditorGetMarkdown: The document as Markdown; set_markdown gives the same document back. Valid until
+// the next call.
+func RichTextEditorGetMarkdown(editor ID) string {
+	return C.GoString(C.Rrich_text_editor_get_markdown(C.Rid(editor)))
+}
+
+// RichTextEditorSetHtml: Replaces the document with HTML, keeping what it can hold. Clears the history. XML:
+// Html.
+func RichTextEditorSetHtml(editor ID, html string) {
+	html_ := C.CString(html)
+	defer C.free(unsafe.Pointer(html_))
+	C.Rrich_text_editor_set_html(C.Rid(editor), html_)
+}
+
+// RichTextEditorGetHtml: The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong,
+// em, u, s, code, a). Valid until the next call.
+func RichTextEditorGetHtml(editor ID) string {
+	return C.GoString(C.Rrich_text_editor_get_html(C.Rid(editor)))
+}
+
+// RichTextEditorSetText: Replaces the document with plain text: a paragraph per line. Clears the history.
+func RichTextEditorSetText(editor ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rrich_text_editor_set_text(C.Rid(editor), text_)
+}
+
+// RichTextEditorGetText: The text without its looks, a line per paragraph. Valid until the next call.
+func RichTextEditorGetText(editor ID) string {
+	return C.GoString(C.Rrich_text_editor_get_text(C.Rid(editor)))
+}
+
+// RichTextEditorInsertText: Types plain text in place of the selection, as one step of the history (the
+// changed callback is called).
+func RichTextEditorInsertText(editor ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rrich_text_editor_insert_text(C.Rid(editor), text_)
+}
+
+// RichTextEditorInsertHtml: Puts HTML in place of the selection, as pasting it would (one step of the
+// history).
+func RichTextEditorInsertHtml(editor ID, html string) {
+	html_ := C.CString(html)
+	defer C.free(unsafe.Pointer(html_))
+	C.Rrich_text_editor_insert_html(C.Rid(editor), html_)
+}
+
+// RichTextEditorInsertMarkdown: Puts Markdown in place of the selection (one step of the history).
+func RichTextEditorInsertMarkdown(editor ID, markdown string) {
+	markdown_ := C.CString(markdown)
+	defer C.free(unsafe.Pointer(markdown_))
+	C.Rrich_text_editor_insert_markdown(C.Rid(editor), markdown_)
+}
+
+func RichTextEditorGetParagraphCount(editor ID) int {
+	return int(C.Rrich_text_editor_get_paragraph_count(C.Rid(editor)))
+}
+
+// RichTextEditorGetParagraphText: The text of a paragraph, without its looks. Valid until the next call.
+func RichTextEditorGetParagraphText(editor ID, paragraph int) string {
+	return C.GoString(C.Rrich_text_editor_get_paragraph_text(C.Rid(editor), C.int(paragraph)))
+}
+
+func RichTextEditorGetParagraphBlock(editor ID, paragraph int) RRichTextBlock {
+	return RRichTextBlock(C.Rrich_text_editor_get_paragraph_block(C.Rid(editor), C.int(paragraph)))
+}
+
+// RichTextEditorGetParagraphIndent: How deep an item of a list is (0: not in another list).
+func RichTextEditorGetParagraphIndent(editor ID, paragraph int) int {
+	return int(C.Rrich_text_editor_get_paragraph_indent(C.Rid(editor), C.int(paragraph)))
+}
+
+// RichTextEditorGetStyleAt: The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+func RichTextEditorGetStyleAt(editor ID, paragraph int, offset int) uint32 {
+	return uint32(C.Rrich_text_editor_get_style_at(C.Rid(editor), C.int(paragraph), C.int(offset)))
+}
+
+// RichTextEditorSetSelection: Selects from the anchor to the caret (equal: no selection, the caret there).
+func RichTextEditorSetSelection(editor ID, anchor_paragraph int, anchor_offset int, caret_paragraph int, caret_offset int) {
+	C.Rrich_text_editor_set_selection(C.Rid(editor), C.int(anchor_paragraph), C.int(anchor_offset), C.int(caret_paragraph), C.int(caret_offset))
+}
+
+func RichTextEditorGetSelection(editor ID) (anchor_paragraph int, anchor_offset int, caret_paragraph int, caret_offset int) {
+	var anchor_paragraph_ C.int
+	var anchor_offset_ C.int
+	var caret_paragraph_ C.int
+	var caret_offset_ C.int
+	C.Rrich_text_editor_get_selection(C.Rid(editor), &anchor_paragraph_, &anchor_offset_, &caret_paragraph_, &caret_offset_)
+	anchor_paragraph = int(anchor_paragraph_)
+	anchor_offset = int(anchor_offset_)
+	caret_paragraph = int(caret_paragraph_)
+	caret_offset = int(caret_offset_)
+	return
+}
+
+func RichTextEditorSelectAll(editor ID) {
+	C.Rrich_text_editor_select_all(C.Rid(editor))
+}
+
+// RichTextEditorGetSelectedText: The selected text, without its looks. Valid until the next call.
+func RichTextEditorGetSelectedText(editor ID) string {
+	return C.GoString(C.Rrich_text_editor_get_selected_text(C.Rid(editor)))
+}
+
+// RichTextEditorSetStyle: Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off over the selection;
+// with no selection, for what is typed next at the caret.
+func RichTextEditorSetStyle(editor ID, style uint32, enabled int) {
+	C.Rrich_text_editor_set_style(C.Rid(editor), C.Ruint(style), C.int(enabled))
+}
+
+// RichTextEditorToggleStyle: Turns a look off where all the selection has it, else on (Ctrl+B...).
+func RichTextEditorToggleStyle(editor ID, style uint32) {
+	C.Rrich_text_editor_toggle_style(C.Rid(editor), C.Ruint(style))
+}
+
+// RichTextEditorGetStyle: The looks the whole selection has (with no selection: those that what is typed will
+// have), R_RICH_TEXT_LINK when some of it is a link.
+func RichTextEditorGetStyle(editor ID) uint32 {
+	return uint32(C.Rrich_text_editor_get_style(C.Rid(editor)))
+}
+
+// RichTextEditorSetBlock: Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+func RichTextEditorSetBlock(editor ID, block RRichTextBlock) {
+	C.Rrich_text_editor_set_block(C.Rid(editor), C.RRichTextBlock(block))
+}
+
+// RichTextEditorGetBlock: The kind of the paragraph of the caret.
+func RichTextEditorGetBlock(editor ID) RRichTextBlock {
+	return RRichTextBlock(C.Rrich_text_editor_get_block(C.Rid(editor)))
+}
+
+// RichTextEditorIndent: Indents (`levels` > 0) or outdents the items of lists of the selection (Tab,
+// Shift+Tab).
+func RichTextEditorIndent(editor ID, levels int) {
+	C.Rrich_text_editor_indent(C.Rid(editor), C.int(levels))
+}
+
+// RichTextEditorSetLink: Makes the selection a link to `url` (NULL or "": no link any more). With no
+// selection: the link the caret is in; outside of any, the address is typed as a link.
+func RichTextEditorSetLink(editor ID, url string) {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	C.Rrich_text_editor_set_link(C.Rid(editor), url_)
+}
+
+// RichTextEditorGetLink: The address of the link at the caret (or at the start of the selection), NULL when
+// there is none.
+func RichTextEditorGetLink(editor ID) string {
+	return C.GoString(C.Rrich_text_editor_get_link(C.Rid(editor)))
+}
+
+// RichTextEditorEditLink: Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+func RichTextEditorEditLink(editor ID) {
+	C.Rrich_text_editor_edit_link(C.Rid(editor))
+}
+
+func RichTextEditorUndo(editor ID) int {
+	return int(C.Rrich_text_editor_undo(C.Rid(editor)))
+}
+
+func RichTextEditorRedo(editor ID) int {
+	return int(C.Rrich_text_editor_redo(C.Rid(editor)))
+}
+
+func RichTextEditorCanUndo(editor ID) int {
+	return int(C.Rrich_text_editor_can_undo(C.Rid(editor)))
+}
+
+func RichTextEditorCanRedo(editor ID) int {
+	return int(C.Rrich_text_editor_can_redo(C.Rid(editor)))
+}
+
+func RichTextEditorClearHistory(editor ID) {
+	C.Rrich_text_editor_clear_history(C.Rid(editor))
+}
+
+// RichTextEditorSetReadOnly: The text can be selected and copied, not changed; links follow on a plain click.
+// XML: ReadOnly.
+func RichTextEditorSetReadOnly(editor ID, read_only int) {
+	C.Rrich_text_editor_set_read_only(C.Rid(editor), C.int(read_only))
+}
+
+func RichTextEditorIsReadOnly(editor ID) int {
+	return int(C.Rrich_text_editor_is_read_only(C.Rid(editor)))
+}
+
+// RichTextEditorSetPlaceholder: Text shown while the document is empty. XML: Placeholder.
+func RichTextEditorSetPlaceholder(editor ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rrich_text_editor_set_placeholder(C.Rid(editor), text_)
+}
+
+// RichTextEditorSetToolbar: Shows or hides the toolbar (shown by default). XML: Toolbar.
+func RichTextEditorSetToolbar(editor ID, visible int) {
+	C.Rrich_text_editor_set_toolbar(C.Rid(editor), C.int(visible))
+}
+
+func RichTextEditorGetToolbar(editor ID) int {
+	return int(C.Rrich_text_editor_get_toolbar(C.Rid(editor)))
+}
+
+// RichTextEditorSetMarkdownShortcuts: Formats what is typed as Markdown ("# ", "- ", **bold**...), on by
+// default. XML: MarkdownShortcuts.
+func RichTextEditorSetMarkdownShortcuts(editor ID, enabled int) {
+	C.Rrich_text_editor_set_markdown_shortcuts(C.Rid(editor), C.int(enabled))
+}
+
+// RichTextEditorSetSpellCheck: Underlines the misspelled words (off by default; widgets/spelling.c, as
+// TextEditor). XML: SpellCheck, SpellLanguage.
+func RichTextEditorSetSpellCheck(editor ID, enabled int) {
+	C.Rrich_text_editor_set_spell_check(C.Rid(editor), C.int(enabled))
+}
+
+func RichTextEditorSetSpellLanguage(editor ID, language string) {
+	language_ := C.CString(language)
+	defer C.free(unsafe.Pointer(language_))
+	C.Rrich_text_editor_set_spell_language(C.Rid(editor), language_)
+}
+
+// RichTextEditorSetFont: The font of the text (titles are made from it, code is in the monospace font) and
+// its size (0: the theme's). XML: Font, TextSize.
+func RichTextEditorSetFont(editor ID, font ID, size float32) {
+	C.Rrich_text_editor_set_font(C.Rid(editor), C.Rid(font), C.float(size))
+}
+
+// RichTextEditorScrollToCaret: Scrolls so that the caret is seen.
+func RichTextEditorScrollToCaret(editor ID) {
+	C.Rrich_text_editor_scroll_to_caret(C.Rid(editor))
+}
+
 // HeaderBarCreate: title Text shown in the bar; NULL shows the title of the window.
 func HeaderBarCreate(title string) ID {
 	title_ := C.CString(title)
@@ -9572,28 +9843,30 @@ func TestGetScriptError() string {
 // Rsystem_web_view_set_event_callback, Rsystem_web_view_get_native_handle, Rpdf_document_draw_image
 // Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_float_window, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdiff_unified
-// Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc
-// Rnotification_set_callback, Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async
-// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line
-// Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rrich_text_editor_set_changed_callback
+// Rrich_text_editor_set_selection_callback, Rrich_text_editor_set_link_callback
+// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdiff_unified, Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open
+// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
+// Rnotification_set_clicked_callback, Rnotification_show_desc, Rnotification_set_callback
+// Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async, Rfile_select_folder_async
+// Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
+// Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image
+// Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
+// Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
+// Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
 // Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
 // Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rhost_service_complete

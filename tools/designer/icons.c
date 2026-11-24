@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL, G_GLOBE, G_DIFF
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL, G_GLOBE, G_DIFF, G_RICH
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -74,7 +74,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "DatePicker", FAMILY_CONTROL, G_CALENDAR }, { "TimePicker", FAMILY_CONTROL, G_CLOCK }, { "Rating", FAMILY_CONTROL, G_STAR },
 	/* text and pictures */
 	{ "Label", FAMILY_TEXT, G_TEXT }, { "Image", FAMILY_TEXT, G_PICTURE }, { "TextEditor", FAMILY_TEXT, G_LINES },
-	{ "DiffView", FAMILY_TEXT, G_DIFF },
+	{ "RichTextEditor", FAMILY_TEXT, G_RICH }, { "DiffView", FAMILY_TEXT, G_DIFF },
 	{ "Separator", FAMILY_TEXT, G_LINE }, { "Viewport", FAMILY_TEXT, G_VIEWPORT }, { "Custom", FAMILY_TEXT, G_SPARK },
 	/* lists and data */
 	{ "ListView", FAMILY_DATA, G_LIST }, { "TreeView", FAMILY_DATA, G_TREE }, { "TileView", FAMILY_DATA, G_TILES },
@@ -331,6 +331,12 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 		case G_LINES:
 			line(c, 8, 9, 24, 9, STROKE, 1); line(c, 8, 13.5f, 20, 13.5f, STROKE, 0.8f); line(c, 8, 18, 24, 18, STROKE, 0.8f);
 			line(c, 8, 22.5f, 16, 22.5f, STROKE, 0.6f);
+			break;
+		case G_RICH:
+			/* a title, a line of text, a bulleted list */
+			line(c, 7, 8.5f, 23, 8.5f, 3.4f, 1); line(c, 7, 14, 25, 14, STROKE, 0.7f);
+			disc(c, 8.5f, 19.5f, 1.7f, 0.9f); line(c, 12.5f, 19.5f, 24, 19.5f, STROKE, 0.8f);
+			disc(c, 8.5f, 24.5f, 1.7f, 0.9f); line(c, 12.5f, 24.5f, 20, 24.5f, STROKE, 0.6f);
 			break;
 		case G_LIST:
 			disc(c, 9.5f, 10, 1.8f, 1); disc(c, 9.5f, 16, 1.8f, 1); disc(c, 9.5f, 22, 1.8f, 1);

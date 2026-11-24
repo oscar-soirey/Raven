@@ -1715,7 +1715,8 @@ static void rvn_wl_ti_content_type(const rvn_window_t* window, Rid core, uint32_
 	RTextInputInfo info;
 	*hint = ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE;
 	*purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL;
-	if (window && window->focus && window->focus->cls->type == R_WIDGET_TEXT_EDITOR) *hint |= ZWP_TEXT_INPUT_V3_CONTENT_HINT_MULTILINE;
+	if (window && window->focus && (window->focus->cls->type == R_WIDGET_TEXT_EDITOR || window->focus->cls->type == R_WIDGET_RICH_TEXT_EDITOR))
+		*hint |= ZWP_TEXT_INPUT_V3_CONTENT_HINT_MULTILINE;
 	if (window && window->focus && window->focus->cls->type == R_WIDGET_SPIN_BOX) *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NUMBER;
 	if (!Rwindow_get_text_input_info(core, &info)) return;
 	if (info.password) {

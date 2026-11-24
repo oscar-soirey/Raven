@@ -399,7 +399,7 @@ static int rvn_window_focus_takes_text(const rvn_window_t* window) {
 	RWidgetType type;
 	if (!window->focus || (window->focus->flags & RVN_WF_DEAD)) return R_FALSE;
 	type = window->focus->cls->type;
-	return type == R_WIDGET_TEXT_INPUT || type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_SPIN_BOX;
+	return type == R_WIDGET_TEXT_INPUT || type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_RICH_TEXT_EDITOR || type == R_WIDGET_SPIN_BOX;
 }
 
 void rvn_window_reveal_focus(rvn_window_t* window) {
