@@ -1,0 +1,28 @@
+<!-- A video with its controls, a playlist and the sounds of an interface. main.c follows the player and plays the next item at the end. -->
+<Window Title="Raven media player" Width="960" Height="580">
+	<HBox>
+		<VBox Name="stage" Spacing="12" Slot.Padding="18" Slot.Fill="1">
+			<VBox Name="heading" Spacing="2">
+				<Label Name="title" Text="Test pattern" TextSize="24"/>
+				<Label Name="status" Text="" Opacity="0.6"/>
+			</VBox>
+			<VideoView Name="video" Source="media/clip.mp4" Controls="true" AutoPlay="true"
+				OnChanged="media.changed" Slot.Fill="1"/>
+			<Label Name="keys" Text="Space: play / pause  -  Left / Right: 5 seconds  -  M: sound off  -  F: full screen" Opacity="0.5"/>
+		</VBox>
+		<VBox Name="side" Spacing="10" Width="260" Slot.Padding="0,18,18,18">
+			<Label Text="Playlist" TextSize="16"/>
+			<ListView Name="playlist" Height="132"/>
+			<Checkbox Name="repeat" Text="Repeat the playlist" Style="Switch" Checked="true" OnChanged="media.repeat"/>
+			<Separator/>
+			<Label Text="Sounds of the interface" TextSize="16"/>
+			<Label Text="Played once with Rsound_play, over the video." Opacity="0.6" Wrap="true"/>
+			<HBox Spacing="8">
+				<Button Name="click" Text="Click" OnClicked="sound.click"/>
+				<Button Name="chime" Text="Chime" OnClicked="sound.chime"/>
+			</HBox>
+			<Spacer Slot.Fill="1"/>
+			<Label Name="backend" Text="" Opacity="0.5" Wrap="true"/>
+		</VBox>
+	</HBox>
+</Window>

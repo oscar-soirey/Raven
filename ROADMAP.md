@@ -155,6 +155,12 @@ is a plan, not a promise: issues and pull requests can change the order.
   (and iOS), WebKit opened at run time.
 - [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
   (`android.webkit.WebView`).
+- [x] Video and sound with the media framework of the system: `VideoView`
+  (controls, keyboard, screen readers), media players and `Rsound_play`, on
+  AVFoundation (macOS, iOS), Media Foundation (Windows) and GStreamer (Linux),
+  each loaded at run time.
+- [ ] Video and sound in the browser (an HTML `<video>`) and on Android
+  (`MediaPlayer`); pictures drawn without a copy (IOSurface on Metal).
 
 ### Rendering
 
