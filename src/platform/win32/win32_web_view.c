@@ -413,11 +413,27 @@ static void rvn_wv2_view_release(rvn_pweb_view_t* view) {
 static void rvn_wv2_post_drain(void) {
 	if (g_wv2.drain_posted || !g_wv2.hidden) return;
 	if (PostMessageW(g_wv2.hidden, RVN_WV2_DRAIN, 0, 0)) g_wv2.drain_posted = 1;
+	else rvn_wv2_log("PostMessage to the hidden window failed (error %lu)", (unsigned long)GetLastError());
+}
+
+static const char* rvn_wv2_event_name(rvn_pweb_event_type_t type) {
+	switch (type) {
+		case RVN_PWEB_URL: return "url";
+		case RVN_PWEB_TITLE: return "title";
+		case RVN_PWEB_LOADING: return "loading";
+		case RVN_PWEB_LOADED: return "loaded";
+		case RVN_PWEB_FAILED: return "failed";
+		case RVN_PWEB_MESSAGE: return "message";
+		case RVN_PWEB_RESULT: return "result";
+		default: return "?";
+	}
 }
 
 static void rvn_wv2_send(rvn_pweb_view_t* view, rvn_pweb_event_type_t type, const char* text, const char* error, uint64_t request) {
 	rvn_wv2_event_t* event;
 	if (!view || view->closed) return;
+	rvn_wv2_log("view %p: queued %s%s%.120s%s%.120s (request %lu)", (void*)view, rvn_wv2_event_name(type), text ? " text=" : "",
+		text ? text : "", error ? " error=" : "", error ? error : "", (unsigned long)request);
 	event = (rvn_wv2_event_t*)rvn_calloc(sizeof(rvn_wv2_event_t));
 	event->view = view;
 	event->user = view->user;
@@ -460,6 +476,7 @@ static void rvn_wv2_drain(void) {
 	rvn_wv2_event_t* last = g_wv2.tail;
 	g_wv2.drain_posted = 0;
 	if (g_wv2.busy) {
+		rvn_wv2_log("drain while the core calls a view: later");
 		g_wv2.drain_missed = 1;
 		return;
 	}
@@ -476,6 +493,7 @@ static void rvn_wv2_drain(void) {
 		told.error = event->error;
 		told.request = event->request;
 		/* (the callbacks may destroy views: their events are taken out of the queue) */
+		rvn_wv2_log("view %p: told to the core: %s", (void*)event->view, rvn_wv2_event_name(event->type));
 		rvn_web_view_event(&told);
 		rvn_wv2_free_event(event);
 		if (was_last) break;
@@ -936,6 +954,11 @@ static HRESULT STDMETHODCALLTYPE rvn_wv2_call_invoke(rvn_wv2_string_done_t* self
 	rvn_wv2_call_t* call = (rvn_wv2_call_t*)self;
 	rvn_pweb_view_t* view = call->view;
 	char* text;
+	if (g_wv2.log > 0) {
+		char* told = rvn_wv2_narrow(result);
+		rvn_wv2_log("view %p: ExecuteScript %lu done: 0x%08lX %.160s", (void*)view, (unsigned long)call->request, (unsigned long)error, told);
+		rvn_free(told);
+	}
 	if (view->closed) return S_OK;
 	if (FAILED(error)) {
 		char message[96];
@@ -997,6 +1020,7 @@ static void rvn_wv2_execute(rvn_pweb_view_t* view, const char* script, uint64_t 
 	source = raw ? rvn_strdup(script) : rvn_wv2_wrap(view, script, request);
 	wide = rvn_wv2_widen(source);
 	result = view->core->lpVtbl->ExecuteScript(view->core, wide, &call->iface);
+	rvn_wv2_log("view %p: ExecuteScript %lu%s: 0x%08lX", (void*)view, (unsigned long)request, raw ? " (as it is)" : "", (unsigned long)result);
 	if (FAILED(result)) {
 		char message[96];
 		snprintf(message, sizeof(message), "the script could not run (0x%08lX)", (unsigned long)result);
@@ -1023,6 +1047,15 @@ static void rvn_wv2_forget_html(rvn_pweb_view_t* view) {
 	view->html_expect = 0;
 }
 
+/* The page given as text is forgotten, and so is the filter that served it. */
+static void rvn_wv2_drop_html(rvn_pweb_view_t* view) {
+	if (view->html_filter && view->html_uri && view->core) {
+		view->core->lpVtbl->RemoveWebResourceRequestedFilter(view->core, view->html_uri, RVN_WV2_RESOURCE_DOCUMENT);
+	}
+	view->html_filter = 0;
+	rvn_wv2_forget_html(view);
+}
+
 static void rvn_wv2_navigate_failed(rvn_pweb_view_t* view, HRESULT result, const char* what) {
 	char message[160];
 	rvn_wv2_log("%s: 0x%08lX", what, (unsigned long)result);
@@ -1035,7 +1068,7 @@ static void rvn_wv2_navigate_now(rvn_pweb_view_t* view, const char* url) {
 	WCHAR* wide = rvn_wv2_widen(url);
 	HRESULT result;
 	/* the address of a page given as text is the page from the network again when asked for by itself */
-	if (view->html_uri && _wcsicmp(wide, view->html_uri) == 0) rvn_wv2_forget_html(view);
+	if (view->html_uri && _wcsicmp(wide, view->html_uri) == 0) rvn_wv2_drop_html(view);
 	rvn_wv2_log("Navigate %s", url);
 	result = view->core->lpVtbl->Navigate(view->core, wide);
 	if (FAILED(result)) rvn_wv2_navigate_failed(view, result, "Navigate");
@@ -1047,17 +1080,18 @@ static void rvn_wv2_html_now(rvn_pweb_view_t* view, const char* html, const char
 	HRESULT result;
 	if (base_url && (rvn_wv2_starts_with(base_url, "http://") || rvn_wv2_starts_with(base_url, "https://")) &&
 		g_wv2.memory_stream && g_wv2.environment) {
-		if (!view->html_filter) {
-			/* every document goes through the handler, which serves the one page it knows (its address may be written otherwise by WebView2) */
-			result = view->core->lpVtbl->AddWebResourceRequestedFilter(view->core, L"*", RVN_WV2_RESOURCE_DOCUMENT);
-			rvn_wv2_log("AddWebResourceRequestedFilter: 0x%08lX", (unsigned long)result);
-			view->html_filter = SUCCEEDED(result);
-		}
+		/*
+		 * Only the base address goes through the handler (a filter "*" would
+		 * also take the other documents, files among them, through it).
+		 */
+		rvn_wv2_drop_html(view);
+		view->html_uri = rvn_wv2_widen(base_url);
+		result = view->core->lpVtbl->AddWebResourceRequestedFilter(view->core, view->html_uri, RVN_WV2_RESOURCE_DOCUMENT);
+		rvn_wv2_log("AddWebResourceRequestedFilter %s: 0x%08lX", base_url, (unsigned long)result);
+		view->html_filter = SUCCEEDED(result);
 		if (view->html_filter) {
-			rvn_wv2_forget_html(view);
 			view->html = rvn_strdup(html ? html : "");
 			view->html_size = strlen(view->html);
-			view->html_uri = rvn_wv2_widen(base_url);
 			view->html_expect = 1;
 			rvn_wv2_log("Navigate %s (the page given as text, %u bytes)", base_url, (unsigned)view->html_size);
 			result = view->core->lpVtbl->Navigate(view->core, view->html_uri);
@@ -1067,6 +1101,7 @@ static void rvn_wv2_html_now(rvn_pweb_view_t* view, const char* html, const char
 			}
 			return;
 		}
+		rvn_wv2_forget_html(view);
 	}
 	/* (a base that is not http(s) is not known to NavigateToString: relative addresses do not resolve) */
 	wide = rvn_wv2_widen(html);
@@ -1087,9 +1122,13 @@ static void rvn_wv2_serve(rvn_pweb_view_t* view, rvn_wv2_resource_args_t* args) 
 	rvn_wv2_resource_request_t* request = NULL;
 	LPWSTR uri = NULL;
 	HRESULT result;
-	if (!view->html || !g_wv2.environment || !g_wv2.memory_stream) return;
 	if (FAILED(args->lpVtbl->get_Request(args, &request)) || !request) return;
-	if (SUCCEEDED(request->lpVtbl->get_Uri(request, &uri)) && uri &&
+	if (SUCCEEDED(request->lpVtbl->get_Uri(request, &uri)) && uri) {
+		char* text = rvn_wv2_narrow(uri);
+		rvn_wv2_log("view %p: WebResourceRequested %s", (void*)view, text);
+		rvn_free(text);
+	}
+	if (view->html && g_wv2.environment && g_wv2.memory_stream && uri &&
 		((view->html_seen && wcscmp(uri, view->html_seen) == 0) || (view->html_uri && wcscmp(uri, view->html_uri) == 0))) {
 		IStream* stream = g_wv2.memory_stream((const BYTE*)view->html, (UINT)view->html_size);
 		rvn_wv2_resource_response_t* response = NULL;
@@ -1132,6 +1171,14 @@ static void rvn_wv2_on(rvn_pweb_view_t* view, int kind, void* args) {
 	switch (kind) {
 		case RVN_WV2_ON_STARTING: {
 			rvn_wv2_navigation_starting_args_t* a = (rvn_wv2_navigation_starting_args_t*)args;
+			if (g_wv2.log > 0) {
+				LPWSTR uri = NULL;
+				if (SUCCEEDED(a->lpVtbl->get_Uri(a, &uri)) && uri) {
+					char* text = rvn_wv2_take(uri);
+					rvn_wv2_log("  to %s", text);
+					rvn_free(text);
+				}
+			}
 			if (view->html_expect) {
 				LPWSTR uri = NULL;
 				view->html_expect = 0;
@@ -1150,6 +1197,7 @@ static void rvn_wv2_on(rvn_pweb_view_t* view, int kind, void* args) {
 			BOOL success = FALSE;
 			int status = RVN_WV2_ERROR_UNKNOWN;
 			a->lpVtbl->get_IsSuccess(a, &success);
+			rvn_wv2_log("  success %d", (int)success);
 			if (success) {
 				rvn_wv2_send(view, RVN_PWEB_LOADED, NULL, NULL, 0);
 				break;
@@ -1275,7 +1323,12 @@ static ULONG STDMETHODCALLTYPE rvn_wv2_event_release(rvn_wv2_event_handler_t* se
 
 static HRESULT STDMETHODCALLTYPE rvn_wv2_event_invoke(rvn_wv2_event_handler_t* self, rvn_wv2_core_t* sender, void* args) {
 	rvn_wv2_event_part_t* part = (rvn_wv2_event_part_t*)self;
+	static const char* names[RVN_WV2_ON_COUNT] = {
+		"NavigationStarting", "NavigationCompleted", "SourceChanged", "DocumentTitleChanged",
+		"WebMessageReceived", "NewWindowRequested", "ProcessFailed", "WebResourceRequested"
+	};
 	(void)sender;
+	rvn_wv2_log("view %p: WebView2 event %s%s", (void*)part->view, names[part->kind], part->view->closed ? " (view closed)" : "");
 	if (part->view->closed || !part->view->core || !args) return S_OK;
 	rvn_wv2_on(part->view, part->kind, args);
 	return S_OK;
@@ -1644,7 +1697,7 @@ void rvn_wv2_destroy(rvn_pweb_view_t* view) {
 			if (view->listening[kind]) rvn_wv2_unlisten(view, kind);
 			view->listening[kind] = 0;
 		}
-		if (view->html_filter) view->core->lpVtbl->RemoveWebResourceRequestedFilter(view->core, L"*", RVN_WV2_RESOURCE_DOCUMENT);
+		rvn_wv2_drop_html(view);
 		view->core->lpVtbl->Release(view->core);
 		view->core = NULL;
 	}

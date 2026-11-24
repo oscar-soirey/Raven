@@ -23,11 +23,22 @@
 #endif
 #include <windows.h>
 #include <stdlib.h>
+#if defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
 
-/* (the first view starts the runtime of WebView2: seconds on a cold machine) */
-#define TIMEOUT 60.0
+/* each wait (the first view starts the runtime of WebView2: seconds on a cold machine) */
+#define TIMEOUT 20.0
+/* once a wait has timed out, the next ones give up sooner, so that a broken run ends well before ctest's limit */
+#define TIMEOUT_AFTER_FAILURE 3.0
 
 static Rid g_window;
+static int g_timed_out;
+static double g_start;
+
+static double wait_limit(void) {
+	return g_timed_out ? TIMEOUT_AFTER_FAILURE : TIMEOUT;
+}
 
 typedef struct events_t {
 	int navigated, title, loading, loaded, failed;
@@ -78,25 +89,37 @@ static void pump(void) {
 }
 
 /* Runs the loop of events until `*flag` reaches `count` (R_FALSE when the time runs out). */
-static int wait_for(const int* flag, int count) {
-	double end = Rget_time() + TIMEOUT;
+#define wait_for(flag, count) wait_for_(flag, count, #flag, __LINE__)
+static int wait_for_(const int* flag, int count, const char* what, int line) {
+	double begin = Rget_time(), end = begin + wait_limit();
+	printf("  [%6.2f s] line %d: waiting for %s >= %d (now %d)\n", Rget_time() - g_start, line, what, count, *flag);
 	while (*flag < count) {
-		if (Rget_time() > end) return R_FALSE;
-		pump();
-	}
-	return R_TRUE;
-}
-
-/* Runs the loop of events until the page has this title (it is "" for a moment while a page loads). */
-static int wait_title(Rid view, const char* title) {
-	double end = Rget_time() + TIMEOUT;
-	while (strcmp(Rsystem_web_view_get_title(view), title) != 0) {
 		if (Rget_time() > end) {
-			printf("  (title is \"%s\", waited for \"%s\")\n", Rsystem_web_view_get_title(view), title);
+			printf("  [%6.2f s] line %d: TIMEOUT waiting for %s >= %d (still %d)\n", Rget_time() - g_start, line, what, count, *flag);
+			g_timed_out = 1;
 			return R_FALSE;
 		}
 		pump();
 	}
+	printf("  [%6.2f s] line %d: %s = %d after %.2f s\n", Rget_time() - g_start, line, what, *flag, Rget_time() - begin);
+	return R_TRUE;
+}
+
+/* Runs the loop of events until the page has this title (it is "" for a moment while a page loads). */
+#define wait_title(view, title) wait_title_(view, title, __LINE__)
+static int wait_title_(Rid view, const char* title, int line) {
+	double begin = Rget_time(), end = begin + wait_limit();
+	printf("  [%6.2f s] line %d: waiting for the title \"%s\"\n", Rget_time() - g_start, line, title);
+	while (strcmp(Rsystem_web_view_get_title(view), title) != 0) {
+		if (Rget_time() > end) {
+			printf("  [%6.2f s] line %d: TIMEOUT: title is \"%s\", waited for \"%s\"\n", Rget_time() - g_start, line,
+				Rsystem_web_view_get_title(view), title);
+			g_timed_out = 1;
+			return R_FALSE;
+		}
+		pump();
+	}
+	printf("  [%6.2f s] line %d: title after %.2f s\n", Rget_time() - g_start, line, Rget_time() - begin);
 	return R_TRUE;
 }
 
@@ -105,6 +128,7 @@ static void run_script(Rid view, const char* script, result_t* r) {
 	Rsystem_web_view_run_javascript(view, script, on_result, r);
 	/* the result never comes during the call */
 	CHECK(r->done == 0);
+	printf("  script: %s\n", script);
 	CHECK(wait_for(&r->done, 1));
 	if (r->done) printf("  %s -> %s%s\n", script, r->has_value ? r->value : "error: ", r->has_value ? "" : r->error);
 }
@@ -339,11 +363,22 @@ static void test_placement(void) {
 
 int main(void) {
 	RInitDesc desc;
+	/* every line at once: a run killed by its timeout still shows where it was */
+	setvbuf(stdout, NULL, _IONBF, 0);
+#if defined(_MSC_VER)
+	/* a failed assertion of the debug C runtime goes to stderr, not to a dialog nobody closes */
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+#endif
+	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 	memset(&desc, 0, sizeof(desc));
 	desc.backend = R_BACKEND_NULL;
 	desc.worker_threads = 1;
 	Rerror_set_callback(test_error_callback);
 	if (!Rinit_ex(&desc)) return 1;
+	g_start = Rget_time();
 	Rset_animations_enabled(R_FALSE);
 	if (!Rsystem_web_view_is_supported()) {
 		Rshutdown();
