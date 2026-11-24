@@ -595,6 +595,9 @@ static void test_documents(void) {
 	CHECK(error.line == 2 && error.column > 1 && strstr(error.message, "does not match") != NULL);
 	CHECK(Rxml_document_parse("<A/>", 4, &error) != R_INVALID_ID);
 	CHECK(error.line == 0 && error.message[0] == '\0');
+	/* a 0 byte: a mistake where it is (XML has no character 0; read on, it cut the text it was in) */
+	CHECK(Rxml_document_parse("<A>x\0y</A>", 10, &error) == R_INVALID_ID);
+	CHECK(error.line == 1 && error.column == 5 && strstr(error.message, "0 byte") != NULL);
 
 	/* building: the widgets and the nodes know each other */
 	{
