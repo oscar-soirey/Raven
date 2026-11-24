@@ -1,0 +1,9 @@
+raven-gui provides CMake targets:
+
+  find_package(raven CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE raven::raven)
+
+raven-gui provides pkg-config modules:
+
+  # Raven - lightweight multithreaded GUI library in C
+  raven
