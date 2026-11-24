@@ -556,6 +556,12 @@ if(RAVEN_WITH_SVG)
 endif()
 if(RAVEN_WITH_STB_IMAGE)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_STB_IMAGE)
+	if(NOT MSVC)
+		# the integer IDCT of stb_image wraps on the coefficients of a damaged JPEG, as its SSE2
+		# version does by design (they give the same pixels): not a finding of UBSan in a build
+		# with the sanitizers (THIRD_PARTY.md); its other checks, and AddressSanitizer, stay
+		set_source_files_properties(src/render/image_decode.c PROPERTIES COMPILE_OPTIONS "-fno-sanitize=signed-integer-overflow")
+	endif()
 endif()
 
 # ---------------------------------------------------------------------------

@@ -70,6 +70,10 @@ would read the point after it, past its array).
 `stb_image.h` is unchanged; `image_decode.c` gives it `STBI_MAX_DIMENSIONS`
 (16384) and refuses, before decoding, an image of more than 2^26 pixels or
 of more pixels than its file can hold (stb fills what is missing with zeros).
+Its integer IDCT wraps around on the coefficients of a damaged JPEG (as its
+SSE2 version does, with the same pixels): `image_decode.c` is compiled with
+`-fno-sanitize=signed-integer-overflow`, so that a build with UBSan does not
+report it.
 
 On Linux and BSD, the Wayland platform opens `libwayland-client`,
 `libxkbcommon` and, when they are installed, `libwayland-cursor` and
