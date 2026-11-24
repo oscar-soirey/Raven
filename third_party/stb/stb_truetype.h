@@ -1268,6 +1268,8 @@ static stbtt__buf stbtt__cff_index_get(stbtt__buf b, int i)
    stbtt__buf_skip(&b, i*offsize);
    start = stbtt__buf_get(&b, offsize);
    end = stbtt__buf_get(&b, offsize);
+   // Raven: offsets of a damaged font (4 bytes: past the range of an int) give nothing, as one past the data does
+   if (start < 0 || end < start || start > b.size) return stbtt__new_buf(NULL, 0);
    return stbtt__buf_range(&b, 2+(count+1)*offsize+start, end - start);
 }
 

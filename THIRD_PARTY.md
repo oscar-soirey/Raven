@@ -48,7 +48,7 @@ round caps and joins) around a few shapes; `tools/embed_icons.py` keeps the
 shapes only, without the white space between them, and checks that the
 `<svg>` element is that one. Raven puts it back when an icon is asked for.
 
-`stb_truetype.h` has four changes, marked `Raven:`: the CFF table of an
+`stb_truetype.h` has five changes, marked `Raven:`: the CFF table of an
 OpenType font is read within its length (the original reads up to 512 MB
 past its start), so that a damaged `.otf` cannot make it read past the end of
 the file; the points of a composite glyph's components are clamped to the
@@ -56,9 +56,10 @@ range of a vertex once scaled and moved (the original converts the float to
 `short` directly, undefined when a damaged glyph places them out of range);
 and a font of color bitmaps without outlines (CBDT or sbix, such as Noto
 Color Emoji) is opened, for its character map and metrics: Raven reads the
-bitmaps itself; and the 32-bit numbers of the file are assembled as unsigned
+bitmaps itself; the 32-bit numbers of the file are assembled as unsigned
 (the original shifts a byte of 128 or more 24 places as an `int`, which is
-undefined).
+undefined); and an entry of a CFF index whose offsets go past the range of an
+`int` is empty (the original subtracts them as `int`s, undefined).
 `font_raster.c` also checks the tables of every font and each
 TrueType glyph before stb reads them, since stb trusts the offsets of the file
 (and leaves out a glyph whose last contour is one point off the curve: stb
