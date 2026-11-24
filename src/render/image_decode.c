@@ -75,6 +75,11 @@ static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, 
 	}
 	pixels = stbi_load_from_memory(data, (int)size, &w, &h, &channels, 4);
 	if (!pixels) return NULL;
+	/* (stb_image gives a GIF of no height a picture: it is none) */
+	if (w <= 0 || h <= 0) {
+		rvn_free(pixels);
+		return NULL;
+	}
 	*width = w;
 	*height = h;
 	return pixels;
