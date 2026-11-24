@@ -354,6 +354,10 @@ static HRESULT STDMETHODCALLTYPE simple_pattern(IRawElementProviderSimple* This,
 #define RVN_UIA_FrameworkId 30024
 #define RVN_UIA_ProviderDescription 30107
 #define RVN_UIA_IsDialog 30174
+/* (Windows 8: the place of a row in a tree grid) */
+#define RVN_UIA_PositionInSet 30152
+#define RVN_UIA_SizeOfSet 30153
+#define RVN_UIA_Level 30154
 
 static HRESULT do_property(rvn_uia_call_t* c) {
 	rvn_a11y_node_t node;
@@ -388,6 +392,9 @@ static HRESULT do_property(rvn_uia_call_t* c) {
 		case RVN_UIA_IsPassword: out->vt = VT_BOOL; out->boolVal = (node.states & RVN_A11Y_PASSWORD) ? VARIANT_TRUE : VARIANT_FALSE; break;
 		case RVN_UIA_IsOffscreen: out->vt = VT_BOOL; out->boolVal = VARIANT_FALSE; break;
 		case RVN_UIA_IsDialog: out->vt = VT_BOOL; out->boolVal = (node.states & RVN_A11Y_MODAL) ? VARIANT_TRUE : VARIANT_FALSE; break;
+		case RVN_UIA_Level: if (node.level > 0) { out->vt = VT_I4; out->lVal = node.level; } break;
+		case RVN_UIA_PositionInSet: if (node.level > 0) { out->vt = VT_I4; out->lVal = node.position; } break;
+		case RVN_UIA_SizeOfSet: if (node.level > 0) { out->vt = VT_I4; out->lVal = node.set_size; } break;
 		case RVN_UIA_ProviderDescription: out->vt = VT_BSTR; out->bstrVal = rvn_uia_bstr("Raven UI Automation provider"); break;
 		case RVN_UIA_Culture: {
 			/* the language of the application */

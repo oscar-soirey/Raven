@@ -294,7 +294,7 @@ static uint32_t atspi_role(RAccessibleRole role, uint32_t states) {
 		case R_ROLE_LIST_ITEM: return (states & RVN_A11Y_TABLE_ROW) ? 90 : 32;
 		case R_ROLE_TREE: return 65;
 		case R_ROLE_TREE_ITEM: return 91;
-		case R_ROLE_TABLE: return 55;
+		case R_ROLE_TABLE: return (states & RVN_A11Y_TREE_GRID) ? 66 : 55; /* TREE_TABLE, TABLE */
 		case R_ROLE_MENU_BAR: return 34;
 		case R_ROLE_MENU: return 33;
 		case R_ROLE_MENU_ITEM: return (states & RVN_A11Y_CHECKABLE) ? 8 : 35;
@@ -606,6 +606,22 @@ static int handle(DBusConnection* connection, DBusMessage* message, void* user) 
 			put_string(&entry, "toolkit");
 			put_string(&entry, "Raven");
 			g_atspi.iter_close_container(&sub, &entry);
+			if (id && node.level > 0) {
+				/* a row of a tree grid: its level and its place among its siblings (as ARIA names them) */
+				const char* keys[3] = { "level", "posinset", "setsize" };
+				int values[3], k;
+				values[0] = node.level;
+				values[1] = node.position;
+				values[2] = node.set_size;
+				for (k = 0; k < 3; k++) {
+					char number[16];
+					snprintf(number, sizeof(number), "%d", values[k]);
+					g_atspi.iter_open_container(&sub, T_DICT_ENTRY, NULL, &entry);
+					put_string(&entry, keys[k]);
+					put_string(&entry, number);
+					g_atspi.iter_close_container(&sub, &entry);
+				}
+			}
 			g_atspi.iter_close_container(&out, &sub);
 			goto send;
 		}
