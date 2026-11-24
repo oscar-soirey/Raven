@@ -86,6 +86,18 @@ ICONS = {
     "warning": "triangle-alert",
     "zoom-in": "zoom-in",
     "zoom-out": "zoom-out",
+    "bold": "bold",
+    "italic": "italic",
+    "underline": "underline",
+    "strikethrough": "strikethrough",
+    "code": "code",
+    "list": "list",
+    "list-ordered": "list-ordered",
+    "quote": "quote",
+    "heading-1": "heading-1",
+    "heading-2": "heading-2",
+    "heading-3": "heading-3",
+    "code-block": "square-code",
 }
 
 ROOT_ATTRIBUTES = {
