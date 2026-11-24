@@ -134,6 +134,16 @@ static void test_sound(void) {
 	Rmedia_player_set_event_callback(player, on_event, &e);
 	CHECK(Rmedia_player_load_file(player, media("chime.wav")));
 	CHECK(wait_state(player, R_MEDIA_LOADING, R_FALSE, 10.0));
+	printf("  chime.wav: state %d, %.3f s, error \"%s\"\n", (int)Rmedia_player_get_state(player),
+		Rmedia_player_get_duration(player), Rmedia_player_get_error(player) ? Rmedia_player_get_error(player) : "");
+	/* a machine without any audio output (a CI runner without a sound card): Media Foundation
+	 * refuses a file that has nothing but sound (MF_E_NO_AUDIO_PLAYBACK_DEVICE) */
+	if (Rmedia_player_get_state(player) == R_MEDIA_ERROR && Rmedia_player_get_error(player) &&
+		strstr(Rmedia_player_get_error(player), "C00D36FA")) {
+		printf("  no audio output on this machine: the checks of sounds are skipped\n");
+		Rmedia_player_destroy(player);
+		return;
+	}
 	CHECK(Rmedia_player_get_state(player) == R_MEDIA_PAUSED);
 	CHECK(fabs(Rmedia_player_get_duration(player) - 1.2) < 0.1);
 	CHECK(!Rmedia_player_get_video_size(player, NULL, NULL));
