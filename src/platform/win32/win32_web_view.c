@@ -1329,7 +1329,8 @@ static HRESULT STDMETHODCALLTYPE rvn_wv2_event_invoke(rvn_wv2_event_handler_t* s
 	};
 	(void)sender;
 	rvn_wv2_log("view %p: WebView2 event %s%s", (void*)part->view, names[part->kind], part->view->closed ? " (view closed)" : "");
-	if (part->view->closed || !part->view->core || !args) return S_OK;
+	/* (DocumentTitleChanged has no arguments: its args are always NULL) */
+	if (part->view->closed || !part->view->core || (!args && part->kind != RVN_WV2_ON_TITLE)) return S_OK;
 	rvn_wv2_on(part->view, part->kind, args);
 	return S_OK;
 }
