@@ -1,0 +1,112 @@
+# Installs the build of Raven into a folder of its own, then builds and runs
+# consumer.c against it the way a user's program does (tests/CMakeLists.txt:
+# package_pkgconfig, package_cmake):
+#
+#   MODE=pkgconfig   cc consumer.c $(pkg-config --cflags --libs [--static] raven)
+#   MODE=cmake       find_package(raven) + raven::raven (CMakeLists.txt beside it)
+#
+#   cmake -DMODE=pkgconfig -DBUILD_DIR=<build of Raven> -DWORK_DIR=<empty folder>
+#         -DCONFIG=Release -DSHARED=ON|OFF -DC_COMPILER=cc -DPKG_CONFIG=pkg-config
+#         [-DGENERATOR=Ninja] -P package_consumer.cmake
+
+cmake_minimum_required(VERSION 3.16)
+
+foreach(variable MODE BUILD_DIR WORK_DIR)
+	if(NOT ${variable})
+		message(FATAL_ERROR "package_consumer: ${variable} is not set")
+	endif()
+endforeach()
+if(NOT CONFIG)
+	set(CONFIG Release)
+endif()
+get_filename_component(HERE "${CMAKE_CURRENT_LIST_FILE}" DIRECTORY)
+set(EXE "")
+if(CMAKE_HOST_WIN32)
+	set(EXE ".exe")
+endif()
+
+function(run)
+	execute_process(COMMAND ${ARGN} RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE output)
+	if(NOT result EQUAL 0)
+		string(REPLACE ";" " " line "${ARGN}")
+		message(FATAL_ERROR "package_consumer: failed (${result}): ${line}\n${output}")
+	endif()
+	set(run_output "${output}" PARENT_SCOPE)
+endfunction()
+
+# 1. the install, as `cmake --install` does it for a user
+set(PREFIX "${WORK_DIR}/prefix")
+file(REMOVE_RECURSE "${WORK_DIR}")
+file(MAKE_DIRECTORY "${WORK_DIR}")
+run("${CMAKE_COMMAND}" --install "${BUILD_DIR}" --config "${CONFIG}" --prefix "${PREFIX}")
+
+# the library folder of this install (lib, lib64, lib/x86_64-linux-gnu...)
+file(GLOB_RECURSE configs "${PREFIX}/*/ravenConfig.cmake")
+list(GET configs 0 config)
+get_filename_component(LIBDIR "${config}/../../.." ABSOLUTE)
+message(STATUS "installed in ${PREFIX} (libraries in ${LIBDIR})")
+
+set(ENV{LD_LIBRARY_PATH} "${LIBDIR}:$ENV{LD_LIBRARY_PATH}")
+if(CMAKE_HOST_WIN32)
+	set(ENV{PATH} "${PREFIX}/bin;$ENV{PATH}")
+endif()
+
+if(MODE STREQUAL "pkgconfig")
+	if(NOT C_COMPILER OR NOT PKG_CONFIG)
+		message(FATAL_ERROR "package_consumer: C_COMPILER and PKG_CONFIG are needed")
+	endif()
+	if(NOT EXISTS "${LIBDIR}/pkgconfig/raven.pc")
+		message(FATAL_ERROR "package_consumer: ${LIBDIR}/pkgconfig/raven.pc was not installed")
+	endif()
+	file(READ "${LIBDIR}/pkgconfig/raven.pc" pc)
+	message(STATUS "raven.pc:\n${pc}")
+	set(ENV{PKG_CONFIG_PATH} "${LIBDIR}/pkgconfig")
+
+	run("${PKG_CONFIG}" --modversion raven)
+	message(STATUS "pkg-config --modversion raven: ${run_output}")
+
+	# a shared build: --libs; a static one: --libs alone and --static must both link libraven.a
+	set(variants "plain")
+	if(NOT SHARED)
+		list(APPEND variants "static")
+	endif()
+	foreach(variant IN LISTS variants)
+		set(arguments --cflags --libs)
+		if(variant STREQUAL "static")
+			list(APPEND arguments --static)
+		endif()
+		run("${PKG_CONFIG}" ${arguments} raven)
+		string(STRIP "${run_output}" flags)
+		message(STATUS "pkg-config ${arguments} raven: ${flags}")
+		separate_arguments(flags UNIX_COMMAND "${flags}")
+		set(extra "")
+		if(SHARED AND NOT CMAKE_HOST_WIN32)
+			list(APPEND extra "-Wl,-rpath,${LIBDIR}")
+		endif()
+		set(program "${WORK_DIR}/consumer_${variant}${EXE}")
+		run("${C_COMPILER}" "${HERE}/consumer.c" -o "${program}" ${flags} ${extra})
+		run("${program}")
+		message(STATUS "${variant}: ${run_output}")
+	endforeach()
+elseif(MODE STREQUAL "cmake")
+	set(generator "")
+	if(GENERATOR)
+		set(generator -G "${GENERATOR}")
+	endif()
+	# the compiler of Raven's build (a generator of Visual Studio picks its own)
+	set(compiler "")
+	if(GENERATOR AND C_COMPILER)
+		set(compiler "-DCMAKE_C_COMPILER=${C_COMPILER}")
+	endif()
+	run("${CMAKE_COMMAND}" -S "${HERE}" -B "${WORK_DIR}/build" ${generator} ${compiler}
+		"-DCMAKE_PREFIX_PATH=${PREFIX}" "-DCMAKE_BUILD_TYPE=${CONFIG}")
+	run("${CMAKE_COMMAND}" --build "${WORK_DIR}/build" --config "${CONFIG}")
+	file(GLOB_RECURSE programs "${WORK_DIR}/build/raven_consumer${EXE}")
+	list(GET programs 0 program)
+	run("${program}")
+	message(STATUS "find_package(raven): ${run_output}")
+else()
+	message(FATAL_ERROR "package_consumer: MODE must be pkgconfig or cmake")
+endif()
+
+file(REMOVE_RECURSE "${WORK_DIR}")

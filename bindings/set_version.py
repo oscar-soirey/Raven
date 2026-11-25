@@ -11,6 +11,12 @@ src/core/base.h, the version macros of include/raven/raven_core.h, the Rust crat
 (csharp/Raven.Gui.csproj), the Maven package (java/pom.xml, its README) and
 the LuaRocks rockspecs (luajit/*.rockspec and
 lua/*.rockspec, renamed to the new version). The pip package reads CMakeLists.txt itself.
+
+Also the packages of the library (packaging/README.md): the Homebrew formula
+(packaging/homebrew/raven-gui.rb), the vcpkg port (packaging/vcpkg/ports/raven-gui)
+and the Conan recipe (packaging/conan). Their checksums are those of the archive
+of the tag, which exists only once the tag is pushed: a new version sets them to
+zeros, and packaging/update_hashes.py fills them in afterwards.
 """
 
 import glob
@@ -70,6 +76,25 @@ def main():
     replace(os.path.join(HERE, "java", "pom.xml"), r"(<artifactId>raven-gui</artifactId>\s*<version>)[^<]*(</version>)", r"\g<1>%s\g<2>" % version)
     for readme in (os.path.join(HERE, "java", "README.md"), os.path.join(HERE, "README.md")):
         replace(readme, r"(<version>|raven-gui:)\d+\.\d+\.\d+", r"\g<1>%s" % version, count=0)
+
+    # the packages of the library: a new version has new archives, so the checksums are reset
+    packaging = os.path.join(ROOT, "packaging")
+    zeros = "0" * 64
+    formula = os.path.join(packaging, "homebrew", "raven-gui.rb")
+    if not re.search(r'/v%s\.tar\.gz"' % re.escape(version), read(formula)):
+        replace(formula, r'^(  url "https://github\.com/[^"]*/archive/refs/tags/v)[^"]*(\.tar\.gz")', r"\g<1>%s\g<2>" % version)
+        replace(formula, r'^(  sha256 ")[0-9a-f]*(")', r"\g<1>%s\g<2>" % zeros)
+    port = os.path.join(packaging, "vcpkg", "ports", "raven-gui")
+    if not re.search(r'^  "version": "%s"' % re.escape(version), read(os.path.join(port, "vcpkg.json")), flags=re.M):
+        replace(os.path.join(port, "vcpkg.json"), r'^(  "version": ")[^"]*(")', r"\g<1>%s\g<2>" % version)
+        replace(os.path.join(port, "portfile.cmake"), r"^(    SHA512 )[0-9a-f]+$", r"\g<1>0")
+    conan = os.path.join(packaging, "conan")
+    replace(os.path.join(conan, "conanfile.py"), r'^(    version = ")[^"]*(")', r"\g<1>%s\g<2>" % version)
+    conandata = os.path.join(conan, "conandata.yml")
+    if not re.search(r'^  "%s":' % re.escape(version), read(conandata), flags=re.M):
+        replace(conandata, r'^  "[^"]*":$', '  "%s":' % version)
+        replace(conandata, r'^(    url: "https://github\.com/[^"]*/archive/refs/tags/v)[^"]*(\.tar\.gz")', r"\g<1>%s\g<2>" % version)
+        replace(conandata, r'^(    sha256: ")[0-9a-f]*(")', r"\g<1>%s\g<2>" % zeros)
 
     # the rockspecs: their name holds the version, so they are renamed
     for folder, package in (("luajit", "raven-gui"), ("lua", "raven-gui-lua")):

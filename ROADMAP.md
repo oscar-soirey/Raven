@@ -188,8 +188,13 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 6. For the people who use Raven
 
-- [ ] **Packages**: vcpkg, Conan, Homebrew, a `pkg-config` file, and the
-  CMake config already installed.
+- [~] **Packages**: done: a `pkg-config` file (`raven.pc`) beside the CMake
+  config, both tested from an installed prefix (`package_pkgconfig`,
+  `package_cmake`); a Homebrew formula, a vcpkg port and a Conan recipe
+  (`raven-gui`, [packaging/](packaging/README.md)), each tested from a
+  working tree, their versions set by `set_version.py`. Left: submitting them
+  (homebrew-core or a tap, the vcpkg registry, Conan Center) after the first
+  release that has them.
 - [ ] **CONTRIBUTING.md**, issue and pull request templates, a code of
   conduct.
 - [ ] **Transparency about how Raven is made** (issue #1, "AI disclosure"):

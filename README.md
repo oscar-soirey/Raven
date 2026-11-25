@@ -201,6 +201,36 @@ or, without installing, `add_subdirectory(Raven)` before the same
 `target_link_libraries`. Prebuilt packages for every platform are attached to
 the [releases](https://github.com/oscar-soirey/Raven/releases).
 
+Without CMake, `install/` also has a pkg-config file (`lib/pkgconfig/raven.pc`):
+
+```sh
+export PKG_CONFIG_PATH=<path to install>/lib/pkgconfig
+cc app.c $(pkg-config --cflags --libs raven)            # what the install holds
+cc app.c $(pkg-config --cflags --libs --static raven)   # libraven.a and what it links with
+```
+
+### Homebrew, vcpkg, Conan
+
+[packaging/](packaging/README.md) holds a Homebrew formula, a vcpkg port and a
+Conan recipe, all named `raven-gui` (`raven` is taken on Homebrew). They are
+not in the official registries yet; until they are, they install from a clone
+of Raven. They build the archive of a release, so they work from the first
+release made with them (its checksums written by `packaging/update_hashes.py`):
+
+```sh
+brew tap-new --no-git $USER/local && brew trust --tap $USER/local   # (newer Homebrew asks for the trust)
+cp packaging/homebrew/raven-gui.rb "$(brew --repository $USER/local)/Formula/"
+brew install $USER/local/raven-gui
+
+vcpkg install raven-gui --overlay-ports=<Raven>/packaging/vcpkg/ports
+conan create <Raven>/packaging/conan --build=missing
+```
+
+Each installs the library, the headers, the CMake package and `raven.pc`:
+`find_package(raven)` and `pkg-config raven` work as above. To try them on the
+code of a working tree rather than a release, see
+[packaging/README.md](packaging/README.md#each-release).
+
 - **The interface in XML, the code in your language.** The window is a `.xml`
   file; C, C++, Rust, Python, Go, C#, Zig, Lua or LuaJIT load it, bind the
   actions it names and find its widgets by name, built by their usual tools.
@@ -2398,6 +2428,7 @@ tools/designer/      raven_designer (main.c: the visual editor; files, island, s
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
 bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Lua, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
+packaging/           Homebrew formula, vcpkg port, Conan recipe (raven.pc: cmake/RavenPkgConfig.cmake)
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
