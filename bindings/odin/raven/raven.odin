@@ -2733,6 +2733,23 @@ foreign lib {
 	// Closes a window and deletes its content widgets.
 	Rwindow_destroy :: proc(window: Rid) ---
 	Rwindow_is_valid :: proc(window: Rid) -> i32 ---
+	// Number of windows of the application: every window made with
+	// Rwindow_create or from XML that is not destroyed yet, the hidden ones,
+	// the splash screen, owned windows (Rwindow_set_owner), the floating
+	// windows of dock areas and a window Raven opened to show a dialog
+	// included. The window of an inspector (Rwindow_get_inspector) and the
+	// one that shows an island in the camera housing are not counted: they
+	// belong to their window. A window is no longer counted from the moment
+	// it starts to be destroyed (Rwindow_destroy, closed, or with its
+	// owner). Menus, lists and popups are inside their window
+	// (Rwindow_get_popup_count).
+	Rwindow_get_count :: proc() -> i32 ---
+	// Returns: The index-th window, from 0 to Rwindow_get_count() - 1, in the
+	// order they were created; R_INVALID_ID out of range. Destroying a window
+	// moves the ones after it down, and takes the windows it owns with it:
+	// to destroy several, read the handles first, then destroy the ones that
+	// are still valid (Rwindow_is_valid).
+	Rwindow_get_at :: proc(index: i32) -> Rid ---
 	// Sets the root widget of the window. The window takes ownership of
 	// the widget; the previous content is deleted.
 	Rwindow_set_content :: proc(window: Rid, widget: Rid) ---

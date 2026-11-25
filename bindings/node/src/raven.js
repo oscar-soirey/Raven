@@ -4014,6 +4014,8 @@ export function Rwindow_get_frame_stats(window, stats) {
 export const Rwindow_create = _lib.Rwindow_create;
 export const Rwindow_destroy = _lib.Rwindow_destroy;
 export const Rwindow_is_valid = _lib.Rwindow_is_valid;
+export const Rwindow_get_count = _lib.Rwindow_get_count;
+export const Rwindow_get_at = _lib.Rwindow_get_at;
 export const Rwindow_set_content = _lib.Rwindow_set_content;
 export const Rwindow_get_content = _lib.Rwindow_get_content;
 export const Rwindow_set_title = _lib.Rwindow_set_title;

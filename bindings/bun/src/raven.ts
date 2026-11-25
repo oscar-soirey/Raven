@@ -235,6 +235,8 @@ const _symbols = {
 	Rwindow_create: { args: ["ptr", "i32", "i32", "u32"], returns: "u32" },
 	Rwindow_destroy: { args: ["u32"], returns: "void" },
 	Rwindow_is_valid: { args: ["u32"], returns: "i32" },
+	Rwindow_get_count: { args: [], returns: "i32" },
+	Rwindow_get_at: { args: ["i32"], returns: "u32" },
 	Rwindow_set_content: { args: ["u32", "u32"], returns: "void" },
 	Rwindow_get_content: { args: ["u32"], returns: "u32" },
 	Rwindow_set_title: { args: ["u32", "ptr"], returns: "void" },
@@ -9479,6 +9481,33 @@ export function Rwindow_destroy(window: Rid): void {
 
 export function Rwindow_is_valid(window: Rid): number {
 	return _lib.Rwindow_is_valid(window);
+}
+
+/**
+ * Number of windows of the application: every window made with
+ * Rwindow_create or from XML that is not destroyed yet, the hidden ones,
+ * the splash screen, owned windows (Rwindow_set_owner), the floating
+ * windows of dock areas and a window Raven opened to show a dialog
+ * included. The window of an inspector (Rwindow_get_inspector) and the
+ * one that shows an island in the camera housing are not counted: they
+ * belong to their window. A window is no longer counted from the moment
+ * it starts to be destroyed (Rwindow_destroy, closed, or with its
+ * owner). Menus, lists and popups are inside their window
+ * (Rwindow_get_popup_count).
+ */
+export function Rwindow_get_count(): number {
+	return _lib.Rwindow_get_count();
+}
+
+/**
+ * Returns: The index-th window, from 0 to Rwindow_get_count() - 1, in the
+ * order they were created; R_INVALID_ID out of range. Destroying a window
+ * moves the ones after it down, and takes the windows it owns with it:
+ * to destroy several, read the handles first, then destroy the ones that
+ * are still valid (Rwindow_is_valid).
+ */
+export function Rwindow_get_at(index: number): Rid {
+	return _lib.Rwindow_get_at(index);
 }
 
 /**

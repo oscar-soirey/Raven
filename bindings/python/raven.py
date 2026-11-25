@@ -4170,6 +4170,37 @@ def Rwindow_is_valid(window):
     return _lib.Rwindow_is_valid(window)
 
 
+_lib.Rwindow_get_count.argtypes = []
+_lib.Rwindow_get_count.restype = ctypes.c_int
+
+
+def Rwindow_get_count():
+    """Number of windows of the application: every window made with
+    Rwindow_create or from XML that is not destroyed yet, the hidden ones,
+    the splash screen, owned windows (Rwindow_set_owner), the floating
+    windows of dock areas and a window Raven opened to show a dialog
+    included. The window of an inspector (Rwindow_get_inspector) and the
+    one that shows an island in the camera housing are not counted: they
+    belong to their window. A window is no longer counted from the moment
+    it starts to be destroyed (Rwindow_destroy, closed, or with its
+    owner). Menus, lists and popups are inside their window
+    (Rwindow_get_popup_count)."""
+    return _lib.Rwindow_get_count()
+
+
+_lib.Rwindow_get_at.argtypes = [ctypes.c_int]
+_lib.Rwindow_get_at.restype = ctypes.c_uint32
+
+
+def Rwindow_get_at(index):
+    """Returns: The index-th window, from 0 to Rwindow_get_count() - 1, in the
+    order they were created; R_INVALID_ID out of range. Destroying a window
+    moves the ones after it down, and takes the windows it owns with it:
+    to destroy several, read the handles first, then destroy the ones that
+    are still valid (Rwindow_is_valid)."""
+    return _lib.Rwindow_get_at(index)
+
+
 _lib.Rwindow_set_content.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
 _lib.Rwindow_set_content.restype = None
 
