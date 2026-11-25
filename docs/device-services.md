@@ -62,7 +62,9 @@ enough. **Copy the file into the application's cache** and give that path:
 - copy **off the main thread** (a 4 GB video must not freeze the UI), then
   call `rvn_service_complete` from that thread;
 - empty `<cache>/raven/picked` and `<cache>/raven/camera` in `init` (the
-  header promises that the copies last until the next start at most);
+  header promises that the copies last until the next start at most),
+  except while a request of an earlier process may still be answered or
+  its answer waits (Android, see "Answers after a restart");
 - give `name` (what the user saw), `mime_type` when known, `size` (0: the
   core reads it from the file), and `width` / `height` in pixels for photos.
 
@@ -119,9 +121,66 @@ the platform for this; it must just not lose the request meanwhile. The
 answer may arrive while Raven is paused: the core delivers it at the next
 frame, which comes when the application is back.
 
-SHORTCUT (both): when Android kills the process while the camera is in
-front, the request is lost with it; Raven does not restore it after the
-restart.
+### Answers after a restart
+
+Android may end the process while a screen of the system is in front (the
+camera, a picker, a save: other activities, maybe of other applications).
+When the user is done there, the system starts a new process and gives the
+result to the activity that asked, recreated from its saved state. The
+request, its callback and its `user_data` died with the old process, so the
+answer goes to the application's `Rdevice_set_restored_callback` instead,
+with the `RDeviceRequest` it was for.
+
+```
+platform (new process)                       core (services.c)               application
+----------------------                       -----------------               -----------
+an answer of an earlier request, stored
+rvn_service_restored_ready()  (any thread) -> a task: poll if a callback is set
+                                                                         <-- Rdevice_set_restored_callback
+restored_poll()  (UI thread)              <-  when the callback is set, or after the task
+  rvn_service_restored(request, result, files)
+  for each stored answer, then forgets them -> copied, posted as a task
+                                               callback(request, result, files) at a later frame
+```
+
+- `rvn_service_restored(request, result, files, count, error)`, any thread:
+  an `RDeviceRequest` and an answer as for `rvn_service_complete`. The core
+  hands it to the callback at a later frame, or keeps it until the
+  application sets one; it drops it after `Rshutdown`.
+- `restored_poll()` (optional entry), UI thread: called when the
+  application sets its callback, and after `rvn_service_restored_ready()`
+  while one is set. The platform calls `rvn_service_restored` for each
+  answer it stored, then forgets them. Without a callback the platform
+  keeps them (Android: in its preferences, across restarts).
+- Permissions need nothing: the application reads `Rpermission_get_status`
+  again at start and on resume.
+- iOS has no such entry: its screens of the system run in the
+  application's process, which ends with them.
+
+Android does it in `RavenDevice.java` and `RavenRequestActivity.java`:
+
+1. Each request carries the *session* of Raven that made it
+   (`EXTRA_SESSION`, a random number taken at each `attach`). While it is
+   open, a marker of it (session, id, kind, time) is stored in the
+   preferences `raven.restored`; its answer removes it.
+2. `RavenRequestActivity` answers through `RavenDevice.answer`: to
+   `nativeComplete` when its session is the one attached now, else the
+   answer (kind, result, error, files with path, name, MIME type, size,
+   width, height) is stored as JSON in `raven.restored`, and
+   `nativeRestoredReady` is called if Raven runs. The same goes for an
+   answer that comes while Raven is detached, or after it started again in
+   the same process (the NativeActivity destroyed and created again while
+   the camera was in front).
+   The copies of such an answer go into folders of their own
+   (`picked/<id>-<stamp>/`, `camera/<id>-<stamp>.jpg`): the ids of the new
+   session start again at 1.
+3. `attach` empties the folders of the copies only when no marker younger
+   than a day and no stored answer exist (otherwise a later start does):
+   the camera of the old request may still be writing its photo there, a
+   save its source. Older ones are dropped.
+4. `restored_poll` calls `RavenDevice.replayRestored`, which gives each
+   stored answer to `nativeRestored` (`rvn_service_restored`), then clears
+   them and their marker.
 
 ## Entries, threads, and what to use
 
@@ -186,7 +245,7 @@ UniformTypeIdentifiers, UserNotifications, ImageIO, CoreLocation
 - `tests/test_device.c` plays a phone through the host platform
   (`raven_host.h`: `permission_status`, `permission_request`,
   `service_request`, `open_url`, `haptic`, `download`, answered with
-  `Rhost_permission_answer` / `Rhost_service_complete`), then a headless
-  desktop.
+  `Rhost_permission_answer` / `Rhost_service_complete`, and answers after a
+  restart with `Rhost_service_restored`), then a headless desktop.
 - `examples/mobile`: the Device tab has a button for each service and shows
   each answer; `raven_mobile --check` runs it on a desktop without a window.

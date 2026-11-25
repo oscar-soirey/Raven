@@ -161,6 +161,37 @@ suggestions, ASCII only) and has no screen reader.
 An emulator whose device has a hardware keyboard (`hw.keyboard=yes`) only
 shows Gboard's small toolbar, not the full keyboard.
 
+### Answers after a restart
+
+Android may end the app while the camera or a picker is in front; the
+showcase sets `Rdevice_set_restored_callback` at its start and shows such
+an answer as a normal one, on the Device tab, with "after a restart" in the
+line under the title. To see it, open the system's screen from the Device
+tab, end the app's process while that screen is in front, then finish there:
+
+    adb shell am kill dev.raven.hello     # only ends a process in the background
+    adb shell pidof dev.raven.hello       # nothing: it is gone
+
+- "Take a photo": in the camera app, take the photo, run the two commands
+  before confirming it, then confirm (the check mark).
+- "Pick a file", "Save a text file": run them while the document picker is
+  open, then pick or save there.
+- "Pick a photo": open the picker, run them, then pick a photo (and tap
+  "Done" when it asks for one); on a tablet see below. The emulator's
+  library may be empty: push a picture with
+  `adb push picture.jpg /sdcard/Pictures/` and `adb shell am broadcast -a
+  android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/picture.jpg`.
+
+Android starts the app again and gives it the answer: the log shows
+`stored for after the restart`, then `answer after a restart`
+(`adb logcat -s Raven RavenHello`).
+
+On a tablet the photo picker is a sheet over the app, which stays visible and
+is not ended by `am kill`: press Home while the picker is open, run the two
+commands, then come back to the app (`adb shell am start -n
+dev.raven.hello/android.app.NativeActivity` brings its task back with the
+picker on top) and pick there.
+
 ## Packaging
 
 Raven for app developers, made from the same sources: an AAR for Android and
