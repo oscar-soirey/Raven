@@ -16,9 +16,20 @@
  *    the Java main thread, copies files on a thread of its own and answers
  *    with nativeComplete / nativePermission (registered by native with
  *    RegisterNatives; thread-safe: the core posts the answer to android_main).
- *  - after detach (Rshutdown) answers are dropped here; a native method is
- *    only called while attached (a process restarted under a picker has no
- *    native side yet: calling it would throw).
+ *  - a native method is only called while attached (a process restarted
+ *    under a picker has no native side yet: calling it would throw).
+ *
+ * Answers after a restart: Android may end the process while the system's
+ * screen is in front, then start a new one and recreate RavenRequestActivity
+ * there to give it the result. Each request carries the session of Raven
+ * that made it (a random number taken at each attach). An answer for
+ * another session, or that comes while Raven is detached (its activity was
+ * destroyed meanwhile), cannot go to its request: it is stored (preferences
+ * raven.restored, JSON), and replayRestored gives it to native
+ * (rvn_service_restored, for Rdevice_set_restored_callback) once Raven runs
+ * and the application asks for it. While a request is open, a marker of it
+ * is stored too, so that attach does not empty the folders of the copies
+ * (the camera may be writing its photo there).
  *
  * Every constant below mirrors an enum of raven_device.h as an offset from
  * its first value (native adds it back).
@@ -59,6 +70,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Random;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public final class RavenDevice {
 	static final String TAG = "Raven";
@@ -69,6 +84,8 @@ public final class RavenDevice {
 	static final int UNSUPPORTED = 0, NOT_ASKED = 1, GRANTED = 2, LIMITED = 3, DENIED = 4, BLOCKED = 5;
 	/* RDeviceResult - R_DEVICE_DONE */
 	static final int DONE = 0, CANCELLED = 1, REFUSED = 2, NO_SERVICE = 3, BUSY = 4, FAILED = 5;
+	/* RDeviceRequest - R_DEVICE_REQUEST_OPEN_FILES */
+	static final int REQUEST_OPEN = 0, REQUEST_SAVE = 1, REQUEST_FOLDER = 2, REQUEST_PHOTO = 3, REQUEST_PHOTOS = 4;
 	/* RHaptic - R_HAPTIC_LIGHT */
 	static final int HAPTIC_LIGHT = 0, HAPTIC_MEDIUM = 1, HAPTIC_HEAVY = 2, HAPTIC_SELECTION = 3,
 		HAPTIC_SUCCESS = 4, HAPTIC_WARNING = 5, HAPTIC_ERROR = 6;
@@ -85,11 +102,23 @@ public final class RavenDevice {
 	 */
 	private static native void nativeComplete(int id, int result, byte[][] paths, byte[][] names, byte[][] mimes,
 		long[] sizes, int[] widths, int[] heights, byte[] error);
+	/** An answer of a request made before a restart (rvn_service_restored); kind: RDeviceRequest - R_DEVICE_REQUEST_OPEN_FILES. */
+	private static native void nativeRestored(int kind, int result, byte[][] paths, byte[][] names, byte[][] mimes,
+		long[] sizes, int[] widths, int[] heights, byte[] error);
+	/** Answers after a restart were stored (rvn_service_restored_ready). Any thread. */
+	private static native void nativeRestoredReady();
+
+	/* how long a stored answer, or the marker of an open request, keeps the copies from being emptied at start */
+	private static final long RESTORED_MAX_AGE_MS = 24L * 60 * 60 * 1000;
+	private static final String RESTORED_PREFERENCES = "raven.restored";
+	private static final Object RESTORED_LOCK = new Object();
 
 	static final Handler MAIN = new Handler(Looper.getMainLooper());
 	private static volatile Activity sActivity;
 	private static volatile Context sContext;
 	private static volatile boolean sAttached;
+	/* the session of Raven attached now (changes at each attach; also differs from one process to the next) */
+	private static volatile long sSession = new Random().nextLong();
 	/* the permissions RavenRequestActivity is asking for now (one question each) */
 	private static final boolean[] sAsking = new boolean[PERMISSION_COUNT];
 	private static String[] sDeclared;
@@ -129,25 +158,250 @@ public final class RavenDevice {
 		return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
 	}
 
-	static void complete(int id, int result, Picked[] files, String error) {
-		int count = files != null ? files.length : 0;
-		byte[][] paths = new byte[count][], names = new byte[count][], mimes = new byte[count][];
-		long[] sizes = new long[count];
-		int[] widths = new int[count], heights = new int[count];
-		for (int i = 0; i < count; i++) {
-			paths[i] = utf8(files[i].path);
-			names[i] = utf8(files[i].name);
-			mimes[i] = utf8(files[i].mime);
-			sizes[i] = files[i].size;
-			widths[i] = files[i].width;
-			heights[i] = files[i].height;
+	/* The files as the arrays of nativeComplete and nativeRestored. */
+	private static final class FileArrays {
+		final byte[][] paths, names, mimes;
+		final long[] sizes;
+		final int[] widths, heights;
+
+		FileArrays(Picked[] files) {
+			int count = files != null ? files.length : 0;
+			paths = new byte[count][];
+			names = new byte[count][];
+			mimes = new byte[count][];
+			sizes = new long[count];
+			widths = new int[count];
+			heights = new int[count];
+			for (int i = 0; i < count; i++) {
+				paths[i] = utf8(files[i].path);
+				names[i] = utf8(files[i].name);
+				mimes[i] = utf8(files[i].mime);
+				sizes[i] = files[i].size;
+				widths[i] = files[i].width;
+				heights[i] = files[i].height;
+			}
 		}
-		Log.i(TAG, "request " + id + ": result " + result + ", " + count + " file(s)" + (error != null ? ": " + error : ""));
+	}
+
+	/** The end of a request of the session attached now. */
+	static void complete(int id, int result, Picked[] files, String error) {
+		FileArrays arrays = new FileArrays(files);
+		Log.i(TAG, "request " + id + ": result " + result + ", " + arrays.paths.length + " file(s)" + (error != null ? ": " + error : ""));
+		Context context = sContext;
+		if (context != null) clearPending(context, sSession, id);
 		if (!sAttached) return;
 		try {
-			nativeComplete(id, result, paths, names, mimes, sizes, widths, heights, utf8(error));
+			nativeComplete(id, result, arrays.paths, arrays.names, arrays.mimes, arrays.sizes, arrays.widths, arrays.heights, utf8(error));
 		} catch (UnsatisfiedLinkError e) {
 			Log.w(TAG, "answer of request " + id + " after Raven stopped", e);
+		}
+	}
+
+	/** The session of Raven attached now, for the requests it starts. */
+	static long session() {
+		return sSession;
+	}
+
+	/** True when `session` is the session of Raven attached now: its requests are open in native. */
+	static boolean current(long session) {
+		return sAttached && session == sSession;
+	}
+
+	/**
+	 * The end of a request started by `session` (RavenRequestActivity, any
+	 * thread): to its request when that session is the one attached, else
+	 * stored as an answer after a restart. op: RavenRequestActivity.OP_*.
+	 */
+	static void answer(Context context, long session, int op, int id, int result, Picked[] files, String error) {
+		if (current(session)) {
+			complete(id, result, files, error);
+			return;
+		}
+		int kind = op == RavenRequestActivity.OP_OPEN ? REQUEST_OPEN : op == RavenRequestActivity.OP_SAVE ? REQUEST_SAVE
+			: op == RavenRequestActivity.OP_CAMERA ? REQUEST_PHOTO : op == RavenRequestActivity.OP_PHOTOS ? REQUEST_PHOTOS : -1;
+		if (kind < 0) return;
+		Log.i(TAG, "request " + id + " of an earlier session: result " + result + ", " + (files != null ? files.length : 0)
+			+ " file(s), stored for after the restart" + (error != null ? ": " + error : ""));
+		try {
+			JSONObject answer = new JSONObject();
+			answer.put("kind", kind);
+			answer.put("result", result);
+			answer.put("session", session);
+			answer.put("id", id);
+			answer.put("time", System.currentTimeMillis());
+			if (error != null) answer.put("error", error);
+			JSONArray list = new JSONArray();
+			if (files != null) {
+				for (Picked file : files) {
+					JSONObject item = new JSONObject();
+					if (file.path != null) item.put("path", file.path);
+					if (file.name != null) item.put("name", file.name);
+					if (file.mime != null) item.put("mime", file.mime);
+					item.put("size", file.size);
+					item.put("width", file.width);
+					item.put("height", file.height);
+					list.put(item);
+				}
+			}
+			answer.put("files", list);
+			synchronized (RESTORED_LOCK) {
+				SharedPreferences store = restoredStore(context);
+				JSONArray answers = parseArray(store.getString("answers", null));
+				answers.put(answer);
+				store.edit().putString("answers", answers.toString()).commit();
+			}
+		} catch (JSONException e) {
+			Log.w(TAG, "request " + id + ": the answer could not be stored", e);
+			return;
+		}
+		if (!sAttached) return;
+		try {
+			nativeRestoredReady();
+		} catch (UnsatisfiedLinkError e) {
+			Log.w(TAG, "answer after a restart: Raven stopped", e);
+		}
+	}
+
+	/* ------------------------------------------------------------------ the store of answers after a restart */
+
+	private static SharedPreferences restoredStore(Context context) {
+		return context.getSharedPreferences(RESTORED_PREFERENCES, Context.MODE_PRIVATE);
+	}
+
+	private static JSONArray parseArray(String text) {
+		if (text != null) {
+			try {
+				return new JSONArray(text);
+			} catch (JSONException e) {
+				Log.w(TAG, "answers after a restart: unreadable, dropped", e);
+			}
+		}
+		return new JSONArray();
+	}
+
+	private static JSONObject parseObject(String text) {
+		if (text != null) {
+			try {
+				return new JSONObject(text);
+			} catch (JSONException e) {
+				Log.w(TAG, "request marker: unreadable, dropped", e);
+			}
+		}
+		return null;
+	}
+
+	private static String optString(JSONObject object, String name) {
+		return object.has(name) && !object.isNull(name) ? object.optString(name) : null;
+	}
+
+	/* A request was handed to RavenRequestActivity: its marker (one screen of the system at a time). */
+	private static void setPending(Context context, long session, int id, int op) {
+		try {
+			JSONObject marker = new JSONObject();
+			marker.put("session", session);
+			marker.put("id", id);
+			marker.put("op", op);
+			marker.put("time", System.currentTimeMillis());
+			synchronized (RESTORED_LOCK) {
+				restoredStore(context).edit().putString("pending", marker.toString()).commit();
+			}
+		} catch (JSONException e) {
+			Log.w(TAG, "request " + id + ": no marker", e);
+		}
+	}
+
+	/* The request answered: its marker goes (not one of another request). */
+	private static void clearPending(Context context, long session, int id) {
+		synchronized (RESTORED_LOCK) {
+			SharedPreferences store = restoredStore(context);
+			JSONObject marker = parseObject(store.getString("pending", null));
+			if (marker != null && marker.optLong("session") == session && marker.optInt("id") == id) store.edit().remove("pending").commit();
+		}
+	}
+
+	/*
+	 * attach: drops what is older than a day; true while a request may still
+	 * be answered (its marker) or answers wait: the copies must stay.
+	 */
+	private static boolean keepCopies(Context context) {
+		long now = System.currentTimeMillis();
+		synchronized (RESTORED_LOCK) {
+			SharedPreferences store = restoredStore(context);
+			SharedPreferences.Editor edit = store.edit();
+			JSONObject marker = parseObject(store.getString("pending", null));
+			boolean pending = marker != null && now - marker.optLong("time") < RESTORED_MAX_AGE_MS;
+			if (!pending) edit.remove("pending");
+			JSONArray answers = parseArray(store.getString("answers", null)), kept = new JSONArray();
+			for (int i = 0; i < answers.length(); i++) {
+				JSONObject answer = answers.optJSONObject(i);
+				if (answer != null && now - answer.optLong("time") < RESTORED_MAX_AGE_MS) kept.put(answer);
+				else Log.i(TAG, "an answer after a restart older than a day: dropped");
+			}
+			if (kept.length() > 0) edit.putString("answers", kept.toString());
+			else edit.remove("answers");
+			edit.commit();
+			if (pending || kept.length() > 0) {
+				Log.i(TAG, "the copies of the last run are kept: " + (pending ? "a request was open (" + marker + ")" : "")
+					+ (pending && kept.length() > 0 ? ", " : "") + (kept.length() > 0 ? kept.length() + " answer(s) after a restart wait" : ""));
+				return true;
+			}
+			return false;
+		}
+	}
+
+	/**
+	 * rvn_platform_t::restored_poll (android_main, while attached): gives each
+	 * stored answer to native, then forgets them, and the marker of their
+	 * request.
+	 */
+	public static void replayRestored() {
+		Context context = sContext;
+		if (context == null || !sAttached) return;
+		JSONArray answers;
+		JSONObject marker;
+		synchronized (RESTORED_LOCK) {
+			SharedPreferences store = restoredStore(context);
+			answers = parseArray(store.getString("answers", null));
+			marker = parseObject(store.getString("pending", null));
+			SharedPreferences.Editor edit = store.edit().remove("answers");
+			for (int i = 0; marker != null && i < answers.length(); i++) {
+				JSONObject answer = answers.optJSONObject(i);
+				if (answer != null && answer.optLong("session") == marker.optLong("session") && answer.optInt("id") == marker.optInt("id")) {
+					edit.remove("pending");
+					break;
+				}
+			}
+			edit.commit();
+		}
+		for (int i = 0; i < answers.length(); i++) {
+			JSONObject answer = answers.optJSONObject(i);
+			if (answer == null) continue;
+			JSONArray list = answer.optJSONArray("files");
+			int count = list != null ? list.length() : 0;
+			Picked[] files = new Picked[count];
+			for (int k = 0; k < count; k++) {
+				JSONObject item = list.optJSONObject(k);
+				Picked file = new Picked();
+				if (item != null) {
+					file.path = optString(item, "path");
+					file.name = optString(item, "name");
+					file.mime = optString(item, "mime");
+					file.size = item.optLong("size");
+					file.width = item.optInt("width");
+					file.height = item.optInt("height");
+				}
+				files[k] = file;
+			}
+			FileArrays arrays = new FileArrays(files);
+			Log.i(TAG, "answer after a restart (request " + answer.optInt("id") + " of an earlier session): kind " + answer.optInt("kind")
+				+ ", result " + answer.optInt("result") + ", " + count + " file(s)");
+			try {
+				nativeRestored(answer.optInt("kind"), answer.optInt("result"), arrays.paths, arrays.names, arrays.mimes, arrays.sizes,
+					arrays.widths, arrays.heights, utf8(optString(answer, "error")));
+			} catch (UnsatisfiedLinkError e) {
+				Log.w(TAG, "answer after a restart: Raven stopped", e);
+				return;
+			}
 		}
 	}
 
@@ -162,16 +416,25 @@ public final class RavenDevice {
 	/* ------------------------------------------------------------------ called by native: lifecycle */
 
 	/**
-	 * Raven starts (platform init, android_main): keeps the activity and
-	 * empties what the copies of the last run left (the header promises that
-	 * they last until the next start at most). Returns the cache folder.
+	 * Raven starts (platform init, android_main): keeps the activity, takes a
+	 * new session, and empties what the copies of the last run left (the
+	 * header promises that they last until the next start at most), unless a
+	 * request may still be answered or answers after a restart wait: then a
+	 * later start does. Returns the cache folder.
 	 */
 	public static String attach(Activity activity) {
 		sActivity = activity;
 		sContext = activity.getApplicationContext();
+		long session;
+		do {
+			session = new Random().nextLong();
+		} while (session == sSession);
+		sSession = session;
+		if (!keepCopies(sContext)) {
+			File root = RavenFileProvider.root(sContext);
+			for (String folder : new String[] { "picked", "camera", "shared", "save" }) deleteTree(new File(root, folder));
+		}
 		sAttached = true;
-		File root = RavenFileProvider.root(sContext);
-		for (String folder : new String[] { "picked", "camera", "shared", "save" }) deleteTree(new File(root, folder));
 		return sContext.getCacheDir().getAbsolutePath();
 	}
 
@@ -388,6 +651,8 @@ public final class RavenDevice {
 			complete(id, FAILED, "no activity");
 			return;
 		}
+		/* (before the screen of the system can be in front: the process may end any time after) */
+		setPending(activity, intent.getLongExtra(RavenRequestActivity.EXTRA_SESSION, 0), id, intent.getIntExtra(RavenRequestActivity.EXTRA_OP, 0));
 		MAIN.post(new Runnable() {
 			@Override public void run() {
 				if (!RavenRequestActivity.start(activity, intent)) complete(id, FAILED, "RavenRequestActivity could not be started (is it in the manifest?)");
