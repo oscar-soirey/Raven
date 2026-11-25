@@ -2053,6 +2053,12 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		ed->caret_x.started = R_FALSE;
 		ed->caret_y.started = R_FALSE;
 	}
+	/* where the selection ends are, for the handles of a finger on a phone (widget/text_touch.c) */
+	if ((widget->flags & RVN_WF_FOCUSED) && widget->window && widget->window->text_touch) {
+		rvn_vec2_t start = rvn_ed_pos_point(ed, &m, sel_min), end = rvn_ed_pos_point(ed, &m, sel_max);
+		rvn_text_touch_ends(widget, painter, rvn_rect(m.area.x + start.x - scroll_x, m.area.y + start.y - scroll_y, 0.0f, m.line_height),
+			rvn_rect(m.area.x + end.x - scroll_x, m.area.y + end.y - scroll_y, 0.0f, m.line_height));
+	}
 	rvn_paint_pop_clip(painter);
 
 	rvn_ed_tracks(ed, &m, &vertical, &horizontal);
@@ -5053,6 +5059,76 @@ static int rvn_text_editor_zoom(rvn_widget_t* widget, float factor, float x, flo
 	return rvn_ed_set_zoom(ed, zoom * factor, x, y, R_TRUE);
 }
 
+/* ---- the selection with a finger, on phones (widget/text_touch.c): the main cursor ---- */
+
+static rvn_text_pos_t rvn_ed_touch_position(rvn_widget_t* widget, float x, float y) {
+	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
+	rvn_ed_metrics_t m;
+	rvn_ed_pos_t pos;
+	rvn_text_pos_t result;
+	rvn_ed_metrics(ed, &m);
+	rvn_ed_update_rows(ed, &m);
+	pos = rvn_ed_point_pos(ed, &m, x - m.area.x + ed->hbar.offset, y - m.area.y + ed->vbar.offset);
+	result.line = pos.line;
+	result.column = pos.column;
+	return result;
+}
+
+static void rvn_ed_touch_get(rvn_widget_t* widget, rvn_text_pos_t* anchor, rvn_text_pos_t* caret) {
+	const rvn_text_editor_t* ed = (const rvn_text_editor_t*)widget;
+	anchor->line = ed->anchor.line;
+	anchor->column = ed->anchor.column;
+	caret->line = ed->caret.line;
+	caret->column = ed->caret.column;
+}
+
+static void rvn_ed_touch_set(rvn_widget_t* widget, rvn_text_pos_t anchor, rvn_text_pos_t caret) {
+	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
+	rvn_ed_single(ed);
+	ed->anchor = rvn_ed_clamp(ed, rvn_ed_pos(anchor.line, anchor.column));
+	ed->caret = rvn_ed_clamp(ed, rvn_ed_pos(caret.line, caret.column));
+	rvn_ed_break_typing(ed);
+	rvn_ed_complete_close(ed);
+	rvn_ed_caret_moved(ed, R_FALSE);
+}
+
+static void rvn_ed_touch_word(rvn_widget_t* widget, rvn_text_pos_t pos, rvn_text_pos_t* from, rvn_text_pos_t* to) {
+	const rvn_text_editor_t* ed = (const rvn_text_editor_t*)widget;
+	rvn_ed_pos_t at = rvn_ed_clamp(ed, rvn_ed_pos(pos.line, pos.column));
+	const rvn_ed_line_t* line = &ed->lines[at.line];
+	int begin = at.column, end = at.column;
+	/* (as a double click: a run of the same class of characters) */
+	if (line->length > 0) {
+		rvn_ed_class_t kind;
+		if (begin >= line->length) begin = line->length - 1;
+		kind = rvn_ed_class(line->text[begin]);
+		end = begin;
+		while (begin > 0 && rvn_ed_class(line->text[begin - 1]) == kind) begin--;
+		while (end < line->length && rvn_ed_class(line->text[end]) == kind) end++;
+	}
+	from->line = to->line = at.line;
+	from->column = begin;
+	to->column = end;
+}
+
+static unsigned rvn_ed_touch_state(rvn_widget_t* widget) {
+	const rvn_text_editor_t* ed = (const rvn_text_editor_t*)widget;
+	rvn_ed_pos_t end = rvn_ed_end(ed);
+	unsigned state = 0;
+	if (!ed->read_only) state |= RVN_TEXT_TOUCH_EDITABLE;
+	if (end.line == 0 && end.column == 0) state |= RVN_TEXT_TOUCH_EMPTY;
+	else if (rvn_ed_pos_cmp(rvn_ed_sel_min(ed), rvn_ed_pos(0, 0)) == 0 && rvn_ed_pos_cmp(rvn_ed_sel_max(ed), end) == 0) state |= RVN_TEXT_TOUCH_ALL;
+	return state;
+}
+
+static const rvn_text_touch_ops_t rvn_ed_touch = {
+	rvn_ed_touch_position,
+	rvn_ed_touch_get,
+	rvn_ed_touch_set,
+	rvn_ed_touch_word,
+	rvn_ed_touch_state
+};
+
 const rvn_widget_class_t rvn_class_text_editor = {
 	.type = R_WIDGET_TEXT_EDITOR,
 	.name = "TextEditor",
@@ -5066,7 +5142,8 @@ const rvn_widget_class_t rvn_class_text_editor = {
 	.event = rvn_text_editor_event,
 	.set_attribute = rvn_text_editor_set_attribute,
 	.pan = rvn_text_editor_pan,
-	.zoom = rvn_text_editor_zoom
+	.zoom = rvn_text_editor_zoom,
+	.text_touch = &rvn_ed_touch
 };
 
 /* ---------------------------------------------------------------------------

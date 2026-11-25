@@ -779,6 +779,7 @@ void rvn_window_forget_widget(rvn_window_t* window, rvn_widget_t* widget) {
 		window->drop_accepted = R_FALSE;
 	}
 	rvn_touch_forget_widget(window, widget);
+	rvn_text_touch_forget_widget(window, widget);
 	/* a spring of the layout that stops being stepped must not stay half-way */
 	for (i = 0; i < window->layout_spring_count;) {
 		rvn_layout_spring_t* entry = &window->layout_springs[i];
@@ -1128,6 +1129,8 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	}
 	rvn_window_paint_drop(window, &painter);
 	rvn_window_paint_drag(window, &painter);
+	/* the handles of text selected with a finger (on phones) */
+	rvn_text_touch_paint(window, &painter);
 	/* popups that were closed shrink away under the ones that are open */
 	for (i = 0; i < window->ghost_count;) {
 		rvn_ghost_t* ghost = &window->ghosts[i];
@@ -2399,6 +2402,10 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_COMPOSITION:
 			rvn_window_compose(window, pevent->composition, pevent->composition_start, pevent->composition_end);
 			break;
+		case RVN_PEVENT_EDIT:
+			/* an entry of the edit menu of the system, for the text selected with a finger */
+			rvn_text_touch_command(window, pevent->edit);
+			break;
 		case RVN_PEVENT_FOCUS:
 			if (!pevent->focused) {
 				/* the window lost the keyboard: drop transient state */
@@ -2540,6 +2547,7 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window->drag_data);
 	rvn_free(window->drag_label);
 	rvn_touch_window_free(window);
+	rvn_text_touch_window_free(window);
 	rvn_free(window);
 }
 

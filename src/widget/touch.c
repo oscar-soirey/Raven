@@ -16,6 +16,8 @@
  *   PAN      the content under it follows it (rvn_widget_class_t::pan),
  *            and coasts when it is flicked.
  *   GESTURE  a second finger came: both pinch and pan.
+ *   TEXT     it holds a handle of the selection, the caret, or the word it
+ *            long-pressed (widget/text_touch.c, on phones).
  *   DONE     nothing more happens until every finger is lifted.
  */
 
@@ -37,6 +39,7 @@ enum {
 	RVN_TS_MOUSE,
 	RVN_TS_PAN,
 	RVN_TS_GESTURE,
+	RVN_TS_TEXT,
 	RVN_TS_DONE
 };
 
@@ -61,6 +64,8 @@ struct rvn_touch_state_t {
 	int primary;
 	/** The press stopped content that was coasting: its tap does nothing. */
 	int stopped_coast;
+	/** The press is on the caret of iOS: if it moves it drags the caret (widget/text_touch.c). */
+	int text_grab;
 	Rid long_press_timer;
 	double long_press_due;
 	/* PAN */
@@ -388,6 +393,13 @@ static void rvn_touch_long_press(rvn_window_t* window) {
 	rvn_touch_stop_long_press(state);
 	finger = rvn_touch_primary(state);
 	if (state->state != RVN_TS_PENDING || !finger) return;
+	state->text_grab = R_FALSE;
+	/* on a phone, text: its word is selected, and the finger drags its end */
+	if (rvn_text_touch_long_press(window, finger->target, finger->x, finger->y)) {
+		if (window->touch == state && rvn_touch_primary(state) == finger) state->state = RVN_TS_TEXT;
+		return;
+	}
+	if (window->dead || window->touch != state) return;
 	state->state = RVN_TS_DONE;
 	/* a right click where the finger rests: the context menu */
 	rvn_window_emulate_move(window, finger->x, finger->y);
@@ -420,6 +432,16 @@ static void rvn_touch_primary_down(rvn_window_t* window, rvn_touch_state_t* stat
 	state->last_x = finger->x;
 	state->last_y = finger->y;
 	state->last_move = rvn_touch_now(state);
+	state->text_grab = R_FALSE;
+	if (!finger->owned && rvn_text_touch_enabled()) {
+		/* a handle of the selection (on phones), or the caret of iOS */
+		int taken = rvn_text_touch_press(window, finger->x, finger->y);
+		if (taken == 1) {
+			state->state = RVN_TS_TEXT;
+			return;
+		}
+		state->text_grab = taken == 2;
+	}
 	if (finger->owned || !finger->target || mode == R_TOUCH_MODE_NONE || !settings->mouse_emulation) {
 		/* (a finger that nothing turns into a mouse may still scroll) */
 		kind = finger->owned || !finger->target || mode == R_TOUCH_MODE_NONE ? RVN_PAN_NONE
@@ -450,6 +472,15 @@ static void rvn_touch_primary_move(rvn_window_t* window, rvn_touch_state_t* stat
 		int kind;
 		if (moved_x * moved_x + moved_y * moved_y <= settings->slop * settings->slop) return;
 		rvn_touch_stop_long_press(state);
+		if (state->text_grab) {
+			/* the finger on the caret of iOS takes it along */
+			state->text_grab = R_FALSE;
+			if (rvn_text_touch_grab(window)) {
+				state->state = RVN_TS_TEXT;
+				rvn_text_touch_drag(window, finger->x, finger->y);
+				return;
+			}
+		}
 		mode = finger->target ? rvn_touch_mode_at(finger->target) : R_TOUCH_MODE_AUTO;
 		kind = finger->target ? rvn_touch_find_pan(finger->target, finger->start_x, finger->start_y, mode, &pan) : RVN_PAN_NONE;
 		if (kind == RVN_PAN_FOUND) {
@@ -463,6 +494,8 @@ static void rvn_touch_primary_move(rvn_window_t* window, rvn_touch_state_t* stat
 			if (moved || mode == R_TOUCH_MODE_SCROLL || finger->owned || !settings->mouse_emulation) {
 				state->state = RVN_TS_PAN;
 				state->pan = moved ? moved : pan;
+				/* (the edit menu of a selection hides while the content scrolls) */
+				rvn_text_touch_scrolling(window, R_TRUE);
 				state->last_x = finger->x;
 				state->last_y = finger->y;
 				state->last_move = now;
@@ -478,6 +511,10 @@ static void rvn_touch_primary_move(rvn_window_t* window, rvn_touch_state_t* stat
 	}
 	if (state->state == RVN_TS_MOUSE) {
 		rvn_window_emulate_move(window, finger->x, finger->y);
+		return;
+	}
+	if (state->state == RVN_TS_TEXT) {
+		rvn_text_touch_drag(window, finger->x, finger->y);
 		return;
 	}
 	if (state->state == RVN_TS_PAN) {
@@ -510,6 +547,8 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 		case RVN_TS_PENDING:
 			/* a tap: a click; but a tap that stopped flicked content only stops it */
 			if (cancelled || state->stopped_coast || finger->owned || !settings->mouse_emulation || !finger->target) break;
+			/* (on a phone, what the click does to text decides its handles and its menu) */
+			rvn_text_touch_before_tap(window);
 			rvn_window_emulate_move(window, finger->x, finger->y);
 			state->finger_pressing = R_TRUE;
 			rvn_window_emulate_button(window, R_MOUSE_LEFT, R_TRUE);
@@ -517,6 +556,10 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 			rvn_window_emulate_button(window, R_MOUSE_LEFT, R_FALSE);
 			/* no hover stays behind a finger */
 			rvn_window_emulate_leave(window);
+			if (!window->dead) rvn_text_touch_after_tap(window, finger->target);
+			break;
+		case RVN_TS_TEXT:
+			rvn_text_touch_release(window, finger->x, finger->y, cancelled);
 			break;
 		case RVN_TS_MOUSE:
 			if (cancelled) {
@@ -531,6 +574,8 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 			double now = rvn_touch_now(state);
 			float speed = sqrtf(state->vx * state->vx + state->vy * state->vy);
 			int flicked = !cancelled && now - state->last_move < RVN_TOUCH_REST && speed > RVN_TOUCH_COAST_MIN;
+			/* SHORTCUT: the edit menu comes back when the finger leaves, even when the content still coasts */
+			rvn_text_touch_scrolling(window, R_FALSE);
 			/* a widget that settles by itself (pages that snap) takes the speed instead of coasting */
 			if (state->pan && state->pan->cls->pan_end && !(state->pan->flags & RVN_WF_DEAD)) {
 				rvn_widget_t* pan = state->pan;

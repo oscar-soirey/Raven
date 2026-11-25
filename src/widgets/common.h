@@ -596,6 +596,11 @@ void rvn_paint_composition_underline(RPainter* painter, float x0, float x1, floa
 	float baseline, rvn_color_t color);
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font, float size, rvn_color_t color, int focused);
+/** The word at a byte offset, as a double click selects it (from == to: none; a password has none). */
+void rvn_textedit_word_at(const rvn_textedit_t* edit, int offset, int* from, int* to);
+/** After rvn_textedit_paint of a field with the focus: where its selection ends are, for the handles of a finger (widget/text_touch.c). */
+void rvn_textedit_touch_ends(const rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
+	rvn_rect_t area, Rid font, float size);
 
 /* ---------------------------------------------------------------------------
  *  Looks of the editors drawn on a canvas: NodeGraph, Timeline (canvas_look.c)

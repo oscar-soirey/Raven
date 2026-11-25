@@ -311,6 +311,17 @@ static int rvn_te_x_to_offset(const rvn_textedit_t* edit, rvn_font_t* font, floa
 	return rvn_text_offset_at(font, size, edit->text, edit->length, x);
 }
 
+void rvn_textedit_word_at(const rvn_textedit_t* edit, int offset, int* from, int* to) {
+	if (edit->password) {
+		*from = *to = rvn_clampi(offset, 0, edit->length);
+		return;
+	}
+	*from = rvn_te_word_left(edit, rvn_mini(offset + 1, edit->length));
+	*to = rvn_te_word_right(edit, *from);
+	/* a double click selects the word, not the spaces after it */
+	while (*to > *from && rvn_te_is_space(edit->text[*to - 1])) (*to)--;
+}
+
 void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font_id, float size,
 	float x, int clicks, int extend) {
 	rvn_font_t* font = rvn_font_resolve(font_id);
@@ -321,10 +332,7 @@ void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, R
 	if (clicks >= 3) {
 		rvn_textedit_select_all(edit);
 	} else if (clicks == 2 && !edit->password) {
-		edit->anchor = rvn_te_word_left(edit, rvn_mini(offset + 1, edit->length));
-		edit->caret = rvn_te_word_right(edit, edit->anchor);
-		/* a double click selects the word, not the spaces after it */
-		while (edit->caret > edit->anchor && rvn_te_is_space(edit->text[edit->caret - 1])) edit->caret--;
+		rvn_textedit_word_at(edit, offset, &edit->anchor, &edit->caret);
 	} else {
 		edit->caret = offset;
 		if (!extend) edit->anchor = offset;
@@ -457,5 +465,26 @@ void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPaint
 		rvn_text_input_rect(widget, painter, caret);
 		if (g_rvn.test_deterministic || fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
 	}
+	rvn_paint_pop_clip(painter);
+}
+
+void rvn_textedit_touch_ends(const rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
+	rvn_rect_t area, Rid font_id, float size) {
+	rvn_font_t* font;
+	rvn_font_metrics_t metrics;
+	float x0, x1, text_y;
+	/* (only the field whose selection a finger has on a phone wants them) */
+	if (!widget->window || !widget->window->text_touch) return;
+	font = rvn_font_resolve(font_id);
+	if (!font) return;
+	size = rvn_widget_font_size(widget, size);
+	rvn_font_metrics(font, size, &metrics);
+	text_y = area.y + (area.h - metrics.line_height) * 0.5f;
+	x0 = rvn_te_offset_to_x(edit, font, size, rvn_te_min(edit)) - edit->scroll;
+	x1 = rvn_te_offset_to_x(edit, font, size, rvn_te_max(edit)) - edit->scroll;
+	/* (an end scrolled out of the field has no handle) */
+	rvn_paint_push_clip(painter, area);
+	rvn_text_touch_ends(widget, painter, rvn_rect(area.x + x0, text_y, 0.0f, metrics.line_height),
+		rvn_rect(area.x + x1, text_y, 0.0f, metrics.line_height));
 	rvn_paint_pop_clip(painter);
 }
