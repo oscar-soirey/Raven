@@ -507,6 +507,143 @@ static void test_clipboard_has_text(void) {
 	CHECK(Rclipboard_has_text());
 }
 
+/* ---------------------------------------------------------------------------
+ *  Answers after a restart (Rdevice_set_restored_callback)
+ * ------------------------------------------------------------------------- */
+
+static struct {
+	int calls;
+	RDeviceRequest request;
+	RDeviceResult result;
+	int count;
+	char names[2][64];
+	char paths[2][512];
+	char mimes[2][32];
+	uint64_t sizes[2];
+	int width, height;
+	void* user_data;
+} g_restored;
+
+static void on_restored(RDeviceRequest request, RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	int i;
+	g_restored.calls++;
+	g_restored.request = request;
+	g_restored.result = result;
+	g_restored.count = count;
+	g_restored.user_data = user_data;
+	for (i = 0; i < count && i < 2; i++) {
+		snprintf(g_restored.names[i], sizeof(g_restored.names[i]), "%s", files[i].name ? files[i].name : "");
+		snprintf(g_restored.paths[i], sizeof(g_restored.paths[i]), "%s", files[i].path ? files[i].path : "");
+		snprintf(g_restored.mimes[i], sizeof(g_restored.mimes[i]), "%s", files[i].mime_type ? files[i].mime_type : "");
+		g_restored.sizes[i] = files[i].size;
+	}
+	if (count > 0) {
+		g_restored.width = files[0].width;
+		g_restored.height = files[0].height;
+	}
+}
+
+static void restored_from_worker(void* user) {
+	RPickedFile file;
+	(void)user;
+	memset(&file, 0, sizeof(file));
+	file.path = "raven_test_device_restored.jpg";
+	file.name = "IMG_0002.JPG";
+	Rhost_service_restored(R_HOST_SERVICE_PICK_PHOTOS, R_DEVICE_DONE, &file, 1);
+}
+
+static void test_restored(void) {
+	RPickedFile file;
+	char path[64], name[64];
+	int i;
+
+	memset(&g_restored, 0, sizeof(g_restored));
+	reset();
+	CHECK(write_file("raven_test_device_restored.jpg", "not a jpeg"));
+
+	/* an answer that came before the application set its callback: kept */
+	memset(&file, 0, sizeof(file));
+	snprintf(path, sizeof(path), "raven_test_device_restored.jpg");
+	snprintf(name, sizeof(name), "IMG_0001.JPG");
+	file.path = path;
+	file.name = name;
+	file.mime_type = "image/jpeg";
+	file.width = 4032;
+	file.height = 3024;
+	Rhost_service_restored(R_HOST_SERVICE_TAKE_PHOTO, R_DEVICE_DONE, &file, 1);
+	/* (copied during the call) */
+	memset(path, 'x', sizeof(path) - 1);
+	memset(name, 'y', sizeof(name) - 1);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(g_restored.calls == 0);
+
+	/* the callback is set: the answer at a later frame, not inside the call */
+	Rdevice_set_restored_callback(on_restored, (void*)&g_restored);
+	CHECK(g_restored.calls == 0);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 1);
+	CHECK(g_restored.request == R_DEVICE_REQUEST_TAKE_PHOTO);
+	CHECK(g_restored.result == R_DEVICE_DONE);
+	CHECK(g_restored.count == 1);
+	CHECK_STR(g_restored.paths[0], "raven_test_device_restored.jpg");
+	CHECK_STR(g_restored.names[0], "IMG_0001.JPG");
+	CHECK_STR(g_restored.mimes[0], "image/jpeg");
+	/* (size 0: read from the file) */
+	CHECK(g_restored.sizes[0] == 10);
+	CHECK(g_restored.width == 4032 && g_restored.height == 3024);
+	CHECK(g_restored.user_data == (void*)&g_restored);
+	/* once */
+	Rdraw_frame();
+	CHECK(g_restored.calls == 1);
+	/* (not an answer of a request open now) */
+	CHECK(g_answer.device_answers == 0);
+
+	/* with the callback set: at the next frame, also from another thread */
+	Rtask_run_async(restored_from_worker, NULL);
+	for (i = 0; i < 200 && g_restored.calls == 1; i++) Rwait_frame(0.01);
+	CHECK(g_restored.calls == 2);
+	CHECK(g_restored.request == R_DEVICE_REQUEST_PICK_PHOTOS);
+	CHECK_STR(g_restored.names[0], "IMG_0002.JPG");
+
+	/* not done: no files, as for a normal answer */
+	Rhost_service_restored(R_HOST_SERVICE_OPEN_FILES, R_DEVICE_CANCELLED, &file, 1);
+	CHECK(g_restored.calls == 2);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 3);
+	CHECK(g_restored.request == R_DEVICE_REQUEST_OPEN_FILES);
+	CHECK(g_restored.result == R_DEVICE_CANCELLED);
+	CHECK(g_restored.count == 0);
+
+	/* the callback removed: kept again, in order, until one is set */
+	Rdevice_set_restored_callback(NULL, NULL);
+	Rhost_service_restored(R_HOST_SERVICE_SAVE_FILE, R_DEVICE_DONE, NULL, 0);
+	Rhost_service_restored(R_HOST_SERVICE_SELECT_FOLDER, R_DEVICE_CANCELLED, NULL, 0);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 3);
+	Rdevice_set_restored_callback(on_restored, NULL);
+	CHECK(g_restored.calls == 3);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 5);
+	CHECK(g_restored.request == R_DEVICE_REQUEST_SELECT_FOLDER);
+	CHECK(g_restored.user_data == NULL);
+
+	/* a share sheet does not come back; not an RDeviceResult */
+	EXPECT_ERRORS_BEGIN();
+	Rhost_service_restored(R_HOST_SERVICE_SHARE, R_DEVICE_DONE, NULL, 0);
+	Rhost_service_restored(R_HOST_SERVICE_TAKE_PHOTO, (RDeviceResult)0x7777, NULL, 0);
+	EXPECT_ERRORS_END(2);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 5);
+
+	/* kept at Rshutdown (no callback): freed, never called (test_report counts leaks) */
+	Rdevice_set_restored_callback(NULL, NULL);
+	Rhost_service_restored(R_HOST_SERVICE_TAKE_PHOTO, R_DEVICE_DONE, &file, 1);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 5);
+	remove("raven_test_device_restored.jpg");
+}
+
 /* Raven stops while a picker is open: the late answer is dropped, nothing leaks (test_report). */
 static Ruint g_open_at_shutdown;
 static void test_open_at_shutdown(void) {
@@ -563,6 +700,9 @@ static void test_desktop(void) {
 	CHECK(!Rhaptic_is_supported());
 	CHECK(!Rhaptic_play(R_HAPTIC_LIGHT));
 	CHECK(!Rcamera_is_available());
+	/* no answer ever comes after a restart on a desktop */
+	memset(&g_restored, 0, sizeof(g_restored));
+	Rdevice_set_restored_callback(on_restored, NULL);
 
 	Rcamera_take_photo(on_device, NULL);
 	memset(&share, 0, sizeof(share));
@@ -618,6 +758,8 @@ static void test_desktop(void) {
 	remove("raven_test_device_pick.txt");
 	remove("raven_test_device_saved.txt");
 	Rwindow_destroy(g_desktop_window);
+	Rdraw_frame();
+	CHECK(g_restored.calls == 0);
 }
 
 int main(void) {
@@ -655,12 +797,15 @@ int main(void) {
 	RUN(test_haptics_and_urls);
 	RUN(test_download);
 	RUN(test_clipboard_has_text);
+	RUN(test_restored);
 	RUN(test_open_at_shutdown);
 	Rshutdown();
 	/* the system answers after Raven stopped: ignored */
 	Rhost_service_complete(g_open_at_shutdown, R_DEVICE_CANCELLED, NULL, 0);
 	Rhost_permission_answer(R_PERMISSION_CAMERA, R_PERMISSION_GRANTED);
+	Rhost_service_restored(R_HOST_SERVICE_TAKE_PHOTO, R_DEVICE_DONE, NULL, 0);
 	CHECK(g_answer.device_answers == 0);
+	CHECK(g_restored.calls == 5);
 
 	Rhost_platform_register(NULL);
 	if (!test_init(2)) {
