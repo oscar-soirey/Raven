@@ -11,7 +11,9 @@
 #
 # The tests run on Linux, macOS and Windows (Visual C++): the headless ones,
 # and those of the platform of each runner (Cocoa, Win32); test_web drives the
-# Chrome of the runner. A tag is released only when they pass on all three.
+# Chrome of the runner. The mobile example is also launched on an Android
+# emulator. A tag is released only when they pass on all three (the Android
+# emulator aside).
 #
 # Each run uploads the packages as artifacts (Actions tab > the run > Artifacts).
 # Pushing a tag v* (git tag v0.1.0 && git push origin v0.1.0) also attaches them
@@ -494,7 +496,8 @@ jobs:
 
   # ---------------------------------------------------------------------------
   #  Android (NDK, arm64-v8a): Raven and the showcase APK of examples/mobile,
-  #  with the SDK, NDK and JDK of the runner. Built, not run (no device).
+  #  with the SDK, NDK and JDK of the runner. Built here; android-emulator runs
+  #  it (built for x86_64).
   # ---------------------------------------------------------------------------
   android:
     name: android (arm64)
@@ -526,6 +529,59 @@ jobs:
           name: raven-hello-android-arm64
           path: examples/mobile/android/raven-hello.apk
           if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  #  Android on an emulator: the showcase APK built for x86_64 (ABI=x86_64), the
+  #  ABI an emulator runs at full speed on the x86_64 runner (KVM), installed and
+  #  launched by examples/mobile/android/smoke.sh, which checks that the app
+  #  keeps running and draws (a screenshot that is not blank), and prints its
+  #  log when it does not. Vulkan is SwiftShader's (-gpu swiftshader_indirect).
+  # ---------------------------------------------------------------------------
+  android-emulator:
+    name: android (emulator, x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build Raven and the APK (x86_64)
+        env:
+          ABI: x86_64
+          RAVEN_CMAKE_ARGS: -DRAVEN_WARNINGS_AS_ERRORS=ON
+        run: |
+          export ANDROID_NDK="$ANDROID_NDK_LATEST_HOME"
+          ./examples/mobile/android/build.sh
+          unzip -l examples/mobile/android/raven-hello.apk | grep lib/x86_64/libravenhello.so
+
+      # (the action runs each line of script on its own: the steps are in smoke.sh)
+      - name: Run on an emulator
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        env:
+          WAIT: "30"
+          SCREENSHOT: android-emulator.png
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: ./examples/mobile/android/smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-screenshot
+          path: android-emulator.png
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
@@ -702,9 +758,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      # the packages, the installers and the APK (raven-*), not the screenshots of the
+      # simulator and emulator jobs
       - uses: actions/download-artifact@v4
         with:
           path: packages
+          pattern: raven-*
           merge-multiple: true
 
       - name: Checksums
