@@ -5,11 +5,29 @@ The addon does the marshalling (scalars, texts, pointers, typed arrays, the
 values returned through pointers), the module adds what is simpler in
 JavaScript (structures, loading). The TypeScript surface is the one of Bun
 (gen_bun.py): same names, same tuples, same classes, so that a program written
-against one runs on the other.
+against one runs on the other. One difference: an address is a bigint here (a
+number in bun:ffi), which holds the 64 bits of a pointer of Android; numbers are
+still taken where an address goes.
 """
 
 from cparse import classify, doc_lines
-from gen_bun import ACCESS, DEFAULTS, NATIVE_ONLY, RUN_LOOP, SCALAR, THREADSAFE, comment, from_bigint, js_name, layout, scalar_type, sibling_count
+from gen_bun import ACCESS, DEFAULTS, NATIVE_ONLY, RUN_LOOP, SCALAR, THREADSAFE, comment, js_name, layout, sibling_count
+from gen_bun import scalar_type as bun_scalar_type
+
+# Addresses are bigints here, where the Bun binding has numbers: a number holds 53
+# bits, and a pointer of Android carries a tag in its top byte. A uintptr_t, which
+# may hold one (RNativeWindow), is a bigint too. Both take numbers below 2^53 as
+# well, so that what was written for numbers, or for Bun, still runs.
+
+
+def scalar_type(detail):
+    """The type of a scalar in JavaScript: the one of the Bun binding, but for a uintptr_t."""
+    return "bigint" if detail == "uintptr" else bun_scalar_type(detail)
+
+
+def from_bigint(detail, expr):
+    """A size_t read from memory becomes a number, as in the Bun binding; a uintptr_t stays a bigint."""
+    return "Number(%s)" % expr if detail == "size_t" else expr
 
 # The TypeScript surface follows gen_bun.py: the names come from its tables, the
 # rest (the signatures) is repeated below because the output differs (a .js and
@@ -32,7 +50,7 @@ C_MAKE = {
     "float": "napi_create_double(env, (double)%s, &%s)", "double": "napi_create_double(env, %s, &%s)",
     "uint8": "napi_create_uint32(env, (uint32_t)%s, &%s)", "uint32": "napi_create_uint32(env, %s, &%s)",
     "id": "napi_create_uint32(env, %s, &%s)", "size_t": "napi_create_double(env, (double)%s, &%s)",
-    "uintptr": "napi_create_double(env, (double)%s, &%s)", "uint64": "napi_create_bigint_uint64(env, %s, &%s)",
+    "uintptr": "napi_create_bigint_uint64(env, (uint64_t)%s, &%s)", "uint64": "napi_create_bigint_uint64(env, %s, &%s)",
 }
 NUMBER_ARRAY = {"double": "napi_float64_array", "float": "napi_float32_array", "int": "napi_int32_array", "uint32": "napi_uint32_array"}
 
@@ -207,29 +225,51 @@ static int rn_get_view(napi_env env, napi_value v, void** data, size_t* size) {
 	return 0;
 }
 
+static int rn_range_error(napi_env env, const char* message) {
+	if (napi_throw_range_error(env, NULL, message) != napi_ok) napi_throw_error(env, NULL, message);
+	return 0;
+}
+
+/** The largest integer a number holds exactly: 2^53 - 1. */
+#define RN_SAFE_INTEGER 9007199254740991.0
+
+/**
+ * An address given as a number: what the binding gave before addresses were
+ * bigints, and what the Bun binding gives. Only an integer that a number holds
+ * exactly is one; a larger address has lost its low bits already.
+ */
+static int rn_ptr_number(napi_env env, double value, void** out) {
+	if (!(value >= 0 && value <= RN_SAFE_INTEGER) || value != (double)(uint64_t)value) {
+		return rn_range_error(env, "Raven: an address given as a number must be an integer from 0 to 2^53 - 1: give it as a bigint");
+	}
+	*out = (void*)(uintptr_t)(uint64_t)value;
+	return 1;
+}
+
 static int rn_ptr_slow(napi_env env, napi_value v, void** out) {
 	napi_valuetype type;
 	size_t size;
+	double number;
 	if (napi_typeof(env, v, &type) != napi_ok) return rn_type_error(env, "Raven: expected a pointer");
 	if (type == napi_null || type == napi_undefined) {
 		*out = NULL;
 		return 1;
 	}
-	if (type == napi_bigint) {
-		uint64_t value;
-		bool lossless;
-		napi_get_value_bigint_uint64(env, v, &value, &lossless);
-		*out = (void*)(uintptr_t)value;
-		return 1;
-	}
+	if (type == napi_number && napi_get_value_double(env, v, &number) == napi_ok) return rn_ptr_number(env, number, out);
+	if (type == napi_bigint) return rn_range_error(env, "Raven: the bigint is outside the range of an address");
 	if (type == napi_object && rn_get_view(env, v, out, &size)) return 1;
-	return rn_type_error(env, "Raven: expected an address, a typed array or null");
+	return rn_type_error(env, "Raven: expected an address (a bigint), a typed array or null");
 }
 
-/** An address given as a number (what the library returned), memory of JavaScript for the call, or NULL. */
+/**
+ * An address given as a bigint (what the library returned: all 64 bits, the tag
+ * in the top byte of a pointer of Android included), as a number below 2^53,
+ * memory of JavaScript for the call, or NULL.
+ */
 static inline int rn_get_ptr(napi_env env, napi_value v, void** out) {
-	double value;
-	if (napi_get_value_double(env, v, &value) == napi_ok) {
+	uint64_t value;
+	bool lossless;
+	if (napi_get_value_bigint_uint64(env, v, &value, &lossless) == napi_ok && lossless && (uint64_t)(uintptr_t)value == value) {
 		*out = (void*)(uintptr_t)value;
 		return 1;
 	}
@@ -358,10 +398,11 @@ static inline napi_value rn_make_text(napi_env env, const char* text) {
 	return v;
 }
 
+/** An address for JavaScript: a bigint, which holds all 64 bits where a number holds 53; null for NULL. */
 static inline napi_value rn_make_ptr(napi_env env, const void* address) {
 	napi_value v;
 	if (!address) return rn_null(env);
-	napi_create_double(env, (double)(uintptr_t)address, &v);
+	napi_create_bigint_uint64(env, (uint64_t)(uintptr_t)address, &v);
 	return v;
 }
 
@@ -958,13 +999,23 @@ fail:
 	return NULL;
 }
 
+/** An offset added to an address in C: none when it is not given. */
+static int rn_get_offset(napi_env env, size_t argc, size_t index, const napi_value* argv, uint64_t* out) {
+	napi_valuetype type;
+	*out = 0;
+	if (argc <= index || napi_typeof(env, argv[index], &type) != napi_ok || type == napi_undefined) return 1;
+	return rn_get_uint64(env, argv[index], out);
+}
+
+/** An address as a bigint, plus an offset: that of memory of JavaScript, or one given as a number. */
 static napi_value rn_w__ptr(napi_env env, napi_callback_info info) {
-	size_t argc = 1;
-	napi_value argv[1];
+	size_t argc = 2;
+	napi_value argv[2];
 	void* address;
+	uint64_t offset;
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-	if (!rn_get_ptr(env, argv[0], &address)) return NULL;
-	return rn_make_ptr(env, address);
+	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_offset(env, argc, 1, argv, &offset)) return NULL;
+	return rn_make_ptr(env, (const void*)((uintptr_t)address + (uintptr_t)offset));
 }
 
 static napi_value rn_w__text(napi_env env, napi_callback_info info) {
@@ -980,13 +1031,15 @@ static int rn_copied_views;
 
 /** An ArrayBuffer over the memory of the library; a copy of it where the runtime forbids that (Electron). */
 static napi_value rn_w__view(napi_env env, napi_callback_info info) {
-	size_t argc = 2;
-	napi_value argv[2], result;
+	size_t argc = 3;
+	napi_value argv[3], result;
 	void* address;
 	double size;
+	uint64_t offset;
 	void* copy;
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_double(env, argv[1], &size)) return NULL;
+	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_double(env, argv[1], &size) || !rn_get_offset(env, argc, 2, argv, &offset)) return NULL;
+	address = (void*)((uintptr_t)address + (uintptr_t)offset);
 	if (!rn_copied_views && napi_create_external_arraybuffer(env, address, (size_t)size, NULL, NULL, &result) == napi_ok) return result;
 	rn_copied_views = 1;
 	if (napi_create_arraybuffer(env, (size_t)size, &copy, &result) != napi_ok) return NULL;
@@ -1081,10 +1134,10 @@ def plan_function(api, f):
             signature.append("%s: %s | readonly number[] | null" % (n, ACCESS[detail][1]))
         elif kind == "callback" and f.name in NATIVE_ONLY:
             item["shape"] = "native_callback"
-            signature.append("%s: Pointer | null" % n)
+            signature.append("%s: PointerLike | null" % n)
         elif kind == "callback":
             item["shape"] = "callback"
-            signature.append("%s: %s | Pointer | null" % (n, detail))
+            signature.append("%s: %s | PointerLike | null" % (n, detail))
         elif kind in ("struct_ptr", "cstruct_ptr"):
             item["shape"] = "struct"
             item["struct"] = detail
@@ -1750,9 +1803,20 @@ function _text(pointer) {
 	return pointer ? _lib._text(pointer) : null;
 }
 
-/** An address read from memory, as a pointer. */
+/** An address read from memory, as a pointer: a bigint, or null. */
 function _address(value) {
-	return value === 0n ? null : Number(value);
+	return value === 0n ? null : value;
+}
+
+/** An address to write into memory, checked as the addon checks one: 0n for null. */
+function _to_address(value) {
+	if (value === null || value === undefined) {
+		return 0n;
+	}
+	if (typeof value === "bigint" ? value < 0n || value > 0xffffffffffffffffn : !(Number.isSafeInteger(value) && value >= 0)) {
+		throw new RangeError("Raven: an address is a bigint, or a number that is an integer from 0 to 2^53 - 1");
+	}
+	return BigInt(value);
 }
 
 /** Texts written by the library as an array of addresses. */
@@ -1778,7 +1842,7 @@ export class RStruct {
 	/** Remembers what a field points to, and writes its address there. */
 	_point(field, offset, value) {
 		(this._kept ??= new Map()).set(field, value ?? this._bytes);
-		this._view.setBigUint64(offset, value === null ? 0n : BigInt(_lib._ptr(value)), true);
+		this._view.setBigUint64(offset, value === null ? 0n : (_lib._ptr(value) ?? 0n), true);
 	}
 }
 
@@ -1806,12 +1870,12 @@ function _back(value, pointer) {
 
 /** The bytes at an address of the library, as bun:ffi gives them: valid as long as that memory is. */
 export function toArrayBuffer(pointer, byteOffset = 0, byteLength) {
-	return _view_of(pointer + byteOffset, byteLength);
+	return _view_of(pointer, byteLength, byteOffset);
 }
 
-/** The address of memory of JavaScript, as bun:ffi gives it: what the memory is, it stays while the view lives. */
+/** The address of memory of JavaScript, as a bigint: what the memory is, it stays while the view lives. */
 export function ptr(view, byteOffset = 0) {
-	return _lib._ptr(view) + byteOffset;
+	return _lib._ptr(view, byteOffset);
 }
 
 /** An enumeration, as TypeScript makes them: each name, and each value to its name. */
@@ -1852,21 +1916,35 @@ DTS_HEADER = '''/**
  *   - the size that follows a text or bytes is not passed either;
  *   - a structure is a class with an accessor per field. One received by a
  *     callback reads the memory of the library: it is valid during the call;
- *   - `user_data` can be left out.
+ *   - `user_data` can be left out;
+ *   - an address is a bigint (`Pointer`), and NULL is null. The Bun binding
+ *     gives numbers, which hold 53 bits: a parameter takes those too.
  *
  * See README.md for threads, the event loop and how long callbacks live.
  */
 
-export type Pointer = number & { __pointer__: null };
+/**
+ * An address of the library, as every function, callback and field gives it: a
+ * bigint, which holds all 64 bits (a number holds 53, and a pointer of Android
+ * carries a tag in its top byte). NULL is null.
+ */
+export type Pointer = bigint & { __pointer__: null };
+/**
+ * What a parameter takes as an address: a Pointer, any bigint, or a number from
+ * 0 to 2^53 - 1 (as the Bun binding gives addresses, and as this one gave them
+ * before); 0, 0n and null are NULL. A number that is not such an integer throws a
+ * RangeError.
+ */
+export type PointerLike = Pointer | bigint | number;
 /** A handle: every object of Raven is one. */
 export type Rid = number;
 /** An address, or memory of JavaScript given to the library for the time of the call. */
-export type RPointer = NodeJS.TypedArray | Pointer | null;
+export type RPointer = NodeJS.TypedArray | PointerLike | null;
 
 /** The bytes at an address of the library (Rwindow_capture, Rimage_decode...): valid as long as that memory is. */
-export function toArrayBuffer(pointer: Pointer, byteOffset: number | undefined, byteLength: number): ArrayBuffer;
-/** The address of memory of JavaScript, for a function that takes a pointer as a number. */
-export function ptr(view: NodeJS.TypedArray | ArrayBuffer | DataView, byteOffset?: number): Pointer;
+export function toArrayBuffer(pointer: PointerLike, byteOffset: number | bigint | undefined, byteLength: number): ArrayBuffer;
+/** The address of memory of JavaScript, for a function that takes a pointer. */
+export function ptr(view: NodeJS.TypedArray | ArrayBuffer | DataView, byteOffset?: number | bigint): Pointer;
 
 /** A structure of the C API over its own zeroed memory, or over memory of the library when it is built from an address. */
 export abstract class RStruct {
@@ -1875,7 +1953,7 @@ export abstract class RStruct {
 	readonly _view: DataView;
 	/** The texts and arrays its fields point to. */
 	protected _kept: Map<string, object> | null;
-	protected constructor(size: number, pointer?: Pointer);
+	protected constructor(size: number, pointer?: PointerLike | null);
 	/** Remembers what a field points to, and writes its address there. */
 	protected _point(field: string, offset: number, value: NodeJS.TypedArray | null): void;
 }
@@ -1922,7 +2000,7 @@ def js_struct_field(api, s, f, offset, out):
         method, _ = ACCESS[detail]
         little = ", true" if SCALAR[detail][1] > 1 else ""
         value = from_bigint(detail, "%s.get%s(%d%s)" % (view, method, offset, little))
-        written = "BigInt(value)" if detail in ("size_t", "uintptr") else "value"
+        written = "_to_address(value)" if detail == "uintptr" else "BigInt(value)" if detail == "size_t" else "value"
         out.append("\tget %s() {" % f.name)
         out.append("\t\treturn %s;" % value)
         out.append("\t}")
@@ -1955,8 +2033,8 @@ def js_struct_field(api, s, f, offset, out):
         out.append("\t\treturn _address(%s.getBigUint64(%d, true));" % (view, offset))
         out.append("\t}")
         out.append("\tset %s(value) {" % f.name)
-        out.append('\t\tif (typeof value === "number") {')
-        out.append("\t\t\t%s.setBigUint64(%d, BigInt(value), true);" % (view, offset))
+        out.append('\t\tif (typeof value === "number" || typeof value === "bigint") {')
+        out.append("\t\t\t%s.setBigUint64(%d, _to_address(value), true);" % (view, offset))
         out.append("\t\t\treturn;")
         out.append("\t\t}")
         out.append('\t\tthis._point("%s", %d, _structs(value, %s.SIZE));' % (f.name, offset, detail))
@@ -1968,7 +2046,7 @@ def js_struct_field(api, s, f, offset, out):
         out.append("\t\treturn _address(%s.getBigUint64(%d, true));" % (view, offset))
         out.append("\t}")
         out.append("\tset %s(value) {" % f.name)
-        out.append("\t\t%s.setBigUint64(%d, BigInt(value ?? 0), true);" % (view, offset))
+        out.append("\t\t%s.setBigUint64(%d, _to_address(value), true);" % (view, offset))
         out.append("\t}")
     else:
         raise ValueError("no field of the type %s for Node (%s.%s)" % (f.ctype, s.name, f.name))
@@ -1987,7 +2065,7 @@ def dts_struct_field(api, s, f, out):
     if kind == "scalar":
         t = scalar_type(detail)
         out.append("\tget %s(): %s;" % (f.name, t))
-        out.append("\tset %s(value: %s);" % (f.name, t))
+        out.append("\tset %s(value: %s);" % (f.name, "number | bigint" if detail == "uintptr" else t))
     elif kind == "enum":
         out.append("\tget %s(): %s;" % (f.name, detail))
         out.append("\tset %s(value: %s);" % (f.name, detail))
@@ -1998,10 +2076,10 @@ def dts_struct_field(api, s, f, out):
         out.append("\tget %s(): string[];" % f.name)
     elif kind == "cstruct_ptr" and sibling_count(s, f):
         out.append("\tget %s(): Pointer | null;" % f.name)
-        out.append("\tset %s(value: readonly %s[] | Pointer | null);" % (f.name, detail))
+        out.append("\tset %s(value: readonly %s[] | PointerLike | null);" % (f.name, detail))
     else:
         out.append("\tget %s(): Pointer | null;" % f.name)
-        out.append("\tset %s(value: Pointer | null);" % f.name)
+        out.append("\tset %s(value: PointerLike | null);" % f.name)
 
 
 def callback_public(api, c):
@@ -2258,9 +2336,9 @@ def generate_dts(api):
         out.extend(comment(doc_lines(s.doc)))
         out.append("export class %s extends RStruct {" % s.name)
         out.append("\tstatic readonly SIZE = %d;" % size)
-        out.append("\tconstructor(pointer?: Pointer);")
+        out.append("\tconstructor(pointer?: PointerLike | null);")
         out.append("\t/** The structure at an address of the library, or null. */")
-        out.append("\tstatic from(pointer: Pointer | null): %s | null;" % s.name)
+        out.append("\tstatic from(pointer: PointerLike | null): %s | null;" % s.name)
         for f in s.fields:
             dts_struct_field(api, s, f, out)
         out.append("}")

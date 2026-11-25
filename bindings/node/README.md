@@ -7,7 +7,9 @@ the whole API under the same names. Do not edit them.
 
 Node-API is ABI-stable: one `.node` per platform works across versions of
 Node.js, and the same file loads in Bun and in Deno. It has the same surface as
-`bindings/bun`: a program written against one runs on the other.
+`bindings/bun`, but for addresses, which are bigints here (see
+[Addresses](#addresses)): a program written against one runs on the other as
+long as it does not count on the type of an address.
 
 Build Raven as a shared library, the addon beside it, then point the binding at
 both:
@@ -86,6 +88,46 @@ The same as for Bun:
 And two functions Bun has in `bun:ffi` are here, for reading what the library
 returns as an address: `r.toArrayBuffer(address, offset, size)` (the pixels of
 `Rwindow_capture`, for instance) and `r.ptr(typedArray)`.
+
+## Addresses
+
+An address is a `bigint` (the type `Pointer`), wherever it comes from: the
+result of a function (`Rmemory_alloc`, `Rwidget_get_user_handle`...), the
+`user_data` a callback receives, a field of a structure (`void*`, and
+`uintptr_t` such as `RNativeWindow.window`), the address a callback receives
+for a structure or a value to write, `r.ptr()`. NULL is `null`.
+
+A number holds 53 bits, and an address can have 64: on Android (arm64,
+API 30 and later) the pointers of the heap carry a tag in their top byte
+(`0xB400007A...`), which a number would round away. A bigint keeps them all,
+so what goes back to C is what came from it.
+
+Where an address goes, a parameter takes a `bigint` from `0n` to the largest
+address, a typed array (memory of JavaScript, for the time of the call), `null`,
+or a number that is an integer from 0 to 2^53 - 1: what the Bun binding gives,
+and what this binding gave until addresses were bigints. Anything else (a
+larger number, a fraction, a negative bigint) throws a `RangeError` instead of
+reaching C as another address. `0`, `0n` and `null` are NULL.
+
+### Coming from numbers
+
+Addresses were numbers before. What changes for a program:
+
+- Arithmetic: `address + 16` throws a `TypeError` (a bigint and a number do
+  not mix). Write `address + 16n`, or give the offset to `r.toArrayBuffer`
+  (`r.toArrayBuffer(address, 16, size)`) or `r.ptr(view, 16)`, which take a
+  number or a bigint.
+- Comparisons: `userData === 42` is false when the callback receives `42n`; a
+  `user_data` given as a number comes back as a bigint. Compare with `42n`, or
+  `Number(userData) === 42` for a value known to be small. `if (address)` and
+  `address === null` work as before.
+- `typeof address === "number"` is now `"bigint"`.
+- `JSON.stringify` throws on a bigint: write `address.toString()`.
+- Passing what the library gave back to the library needs no change, nor
+  passing numbers that came from elsewhere (they are still taken).
+
+A program that runs on both Bun (numbers) and Node.js (bigints) can do its
+arithmetic with `BigInt(address)` and give either kind back.
 
 An argument of the wrong type throws a `TypeError` instead of reaching C. `int`
 parameters also take booleans.

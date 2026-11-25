@@ -14,21 +14,35 @@
  *   - the size that follows a text or bytes is not passed either;
  *   - a structure is a class with an accessor per field. One received by a
  *     callback reads the memory of the library: it is valid during the call;
- *   - `user_data` can be left out.
+ *   - `user_data` can be left out;
+ *   - an address is a bigint (`Pointer`), and NULL is null. The Bun binding
+ *     gives numbers, which hold 53 bits: a parameter takes those too.
  *
  * See README.md for threads, the event loop and how long callbacks live.
  */
 
-export type Pointer = number & { __pointer__: null };
+/**
+ * An address of the library, as every function, callback and field gives it: a
+ * bigint, which holds all 64 bits (a number holds 53, and a pointer of Android
+ * carries a tag in its top byte). NULL is null.
+ */
+export type Pointer = bigint & { __pointer__: null };
+/**
+ * What a parameter takes as an address: a Pointer, any bigint, or a number from
+ * 0 to 2^53 - 1 (as the Bun binding gives addresses, and as this one gave them
+ * before); 0, 0n and null are NULL. A number that is not such an integer throws a
+ * RangeError.
+ */
+export type PointerLike = Pointer | bigint | number;
 /** A handle: every object of Raven is one. */
 export type Rid = number;
 /** An address, or memory of JavaScript given to the library for the time of the call. */
-export type RPointer = NodeJS.TypedArray | Pointer | null;
+export type RPointer = NodeJS.TypedArray | PointerLike | null;
 
 /** The bytes at an address of the library (Rwindow_capture, Rimage_decode...): valid as long as that memory is. */
-export function toArrayBuffer(pointer: Pointer, byteOffset: number | undefined, byteLength: number): ArrayBuffer;
-/** The address of memory of JavaScript, for a function that takes a pointer as a number. */
-export function ptr(view: NodeJS.TypedArray | ArrayBuffer | DataView, byteOffset?: number): Pointer;
+export function toArrayBuffer(pointer: PointerLike, byteOffset: number | bigint | undefined, byteLength: number): ArrayBuffer;
+/** The address of memory of JavaScript, for a function that takes a pointer. */
+export function ptr(view: NodeJS.TypedArray | ArrayBuffer | DataView, byteOffset?: number | bigint): Pointer;
 
 /** A structure of the C API over its own zeroed memory, or over memory of the library when it is built from an address. */
 export abstract class RStruct {
@@ -37,7 +51,7 @@ export abstract class RStruct {
 	readonly _view: DataView;
 	/** The texts and arrays its fields point to. */
 	protected _kept: Map<string, object> | null;
-	protected constructor(size: number, pointer?: Pointer);
+	protected constructor(size: number, pointer?: PointerLike | null);
 	/** Remembers what a field points to, and writes its address there. */
 	protected _point(field: string, offset: number, value: NodeJS.TypedArray | null): void;
 }
@@ -2379,9 +2393,9 @@ export const R_GOLDEN_FAILED: RGoldenStatus.R_GOLDEN_FAILED;
  */
 export class RInitDesc extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RInitDesc | null;
+	static from(pointer: PointerLike | null): RInitDesc | null;
 	/** Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	get backend(): RBackend;
 	set backend(value: RBackend);
@@ -2411,25 +2425,25 @@ export class RInitDesc extends RStruct {
 /** Memory functions of the application, to replace the allocator of Raven. See Rset_allocator. */
 export class RAllocator extends RStruct {
 	static readonly SIZE = 32;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RAllocator | null;
+	static from(pointer: PointerLike | null): RAllocator | null;
 	get alloc(): Pointer | null;
-	set alloc(value: Pointer | null);
+	set alloc(value: PointerLike | null);
 	get realloc(): Pointer | null;
-	set realloc(value: Pointer | null);
+	set realloc(value: PointerLike | null);
 	get free(): Pointer | null;
-	set free(value: Pointer | null);
+	set free(value: PointerLike | null);
 	get user_data(): Pointer | null;
-	set user_data(value: Pointer | null);
+	set user_data(value: PointerLike | null);
 }
 
 /** What the library holds. See Rmemory_get_stats. */
 export class RMemoryStats extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RMemoryStats | null;
+	static from(pointer: PointerLike | null): RMemoryStats | null;
 	/** Bytes in the blocks currently allocated. 0 with the allocator of the application. */
 	get used_bytes(): number;
 	set used_bytes(value: number);
@@ -2450,9 +2464,9 @@ export class RMemoryStats extends RStruct {
 /** Timings and counters of the last frame produced for a window. */
 export class RFrameStats extends RStruct {
 	static readonly SIZE = 56;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RFrameStats | null;
+	static from(pointer: PointerLike | null): RFrameStats | null;
 	get layout_ms(): number;
 	set layout_ms(value: number);
 	get paint_ms(): number;
@@ -2499,15 +2513,15 @@ export class RFrameStats extends RStruct {
  */
 export class RDataItem extends RStruct {
 	static readonly SIZE = 24;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RDataItem | null;
+	static from(pointer: PointerLike | null): RDataItem | null;
 	/** The format: a MIME type. */
 	get mime(): string | null;
 	set mime(value: string | null);
 	/** The bytes (copied by the function they are given to). Text is not followed by a '\0'. */
 	get data(): Pointer | null;
-	set data(value: Pointer | null);
+	set data(value: PointerLike | null);
 	get size(): number;
 	set size(value: number);
 }
@@ -2515,9 +2529,9 @@ export class RDataItem extends RStruct {
 /** Distances from the edges of a window, in logical units. */
 export class RInsets extends RStruct {
 	static readonly SIZE = 16;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RInsets | null;
+	static from(pointer: PointerLike | null): RInsets | null;
 	get top(): number;
 	set top(value: number);
 	get right(): number;
@@ -2531,9 +2545,9 @@ export class RInsets extends RStruct {
 /** What the platform needs to know of the focused text input to set up the on-screen keyboard. */
 export class RTextInputInfo extends RStruct {
 	static readonly SIZE = 20;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RTextInputInfo | null;
+	static from(pointer: PointerLike | null): RTextInputInfo | null;
 	get type(): RTextInputType;
 	set type(value: RTextInputType);
 	get return_key(): RReturnKey;
@@ -2561,17 +2575,17 @@ export class RTextInputInfo extends RStruct {
  */
 export class RNativeWindow extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RNativeWindow | null;
+	static from(pointer: PointerLike | null): RNativeWindow | null;
 	get system(): RWindowSystem;
 	set system(value: RWindowSystem);
 	get display(): Pointer | null;
-	set display(value: Pointer | null);
-	get window(): number;
-	set window(value: number);
-	get visual(): number;
-	set visual(value: number);
+	set display(value: PointerLike | null);
+	get window(): bigint;
+	set window(value: number | bigint);
+	get visual(): bigint;
+	set visual(value: number | bigint);
 	/**
 	 * R_TRUE when the window was created with R_WINDOW_TRANSPARENT and the
 	 * window system gave it an alpha channel: what is presented in it must
@@ -2588,9 +2602,9 @@ export class RNativeWindow extends RStruct {
  */
 export class REvent extends RStruct {
 	static readonly SIZE = 72;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): REvent | null;
+	static from(pointer: PointerLike | null): REvent | null;
 	get type(): REventType;
 	set type(value: REventType);
 	get window(): Rid;
@@ -2653,9 +2667,9 @@ export class REvent extends RStruct {
  */
 export class RDropEvent extends RStruct {
 	static readonly SIZE = 64;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RDropEvent | null;
+	static from(pointer: PointerLike | null): RDropEvent | null;
 	get phase(): RDropPhase;
 	set phase(value: RDropPhase);
 	get window(): Rid;
@@ -2688,9 +2702,9 @@ export class RDropEvent extends RStruct {
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 export class RTouchSettings extends RStruct {
 	static readonly SIZE = 56;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RTouchSettings | null;
+	static from(pointer: PointerLike | null): RTouchSettings | null;
 	/** R_TRUE (default): one finger drives the widgets as the mouse does: a tap clicks, a drag drags. */
 	get mouse_emulation(): number;
 	set mouse_emulation(value: number);
@@ -2745,9 +2759,9 @@ export class RTouchSettings extends RStruct {
 
 export class RTouchEvent extends RStruct {
 	static readonly SIZE = 52;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RTouchEvent | null;
+	static from(pointer: PointerLike | null): RTouchEvent | null;
 	get phase(): RTouchPhase;
 	set phase(value: RTouchPhase);
 	get window(): Rid;
@@ -2787,9 +2801,9 @@ export class RTouchEvent extends RStruct {
 
 export class RPenEvent extends RStruct {
 	static readonly SIZE = 60;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RPenEvent | null;
+	static from(pointer: PointerLike | null): RPenEvent | null;
 	get phase(): RPenPhase;
 	set phase(value: RPenPhase);
 	get window(): Rid;
@@ -2832,9 +2846,9 @@ export class RPenEvent extends RStruct {
 
 export class RGestureEvent extends RStruct {
 	static readonly SIZE = 76;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RGestureEvent | null;
+	static from(pointer: PointerLike | null): RGestureEvent | null;
 	get phase(): RGesturePhase;
 	set phase(value: RGesturePhase);
 	get window(): Rid;
@@ -2893,9 +2907,9 @@ export class RGestureEvent extends RStruct {
 /** How a PDF document is printed. Every field may be left to zero. */
 export class RPdfPrintDesc extends RStruct {
 	static readonly SIZE = 48;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RPdfPrintDesc | null;
+	static from(pointer: PointerLike | null): RPdfPrintDesc | null;
 	/** Window the print dialog belongs to (0 or R_INVALID_ID: none). */
 	get window(): Rid;
 	set window(value: Rid);
@@ -2926,9 +2940,9 @@ export class RPdfPrintDesc extends RStruct {
 /** What a tile shows, filled by the application when the tile is drawn. */
 export class RTileItem extends RStruct {
 	static readonly SIZE = 104;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RTileItem | null;
+	static from(pointer: PointerLike | null): RTileItem | null;
 	/** Name under the icon (valid until the callback returns). */
 	get text(): string | null;
 	set text(value: string | null);
@@ -2961,9 +2975,9 @@ export class RTileItem extends RStruct {
 /** A section of a tile view: its first tile, and what its header shows. */
 export class RTileSection extends RStruct {
 	static readonly SIZE = 24;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RTileSection | null;
+	static from(pointer: PointerLike | null): RTileSection | null;
 	/** Index of the first tile of the section (read when the sections are given). */
 	get first(): number;
 	set first(value: number);
@@ -2981,9 +2995,9 @@ export class RTileSection extends RStruct {
  */
 export class RLanguageDesc extends RStruct {
 	static readonly SIZE = 112;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RLanguageDesc | null;
+	static from(pointer: PointerLike | null): RLanguageDesc | null;
 	/** "Rust". Compared without case. */
 	get name(): string | null;
 	set name(value: string | null);
@@ -3038,9 +3052,9 @@ export class RLanguageDesc extends RStruct {
 /** A task of the jump list of Windows (Rtaskbar_set_jump_list). */
 export class RJumpTask extends RStruct {
 	static readonly SIZE = 24;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RJumpTask | null;
+	static from(pointer: PointerLike | null): RJumpTask | null;
 	/** What the list shows. */
 	get title(): string | null;
 	set title(value: string | null);
@@ -3055,9 +3069,9 @@ export class RJumpTask extends RStruct {
 /** A button of a notification. */
 export class RNotificationAction extends RStruct {
 	static readonly SIZE = 16;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RNotificationAction | null;
+	static from(pointer: PointerLike | null): RNotificationAction | null;
 	/** Given back to the callback ("reply", "snooze"); not empty, and not "default". */
 	get id(): string | null;
 	set id(value: string | null);
@@ -3074,9 +3088,9 @@ export class RNotificationAction extends RStruct {
  */
 export class RNotificationDesc extends RStruct {
 	static readonly SIZE = 64;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RNotificationDesc | null;
+	static from(pointer: PointerLike | null): RNotificationDesc | null;
 	/** sizeof(RNotificationDesc). */
 	get size(): number;
 	set size(value: number);
@@ -3100,7 +3114,7 @@ export class RNotificationDesc extends RStruct {
 	set icon(value: string | null);
 	/** Up to 3 buttons, or NULL. */
 	get actions(): Pointer | null;
-	set actions(value: readonly RNotificationAction[] | Pointer | null);
+	set actions(value: readonly RNotificationAction[] | PointerLike | null);
 	get action_count(): number;
 	set action_count(value: number);
 	/** The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened). */
@@ -3111,9 +3125,9 @@ export class RNotificationDesc extends RStruct {
 /** A kind of file in a file dialog. */
 export class RFileFilter extends RStruct {
 	static readonly SIZE = 16;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RFileFilter | null;
+	static from(pointer: PointerLike | null): RFileFilter | null;
 	/** Shown to the user: "Images". */
 	get name(): string | null;
 	set name(value: string | null);
@@ -3125,9 +3139,9 @@ export class RFileFilter extends RStruct {
 /** Every field may be left to zero. */
 export class RFileDialogDesc extends RStruct {
 	static readonly SIZE = 64;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RFileDialogDesc | null;
+	static from(pointer: PointerLike | null): RFileDialogDesc | null;
 	/** Window the dialog belongs to. R_INVALID_ID: none (a window is opened when Raven needs one). */
 	get parent(): Rid;
 	set parent(value: Rid);
@@ -3141,7 +3155,7 @@ export class RFileDialogDesc extends RStruct {
 	get file_name(): string | null;
 	set file_name(value: string | null);
 	get filters(): Pointer | null;
-	set filters(value: readonly RFileFilter[] | Pointer | null);
+	set filters(value: readonly RFileFilter[] | PointerLike | null);
 	get filter_count(): number;
 	set filter_count(value: number);
 	/** Save dialogs: added to a name typed without extension ("xml"). */
@@ -3155,9 +3169,9 @@ export class RFileDialogDesc extends RStruct {
 /** A file given by a service of the device. Valid during the callback only: copy what you keep. */
 export class RPickedFile extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RPickedFile | null;
+	static from(pointer: PointerLike | null): RPickedFile | null;
 	/**
 	 * A path Raven and the C library can read (Rfile_read, textures, fonts,
 	 * fopen). On iOS and Android a copy in the cache of the application.
@@ -3186,9 +3200,9 @@ export class RPickedFile extends RStruct {
 /** What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them. */
 export class RShareDesc extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RShareDesc | null;
+	static from(pointer: PointerLike | null): RShareDesc | null;
 	/** Text, or a link ("https://..."). May be NULL. */
 	get text(): string | null;
 	set text(value: string | null);
@@ -3209,9 +3223,9 @@ export class RShareDesc extends RStruct {
 /** Passed to the draw callback of a viewport. Sizes are in pixels. */
 export class RViewportDrawInfo extends RStruct {
 	static readonly SIZE = 112;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RViewportDrawInfo | null;
+	static from(pointer: PointerLike | null): RViewportDrawInfo | null;
 	get backend(): RBackend;
 	set backend(value: RBackend);
 	get viewport(): Rid;
@@ -3250,30 +3264,30 @@ export class RViewportDrawInfo extends RStruct {
 	set frame_index(value: bigint);
 	/** Vulkan: VkCommandBuffer being recorded, inside the render pass. */
 	get command_buffer(): Pointer | null;
-	set command_buffer(value: Pointer | null);
+	set command_buffer(value: PointerLike | null);
 	/** Vulkan: VkRenderPass in use (one color attachment, no depth). */
 	get render_pass(): Pointer | null;
-	set render_pass(value: Pointer | null);
+	set render_pass(value: PointerLike | null);
 	/** Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. */
 	get color_format(): number;
 	set color_format(value: number);
 	/** Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). */
 	get metal_encoder(): Pointer | null;
-	set metal_encoder(value: Pointer | null);
+	set metal_encoder(value: PointerLike | null);
 	/** Metal: id<MTLCommandBuffer> the encoder belongs to. */
 	get metal_command_buffer(): Pointer | null;
-	set metal_command_buffer(value: Pointer | null);
+	set metal_command_buffer(value: PointerLike | null);
 	/** Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. */
 	get metal_device(): Pointer | null;
-	set metal_device(value: Pointer | null);
+	set metal_device(value: PointerLike | null);
 }
 
 /** State of one animated value. Zero-initialize it and keep it with the widget. */
 export class RSpring extends RStruct {
 	static readonly SIZE = 12;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RSpring | null;
+	static from(pointer: PointerLike | null): RSpring | null;
 	get value(): number;
 	set value(value: number);
 	get velocity(): number;
@@ -3285,9 +3299,9 @@ export class RSpring extends RStruct {
 /** How an effect is drawn. Start from Rshader_look_init. */
 export class RShaderLook extends RStruct {
 	static readonly SIZE = 72;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RShaderLook | null;
+	static from(pointer: PointerLike | null): RShaderLook | null;
 	/** First and second color, 0..1, straight alpha. */
 	get color(): Float32Array;
 	set color(value: ArrayLike<number>);
@@ -3324,9 +3338,9 @@ export class RShaderLook extends RStruct {
 /** Where and why a text could not be read (Rxml_document_parse). */
 export class RXmlError extends RStruct {
 	static readonly SIZE = 168;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RXmlError | null;
+	static from(pointer: PointerLike | null): RXmlError | null;
 	/** Both start at 1. */
 	get line(): number;
 	set line(value: number);
@@ -3338,9 +3352,9 @@ export class RXmlError extends RStruct {
 /** One attribute of a tag (Rxml_get_attribute_info). The strings belong to the library. */
 export class RXmlAttributeInfo extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RXmlAttributeInfo | null;
+	static from(pointer: PointerLike | null): RXmlAttributeInfo | null;
 	get name(): string | null;
 	set name(value: string | null);
 	get type(): RXmlValueType;
@@ -3359,9 +3373,9 @@ export class RXmlAttributeInfo extends RStruct {
 /** What the system asks for. */
 export class RAccessibilitySettings extends RStruct {
 	static readonly SIZE = 16;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RAccessibilitySettings | null;
+	static from(pointer: PointerLike | null): RAccessibilitySettings | null;
 	/** Size of the texts asked by the user (1 = normal). */
 	get text_scale(): number;
 	set text_scale(value: number);
@@ -3377,9 +3391,9 @@ export class RAccessibilitySettings extends RStruct {
 /** A request of a service of the device, valid during the call only. Fields that do not concern the service are zero. */
 export class RHostServiceRequest extends RStruct {
 	static readonly SIZE = 128;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RHostServiceRequest | null;
+	static from(pointer: PointerLike | null): RHostServiceRequest | null;
 	/** Given back to Rhost_service_complete. */
 	get id(): number;
 	set id(value: number);
@@ -3403,7 +3417,7 @@ export class RHostServiceRequest extends RStruct {
 	get title(): string | null;
 	set title(value: string | null);
 	get filters(): Pointer | null;
-	set filters(value: readonly RFileFilter[] | Pointer | null);
+	set filters(value: readonly RFileFilter[] | PointerLike | null);
 	get filter_count(): number;
 	set filter_count(value: number);
 	/** Bitmask of RFileDialogFlags. */
@@ -3414,7 +3428,7 @@ export class RHostServiceRequest extends RStruct {
 	get default_extension(): string | null;
 	set default_extension(value: string | null);
 	get data(): Pointer | null;
-	set data(value: Pointer | null);
+	set data(value: PointerLike | null);
 	get size(): number;
 	set size(value: number);
 	get path(): string | null;
@@ -3431,56 +3445,56 @@ export class RHostServiceRequest extends RStruct {
 
 export class RHostPlatformDesc extends RStruct {
 	static readonly SIZE = 96;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RHostPlatformDesc | null;
+	static from(pointer: PointerLike | null): RHostPlatformDesc | null;
 	/** The pointer over `window` should look like `cursor`. May be NULL. */
 	get set_cursor(): Pointer | null;
-	set set_cursor(value: Pointer | null);
+	set set_cursor(value: PointerLike | null);
 	/** Copies UTF-8 text to the clipboard of the application. NULL: the clipboard stays in the process. */
 	get clipboard_set(): Pointer | null;
-	set clipboard_set(value: Pointer | null);
+	set clipboard_set(value: PointerLike | null);
 	/** The clipboard text, valid until the next call, or NULL. NULL: the clipboard stays in the process. */
 	get clipboard_get(): Pointer | null;
-	set clipboard_get(value: Pointer | null);
+	set clipboard_get(value: PointerLike | null);
 	/** Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL. */
 	get wake(): Pointer | null;
-	set wake(value: Pointer | null);
+	set wake(value: PointerLike | null);
 	get user_data(): Pointer | null;
-	set user_data(value: Pointer | null);
+	set user_data(value: PointerLike | null);
 	/** An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported). */
 	get permission_status(): Pointer | null;
-	set permission_status(value: Pointer | null);
+	set permission_status(value: PointerLike | null);
 	/** Ask the user (the status is not asked or denied); answer with Rhost_permission_answer. */
 	get permission_request(): Pointer | null;
-	set permission_request(value: Pointer | null);
+	set permission_request(value: PointerLike | null);
 	/** A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else. */
 	get service_request(): Pointer | null;
-	set service_request(value: Pointer | null);
+	set service_request(value: PointerLike | null);
 	/** R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO. */
 	get has_camera(): number;
 	set has_camera(value: number);
 	/** Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...). */
 	get open_url(): Pointer | null;
-	set open_url(value: Pointer | null);
+	set open_url(value: PointerLike | null);
 	/** Rhaptic_play: an RHaptic. Returns R_TRUE when played. */
 	get haptic(): Pointer | null;
-	set haptic(value: Pointer | null);
+	set haptic(value: PointerLike | null);
 	/**
 	 * Downloads an http(s) URL (images from a URL): returns its content in a
 	 * buffer from Rmemory_alloc and its size, or NULL. Called on worker
 	 * threads, several at a time, and may block. NULL: as on desktops.
 	 */
 	get download(): Pointer | null;
-	set download(value: Pointer | null);
+	set download(value: PointerLike | null);
 }
 
 /** How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel. */
 export class RGoldenOptions extends RStruct {
 	static readonly SIZE = 24;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RGoldenOptions | null;
+	static from(pointer: PointerLike | null): RGoldenOptions | null;
 	/** Largest difference on one channel (0..255) for which two pixels are still the same. */
 	get channel_tolerance(): number;
 	set channel_tolerance(value: number);
@@ -3498,9 +3512,9 @@ export class RGoldenOptions extends RStruct {
 /** What Rtest_expect_golden found. */
 export class RGoldenResult extends RStruct {
 	static readonly SIZE = 40;
-	constructor(pointer?: Pointer);
+	constructor(pointer?: PointerLike | null);
 	/** The structure at an address of the library, or null. */
-	static from(pointer: Pointer | null): RGoldenResult | null;
+	static from(pointer: PointerLike | null): RGoldenResult | null;
 	get status(): RGoldenStatus;
 	set status(value: RGoldenStatus);
 	/** Size of the capture, in pixels. */
@@ -4141,7 +4155,7 @@ export function Rpoll_events(): void;
  */
 export function Rwait_events(timeout_seconds: number): void;
 
-export function Rset_frame_callback(callback: RFrameCallback | Pointer | null, user_data?: RPointer): void;
+export function Rset_frame_callback(callback: RFrameCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: Seconds between the last two frames. */
 export function Rget_delta_time(): number;
@@ -4149,7 +4163,7 @@ export function Rget_delta_time(): number;
 /** Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe. */
 export function Rget_time(): number;
 
-export function Rset_app_event_callback(callback: RAppEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rset_app_event_callback(callback: RAppEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background. */
 export function Ris_app_paused(): number;
@@ -4203,14 +4217,14 @@ export function Rset_animation_time_step(seconds: number): void;
  * Queues a function to run on the UI thread during the next frame
  * and wakes Rwait_frame. Thread-safe: this is how worker threads touch the UI.
  */
-export function Rtask_post(task: RTaskCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtask_post(task: RTaskCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Runs a function on a worker thread of the job system. Thread-safe.
  *
  * A JavaScript function does not run on a worker thread here but later on the JavaScript thread, so it blocks the interface while it runs: use a Worker for long work.
  */
-export function Rtask_run_async(task: RTaskCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtask_run_async(task: RTaskCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Splits [0, count) into ranges of at most `grain` items and runs them
@@ -4218,7 +4232,7 @@ export function Rtask_run_async(task: RTaskCallback | Pointer | null, user_data?
  *
  * It runs on the worker threads and returns when all are done, which JavaScript cannot do: `function` is the address of a native function. Use a Worker for work in parallel.
  */
-export function Rparallel_for(count: number, grain: number, function_: Pointer | null, user_data?: RPointer): void;
+export function Rparallel_for(count: number, grain: number, function_: PointerLike | null, user_data?: RPointer): void;
 
 /** Wakes Rwait_frame and Rwait_events from any thread. */
 export function Rwake_up(): void;
@@ -4231,13 +4245,13 @@ export function Ris_ui_thread(): number;
  * Calls a function on the UI thread after `interval_seconds`.
  * repeat R_TRUE to fire repeatedly, R_FALSE to fire once and delete itself.
  */
-export function Rtimer_create(interval_seconds: number, repeat: number, callback: RTimerCallback | Pointer | null, user_data?: RPointer): Rid;
+export function Rtimer_create(interval_seconds: number, repeat: number, callback: RTimerCallback | PointerLike | null, user_data?: RPointer): Rid;
 
 export function Rtimer_destroy(timer: Rid): void;
 
 export function Rtimer_is_valid(timer: Rid): number;
 
-export function Raction_bind(name: string | null, callback: RActionCallback | Pointer | null, user_data?: RPointer): void;
+export function Raction_bind(name: string | null, callback: RActionCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Raction_unbind(name: string | null): void;
 
@@ -4250,9 +4264,9 @@ export function Raction_unbind(name: string | null): void;
 export function Raction_fire(name: string | null, sender: Rid): void;
 
 /** Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). */
-export function Raction_set_default_handler(callback: RActionCallback | Pointer | null, user_data?: RPointer): void;
+export function Raction_set_default_handler(callback: RActionCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Raction_bind_with_parameters(name: string | null, signature: string | null, callback: RActionParametersCallback | Pointer | null, user_data?: RPointer): number;
+export function Raction_bind_with_parameters(name: string | null, signature: string | null, callback: RActionParametersCallback | PointerLike | null, user_data?: RPointer): number;
 
 /** Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it. */
 export function Raction_get_sender(context: RPointer): Rid;
@@ -4405,9 +4419,9 @@ export function Rerror_to_string(error: RError): string | null;
 
 export function Rseverity_to_string(severity: RSeverity): string | null;
 
-export function Rerror_set_callback(callback: RErrorCallback | Pointer | null): void;
+export function Rerror_set_callback(callback: RErrorCallback | PointerLike | null): void;
 
-export function Rset_device_reset_callback(callback: RDeviceResetCallback | Pointer | null, user_data?: RPointer): void;
+export function Rset_device_reset_callback(callback: RDeviceResetCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rwindow_get_frame_stats(window: Rid, stats: RFrameStats | null): void;
 
@@ -4457,12 +4471,12 @@ export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void
 export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void;
 
 /** Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. */
-export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
 export function Rwindow_clear_focus(window: Rid): void;
 
-export function Rwindow_set_back_callback(window: Rid, callback: RBackCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_back_callback(window: Rid, callback: RBackCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * R_TRUE while the application has somewhere to go back to (a page
@@ -4665,15 +4679,15 @@ export function Rwindow_request_redraw(window: Rid): void;
 /** R_TRUE redraws the window every frame (games, live viewports). */
 export function Rwindow_set_continuous_redraw(window: Rid, enabled: number): void;
 
-export function Rwindow_set_close_callback(window: Rid, callback: RWindowCloseCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_close_callback(window: Rid, callback: RWindowCloseCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResizeCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResizeCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Takes what is dropped on the window from other applications,
  * where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
  */
-export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
@@ -4822,7 +4836,7 @@ export function Rwindow_get_popup(window: Rid, index: number): Rid;
 /** R_FALSE: Tab no longer moves the keyboard focus (the application uses it as a shortcut). Default R_TRUE. */
 export function Rwindow_set_tab_navigation(window: Rid, enabled: number): void;
 
-export function Rwindow_set_event_hook(window: Rid, hook: RWindowEventHook | Pointer | null, user_data?: RPointer): void;
+export function Rwindow_set_event_hook(window: Rid, hook: RWindowEventHook | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Starts dragging `data` from `source` (call it while a mouse button
@@ -4875,7 +4889,7 @@ export function Rdrag_cancel(window: Rid): void;
  * Returns: R_FALSE when the widget is not in a window or the window
  * system cannot drag out of its windows.
  */
-export function Rdrag_begin_external(source: Rid, items: readonly RDataItem[] | null, operations: number, callback: RDragFinishedCallback | Pointer | null, user_data?: RPointer): number;
+export function Rdrag_begin_external(source: Rid, items: readonly RDataItem[] | null, operations: number, callback: RDragFinishedCallback | PointerLike | null, user_data?: RPointer): number;
 
 /**
  * The picture that follows the pointer during the drag given by
@@ -4926,11 +4940,11 @@ export function Rwidget_set_pen_mouse(widget: Rid, enabled: number): void;
 
 export function Rwidget_get_pen_mouse(widget: Rid): number;
 
-export function Rwidget_set_touch_callback(widget: Rid, callback: RTouchCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_touch_callback(widget: Rid, callback: RTouchCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rwidget_set_pen_callback(widget: Rid, callback: RPenCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_pen_callback(widget: Rid, callback: RPenCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rwidget_set_gesture_callback(widget: Rid, callback: RGestureCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_gesture_callback(widget: Rid, callback: RGestureCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Fingers on the window now. */
 export function Rwindow_get_touch_count(window: Rid): number;
@@ -5515,9 +5529,9 @@ export function Rwidget_set_user_handle(widget: Rid, handle: RPointer): void;
 
 export function Rwidget_get_user_handle(widget: Rid): Pointer | null;
 
-export function Rwidget_set_destroy_callback(widget: Rid, callback: RWidgetDestroyCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_destroy_callback(widget: Rid, callback: RWidgetDestroyCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rwidget_set_event_callback(widget: Rid, callback: RWidgetEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_event_callback(widget: Rid, callback: RWidgetEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Name of the action fired by the main event of the widget: button
@@ -5532,7 +5546,7 @@ export function Rwidget_get_action(widget: Rid): string | null;
  * applications: files from the file manager, text. It is highlighted
  * while a drop on it would be accepted. NULL removes the callback.
  */
-export function Rwidget_set_drop_callback(widget: Rid, callback: RDropCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_drop_callback(widget: Rid, callback: RDropCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * In a window created with R_WINDOW_CUSTOM_HEADER: dragging the
@@ -5783,7 +5797,7 @@ export function Rtab_view_set_active(tab_view: Rid, index: number): void;
 
 export function Rtab_view_get_active(tab_view: Rid): number;
 
-export function Rtab_view_set_changed_callback(tab_view: Rid, callback: RTabChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtab_view_set_changed_callback(tab_view: Rid, callback: RTabChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Documents mode: the major tabs of an application (the level,
@@ -5812,7 +5826,7 @@ export function Rtab_view_set_tab_closable(tab_view: Rid, content: Rid, closable
 /** Shows the tab of a page (the changed callback is called). */
 export function Rtab_view_show_tab(tab_view: Rid, content: Rid): void;
 
-export function Rtab_view_set_close_callback(tab_view: Rid, callback: RTabCloseCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtab_view_set_close_callback(tab_view: Rid, callback: RTabCloseCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rexpander_set_title(expander: Rid, title: string | null): void;
 
@@ -5822,7 +5836,7 @@ export function Rexpander_set_expanded(expander: Rid, expanded: number): void;
 
 export function Rexpander_is_expanded(expander: Rid): number;
 
-export function Rexpander_set_changed_callback(expander: Rid, callback: RExpanderChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rexpander_set_changed_callback(expander: Rid, callback: RExpanderChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Direction of every window: R_DIRECTION_AUTO (the default), _LTR or _RTL. */
 export function Rset_layout_direction(direction: RDirection): void;
@@ -5879,7 +5893,7 @@ export function Rlabel_set_markdown(label: Rid, enabled: number): void;
 
 export function Rlabel_get_markdown(label: Rid): number;
 
-export function Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The text of a Markdown label without its marks, as a reader sees it. Valid until the next call. */
 export function Rlabel_get_plain_text(label: Rid): string | null;
@@ -5918,7 +5932,7 @@ export function Rbutton_set_text(button: Rid, text: string | null): void;
 
 export function Rbutton_set_style(button: Rid, style: RButtonStyle): void;
 
-export function Rbutton_set_clicked_callback(button: Rid, callback: RButtonClickedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rbutton_set_clicked_callback(button: Rid, callback: RButtonClickedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rcheckbox_create(text: string | null): Rid;
 
@@ -5932,7 +5946,7 @@ export function Rcheckbox_is_checked(checkbox: Rid): number;
 
 export function Rcheckbox_set_style(checkbox: Rid, style: RCheckboxStyle): void;
 
-export function Rcheckbox_set_changed_callback(checkbox: Rid, callback: RCheckboxChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcheckbox_set_changed_callback(checkbox: Rid, callback: RCheckboxChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rslider_set_range(slider: Rid, minimum: number, maximum: number): void;
 
@@ -5948,7 +5962,7 @@ export function Rslider_set_step(slider: Rid, step: number): void;
 
 export function Rslider_set_orientation(slider: Rid, orientation: ROrientation): void;
 
-export function Rslider_set_changed_callback(slider: Rid, callback: RSliderChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rslider_set_changed_callback(slider: Rid, callback: RSliderChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Progress between 0 and 1. */
 export function Rprogress_bar_set_value(progress_bar: Rid, value: number): void;
@@ -6016,7 +6030,7 @@ export function Rimage_set_loop_count(image: Rid, count: number): void;
 /** Returns: The plays of the animation (0: forever), the file's unless it was set. */
 export function Rimage_get_loop_count(image: Rid): number;
 
-export function Rimage_set_finished_callback(image: Rid, callback: RImageFinishedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rimage_set_finished_callback(image: Rid, callback: RImageFinishedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rtext_input_set_text(text_input: Rid, text: string | null): void;
 
@@ -6049,10 +6063,10 @@ export function Rtext_input_set_return_key(text_input: Rid, key: RReturnKey): vo
 export function Rtext_input_get_return_key(text_input: Rid): RReturnKey;
 
 /** Called on every edit. */
-export function Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when Enter is pressed. This also fires the action of the widget. */
-export function Rtext_input_set_committed_callback(text_input: Rid, callback: RTextChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_input_set_committed_callback(text_input: Rid, callback: RTextChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
@@ -6131,7 +6145,7 @@ export function Rspin_box_set_buttons(spin_box: Rid, buttons: number): void;
 
 export function Rspin_box_get_buttons(spin_box: Rid): number;
 
-export function Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: The index of the new item. */
 export function Rcombo_box_add_item(combo_box: Rid, text: string | null): number;
@@ -6147,7 +6161,7 @@ export function Rcombo_box_set_selected(combo_box: Rid, index: number): void;
 
 export function Rcombo_box_get_selected(combo_box: Rid): number;
 
-export function Rcombo_box_set_changed_callback(combo_box: Rid, callback: RComboBoxChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcombo_box_set_changed_callback(combo_box: Rid, callback: RComboBoxChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * R_TRUE: the combo box is a text field with its list: the user
@@ -6177,7 +6191,7 @@ export function Rcombo_box_get_text(combo_box: Rid): string | null;
 /** Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. */
 export function Rcombo_box_set_text(combo_box: Rid, text: string | null): void;
 
-export function Rcombo_box_set_text_changed_callback(combo_box: Rid, callback: RComboBoxTextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcombo_box_set_text_changed_callback(combo_box: Rid, callback: RComboBoxTextCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Opens (R_TRUE) or closes the list. */
 export function Rcombo_box_set_open(combo_box: Rid, open: number): void;
@@ -6200,9 +6214,9 @@ export function Rlist_view_clear_items(list_view: Rid): void;
 
 export function Rlist_view_get_item_count(list_view: Rid): number;
 
-export function Rlist_view_set_virtual_items(list_view: Rid, count: number, callback: RListItemTextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlist_view_set_virtual_items(list_view: Rid, count: number, callback: RListItemTextCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Selects a row. -1 selects nothing. */
 export function Rlist_view_set_selected(list_view: Rid, index: number): void;
@@ -6211,10 +6225,10 @@ export function Rlist_view_get_selected(list_view: Rid): number;
 
 export function Rlist_view_scroll_to_item(list_view: Rid, index: number): void;
 
-export function Rlist_view_set_selection_changed_callback(list_view: Rid, callback: RListEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlist_view_set_selection_changed_callback(list_view: Rid, callback: RListEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called on double click or Enter. This also fires the action of the widget. */
-export function Rlist_view_set_activated_callback(list_view: Rid, callback: RListEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlist_view_set_activated_callback(list_view: Rid, callback: RListEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Adds an item.
@@ -6259,10 +6273,10 @@ export function Rtree_view_set_selected_item(tree_view: Rid, item: Rid): void;
 
 export function Rtree_view_get_selected_item(tree_view: Rid): Rid;
 
-export function Rtree_view_set_selection_changed_callback(tree_view: Rid, callback: RTreeEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtree_view_set_selection_changed_callback(tree_view: Rid, callback: RTreeEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called on double click or Enter. This also fires the action of the widget. */
-export function Rtree_view_set_activated_callback(tree_view: Rid, callback: RTreeEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtree_view_set_activated_callback(tree_view: Rid, callback: RTreeEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
@@ -6293,7 +6307,7 @@ export function Rtree_view_get_selection(tree_view: Rid, index: number): Rid;
 
 export function Rtree_view_scroll_to_item(tree_view: Rid, item: Rid): void;
 
-export function Rtree_view_set_context_callback(tree_view: Rid, callback: RTreeContextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtree_view_set_context_callback(tree_view: Rid, callback: RTreeContextCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Items can be dragged: the selection is given to Rdrag_begin with
@@ -6371,7 +6385,7 @@ export function Rmenu_item_set_icon(item: Rid, texture: Rid, u0: number, v0: num
 
 export function Rmenu_item_is_checked(item: Rid): number;
 
-export function Rmenu_item_set_clicked_callback(item: Rid, callback: RMenuItemClickedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rmenu_item_set_clicked_callback(item: Rid, callback: RMenuItemClickedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Opens a menu as a popup at a position of the window (logical units). */
 export function Rmenu_open(menu: Rid, window: Rid, x: number, y: number): void;
@@ -6380,7 +6394,7 @@ export function Rmenu_open(menu: Rid, window: Rid, x: number, y: number): void;
 export function Rwindow_close_popups(window: Rid): void;
 
 /** Gives the tiles: `count` of them, described by `callback`. The selection is cleared. */
-export function Rtile_view_set_items(tile_view: Rid, count: number, callback: RTileItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_items(tile_view: Rid, count: number, callback: RTileItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Draws the tiles again (their description changed, not their number). */
 export function Rtile_view_refresh(tile_view: Rid): void;
@@ -6399,7 +6413,7 @@ export function Rtile_view_set_empty_text(tile_view: Rid, text: string | null): 
 export function Rtile_view_set_icon_width(tile_view: Rid, width: number): void;
 
 /** `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
-export function Rtile_view_set_sections(tile_view: Rid, count: number, callback: RTileSectionCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_sections(tile_view: Rid, count: number, callback: RTileSectionCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rtile_view_get_section_count(tile_view: Rid): number;
 
@@ -6415,7 +6429,7 @@ export function Rtile_view_is_section_folded(tile_view: Rid, section: number): n
 export function Rtile_view_get_section_at(tile_view: Rid, local_x: number, local_y: number): number;
 
 /** Called when the user folds or unfolds a section (`index`: the section). */
-export function Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rtile_view_set_selected(tile_view: Rid, index: number, selected: number): void;
 
@@ -6447,7 +6461,7 @@ export function Rtile_view_set_drop_highlight(tile_view: Rid, index: number): vo
  */
 export function Rtile_view_set_drag_type(tile_view: Rid, type: string | null): void;
 
-export function Rtile_view_set_drag_data_callback(tile_view: Rid, callback: RTileDragDataCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_drag_data_callback(tile_view: Rid, callback: RTileDragDataCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Tiles can be dragged out of the window, to other applications:
@@ -6458,13 +6472,13 @@ export function Rtile_view_set_drag_data_callback(tile_view: Rid, callback: RTil
  * drag first goes to the drop targets of the window and only leaves it
  * with the pointer. NULL: the tiles stay in the application (default).
  */
-export function Rtile_view_set_drag_out_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_drag_out_callback(tile_view: Rid, callback: RTileEventCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rtile_view_set_selection_changed_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_selection_changed_callback(tile_view: Rid, callback: RTileEventCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rtile_view_set_activated_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_activated_callback(tile_view: Rid, callback: RTileEventCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rtile_view_set_context_callback(tile_view: Rid, callback: RTileContextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtile_view_set_context_callback(tile_view: Rid, callback: RTileContextCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Adds a column.
@@ -6514,9 +6528,9 @@ export function Rtable_clear_rows(table: Rid): void;
 
 export function Rtable_get_row_count(table: Rid): number;
 
-export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Stored rows: a fixed text color; column -1 colors the row; cells override it.
@@ -6599,19 +6613,19 @@ export function Rtable_set_grid_lines(table: Rid, visible: number): void;
 /** Every other row a little darker. */
 export function Rtable_set_striped(table: Rid, striped: number): void;
 
-export function Rtable_set_selection_changed_callback(table: Rid, callback: RTableEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_selection_changed_callback(table: Rid, callback: RTableEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called on double click or Enter. This also fires the action of the widget. */
-export function Rtable_set_activated_callback(table: Rid, callback: RTableEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_activated_callback(table: Rid, callback: RTableEventCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). */
 export function Rtable_set_column_editable(table: Rid, column: number, editable: number): void;
 
 export function Rtable_is_column_editable(table: Rid, column: number): number;
 
-export function Rtable_set_cell_edited_callback(table: Rid, callback: RTableCellEditedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtable_set_cell_edited_callback(table: Rid, callback: RTableCellEditedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Opens the editor on a cell, its text selected, as F2 does (the
@@ -6681,7 +6695,7 @@ export function Rdate_picker_set_open(date_picker: Rid, open: number): void;
 
 export function Rdate_picker_is_open(date_picker: Rid): number;
 
-export function Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML. */
 export function Rdate_picker_set_time_zone(date_picker: Rid, zone: string | null): void;
@@ -6703,7 +6717,7 @@ export function Rtime_picker_set_seconds_visible(time_picker: Rid, visible: numb
 /** Step of the minutes for the arrows and the wheel (default 1). */
 export function Rtime_picker_set_minute_step(time_picker: Rid, step: number): void;
 
-export function Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML. */
 export function Rtime_picker_set_clock(time_picker: Rid, clock: RClock): void;
@@ -6774,7 +6788,7 @@ export function Rtoast_set_kind(toast: Rid, kind: RToastKind): void;
 /** A button at the end of the next messages ("Undo"); NULL or "" removes it. */
 export function Rtoast_set_action_text(toast: Rid, text: string | null): void;
 
-export function Rtoast_set_action_callback(toast: Rid, callback: RToastCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtoast_set_action_callback(toast: Rid, callback: RToastCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Replaces the items: their texts separated by '|'. */
 export function Rbreadcrumb_set_items(breadcrumb: Rid, items: string | null): void;
@@ -6789,7 +6803,7 @@ export function Rbreadcrumb_get_item_count(breadcrumb: Rid): number;
 
 export function Rbreadcrumb_get_item_text(breadcrumb: Rid, index: number): string | null;
 
-export function Rbreadcrumb_set_clicked_callback(breadcrumb: Rid, callback: RBreadcrumbCallback | Pointer | null, user_data?: RPointer): void;
+export function Rbreadcrumb_set_clicked_callback(breadcrumb: Rid, callback: RBreadcrumbCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The score, from 0 to the number of stars. */
 export function Rrating_set_value(rating: Rid, value: number): void;
@@ -6810,7 +6824,7 @@ export function Rrating_set_read_only(rating: Rid, read_only: number): void;
 /** Size of a star (default 18). */
 export function Rrating_set_star_size(rating: Rid, size: number): void;
 
-export function Rrating_set_changed_callback(rating: Rid, callback: RRatingChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rrating_set_changed_callback(rating: Rid, callback: RRatingChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rpagination_set_page_count(pagination: Rid, count: number): void;
 
@@ -6823,7 +6837,7 @@ export function Rpagination_get_page(pagination: Rid): number;
 /** Page numbers shown around the current one (default 1). */
 export function Rpagination_set_siblings(pagination: Rid, siblings: number): void;
 
-export function Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rplot_set_title(plot: Rid, title: string | null): void;
 
@@ -6972,11 +6986,11 @@ export function Rplot_get_drag_line_value(plot: Rid, line: number): number;
 /** The color of a drag line (by default the accent of the theme). */
 export function Rplot_set_drag_line_color(plot: Rid, line: number, r: number, g: number, b: number, a: number): void;
 
-export function Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback | Pointer | null, user_data?: RPointer): void;
+export function Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback | Pointer | null, user_data?: RPointer): void;
+export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | Pointer | null, user_data?: RPointer): void;
+export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). */
 export function Rchart_create(kind: RChartKind): Rid;
@@ -7048,7 +7062,7 @@ export function Rchart_set_hole(chart: Rid, ratio: number): void;
  */
 export function Rchart_set_center_text(chart: Rid, text: string | null, caption: string | null): void;
 
-export function Rchart_set_slice_clicked_callback(chart: Rid, callback: RChartSliceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rchart_set_slice_clicked_callback(chart: Rid, callback: RChartSliceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * The range of a gauge (default 0 to 100), and a fixed range for the
@@ -7104,7 +7118,7 @@ export function Rchart_get_column_label(chart: Rid, column: number): string | nu
 /** The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). */
 export function Rchart_set_color_scale(chart: Rid, low_r: number, low_g: number, low_b: number, low_a: number, high_r: number, high_g: number, high_b: number, high_a: number): void;
 
-export function Rchart_set_cell_clicked_callback(chart: Rid, callback: RChartCellCallback | Pointer | null, user_data?: RPointer): void;
+export function Rchart_set_cell_clicked_callback(chart: Rid, callback: RChartCellCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The values of a sparkline, copied. NaN leaves a gap. */
 export function Rchart_set_values(chart: Rid, values: Float32Array | readonly number[] | null, count: number): void;
@@ -7170,7 +7184,7 @@ export function Rpdf_view_get_title(view: Rid): string | null;
  */
 export function Rpdf_view_get_page_text(view: Rid, page: number): string | null;
 
-export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rcarousel_create(): Rid;
 
@@ -7222,7 +7236,7 @@ export function Rcarousel_set_orientation(carousel: Rid, orientation: ROrientati
 
 export function Rcarousel_get_orientation(carousel: Rid): ROrientation;
 
-export function Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Prints the document shown (see Rpdf_print); the job is named after its title. */
 export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number;
@@ -7259,10 +7273,10 @@ export function Rmap_view_latlon_to_screen(map: Rid, latitude: number, longitude
  * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
  * at once or later. Setting it forgets the tiles of the previous source.
  */
-export function Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data?: RPointer): void;
+export function Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
-export function Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data?: RPointer): void;
+export function Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * The pixels of a tile: `width` x `height` RGBA8, tightly packed
@@ -7320,9 +7334,9 @@ export function Rmap_view_set_marker_label(map: Rid, marker: number, label: stri
 /** The color of a pin (by default the accent of the theme). */
 export function Rmap_view_set_marker_color(map: Rid, marker: number, r: number, g: number, b: number, a: number): void;
 
-export function Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback | Pointer | null, user_data?: RPointer): void;
+export function Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback | Pointer | null, user_data?: RPointer): void;
+export function Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * A line written in the bottom right corner: the credit most tile
@@ -7379,16 +7393,16 @@ export function Rsystem_web_view_get_error(view: Rid): string | null;
  * resolves to. The callback (may be NULL) always comes later, never
  * during this call.
  */
-export function Rsystem_web_view_run_javascript(view: Rid, script: string | null, callback: RSystemWebViewResultCallback | Pointer | null, user_data?: RPointer): void;
+export function Rsystem_web_view_run_javascript(view: Rid, script: string | null, callback: RSystemWebViewResultCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rsystem_web_view_set_message_callback(view: Rid, callback: RSystemWebViewMessageCallback | Pointer | null, user_data?: RPointer): void;
+export function Rsystem_web_view_set_message_callback(view: Rid, callback: RSystemWebViewMessageCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Called when something happens in the page. The action of the
  * widget (Rwidget_set_action, OnChanged in XML) is fired as well each
  * time the address changes.
  */
-export function Rsystem_web_view_set_event_callback(view: Rid, callback: RSystemWebViewEventCallback | Pointer | null, user_data?: RPointer): void;
+export function Rsystem_web_view_set_event_callback(view: Rid, callback: RSystemWebViewEventCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * The view of the system, to go further than these functions:
@@ -7663,7 +7677,7 @@ export function Rtext_editor_get_zoom(editor: Rid): number;
 /** R_FALSE: Ctrl + wheel and the keys do not zoom (the wheel scrolls). On by default. XML: Zoomable="false". */
 export function Rtext_editor_set_zoomable(editor: Rid, zoomable: number): void;
 
-export function Rtext_editor_set_zoom_callback(editor: Rid, callback: RTextEditorZoomCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_editor_set_zoom_callback(editor: Rid, callback: RTextEditorZoomCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Declares a language, or replaces the one that has this name: to
@@ -7732,7 +7746,7 @@ export function Rtext_editor_show_completions(editor: Rid): void;
 
 export function Rtext_editor_is_completing(editor: Rid): number;
 
-export function Rtext_editor_set_completion_callback(editor: Rid, callback: RCompletionCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_editor_set_completion_callback(editor: Rid, callback: RCompletionCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Adds a proposal. Only from a completion callback. Proposals that
@@ -7776,7 +7790,7 @@ export function Rtext_editor_clear_markers(editor: Rid): void;
 
 export function Rtext_editor_get_marker_count(editor: Rid): number;
 
-export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Sets what is searched for, with RSearchFlags, and shows every
@@ -7871,7 +7885,7 @@ export function Rtheme_get_token_color(token: RToken): [r: number, g: number, b:
 /** Back to the colors Raven picks. */
 export function Rtheme_clear_token_colors(): void;
 
-export function Rtext_editor_set_changed_callback(editor: Rid, callback: RTextEditorChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtext_editor_set_changed_callback(editor: Rid, callback: RTextEditorChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** title Text shown in the bar; NULL shows the title of the window. */
 export function Rheader_bar_create(title: string | null): Rid;
@@ -7984,7 +7998,7 @@ export function Rdock_area_save_layout(area: Rid): string | null;
  */
 export function Rdock_area_load_layout(area: Rid, layout: string | null): number;
 
-export function Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Tearing: a tab dragged out of the area takes its panel to a
@@ -8014,7 +8028,7 @@ export function Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode): void
  * Dragging the only tab of such a window still moves it, and closing
  * it (its header bar's close button too) docks its panels back.
  */
-export function Rdock_area_set_float_window(area: Rid, flags: number, callback: RDockFloatWindowCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdock_area_set_float_window(area: Rid, flags: number, callback: RDockFloatWindowCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. */
 export function Rdock_area_float_panel(area: Rid, panel: Rid, x: number, y: number): Rid;
@@ -8025,7 +8039,7 @@ export function Rdock_area_dock_panel(area: Rid, panel: Rid): void;
 /** The window a floating panel is in, R_INVALID_ID when it is docked in the area. */
 export function Rdock_area_get_panel_window(area: Rid, panel: Rid): Rid;
 
-export function Rdock_area_set_changed_callback(area: Rid, callback: RDockChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdock_area_set_changed_callback(area: Rid, callback: RDockChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Risland_create(): Rid;
 
@@ -8074,7 +8088,7 @@ export function Risland_get_notch(island: Rid): number;
 /** R_TRUE while the island is in the camera housing of the screen. */
 export function Risland_is_in_notch(island: Rid): number;
 
-export function Risland_set_changed_callback(island: Rid, callback: RIslandChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Risland_set_changed_callback(island: Rid, callback: RIslandChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Shows a widget (usually an island) floating at the top of a
@@ -8173,7 +8187,7 @@ export function Rtray_set_menu(tray: Rid, menu: Rid): void;
  * when there is no menu, the middle one. On macOS an icon with a menu
  * opens it instead.
  */
-export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * A short text shown beside the icon (macOS menu bar), drawn by the
@@ -8240,7 +8254,7 @@ export function Rcolor_picker_set_popup(picker: Rid, popup: number): void;
 /** R_TRUE hides the code and the numbers: only the square, the strips and the swatches. */
 export function Rcolor_picker_set_compact(picker: Rid, compact: number): void;
 
-export function Rcolor_picker_set_changed_callback(picker: Rid, callback: RColorChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcolor_picker_set_changed_callback(picker: Rid, callback: RColorChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Red, green, blue (0..1) to hue (0..360), saturation, value (0..1). */
 export function Rcolor_rgb_to_hsv(r: number, g: number, b: number): [hue: number, saturation: number, value: number];
@@ -8404,27 +8418,27 @@ export function Rtimeline_get_selection_count(timeline: Rid): number;
 
 export function Rtimeline_get_selected(timeline: Rid, index: number): number;
 
-export function Rtimeline_set_time_callback(timeline: Rid, callback: RTimelineTimeCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtimeline_set_time_callback(timeline: Rid, callback: RTimelineTimeCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Called for each item the user moved, stretched or retimed, as
  * it happens. The action of the widget (OnChanged in XML) fires once
  * per gesture, when the button is released.
  */
-export function Rtimeline_set_changed_callback(timeline: Rid, callback: RTimelineItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtimeline_set_changed_callback(timeline: Rid, callback: RTimelineItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when the selection changed; `item` is the item just clicked, or 0. */
-export function Rtimeline_set_selection_callback(timeline: Rid, callback: RTimelineItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtimeline_set_selection_callback(timeline: Rid, callback: RTimelineItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when an item is double-clicked. */
-export function Rtimeline_set_activated_callback(timeline: Rid, callback: RTimelineItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtimeline_set_activated_callback(timeline: Rid, callback: RTimelineItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Called when the user deletes an item (the Delete key), before
  * it is removed: its values can still be read. Without this callback the
  * Delete key does nothing: the application decides what can be deleted.
  */
-export function Rtimeline_set_removed_callback(timeline: Rid, callback: RTimelineItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rtimeline_set_removed_callback(timeline: Rid, callback: RTimelineItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 export function Rnode_graph_create(): Rid;
 
@@ -8594,43 +8608,43 @@ export function Rnode_graph_get_selection_count(graph: Rid): number;
 
 export function Rnode_graph_get_selected_node(graph: Rid, index: number): number;
 
-export function Rnode_graph_set_connect_callback(graph: Rid, callback: RNodeGraphConnectCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_connect_callback(graph: Rid, callback: RNodeGraphConnectCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called after the user made a link, and before a link the user removed goes (its pins can still be read). */
-export function Rnode_graph_set_linked_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_linked_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rnode_graph_set_unlinked_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_unlinked_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called for each node the user moved, when the button is released. */
-export function Rnode_graph_set_moved_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_moved_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when the selection changed; `item` is the node just clicked, or 0. */
-export function Rnode_graph_set_selection_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_selection_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Called when the user deletes a node (the Delete key), before
  * it is removed. Without this callback the Delete key only removes
  * links: the application decides whether nodes can be deleted.
  */
-export function Rnode_graph_set_removed_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_removed_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when the user double-clicks a node (to open what it stands for). */
-export function Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGraphItemCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Double click on the empty canvas (`item` 0): the application acts
  * there (a search to add a node...). Without this callback it frames all nodes.
  */
-export function Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * A wire the user pulled from a pin was released on nothing: `item` is
  * that pin, x, y where it was dropped (to offer a node to connect it to). The
  * wire draws back as usual.
  */
-export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
@@ -8638,7 +8652,7 @@ export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNod
  * the second may go). With this callback such a click neither detaches the wire
  * of an input nor counts as a wire dropped on nothing.
  */
-export function Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0. */
 export function Rnode_graph_get_node_at(graph: Rid, x: number, y: number): number;
@@ -8780,11 +8794,11 @@ export function Rblock_editor_save(editor: Rid): string | null;
 /** Replaces the scripts with those of a text from Rblock_editor_save. */
 export function Rblock_editor_load(editor: Rid, text: string | null): number;
 
-export function Rblock_editor_set_changed_callback(editor: Rid, callback: RBlockEditorCallback | Pointer | null, user_data?: RPointer): void;
+export function Rblock_editor_set_changed_callback(editor: Rid, callback: RBlockEditorCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rblock_editor_set_clicked_callback(editor: Rid, callback: RBlockEditorCallback | Pointer | null, user_data?: RPointer): void;
+export function Rblock_editor_set_clicked_callback(editor: Rid, callback: RBlockEditorCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rblock_editor_set_context_callback(editor: Rid, callback: RBlockEditorContextCallback | Pointer | null, user_data?: RPointer): void;
+export function Rblock_editor_set_context_callback(editor: Rid, callback: RBlockEditorContextCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The choices of a %m slot of a kind, separated by '\n' ("" : the slot is typed in). */
 export function Rblock_editor_set_slot_options(editor: Rid, kind: string | null, slot: number, options: string | null): void;
@@ -8939,7 +8953,7 @@ export function Rdiff_view_clear_annotations(diff_view: Rid): void;
 export function Rdiff_view_get_selected_text(diff_view: Rid): string | null;
 
 /** Called when a line or its number is clicked (the action of the widget is fired too). */
-export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Shows a widget as a dialog of a window. The window takes
@@ -8947,7 +8961,7 @@ export function Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: R
  * what you need from it before, or in `closed`.
  * The Escape key dismisses the dialog (result 0).
  */
-export function Rdialog_open(window: Rid, content: Rid, closed: RDialogClosedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rdialog_open(window: Rid, content: Rid, closed: RDialogClosedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Closes the dialog that contains a widget (the content itself or
@@ -8968,7 +8982,7 @@ export function Rdialog_run(window: Rid, content: Rid): number;
  * called when it closes, with the result given to Rpopup_close (0 when dismissed).
  * The content draws its own background (a Border with a Background...).
  */
-export function Rpopup_open(window: Rid, content: Rid, x: number, y: number, closed: RDialogClosedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rpopup_open(window: Rid, content: Rid, x: number, y: number, closed: RDialogClosedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Closes the popup that contains a widget (the content or anything inside it). */
 export function Rpopup_close(widget: Rid, result: number): void;
@@ -9078,13 +9092,13 @@ export function Rfile_browser_get_selection(browser: Rid, index: number): string
 /** Selects an entry of the folder by its name. */
 export function Rfile_browser_select(browser: Rid, name: string | null): void;
 
-export function Rfile_browser_set_accepted_callback(browser: Rid, callback: RFileBrowserCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_browser_set_accepted_callback(browser: Rid, callback: RFileBrowserCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called by the Cancel button. */
-export function Rfile_browser_set_cancelled_callback(browser: Rid, callback: RFileBrowserCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_browser_set_cancelled_callback(browser: Rid, callback: RFileBrowserCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Called when the selection changes; `path` is the entry under the cursor, or NULL. */
-export function Rfile_browser_set_selection_changed_callback(browser: Rid, callback: RFileBrowserCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_browser_set_selection_changed_callback(browser: Rid, callback: RFileBrowserCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: R_TRUE when the system took the notification. */
 export function Rnotification_show(title: string | null, body: string | null, urgency: RNotificationUrgency): number;
@@ -9097,14 +9111,14 @@ export function Rnotification_show(title: string | null, body: string | null, ur
 export function Rnotification_is_supported(): number;
 
 /** Called with the notifications the system could not show; NULL: none. */
-export function Rnotification_set_fallback(callback: RNotificationFallback | Pointer | null, user_data?: RPointer): void;
+export function Rnotification_set_fallback(callback: RNotificationFallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Called when the user clicks a notification of Rnotification_show
  * (on the UI thread), as R_NOTIFICATION_ACTIVATED of
  * Rnotification_set_callback, which also tells which one. NULL: none.
  */
-export function Rnotification_set_clicked_callback(callback: RNotificationClickedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnotification_set_clicked_callback(callback: RNotificationClickedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Shows a notification described by `desc` (see RNotificationDesc).
@@ -9115,7 +9129,7 @@ export function Rnotification_show_desc(desc: RNotificationDesc | null): number;
 /** Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called. */
 export function Rnotification_close(tag: string | null): void;
 
-export function Rnotification_set_callback(callback: RNotificationCallback | Pointer | null, user_data?: RPointer): void;
+export function Rnotification_set_callback(callback: RNotificationCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * R_TRUE (the default): a click on a notification (not on one of
@@ -9150,7 +9164,7 @@ export function Rpermission_get_status(permission: RPermission): RPermissionStat
  * with the status. Several requests for the same permission share one
  * question. `callback` may be NULL.
  */
-export function Rpermission_request(permission: RPermission, callback: RPermissionCallback | Pointer | null, user_data?: RPointer): void;
+export function Rpermission_request(permission: RPermission, callback: RPermissionCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Opens the page of the application in the Settings of the system,
@@ -9165,20 +9179,20 @@ export function Rpermission_to_string(permission: RPermission): string | null;
 export function Rpermission_status_to_string(status: RPermissionStatus): string | null;
 
 /** Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL. */
-export function Rfile_open_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_open_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Saves `size` bytes (copied: `data` may be freed at once) as a
  * file where the user chooses, proposed under `desc->file_name`. The
  * callback gives the file as saved: its name, and its path on desktops.
  */
-export function Rfile_save_async(desc: RFileDialogDesc | null, data: NodeJS.TypedArray | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_save_async(desc: RFileDialogDesc | null, data: NodeJS.TypedArray | null, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses. */
-export function Rfile_export_async(desc: RFileDialogDesc | null, path: string | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_export_async(desc: RFileDialogDesc | null, path: string | null, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android). */
-export function Rfile_select_folder_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rfile_select_folder_async(desc: RFileDialogDesc | null, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator). */
 export function Rcamera_is_available(): number;
@@ -9189,7 +9203,7 @@ export function Rcamera_is_available(): number;
  * The photo is a JPEG file in the cache of the application, with its
  * size in pixels, upright.
  */
-export function Rcamera_take_photo(callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcamera_take_photo(callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Shows the photo picker of the system (desktops: a file dialog for
@@ -9198,7 +9212,7 @@ export function Rcamera_take_photo(callback: RDeviceCallback | Pointer | null, u
  * when it is HEIC).
  * max_count How many photos may be picked; 0: no limit.
  */
-export function Rphoto_pick(max_count: number, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rphoto_pick(max_count: number, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Returns: R_TRUE when the device can play haptics (a phone; never a desktop). */
 export function Rhaptic_is_supported(): number;
@@ -9217,7 +9231,7 @@ export function Rhaptic_play(haptic: RHaptic): number;
  * sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
  * closed. R_DEVICE_UNSUPPORTED on desktops.
  */
-export function Rshare_show(desc: RShareDesc | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
+export function Rshare_show(desc: RShareDesc | null, callback: RDeviceCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Shows a texture. R_INVALID_ID shows nothing. */
 export function Rviewport_set_texture(viewport: Rid, texture: Rid): void;
@@ -9229,7 +9243,7 @@ export function Rviewport_set_stretch(viewport: Rid, stretch: RStretch): void;
 export function Rviewport_set_flip_y(viewport: Rid, flip: number): void;
 
 /** It runs on the render thread, inside the render pass: `callback` is the address of a native function. */
-export function Rviewport_set_draw_callback(viewport: Rid, callback: Pointer | null, user_data?: RPointer): void;
+export function Rviewport_set_draw_callback(viewport: Rid, callback: PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Creates (or destroys) the native child window of the viewport.
@@ -9244,7 +9258,7 @@ export function Rviewport_get_native_handle(viewport: Rid, native: RNativeWindow
 /** Size of the viewport in pixels after the last layout. */
 export function Rviewport_get_pixel_size(viewport: Rid): [width: number, height: number];
 
-export function Rviewport_set_resize_callback(viewport: Rid, callback: RViewportResizeCallback | Pointer | null, user_data?: RPointer): void;
+export function Rviewport_set_resize_callback(viewport: Rid, callback: RViewportResizeCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * R_TRUE redraws the window every frame while the viewport is
@@ -9252,10 +9266,10 @@ export function Rviewport_set_resize_callback(viewport: Rid, callback: RViewport
  */
 export function Rviewport_set_realtime(viewport: Rid, realtime: number): void;
 
-export function Rcustom_set_paint_callback(widget: Rid, callback: RPaintCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcustom_set_paint_callback(widget: Rid, callback: RPaintCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Reports the desired size of the widget. Without it the widget asks for 0 x 0. */
-export function Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCallback | Pointer | null, user_data?: RPointer): void;
+export function Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Filled rectangle with rounded corners (radius 0 = sharp). */
 export function Rdraw_rect(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, r: number, g: number, b: number, a: number): void;
@@ -9417,7 +9431,7 @@ export function Rxml_set_live_reload(enabled: number): void;
 
 export function Rxml_get_live_reload(): number;
 
-export function Rxml_set_reload_callback(callback: RXmlReloadCallback | Pointer | null, user_data?: RPointer): void;
+export function Rxml_set_reload_callback(callback: RXmlReloadCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Looks at the files now, without waiting for the next look
@@ -9449,7 +9463,7 @@ export function Rxml_get_registered_widget_name(index: number): string | null;
  * Registers a tag (or replaces what it was registered with).
  * Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
  */
-export function Rxml_register_tag(tag: string | null, create: RXmlTagCreateCallback | Pointer | null, set_attribute: RXmlTagAttributeCallback | Pointer | null, user_data?: RPointer): number;
+export function Rxml_register_tag(tag: string | null, create: RXmlTagCreateCallback | PointerLike | null, set_attribute: RXmlTagAttributeCallback | PointerLike | null, user_data?: RPointer): number;
 
 export function Rxml_unregister_tag(tag: string | null): void;
 
@@ -9680,9 +9694,9 @@ export function Rscript_is_enabled(): number;
  */
 export function Rscript_set_limits(max_instructions: number, max_depth: number, max_memory: number): void;
 
-export function Rscript_set_log_callback(callback: RScriptLogCallback | Pointer | null, user_data?: RPointer): void;
+export function Rscript_set_log_callback(callback: RScriptLogCallback | PointerLike | null, user_data?: RPointer): void;
 
-export function Rscript_set_diagnostic_callback(callback: RScriptDiagnosticCallback | Pointer | null, user_data?: RPointer): void;
+export function Rscript_set_diagnostic_callback(callback: RScriptDiagnosticCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error. */
 export function Rlocale_load_csv(path: string | null): number;
@@ -9723,7 +9737,7 @@ export function Rlocale_set_fallback_language(code: string | null): void;
 export function Rlocale_is_rtl(): number;
 
 /** Called after the language or the tables changed (the widgets are already updated). */
-export function Rlocale_set_changed_callback(callback: RLocaleChangedCallback | Pointer | null, user_data?: RPointer): void;
+export function Rlocale_set_changed_callback(callback: RLocaleChangedCallback | PointerLike | null, user_data?: RPointer): void;
 
 /** The text of a key in the current language (see the fallbacks above). Never NULL. */
 export function Rtr(key: string | null): string | null;
@@ -9895,7 +9909,7 @@ export function Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid): voi
  * NULL removes the override. Does not change pointer or keyboard handling.
  * Disabled widgets (including disabled ancestors) cannot be pressed.
  */
-export function Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback | Pointer | null, user_data?: RPointer): void;
+export function Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback | PointerLike | null, user_data?: RPointer): void;
 
 /**
  * Override the checked state: 1 checked, 0 unchecked, -1 restores the

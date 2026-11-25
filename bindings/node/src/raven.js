@@ -66,9 +66,20 @@ function _text(pointer) {
 	return pointer ? _lib._text(pointer) : null;
 }
 
-/** An address read from memory, as a pointer. */
+/** An address read from memory, as a pointer: a bigint, or null. */
 function _address(value) {
-	return value === 0n ? null : Number(value);
+	return value === 0n ? null : value;
+}
+
+/** An address to write into memory, checked as the addon checks one: 0n for null. */
+function _to_address(value) {
+	if (value === null || value === undefined) {
+		return 0n;
+	}
+	if (typeof value === "bigint" ? value < 0n || value > 0xffffffffffffffffn : !(Number.isSafeInteger(value) && value >= 0)) {
+		throw new RangeError("Raven: an address is a bigint, or a number that is an integer from 0 to 2^53 - 1");
+	}
+	return BigInt(value);
 }
 
 /** Texts written by the library as an array of addresses. */
@@ -94,7 +105,7 @@ export class RStruct {
 	/** Remembers what a field points to, and writes its address there. */
 	_point(field, offset, value) {
 		(this._kept ??= new Map()).set(field, value ?? this._bytes);
-		this._view.setBigUint64(offset, value === null ? 0n : BigInt(_lib._ptr(value)), true);
+		this._view.setBigUint64(offset, value === null ? 0n : (_lib._ptr(value) ?? 0n), true);
 	}
 }
 
@@ -122,12 +133,12 @@ function _back(value, pointer) {
 
 /** The bytes at an address of the library, as bun:ffi gives them: valid as long as that memory is. */
 export function toArrayBuffer(pointer, byteOffset = 0, byteLength) {
-	return _view_of(pointer + byteOffset, byteLength);
+	return _view_of(pointer, byteLength, byteOffset);
 }
 
-/** The address of memory of JavaScript, as bun:ffi gives it: what the memory is, it stays while the view lives. */
+/** The address of memory of JavaScript, as a bigint: what the memory is, it stays while the view lives. */
 export function ptr(view, byteOffset = 0) {
-	return _lib._ptr(view) + byteOffset;
+	return _lib._ptr(view, byteOffset);
 }
 
 /** An enumeration, as TypeScript makes them: each name, and each value to its name. */
@@ -1362,28 +1373,28 @@ export class RAllocator extends RStruct {
 		return _address(this._view.getBigUint64(0, true));
 	}
 	set alloc(value) {
-		this._view.setBigUint64(0, BigInt(value ?? 0), true);
+		this._view.setBigUint64(0, _to_address(value), true);
 	}
 
 	get realloc() {
 		return _address(this._view.getBigUint64(8, true));
 	}
 	set realloc(value) {
-		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+		this._view.setBigUint64(8, _to_address(value), true);
 	}
 
 	get free() {
 		return _address(this._view.getBigUint64(16, true));
 	}
 	set free(value) {
-		this._view.setBigUint64(16, BigInt(value ?? 0), true);
+		this._view.setBigUint64(16, _to_address(value), true);
 	}
 
 	get user_data() {
 		return _address(this._view.getBigUint64(24, true));
 	}
 	set user_data(value) {
-		this._view.setBigUint64(24, BigInt(value ?? 0), true);
+		this._view.setBigUint64(24, _to_address(value), true);
 	}
 }
 
@@ -1534,7 +1545,7 @@ export class RDataItem extends RStruct {
 		return _address(this._view.getBigUint64(8, true));
 	}
 	set data(value) {
-		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+		this._view.setBigUint64(8, _to_address(value), true);
 	}
 
 	get size() {
@@ -1657,21 +1668,21 @@ export class RNativeWindow extends RStruct {
 		return _address(this._view.getBigUint64(8, true));
 	}
 	set display(value) {
-		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+		this._view.setBigUint64(8, _to_address(value), true);
 	}
 
 	get window() {
-		return Number(this._view.getBigUint64(16, true));
+		return this._view.getBigUint64(16, true);
 	}
 	set window(value) {
-		this._view.setBigUint64(16, BigInt(value), true);
+		this._view.setBigUint64(16, _to_address(value), true);
 	}
 
 	get visual() {
-		return Number(this._view.getBigUint64(24, true));
+		return this._view.getBigUint64(24, true);
 	}
 	set visual(value) {
-		this._view.setBigUint64(24, BigInt(value), true);
+		this._view.setBigUint64(24, _to_address(value), true);
 	}
 
 	get transparent() {
@@ -2796,8 +2807,8 @@ export class RNotificationDesc extends RStruct {
 		return _address(this._view.getBigUint64(48, true));
 	}
 	set actions(value) {
-		if (typeof value === "number") {
-			this._view.setBigUint64(48, BigInt(value), true);
+		if (typeof value === "number" || typeof value === "bigint") {
+			this._view.setBigUint64(48, _to_address(value), true);
 			return;
 		}
 		this._point("actions", 48, _structs(value, RNotificationAction.SIZE));
@@ -2891,8 +2902,8 @@ export class RFileDialogDesc extends RStruct {
 		return _address(this._view.getBigUint64(32, true));
 	}
 	set filters(value) {
-		if (typeof value === "number") {
-			this._view.setBigUint64(32, BigInt(value), true);
+		if (typeof value === "number" || typeof value === "bigint") {
+			this._view.setBigUint64(32, _to_address(value), true);
 			return;
 		}
 		this._point("filters", 32, _structs(value, RFileFilter.SIZE));
@@ -3139,14 +3150,14 @@ export class RViewportDrawInfo extends RStruct {
 		return _address(this._view.getBigUint64(64, true));
 	}
 	set command_buffer(value) {
-		this._view.setBigUint64(64, BigInt(value ?? 0), true);
+		this._view.setBigUint64(64, _to_address(value), true);
 	}
 
 	get render_pass() {
 		return _address(this._view.getBigUint64(72, true));
 	}
 	set render_pass(value) {
-		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+		this._view.setBigUint64(72, _to_address(value), true);
 	}
 
 	get color_format() {
@@ -3160,21 +3171,21 @@ export class RViewportDrawInfo extends RStruct {
 		return _address(this._view.getBigUint64(88, true));
 	}
 	set metal_encoder(value) {
-		this._view.setBigUint64(88, BigInt(value ?? 0), true);
+		this._view.setBigUint64(88, _to_address(value), true);
 	}
 
 	get metal_command_buffer() {
 		return _address(this._view.getBigUint64(96, true));
 	}
 	set metal_command_buffer(value) {
-		this._view.setBigUint64(96, BigInt(value ?? 0), true);
+		this._view.setBigUint64(96, _to_address(value), true);
 	}
 
 	get metal_device() {
 		return _address(this._view.getBigUint64(104, true));
 	}
 	set metal_device(value) {
-		this._view.setBigUint64(104, BigInt(value ?? 0), true);
+		this._view.setBigUint64(104, _to_address(value), true);
 	}
 }
 
@@ -3482,8 +3493,8 @@ export class RHostServiceRequest extends RStruct {
 		return _address(this._view.getBigUint64(40, true));
 	}
 	set filters(value) {
-		if (typeof value === "number") {
-			this._view.setBigUint64(40, BigInt(value), true);
+		if (typeof value === "number" || typeof value === "bigint") {
+			this._view.setBigUint64(40, _to_address(value), true);
 			return;
 		}
 		this._point("filters", 40, _structs(value, RFileFilter.SIZE));
@@ -3523,7 +3534,7 @@ export class RHostServiceRequest extends RStruct {
 		return _address(this._view.getBigUint64(72, true));
 	}
 	set data(value) {
-		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+		this._view.setBigUint64(72, _to_address(value), true);
 	}
 
 	get size() {
@@ -3585,56 +3596,56 @@ export class RHostPlatformDesc extends RStruct {
 		return _address(this._view.getBigUint64(0, true));
 	}
 	set set_cursor(value) {
-		this._view.setBigUint64(0, BigInt(value ?? 0), true);
+		this._view.setBigUint64(0, _to_address(value), true);
 	}
 
 	get clipboard_set() {
 		return _address(this._view.getBigUint64(8, true));
 	}
 	set clipboard_set(value) {
-		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+		this._view.setBigUint64(8, _to_address(value), true);
 	}
 
 	get clipboard_get() {
 		return _address(this._view.getBigUint64(16, true));
 	}
 	set clipboard_get(value) {
-		this._view.setBigUint64(16, BigInt(value ?? 0), true);
+		this._view.setBigUint64(16, _to_address(value), true);
 	}
 
 	get wake() {
 		return _address(this._view.getBigUint64(24, true));
 	}
 	set wake(value) {
-		this._view.setBigUint64(24, BigInt(value ?? 0), true);
+		this._view.setBigUint64(24, _to_address(value), true);
 	}
 
 	get user_data() {
 		return _address(this._view.getBigUint64(32, true));
 	}
 	set user_data(value) {
-		this._view.setBigUint64(32, BigInt(value ?? 0), true);
+		this._view.setBigUint64(32, _to_address(value), true);
 	}
 
 	get permission_status() {
 		return _address(this._view.getBigUint64(40, true));
 	}
 	set permission_status(value) {
-		this._view.setBigUint64(40, BigInt(value ?? 0), true);
+		this._view.setBigUint64(40, _to_address(value), true);
 	}
 
 	get permission_request() {
 		return _address(this._view.getBigUint64(48, true));
 	}
 	set permission_request(value) {
-		this._view.setBigUint64(48, BigInt(value ?? 0), true);
+		this._view.setBigUint64(48, _to_address(value), true);
 	}
 
 	get service_request() {
 		return _address(this._view.getBigUint64(56, true));
 	}
 	set service_request(value) {
-		this._view.setBigUint64(56, BigInt(value ?? 0), true);
+		this._view.setBigUint64(56, _to_address(value), true);
 	}
 
 	get has_camera() {
@@ -3648,21 +3659,21 @@ export class RHostPlatformDesc extends RStruct {
 		return _address(this._view.getBigUint64(72, true));
 	}
 	set open_url(value) {
-		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+		this._view.setBigUint64(72, _to_address(value), true);
 	}
 
 	get haptic() {
 		return _address(this._view.getBigUint64(80, true));
 	}
 	set haptic(value) {
-		this._view.setBigUint64(80, BigInt(value ?? 0), true);
+		this._view.setBigUint64(80, _to_address(value), true);
 	}
 
 	get download() {
 		return _address(this._view.getBigUint64(88, true));
 	}
 	set download(value) {
-		this._view.setBigUint64(88, BigInt(value ?? 0), true);
+		this._view.setBigUint64(88, _to_address(value), true);
 	}
 }
 

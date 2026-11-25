@@ -19,7 +19,7 @@ under the same names, with the same documentation comments.
 | Java | `java/` | One class, `raven.R`, over the Foreign Function & Memory API (Java 22+): no dependency, no JNI. Texts are `String`, callbacks are lambdas, structures are classes with an accessor per field. | yes (`binding_java`) |
 | Odin | `odin/raven/raven.odin`, `odin/raven_odin/` | A package of `foreign` declarations; structures have the layout of C. `raven_odin` is an optional layer over it: Odin strings, booleans and enums, callbacks without `proc "c"`. See `odin/README.md`. | yes (`binding_odin`, `binding_odin_wrapper`, `binding_odin_wrapper_test`) |
 | Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
-| Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's. One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
+| Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's but for addresses, which are bigints (all 64 bits: Android tags its pointers in the top byte; numbers below 2^53 are still taken). One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
 | D | `d/` | A dub package, `raven-gui`: `raven.c` is the C API as `extern(C)` declarations under the same names (enumerations as `int` constants, structures that start zeroed), and `raven` adds `text` and delegates for `actionBind`, `timerStart`, `errorSetCallback`. See `d/README.md`. | yes (`binding_d`; macOS and Linux, LDC) |
 | Nim | `nim/` | A nimble package, `raven_gui`: `raven_gui/c` is the C API as `importc` declarations under the same names (enumerations as `cint` constants, structures as `{.bycopy.}` objects), and `raven_gui` adds `text`, `fileRead` and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `nim/README.md`. | yes (`binding_nim`; macOS and Linux, Nim 2) |
 | Swift | `swift/` | A Swift package: `import Raven` gives the C API as Swift reads it from the headers (Swift strings for texts, `inout` for pointers), plus `text`, and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `swift/README.md`. | yes (`binding_swift`; macOS and Linux) |
@@ -178,6 +178,8 @@ jar of Maven Central holds the library; from this folder, compile
     RAVEN_LIBRARY=/path/to/libraven.so RAVEN_ADDON=/path/to/raven_napi.node node app.mjs
 
 after building the addon (`bindings/node/README.md`). Use `await r.runLoop()`.
+An address is a `bigint` there (it was a number before): see "Addresses" in
+`bindings/node/README.md` for what changes in a program.
 
 **Bun** (1.4 or later)
 

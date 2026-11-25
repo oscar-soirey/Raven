@@ -3379,29 +3379,51 @@ static int rn_get_view(napi_env env, napi_value v, void** data, size_t* size) {
 	return 0;
 }
 
+static int rn_range_error(napi_env env, const char* message) {
+	if (napi_throw_range_error(env, NULL, message) != napi_ok) napi_throw_error(env, NULL, message);
+	return 0;
+}
+
+/** The largest integer a number holds exactly: 2^53 - 1. */
+#define RN_SAFE_INTEGER 9007199254740991.0
+
+/**
+ * An address given as a number: what the binding gave before addresses were
+ * bigints, and what the Bun binding gives. Only an integer that a number holds
+ * exactly is one; a larger address has lost its low bits already.
+ */
+static int rn_ptr_number(napi_env env, double value, void** out) {
+	if (!(value >= 0 && value <= RN_SAFE_INTEGER) || value != (double)(uint64_t)value) {
+		return rn_range_error(env, "Raven: an address given as a number must be an integer from 0 to 2^53 - 1: give it as a bigint");
+	}
+	*out = (void*)(uintptr_t)(uint64_t)value;
+	return 1;
+}
+
 static int rn_ptr_slow(napi_env env, napi_value v, void** out) {
 	napi_valuetype type;
 	size_t size;
+	double number;
 	if (napi_typeof(env, v, &type) != napi_ok) return rn_type_error(env, "Raven: expected a pointer");
 	if (type == napi_null || type == napi_undefined) {
 		*out = NULL;
 		return 1;
 	}
-	if (type == napi_bigint) {
-		uint64_t value;
-		bool lossless;
-		napi_get_value_bigint_uint64(env, v, &value, &lossless);
-		*out = (void*)(uintptr_t)value;
-		return 1;
-	}
+	if (type == napi_number && napi_get_value_double(env, v, &number) == napi_ok) return rn_ptr_number(env, number, out);
+	if (type == napi_bigint) return rn_range_error(env, "Raven: the bigint is outside the range of an address");
 	if (type == napi_object && rn_get_view(env, v, out, &size)) return 1;
-	return rn_type_error(env, "Raven: expected an address, a typed array or null");
+	return rn_type_error(env, "Raven: expected an address (a bigint), a typed array or null");
 }
 
-/** An address given as a number (what the library returned), memory of JavaScript for the call, or NULL. */
+/**
+ * An address given as a bigint (what the library returned: all 64 bits, the tag
+ * in the top byte of a pointer of Android included), as a number below 2^53,
+ * memory of JavaScript for the call, or NULL.
+ */
 static inline int rn_get_ptr(napi_env env, napi_value v, void** out) {
-	double value;
-	if (napi_get_value_double(env, v, &value) == napi_ok) {
+	uint64_t value;
+	bool lossless;
+	if (napi_get_value_bigint_uint64(env, v, &value, &lossless) == napi_ok && lossless && (uint64_t)(uintptr_t)value == value) {
 		*out = (void*)(uintptr_t)value;
 		return 1;
 	}
@@ -3530,10 +3552,11 @@ static inline napi_value rn_make_text(napi_env env, const char* text) {
 	return v;
 }
 
+/** An address for JavaScript: a bigint, which holds all 64 bits where a number holds 53; null for NULL. */
 static inline napi_value rn_make_ptr(napi_env env, const void* address) {
 	napi_value v;
 	if (!address) return rn_null(env);
-	napi_create_double(env, (double)(uintptr_t)address, &v);
+	napi_create_bigint_uint64(env, (uint64_t)(uintptr_t)address, &v);
 	return v;
 }
 
@@ -32212,13 +32235,23 @@ fail:
 	return NULL;
 }
 
+/** An offset added to an address in C: none when it is not given. */
+static int rn_get_offset(napi_env env, size_t argc, size_t index, const napi_value* argv, uint64_t* out) {
+	napi_valuetype type;
+	*out = 0;
+	if (argc <= index || napi_typeof(env, argv[index], &type) != napi_ok || type == napi_undefined) return 1;
+	return rn_get_uint64(env, argv[index], out);
+}
+
+/** An address as a bigint, plus an offset: that of memory of JavaScript, or one given as a number. */
 static napi_value rn_w__ptr(napi_env env, napi_callback_info info) {
-	size_t argc = 1;
-	napi_value argv[1];
+	size_t argc = 2;
+	napi_value argv[2];
 	void* address;
+	uint64_t offset;
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-	if (!rn_get_ptr(env, argv[0], &address)) return NULL;
-	return rn_make_ptr(env, address);
+	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_offset(env, argc, 1, argv, &offset)) return NULL;
+	return rn_make_ptr(env, (const void*)((uintptr_t)address + (uintptr_t)offset));
 }
 
 static napi_value rn_w__text(napi_env env, napi_callback_info info) {
@@ -32234,13 +32267,15 @@ static int rn_copied_views;
 
 /** An ArrayBuffer over the memory of the library; a copy of it where the runtime forbids that (Electron). */
 static napi_value rn_w__view(napi_env env, napi_callback_info info) {
-	size_t argc = 2;
-	napi_value argv[2], result;
+	size_t argc = 3;
+	napi_value argv[3], result;
 	void* address;
 	double size;
+	uint64_t offset;
 	void* copy;
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_double(env, argv[1], &size)) return NULL;
+	if (!rn_get_ptr(env, argv[0], &address) || !rn_get_double(env, argv[1], &size) || !rn_get_offset(env, argc, 2, argv, &offset)) return NULL;
+	address = (void*)((uintptr_t)address + (uintptr_t)offset);
 	if (!rn_copied_views && napi_create_external_arraybuffer(env, address, (size_t)size, NULL, NULL, &result) == napi_ok) return result;
 	rn_copied_views = 1;
 	if (napi_create_arraybuffer(env, (size_t)size, &copy, &result) != napi_ok) return NULL;
