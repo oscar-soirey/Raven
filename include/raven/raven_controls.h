@@ -1877,18 +1877,21 @@ extern "C" {
 	 *  SYSTEM WEB VIEW (the web engine of the system, embedded in the window)
 	 *
 	 * Web pages shown by the engine that comes with the system, in a view of
-	 * its own kept over the widget: WebKit (WKWebView) on macOS and iOS.
-	 * Pages are drawn, scrolled and typed into by the system, as in its
-	 * browser; WebKit is opened when the first view is made, so a program
-	 * that has none does not load it.
+	 * its own kept over the widget: WebKit (WKWebView) on macOS and iOS,
+	 * Microsoft Edge WebView2 on Windows (when its runtime is installed: it
+	 * is found at run time, nothing is linked). Pages are drawn, scrolled
+	 * and typed into by the system, as in its browser; the engine is opened
+	 * when the first view is made, so a program that has none does not load
+	 * it.
 	 *
 	 * Like a native child window (Rviewport_set_native), the page is not
 	 * drawn by Raven: it follows the widget (its place, its size, whether it
 	 * is shown, the part of it a ScrollBox lets be seen), but Raven cannot
 	 * draw over it: popups, menus and tooltips that cross it go under it.
 	 *
-	 * Elsewhere (Windows, Linux, the browser, Android, and without a window
-	 * system) Rsystem_web_view_is_supported is R_FALSE. The widget exists all
+	 * Elsewhere (Linux, the browser, Android, Windows without the WebView2
+	 * Runtime, and without a window system) Rsystem_web_view_is_supported is
+	 * R_FALSE. The widget exists all
 	 * the same, so programs and XML stay the same everywhere: it keeps the
 	 * address it is given and shows a message instead of the page; scripts
 	 * get an error. raven_web.h shows pages with an installed browser of the
@@ -1957,7 +1960,9 @@ extern "C" {
 	RAVEN_API void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
 	/**
 	 * @brief The view of the system, to go further than these functions:
-	 * a WKWebView* on macOS and iOS. NULL where unsupported.
+	 * a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+	 * until WebView2 has made the view, a moment after it is created). NULL
+	 * where unsupported.
 	 */
 	RAVEN_API void* Rsystem_web_view_get_native_handle(Rid view);
 

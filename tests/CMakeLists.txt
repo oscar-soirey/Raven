@@ -119,6 +119,10 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	raven_add_test(test_win32_backdrop)
 	target_link_libraries(test_win32_backdrop PRIVATE user32 gdi32)
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
+	# a real Microsoft Edge WebView2 in a Win32 window (skipped without the WebView2 Runtime); each step of WebView2 is printed
+	raven_add_test(test_win32_web_view)
+	target_link_libraries(test_win32_web_view PRIVATE user32)
+	set_tests_properties(test_win32_web_view PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 150 ENVIRONMENT "RAVEN_WEBVIEW2_LOG=1")
 endif()
 raven_add_test(test_touch)
 # the text field of the browser platform: UTF-16 offsets, the text around the caret, field attributes

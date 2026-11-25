@@ -156,7 +156,9 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Glass over a native child window.
 - [x] Embedding the system web view: `SystemWebView`, WKWebView on macOS
   (and iOS), WebKit opened at run time.
-- [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
+- [x] The system web view on Windows: Microsoft Edge WebView2, its runtime
+  found at run time (no SDK, nothing linked).
+- [ ] The system web view on Linux (WebKitGTK) and Android
   (`android.webkit.WebView`).
 
 ### Rendering

@@ -38,7 +38,8 @@ jobs:
   #
   #  The headless tests everywhere, and the tests of the platform of each
   #  runner, which has a desktop: test_cocoa_input (AppKit) on macOS,
-  #  test_win32_backdrop (DWM) on Windows. The runners have no GPU for
+  #  test_win32_backdrop (DWM) and test_win32_web_view (WebView2, when its
+  #  runtime is there) on Windows. The runners have no GPU for
   #  Vulkan: test_render is reported as skipped (on macOS test_render_metal
   #  renders with Metal).
   # ---------------------------------------------------------------------------
@@ -84,6 +85,24 @@ jobs:
           ROOT="$(pwd)"
           if [ "$RUNNER_OS" = "Windows" ]; then ROOT="$(pwd -W)"; fi
           echo "RAVEN_PDFIUM=$ROOT/_pdfium/${{ matrix.pdfium_library }}" >> "$GITHUB_ENV"
+
+      # The Evergreen runtime is not in the list of the runner image: installed when missing.
+      # (If this fails, test_win32_web_view reports itself as skipped.)
+      - name: WebView2 Runtime (test_win32_web_view shows pages with it; Raven itself does not need it)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\ClientState\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $found = (Get-ItemProperty -Path $key -Name EBWebView -ErrorAction SilentlyContinue).EBWebView
+          if ($found) { Write-Host "WebView2 Runtime already installed: $found"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          $signature = Get-AuthenticodeSignature $setup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw "unexpected signature: $($signature.Status) $($signature.SignerCertificate.Subject)" }
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+          $found = (Get-ItemProperty -Path $key -Name EBWebView -ErrorAction SilentlyContinue).EBWebView
+          Write-Host "WebView2 Runtime after the installer: $found"
 
       - name: Zig (binding_zig checks every declaration of bindings/zig/raven.zig)
         if: runner.os == 'Linux'

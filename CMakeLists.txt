@@ -371,6 +371,9 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_transfer.c
 		src/platform/win32/win32_transfer.h
 		src/platform/win32/win32_manipulation.h
+		src/platform/win32/win32_web_view.c
+		src/platform/win32/win32_web_view.h
+		src/platform/win32/webview2_com.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
 	list(APPEND RAVEN_LIBRARIES user32 gdi32 shell32 comdlg32 ole32)
