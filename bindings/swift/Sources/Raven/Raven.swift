@@ -21,8 +21,18 @@
 //
 // Raven belongs to the thread that starts it: call it, and these helpers, from
 // that thread only.
+//
+// The C API comes from CRaven (this package), or, without it, from the C
+// module that has the name of this one: Raven.xcframework's `Raven`, when this
+// file is compiled as the Swift part of that module
+// (`swiftc -module-name Raven -import-underlying-module`, see README.md).
 
+#if canImport(CRaven)
 @_exported import CRaven
+#else
+/// Swift cannot read the macro of C, `((Rid)-1)`: the same value.
+public let R_INVALID_ID: Rid = Rid.max
+#endif
 
 /// A text of the library as a `String` ("" for a null pointer).
 public func text(_ pointer: UnsafePointer<CChar>?) -> String {

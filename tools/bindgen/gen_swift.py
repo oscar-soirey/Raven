@@ -93,8 +93,18 @@ RAVEN_SWIFT = '''// Raven for Swift.
 //
 // Raven belongs to the thread that starts it: call it, and these helpers, from
 // that thread only.
+//
+// The C API comes from CRaven (this package), or, without it, from the C
+// module that has the name of this one: Raven.xcframework's `Raven`, when this
+// file is compiled as the Swift part of that module
+// (`swiftc -module-name Raven -import-underlying-module`, see README.md).
 
+#if canImport(CRaven)
 @_exported import CRaven
+#else
+/// Swift cannot read the macro of C, `((Rid)-1)`: the same value.
+public let R_INVALID_ID: Rid = Rid.max
+#endif
 
 /// A text of the library as a `String` ("" for a null pointer).
 public func text(_ pointer: UnsafePointer<CChar>?) -> String {
@@ -397,6 +407,25 @@ Rshutdown()
 `raven_backend.h` and `raven_vulkan.h` are left out, as in the other bindings.
 
 Tested on macOS and Linux (Swift 5.9 or later). Windows is not tested.
+
+## iOS
+
+On iOS the C API comes from `Raven.xcframework` (`tools/mobile/build-xcframework.sh`),
+whose module is also named `Raven`. `Sources/Raven/Raven.swift` is then
+compiled as the Swift part of that module, without CRaven and without this
+package:
+
+    swiftc -parse-as-library -module-name Raven -import-underlying-module \\
+        -I Raven.xcframework/ios-arm64_x86_64-simulator/Headers \\
+        -emit-module -emit-module-path modules/Raven.swiftmodule \\
+        -c Sources/Raven/Raven.swift -o Raven.o
+
+and the app's `import Raven` (with `-I modules`) gives the C API and the
+helpers, the module map of the xcframework linking libraven and the system
+frameworks. UIKit runs the loop there: a `CADisplayLink` calls
+`Rwait_frame(-1)` instead of `while Rwait_frame(-1) != 0 {}`.
+`examples/mobile/ios-swift` is such an app, built by a script, see
+`examples/mobile/README.md`.
 '''
 
 GITIGNORE = '''.build/

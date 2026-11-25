@@ -167,6 +167,8 @@ compiles it in and registers `luaopen_raven` (`lua/raven_lua.h`). See
 `import static raven.R.*;` and the C API is there under its own names. The
 jar of Maven Central holds the library; from this folder, compile
 `java/src/main/java/raven/R.java` and set `RAVEN_LIBRARY` (see `java/README.md`).
+Not on Android: Android has no `java.lang.foreign` (see
+`examples/mobile/README.md`, "Java").
 
 **Odin**
 
@@ -211,6 +213,9 @@ where C takes a text, `text` reads one back. See `nim/README.md`.
 
 `import Raven`, and the C API is there under its own names: a `String` goes
 where C takes a text, `text(pointer)` reads one back. See `swift/README.md`.
+On iOS, `swift/Sources/Raven/Raven.swift` goes with `Raven.xcframework`
+instead of the package (`swift/README.md`, "iOS";
+`examples/mobile/ios-swift`).
 
 **Haskell** (GHC 9.6 or later; macOS and Linux)
 
