@@ -672,6 +672,24 @@ static void on_save_file(Rid button, void* user_data) {
 	Rfile_save_async(&desc, text, strlen(text), on_saved, NULL);
 }
 
+/*
+ * Android may end the app while the camera or a picker is in front (it needs
+ * the memory); when the user is done there it starts the app again with the
+ * answer, which comes here: shown as a normal answer would have been.
+ */
+static void on_restored(RDeviceRequest request, RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	const char* what = request == R_DEVICE_REQUEST_TAKE_PHOTO ? "camera"
+		: request == R_DEVICE_REQUEST_PICK_PHOTOS ? "photo"
+		: request == R_DEVICE_REQUEST_OPEN_FILES ? "pick a file"
+		: request == R_DEVICE_REQUEST_SAVE_FILE ? "save" : "folder";
+	(void)user_data;
+	set_tab(4);
+	if (request == R_DEVICE_REQUEST_TAKE_PHOTO || request == R_DEVICE_REQUEST_PICK_PHOTOS) on_photo(result, files, count, (void*)what);
+	else if (request == R_DEVICE_REQUEST_OPEN_FILES) on_file(result, files, count, NULL);
+	else if (request == R_DEVICE_REQUEST_SAVE_FILE) on_saved(result, files, count, NULL);
+	dev_status("%s: %s, after a restart (Android ended the app while the system's screen was in front)", what, result_name(result));
+}
+
 static const struct { const char* name; const char* label; RHaptic haptic; } g_haptics[] = {
 	{ "haptic_light", "light", R_HAPTIC_LIGHT }, { "haptic_medium", "medium", R_HAPTIC_MEDIUM },
 	{ "haptic_heavy", "heavy", R_HAPTIC_HEAVY }, { "haptic_selection", "selection", R_HAPTIC_SELECTION },
@@ -785,6 +803,8 @@ static void device_create(void) {
 	Rbutton_set_clicked_callback(find("copy"), on_copy, NULL);
 	Rbutton_set_clicked_callback(find("paste"), on_paste, NULL);
 	Rbutton_set_clicked_callback(find("load_url"), on_load_url, NULL);
+	/* (at the start: the answers of the requests made before a restart come at a later frame) */
+	Rdevice_set_restored_callback(on_restored, NULL);
 	show_permissions();
 }
 
