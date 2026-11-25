@@ -192,24 +192,12 @@ static void rvn_env_copy(const char* name, char* out, size_t size) {
  *  Windows
  * ------------------------------------------------------------------------- */
 
-/* R_FALSE for the windows Raven makes for itself: inspectors, the overlay of an island in the camera housing. */
-static int rvn_run_is_app_window(rvn_window_t* window) {
-	uint32_t i;
-	if (!window || window->dead || window->notch_owner) return R_FALSE;
-	for (i = 0; i < g_rvn.windows.used; i++) {
-		rvn_window_t* other = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
-		if (other && other != window && !other->dead && Rwindow_get_inspector(other->id) == window->id) return R_FALSE;
-	}
-	return R_TRUE;
-}
-
-/* The windows of the application, in the order they were made (at most `max`). */
+/* The windows of the application, in the order they were made (at most `max`): Rwindow_get_at. */
 static int rvn_run_windows(rvn_window_t** out, int max) {
-	uint32_t i;
-	int count = 0;
-	for (i = 0; i < g_rvn.windows.used && count < max; i++) {
-		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
-		if (rvn_run_is_app_window(window)) out[count++] = window;
+	int total = Rwindow_get_count(), count = 0, i;
+	for (i = 0; i < total && count < max; i++) {
+		rvn_window_t* window = rvn_window_get(Rwindow_get_at(i));
+		if (window) out[count++] = window;
 	}
 	return count;
 }

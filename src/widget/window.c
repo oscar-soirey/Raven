@@ -2543,10 +2543,22 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window);
 }
 
+/* Out of Rwindow_get_count and Rwindow_get_at from the moment it starts to be destroyed. */
+static void rvn_window_unlist(rvn_window_t* window) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.window_order_count; i++) {
+		if (g_rvn.window_order[i] != window->id) continue;
+		memmove(g_rvn.window_order + i, g_rvn.window_order + i + 1, (g_rvn.window_order_count - i - 1) * sizeof(Rid));
+		g_rvn.window_order_count--;
+		return;
+	}
+}
+
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
 	uint32_t i;
 	if (window->dead) return;
+	rvn_window_unlist(window);
 	rvn_inspector_window_destroyed(window);
 	if (window->dead) return;
 	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
@@ -2691,6 +2703,8 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 		if (g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
 		if (g_rvn.platform->window_set_topmost) g_rvn.platform->window_set_topmost(window->platform, R_TRUE);
 	}
+	RVN_ARRAY_RESERVE(g_rvn.window_order, g_rvn.window_order_cap, g_rvn.window_order_count + 1);
+	g_rvn.window_order[g_rvn.window_order_count++] = window->id;
 	if (window->visible) g_rvn.platform->window_show(window->platform, R_TRUE);
 	return window->id;
 }
@@ -2702,6 +2716,31 @@ void Rwindow_destroy(Rid id) {
 
 int Rwindow_is_valid(Rid window) {
 	return g_rvn.initialized && rvn_window_get(window) != NULL;
+}
+
+/* A window of the application: not the overlay of an island in the camera housing, nor the window of an inspector. */
+static int rvn_window_is_listed(const rvn_window_t* window) {
+	return window && !window->dead && !window->notch_owner && !rvn_inspector_is_window(window->id);
+}
+
+int Rwindow_get_count(void) {
+	uint32_t i;
+	int count = 0;
+	RVN_API_GUARD(0);
+	for (i = 0; i < g_rvn.window_order_count; i++) {
+		if (rvn_window_is_listed(rvn_window_get(g_rvn.window_order[i]))) count++;
+	}
+	return count;
+}
+
+Rid Rwindow_get_at(int index) {
+	uint32_t i;
+	RVN_API_GUARD(R_INVALID_ID);
+	for (i = 0; index >= 0 && i < g_rvn.window_order_count; i++) {
+		if (!rvn_window_is_listed(rvn_window_get(g_rvn.window_order[i]))) continue;
+		if (index-- == 0) return g_rvn.window_order[i];
+	}
+	return R_INVALID_ID;
 }
 
 void Rwindow_set_content(Rid id, Rid widget_id) {

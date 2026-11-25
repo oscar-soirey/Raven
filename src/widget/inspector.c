@@ -522,6 +522,10 @@ int Rwindow_is_inspector_shown(Rid id) {
 	return g_rvn.initialized && rvn_inspector_of(id) != NULL;
 }
 
+int rvn_inspector_is_window(Rid window) {
+	return window != R_INVALID_ID && rvn_inspector_by_window(window) != NULL;
+}
+
 Rid Rwindow_get_inspector(Rid id) {
 	rvn_inspector_t* inspector = g_rvn.initialized ? rvn_inspector_of(id) : NULL;
 	return inspector ? inspector->window : R_INVALID_ID;

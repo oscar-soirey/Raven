@@ -188,6 +188,10 @@ typedef struct rvn_context_t {
 	const rvn_platform_t* platform;
 
 	rvn_pool_t windows;
+	/** The windows that are not destroyed, in the order they were created (Rwindow_get_at). */
+	Rid* window_order;
+	uint32_t window_order_count;
+	uint32_t window_order_cap;
 	rvn_pool_t widgets;
 	rvn_pool_t fonts;
 	rvn_pool_t textures;

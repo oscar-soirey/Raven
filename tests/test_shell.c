@@ -872,6 +872,89 @@ static void test_window_focus(void) {
 	CHECK(!Rwindow_is_valid(window));
 }
 
+/* Rwindow_get_count / Rwindow_get_at: the windows of the application, in the order they were created. */
+static int g_list_count_in_click = -1;
+
+static void on_destroy_own_window(Rid button, void* user_data) {
+	Rid window = (Rid)(uintptr_t)user_data;
+	(void)button;
+	Rwindow_destroy(window);
+	/* destroyed while the click is dispatched: freed later, no longer listed now */
+	g_list_count_in_click = Rwindow_get_count();
+}
+
+static void test_window_list(void) {
+	static const char xml[] = "<Window Title=\"from xml\" Width=\"300\" Height=\"200\"><Label Text=\"Hi\"/></Window>";
+	Rid a, b, c, d, owned, nested, button, inspector;
+	/* none */
+	CHECK(Rwindow_get_count() == 0);
+	CHECK(Rwindow_get_at(0) == R_INVALID_ID);
+	CHECK(Rwindow_get_at(-1) == R_INVALID_ID);
+
+	/* several, hidden ones and the ones from XML included */
+	a = Rwindow_create("a", 320, 200, R_WINDOW_DEFAULT);
+	b = Rwindow_create("b", 320, 200, R_WINDOW_HIDDEN);
+	c = Rwindow_create_from_xml(xml, strlen(xml));
+	CHECK(Rwindow_get_count() == 3);
+	CHECK(Rwindow_get_at(0) == a);
+	CHECK(Rwindow_get_at(1) == b);
+	CHECK(Rwindow_get_at(2) == c);
+	/* out of range on both sides */
+	CHECK(Rwindow_get_at(3) == R_INVALID_ID);
+	CHECK(Rwindow_get_at(-1) == R_INVALID_ID);
+
+	/* one destroyed: the ones after it move down */
+	Rwindow_destroy(b);
+	CHECK(Rwindow_get_count() == 2);
+	CHECK(Rwindow_get_at(0) == a);
+	CHECK(Rwindow_get_at(1) == c);
+	CHECK(Rwindow_get_at(2) == R_INVALID_ID);
+	/* a new one comes last, even in the slot of the one destroyed */
+	d = Rwindow_create("d", 320, 200, R_WINDOW_HIDDEN);
+	CHECK(Rwindow_get_count() == 3);
+	CHECK(Rwindow_get_at(2) == d);
+	Rdraw_frame();
+
+	/* owned windows are listed, and go with their owner */
+	owned = Rwindow_create("owned", 200, 120, R_WINDOW_HIDDEN);
+	nested = Rwindow_create("nested", 200, 120, R_WINDOW_HIDDEN);
+	Rwindow_set_owner(owned, a);
+	Rwindow_set_owner(nested, owned);
+	CHECK(Rwindow_get_count() == 5);
+	CHECK(Rwindow_get_at(3) == owned && Rwindow_get_at(4) == nested);
+	Rwindow_destroy(a);
+	CHECK(Rwindow_get_count() == 2);
+	CHECK(Rwindow_get_at(0) == c);
+	CHECK(Rwindow_get_at(1) == d);
+
+	/* the window of an inspector belongs to its window: not listed */
+	Rwindow_set_inspector(c, R_TRUE);
+	inspector = Rwindow_get_inspector(c);
+	CHECK(Rwindow_is_valid(inspector));
+	CHECK(Rwindow_get_count() == 2);
+	CHECK(Rwindow_get_at(0) == c && Rwindow_get_at(1) == d);
+	Rwindow_set_inspector(c, R_FALSE);
+	Rdraw_frame();
+
+	/* a window destroyed from one of its callbacks is gone from the list at once */
+	button = Rbutton_create("Close");
+	Rbutton_set_clicked_callback(button, on_destroy_own_window, (void*)(uintptr_t)d);
+	Rwindow_set_content(d, button);
+	Rwindow_show(d);
+	Rdraw_frame();
+	test_click(d, button);
+	CHECK(g_list_count_in_click == 1);
+	CHECK(!Rwindow_is_valid(d));
+	CHECK(Rwindow_get_count() == 1);
+	CHECK(Rwindow_get_at(0) == c);
+	Rdraw_frame();
+
+	Rwindow_destroy(c);
+	CHECK(Rwindow_get_count() == 0);
+	CHECK(Rwindow_get_at(0) == R_INVALID_ID);
+	Rdraw_frame();
+}
+
 /* Owned windows: kept with their owner, destroyed with it (before it), no cycles. */
 static void test_window_owner(void) {
 	Rid main_window = Rwindow_create("main", 640, 360, R_WINDOW_DEFAULT);
@@ -1072,6 +1155,8 @@ int main(void) {
 		printf("test_shell: cannot initialize Raven\n");
 		return 1;
 	}
+	/* (first: it starts with no window) */
+	RUN(test_window_list);
 	RUN(test_header_bar);
 	RUN(test_header_default_side);
 	RUN(test_header_variants);

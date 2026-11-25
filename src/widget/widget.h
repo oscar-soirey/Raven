@@ -1193,6 +1193,8 @@ void rvn_toast_close_notification(Rid toast, const char* tag);
 void rvn_inspector_update(void);
 /** A window goes: its inspector with it, or it was the window of an inspector. */
 void rvn_inspector_window_destroyed(rvn_window_t* window);
+/** R_TRUE for the window of an inspector (not one of the application: Rwindow_get_count leaves it out). */
+int  rvn_inspector_is_window(Rid window);
 /** Outlines, over the window, the widget selected in its inspector. */
 void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
 /** While "Pick" is on: the pointer shows which widget a click selects, and the click goes to the inspector only. */
