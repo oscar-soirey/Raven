@@ -123,6 +123,10 @@
 					<TextInput Name="city" Placeholder="Yogyakarta" ReturnKey="Next"/>
 					<Label Text="Note"/>
 					<TextInput Name="note" Placeholder="Anything else" ReturnKey="Done"/>
+					<!-- (text to select with a finger: a long press on a word, the handles, the edit menu of the system) -->
+					<Label Text="Message"/>
+					<TextEditor Name="message" Height="150" WordWrap="true" LineNumbers="false"
+						Text="Long press a word to select it, then drag the handles. Cut, Copy, Paste and Select All are in the menu of the system."/>
 					<Button Name="submit" Text="Submit" Style="Primary" Slot.HAlign="Left"/>
 					<Label Name="keyboard_state" Text="Keyboard: hidden"/>
 					<Label Name="form_state" Text="" Wrap="true" Opacity="0.6"/>
