@@ -9,6 +9,7 @@ One UI written in C, `shared/showcase.c` with its layout in
 | `shared/assets/` | The files the app reads at run time: the layout and the picture |
 | `ios/` | The iOS app: `src/main.m` (UIKit scene, `CADisplayLink` that drives `Rdraw_frame`), `Info.plist`, `build.sh` |
 | `android/` | The Android app: `main.c` (`android_main`, NativeActivity), `AndroidManifest.xml`, `build.sh` |
+| `ios-swift/` | Another iOS app, in Swift: a label and a button, with the Swift binding over Raven.xcframework (see [Swift](#swift)) |
 | `desktop/` | The same UI in a desktop window (`raven_mobile`, built with the other examples): to work on it without a phone; `raven_mobile --check` runs the Device tab without a window |
 
 Both build scripts compile Raven itself with CMake, then the app by hand, so no
@@ -275,3 +276,77 @@ uses, `registerForTraitChanges`, and falls back to `traitCollectionDidChange:`;
 it builds without availability warnings at `MIN_IOS=15.0`, but has only run
 on iOS 26 Simulators here). The showcase itself (`ios/build.sh`, its
 `Info.plist`) asks for iOS 17. A Swift package (`binaryTarget`) is not made yet.
+
+## Swift
+
+`ios-swift/` is an iOS app written in Swift: `src/App.swift` is the app
+delegate and the scene delegate of `ios/src/main.m` (Raven started when the
+scene connects, a `CADisplayLink` that calls `Rwait_frame(-1)`), and a window
+in XML with a label and a button whose closure (`actionBind`) changes the
+label. It uses the Swift binding (`bindings/swift`) over `Raven.xcframework`:
+
+    cd ios-swift && ./build.sh run     # the booted simulator; UDID=<id> picks one
+
+The script builds the xcframework (`tools/mobile/build-xcframework.sh`;
+`XCFRAMEWORK=<path>` takes a built one), then, with `swiftc` and no Xcode
+project:
+
+1. compiles `bindings/swift/Sources/Raven/Raven.swift` as the Swift part of the
+   xcframework's module `Raven` (`-module-name Raven -import-underlying-module
+   -I <slice>/Headers`): the binding's helpers are written over CRaven, the
+   C module of its Swift package, and use the C module named like them when
+   CRaven is not there;
+2. compiles `src/App.swift` with that module (`import Raven` gives the C API
+   and the helpers) and links `libraven.a`; the module map of the xcframework
+   links the system frameworks;
+3. makes `HelloSwift.app` (`dev.raven.ios.swift`) with `Info.plist`.
+
+`rvn_uikit_set_display_link` has no public header yet (a SHORTCUT of the UIKit
+platform): `src/Bridge.h` declares it for Swift (`-import-objc-header`).
+
+Testing hook: `SIMCTL_CHILD_RAVEN_TAPS=<n>` taps the button `n` times with
+`Rtest_tap`, from 2 seconds after the launch, and logs the label. A change made
+outside a frame of Raven (here the taps, sent from `DispatchQueue.main`; also a
+UIKit callback or a notification of the app) does not restart the paused
+display link by itself: the hook calls `Rwake_up()` after it.
+
+| iOS Simulator, Swift | after three taps | dark |
+|---|---|---|
+| ![The Swift app on iOS](screenshots/ios-swift-launch.png) | ![After three taps](screenshots/ios-swift-tapped.png) | ![Dark](screenshots/ios-swift-dark.png) |
+
+Simulator only so far: the device slice is the same xcframework
+(`ios-arm64`, `-target arm64-apple-ios17.0`), not tried.
+
+## Java and Kotlin
+
+`bindings/java` does not run on Android. It is written over the Foreign
+Function & Memory API of Java 22 (`java.lang.foreign`: `Linker`,
+`MemorySegment`, `Arena`, upcalls for the callbacks), which Android does not
+have: no `android.jar` from API 31 to 36.1 holds a class of
+`java.lang.foreign` (the libraries of Android follow Java 17, without it), so
+`R.java` does not compile against it and its classes would not load. It is the
+same for Kotlin, which would call the same class.
+
+What a Java binding for Android needs:
+
+- **JNI.** A generator in `tools/bindgen` (beside `gen_lua.py` and
+  `gen_napi.py`, which write the C glue of Lua and Node-API) writing a C file
+  of `JNIEXPORT` functions, one per function of the API (texts as `String`,
+  arrays of one element for the values written through pointers, structures
+  copied in and out, the callbacks kept as global references and called on
+  Raven's thread), and a Java class of `native` methods with the surface of
+  `raven.R`. The same binding would then also run on any desktop JDK (8 or
+  later) and could be tested there by `ctest`.
+- **An entry on Raven's thread.** Raven runs on the thread of
+  `android_main` (NativeActivity, `native_app_glue`; `Randroid_set_app` before
+  `Rinit`), not on the main thread of Java. The binding's native library would
+  bring that `android_main`: it attaches its thread to the VM and calls a
+  static method of the app's class (named in the manifest), which then calls
+  `raven.R` from that thread.
+- **Packaging.** The JNI library and the class go into the AAR next to
+  `libraven.so` and Raven's Java part.
+
+Its size, by the generators of the same kind: about 2,000 to 2,500 lines of
+Python (`gen_lua.py` is 2,139 and writes 35,832 lines of C), giving some
+35,000 to 45,000 lines of C and a Java class of the size of `R.java`, plus
+about 200 lines for the entry and the packaging.
