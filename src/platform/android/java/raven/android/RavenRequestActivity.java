@@ -115,6 +115,8 @@ public final class RavenRequestActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle state) {
 		super.onCreate(state);
+		/* (a new process: RavenDevice has no context until Raven attaches, and the answer may come first) */
+		RavenDevice.ensureContext(this);
 		Intent intent = getIntent();
 		op = intent.getIntExtra(EXTRA_OP, 0);
 		id = intent.getIntExtra(EXTRA_ID, 0);

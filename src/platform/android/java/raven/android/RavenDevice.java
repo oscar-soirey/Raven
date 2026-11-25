@@ -127,6 +127,15 @@ public final class RavenDevice {
 
 	private RavenDevice() {}
 
+	/*
+	 * The application's context for the helpers below, before Raven attaches:
+	 * in a process Android started again under a system screen,
+	 * RavenRequestActivity gets its answer first (main thread).
+	 */
+	static void ensureContext(Context context) {
+		if (sContext == null && context != null) sContext = context.getApplicationContext();
+	}
+
 	/* ------------------------------------------------------------------ answers to native */
 
 	static void answerPermission(int permission) {
