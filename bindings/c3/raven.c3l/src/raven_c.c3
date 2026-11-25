@@ -1382,6 +1382,19 @@ const RHaptic R_HAPTIC_SUCCESS = 0x0C34;
 const RHaptic R_HAPTIC_WARNING = 0x0C35;
 const RHaptic R_HAPTIC_ERROR = 0x0C36;
 
+<* Which request an answer given after a restart was for (Rdevice_set_restored_callback). *>
+alias RDeviceRequest = CInt;
+<* Rfile_open_async. *>
+const RDeviceRequest R_DEVICE_REQUEST_OPEN_FILES = 0x0C50;
+<* Rfile_save_async, Rfile_export_async. *>
+const RDeviceRequest R_DEVICE_REQUEST_SAVE_FILE = 0x0C51;
+<* Rfile_select_folder_async. *>
+const RDeviceRequest R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52;
+<* Rcamera_take_photo. *>
+const RDeviceRequest R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53;
+<* Rphoto_pick. *>
+const RDeviceRequest R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54;
+
 <*
  How a spring moves. Animations in Raven are springs, as on iOS: a value is
  pulled toward its target and may run past it before settling, which is what
@@ -1942,6 +1955,12 @@ alias RPermissionCallback = fn void(RPermission permission, RPermissionStatus st
  R_DEVICE_DONE. Called on the UI thread, once.
 *>
 alias RDeviceCallback = fn void(RDeviceResult result, RPickedFile* files, CInt count, void* user_data);
+<*
+ The answer to a request made before the application was started
+ again (Rdevice_set_restored_callback): `request` tells which kind it was,
+ the rest is what its RDeviceCallback would have been given.
+*>
+alias RDeviceRestoredCallback = fn void(RDeviceRequest request, RDeviceResult result, RPickedFile* files, CInt count, void* user_data);
 <*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -8070,6 +8089,16 @@ extern fn CInt r_haptic_play(RHaptic haptic) @cname("Rhaptic_play");
 *>
 extern fn void r_share_show(RShareDesc* desc, RDeviceCallback callback, void* user_data) @cname("Rshare_show");
 
+<*
+ Sets the function that gets the answers to requests made before
+ a restart. Set it at the start, after Rinit: the answers waiting are
+ then given to it, and those that come later too, on the UI thread at a
+ later frame (never inside this call), each once. Until a callback is
+ set they are kept (Android: also across further restarts, for a day).
+ `callback` NULL keeps them again. Forgotten by Rshutdown.
+*>
+extern fn void r_device_set_restored_callback(RDeviceRestoredCallback callback, void* user_data) @cname("Rdevice_set_restored_callback");
+
 <* Shows a texture. R_INVALID_ID shows nothing. *>
 extern fn void r_viewport_set_texture(Rid viewport, Rid texture) @cname("Rviewport_set_texture");
 
@@ -8808,6 +8837,16 @@ extern fn void r_host_permission_answer(RPermission permission, RPermissionStatu
  per request. Any thread.
 *>
 extern fn void r_host_service_complete(Ruint request, RDeviceResult result, RPickedFile* files, CInt count) @cname("Rhost_service_complete");
+
+<*
+ The answer to a request made before the application was started
+ again (an embedder whose process the system ended while its screen was
+ in front), for the Rdevice_set_restored_callback of the application:
+ `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+ files are copied. Kept until the application sets the callback, then
+ given to it at a later frame. Any thread.
+*>
+extern fn void r_host_service_restored(RHostService service, RDeviceResult result, RPickedFile* files, CInt count) @cname("Rhost_service_restored");
 
 <*
  R_TRUE makes what is drawn depend only on what the test does:

@@ -1766,6 +1766,20 @@ R_HAPTIC_SUCCESS = RHaptic.R_HAPTIC_SUCCESS
 R_HAPTIC_WARNING = RHaptic.R_HAPTIC_WARNING
 R_HAPTIC_ERROR = RHaptic.R_HAPTIC_ERROR
 
+class RDeviceRequest(enum.IntEnum):
+    """Which request an answer given after a restart was for (Rdevice_set_restored_callback)."""
+    R_DEVICE_REQUEST_OPEN_FILES = 0x0C50
+    R_DEVICE_REQUEST_SAVE_FILE = 0x0C51
+    R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52
+    R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53
+    R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54
+
+R_DEVICE_REQUEST_OPEN_FILES = RDeviceRequest.R_DEVICE_REQUEST_OPEN_FILES
+R_DEVICE_REQUEST_SAVE_FILE = RDeviceRequest.R_DEVICE_REQUEST_SAVE_FILE
+R_DEVICE_REQUEST_SELECT_FOLDER = RDeviceRequest.R_DEVICE_REQUEST_SELECT_FOLDER
+R_DEVICE_REQUEST_TAKE_PHOTO = RDeviceRequest.R_DEVICE_REQUEST_TAKE_PHOTO
+R_DEVICE_REQUEST_PICK_PHOTOS = RDeviceRequest.R_DEVICE_REQUEST_PICK_PHOTOS
+
 class RMotion(enum.IntEnum):
     """How a spring moves. Animations in Raven are springs, as on iOS: a value is
     pulled toward its target and may run past it before settling, which is what
@@ -3260,6 +3274,14 @@ RDeviceCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.POINTER(RPickedFil
 def _adapt_RDeviceCallback(function):
     def call(result, files, count, user_data):
         function(_e(RDeviceResult, result), files.contents if files else None, count, user_data)
+    return call
+
+RDeviceRestoredCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDeviceRestoredCallback(function):
+    def call(request, result, files, count, user_data):
+        function(_e(RDeviceRequest, request), _e(RDeviceResult, result), files.contents if files else None, count, user_data)
     return call
 
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
@@ -16518,6 +16540,20 @@ def Rshare_show(desc, callback, user_data=None):
     _lib.Rshare_show(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
 
 
+_lib.Rdevice_set_restored_callback.argtypes = [RDeviceRestoredCallback, ctypes.c_void_p]
+_lib.Rdevice_set_restored_callback.restype = None
+
+
+def Rdevice_set_restored_callback(callback, user_data=None):
+    """Sets the function that gets the answers to requests made before
+    a restart. Set it at the start, after Rinit: the answers waiting are
+    then given to it, and those that come later too, on the UI thread at a
+    later frame (never inside this call), each once. Until a callback is
+    set they are kept (Android: also across further restarts, for a day).
+    `callback` NULL keeps them again. Forgotten by Rshutdown."""
+    _lib.Rdevice_set_restored_callback(_callback(RDeviceRestoredCallback, _adapt_RDeviceRestoredCallback, callback), user_data)
+
+
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
 _lib.Rviewport_set_texture.restype = None
 
@@ -18318,6 +18354,20 @@ def Rhost_service_complete(request, result, files, count):
     Raven can read; size 0 is read from the file), at the next frame. Once
     per request. Any thread."""
     _lib.Rhost_service_complete(request, int(result), _p(files), count)
+
+
+_lib.Rhost_service_restored.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int]
+_lib.Rhost_service_restored.restype = None
+
+
+def Rhost_service_restored(service, result, files, count):
+    """The answer to a request made before the application was started
+    again (an embedder whose process the system ended while its screen was
+    in front), for the Rdevice_set_restored_callback of the application:
+    `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+    files are copied. Kept until the application sets the callback, then
+    given to it at a later frame. Any thread."""
+    _lib.Rhost_service_restored(int(service), int(result), _p(files), count)
 
 
 _lib.Rtest_set_deterministic.argtypes = [ctypes.c_int]

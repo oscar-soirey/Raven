@@ -2126,6 +2126,25 @@ export const R_HAPTIC_SUCCESS: RHaptic.R_HAPTIC_SUCCESS;
 export const R_HAPTIC_WARNING: RHaptic.R_HAPTIC_WARNING;
 export const R_HAPTIC_ERROR: RHaptic.R_HAPTIC_ERROR;
 
+/** Which request an answer given after a restart was for (Rdevice_set_restored_callback). */
+export enum RDeviceRequest {
+	/** Rfile_open_async. */
+	R_DEVICE_REQUEST_OPEN_FILES = 0x0C50,
+	/** Rfile_save_async, Rfile_export_async. */
+	R_DEVICE_REQUEST_SAVE_FILE = 0x0C51,
+	/** Rfile_select_folder_async. */
+	R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52,
+	/** Rcamera_take_photo. */
+	R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53,
+	/** Rphoto_pick. */
+	R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54,
+}
+export const R_DEVICE_REQUEST_OPEN_FILES: RDeviceRequest.R_DEVICE_REQUEST_OPEN_FILES;
+export const R_DEVICE_REQUEST_SAVE_FILE: RDeviceRequest.R_DEVICE_REQUEST_SAVE_FILE;
+export const R_DEVICE_REQUEST_SELECT_FOLDER: RDeviceRequest.R_DEVICE_REQUEST_SELECT_FOLDER;
+export const R_DEVICE_REQUEST_TAKE_PHOTO: RDeviceRequest.R_DEVICE_REQUEST_TAKE_PHOTO;
+export const R_DEVICE_REQUEST_PICK_PHOTOS: RDeviceRequest.R_DEVICE_REQUEST_PICK_PHOTOS;
+
 /**
  * How a spring moves. Animations in Raven are springs, as on iOS: a value is
  * pulled toward its target and may run past it before settling, which is what
@@ -3978,6 +3997,13 @@ export type RPermissionCallback = (permission: RPermission, status: RPermissionS
  * R_DEVICE_DONE. Called on the UI thread, once.
  */
 export type RDeviceCallback = (result: RDeviceResult, files: RPickedFile | null, count: number, user_data: Pointer | null) => void;
+
+/**
+ * The answer to a request made before the application was started
+ * again (Rdevice_set_restored_callback): `request` tells which kind it was,
+ * the rest is what its RDeviceCallback would have been given.
+ */
+export type RDeviceRestoredCallback = (request: RDeviceRequest, result: RDeviceResult, files: RPickedFile | null, count: number, user_data: Pointer | null) => void;
 
 /**
  * Called on the render thread each time the window is rendered.
@@ -9219,6 +9245,16 @@ export function Rhaptic_play(haptic: RHaptic): number;
  */
 export function Rshare_show(desc: RShareDesc | null, callback: RDeviceCallback | Pointer | null, user_data?: RPointer): void;
 
+/**
+ * Sets the function that gets the answers to requests made before
+ * a restart. Set it at the start, after Rinit: the answers waiting are
+ * then given to it, and those that come later too, on the UI thread at a
+ * later frame (never inside this call), each once. Until a callback is
+ * set they are kept (Android: also across further restarts, for a day).
+ * `callback` NULL keeps them again. Forgotten by Rshutdown.
+ */
+export function Rdevice_set_restored_callback(callback: RDeviceRestoredCallback | Pointer | null, user_data?: RPointer): void;
+
 /** Shows a texture. R_INVALID_ID shows nothing. */
 export function Rviewport_set_texture(viewport: Rid, texture: Rid): void;
 
@@ -9977,6 +10013,16 @@ export function Rhost_permission_answer(permission: RPermission, status: RPermis
  * per request. Any thread.
  */
 export function Rhost_service_complete(request: number, result: RDeviceResult, files: readonly RPickedFile[] | null): void;
+
+/**
+ * The answer to a request made before the application was started
+ * again (an embedder whose process the system ended while its screen was
+ * in front), for the Rdevice_set_restored_callback of the application:
+ * `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+ * files are copied. Kept until the application sets the callback, then
+ * given to it at a later frame. Any thread.
+ */
+export function Rhost_service_restored(service: RHostService, result: RDeviceResult, files: readonly RPickedFile[] | null): void;
 
 /**
  * R_TRUE makes what is drawn depend only on what the test does:

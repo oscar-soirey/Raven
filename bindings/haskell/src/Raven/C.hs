@@ -2155,6 +2155,26 @@ pattern R_HAPTIC_WARNING = RHaptic 3125
 pattern R_HAPTIC_ERROR :: RHaptic
 pattern R_HAPTIC_ERROR = RHaptic 3126
 
+-- | Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+newtype RDeviceRequest = RDeviceRequest CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Rfile_open_async.
+pattern R_DEVICE_REQUEST_OPEN_FILES :: RDeviceRequest
+pattern R_DEVICE_REQUEST_OPEN_FILES = RDeviceRequest 3152
+-- | Rfile_save_async, Rfile_export_async.
+pattern R_DEVICE_REQUEST_SAVE_FILE :: RDeviceRequest
+pattern R_DEVICE_REQUEST_SAVE_FILE = RDeviceRequest 3153
+-- | Rfile_select_folder_async.
+pattern R_DEVICE_REQUEST_SELECT_FOLDER :: RDeviceRequest
+pattern R_DEVICE_REQUEST_SELECT_FOLDER = RDeviceRequest 3154
+-- | Rcamera_take_photo.
+pattern R_DEVICE_REQUEST_TAKE_PHOTO :: RDeviceRequest
+pattern R_DEVICE_REQUEST_TAKE_PHOTO = RDeviceRequest 3155
+-- | Rphoto_pick.
+pattern R_DEVICE_REQUEST_PICK_PHOTOS :: RDeviceRequest
+pattern R_DEVICE_REQUEST_PICK_PHOTOS = RDeviceRequest 3156
+
 -- | How a spring moves. Animations in Raven are springs, as on iOS: a value is
 -- pulled toward its target and may run past it before settling, which is what
 -- makes a control feel alive rather than mechanical.
@@ -3164,6 +3184,15 @@ type RDeviceCallback = FunPtr (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr (
 -- | Makes a 'RDeviceCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRDeviceCallback :: (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ()) -> IO RDeviceCallback
+
+-- | The answer to a request made before the application was started
+-- again (Rdevice_set_restored_callback): `request` tells which kind it was,
+-- the rest is what its RDeviceCallback would have been given.
+type RDeviceRestoredCallback = FunPtr (RDeviceRequest -> RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDeviceRestoredCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDeviceRestoredCallback :: (RDeviceRequest -> RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ()) -> IO RDeviceRestoredCallback
 
 -- | Called on the render thread each time the window is rendered.
 -- State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -9456,6 +9485,14 @@ foreign import ccall safe "Rhaptic_play" rhaptic_play :: RHaptic -> IO CInt
 -- closed. R_DEVICE_UNSUPPORTED on desktops.
 foreign import ccall safe "Rshare_show" rshare_show :: Ptr RShareDesc -> RDeviceCallback -> Ptr () -> IO ()
 
+-- | Sets the function that gets the answers to requests made before
+-- a restart. Set it at the start, after Rinit: the answers waiting are
+-- then given to it, and those that come later too, on the UI thread at a
+-- later frame (never inside this call), each once. Until a callback is
+-- set they are kept (Android: also across further restarts, for a day).
+-- `callback` NULL keeps them again. Forgotten by Rshutdown.
+foreign import ccall safe "Rdevice_set_restored_callback" rdevice_set_restored_callback :: RDeviceRestoredCallback -> Ptr () -> IO ()
+
 -- | Shows a texture. R_INVALID_ID shows nothing.
 foreign import ccall safe "Rviewport_set_texture" rviewport_set_texture :: Rid -> Rid -> IO ()
 
@@ -10107,6 +10144,14 @@ foreign import ccall safe "Rhost_permission_answer" rhost_permission_answer :: R
 -- Raven can read; size 0 is read from the file), at the next frame. Once
 -- per request. Any thread.
 foreign import ccall safe "Rhost_service_complete" rhost_service_complete :: Word32 -> RDeviceResult -> Ptr RPickedFile -> CInt -> IO ()
+
+-- | The answer to a request made before the application was started
+-- again (an embedder whose process the system ended while its screen was
+-- in front), for the Rdevice_set_restored_callback of the application:
+-- `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+-- files are copied. Kept until the application sets the callback, then
+-- given to it at a later frame. Any thread.
+foreign import ccall safe "Rhost_service_restored" rhost_service_restored :: RHostService -> RDeviceResult -> Ptr RPickedFile -> CInt -> IO ()
 
 -- | R_TRUE makes what is drawn depend only on what the test does:
 -- every frame advances the animations by 1/60 s (Rset_animation_time_step),

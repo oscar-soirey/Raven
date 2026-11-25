@@ -1318,6 +1318,19 @@ pub const R_HAPTIC_SUCCESS: RHaptic = 0x0C34;
 pub const R_HAPTIC_WARNING: RHaptic = 0x0C35;
 pub const R_HAPTIC_ERROR: RHaptic = 0x0C36;
 
+/// Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+pub const RDeviceRequest = c_int;
+/// Rfile_open_async.
+pub const R_DEVICE_REQUEST_OPEN_FILES: RDeviceRequest = 0x0C50;
+/// Rfile_save_async, Rfile_export_async.
+pub const R_DEVICE_REQUEST_SAVE_FILE: RDeviceRequest = 0x0C51;
+/// Rfile_select_folder_async.
+pub const R_DEVICE_REQUEST_SELECT_FOLDER: RDeviceRequest = 0x0C52;
+/// Rcamera_take_photo.
+pub const R_DEVICE_REQUEST_TAKE_PHOTO: RDeviceRequest = 0x0C53;
+/// Rphoto_pick.
+pub const R_DEVICE_REQUEST_PICK_PHOTOS: RDeviceRequest = 0x0C54;
+
 /// How a spring moves. Animations in Raven are springs, as on iOS: a value is
 /// pulled toward its target and may run past it before settling, which is what
 /// makes a control feel alive rather than mechanical.
@@ -1755,6 +1768,10 @@ pub const RPermissionCallback = ?*const fn (permission: RPermission, status: RPe
 /// sheet. `files` (count of them) are what it gave: none unless `result` is
 /// R_DEVICE_DONE. Called on the UI thread, once.
 pub const RDeviceCallback = ?*const fn (result: RDeviceResult, files: ?*const RPickedFile, count: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// The answer to a request made before the application was started
+/// again (Rdevice_set_restored_callback): `request` tells which kind it was,
+/// the rest is what its RDeviceCallback would have been given.
+pub const RDeviceRestoredCallback = ?*const fn (request: RDeviceRequest, result: RDeviceResult, files: ?*const RPickedFile, count: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -5676,6 +5693,13 @@ pub extern fn Rhaptic_play(haptic: RHaptic) c_int;
 /// sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
 /// closed. R_DEVICE_UNSUPPORTED on desktops.
 pub extern fn Rshare_show(desc: ?*const RShareDesc, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Sets the function that gets the answers to requests made before
+/// a restart. Set it at the start, after Rinit: the answers waiting are
+/// then given to it, and those that come later too, on the UI thread at a
+/// later frame (never inside this call), each once. Until a callback is
+/// set they are kept (Android: also across further restarts, for a day).
+/// `callback` NULL keeps them again. Forgotten by Rshutdown.
+pub extern fn Rdevice_set_restored_callback(callback: RDeviceRestoredCallback, user_data: ?*anyopaque) void;
 /// Shows a texture. R_INVALID_ID shows nothing.
 pub extern fn Rviewport_set_texture(viewport: Rid, texture: Rid) void;
 /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
@@ -6140,6 +6164,13 @@ pub extern fn Rhost_permission_answer(permission: RPermission, status: RPermissi
 /// Raven can read; size 0 is read from the file), at the next frame. Once
 /// per request. Any thread.
 pub extern fn Rhost_service_complete(request: u32, result: RDeviceResult, files: ?*const RPickedFile, count: c_int) void;
+/// The answer to a request made before the application was started
+/// again (an embedder whose process the system ended while its screen was
+/// in front), for the Rdevice_set_restored_callback of the application:
+/// `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+/// files are copied. Kept until the application sets the callback, then
+/// given to it at a later frame. Any thread.
+pub extern fn Rhost_service_restored(service: RHostService, result: RDeviceResult, files: ?*const RPickedFile, count: c_int) void;
 /// R_TRUE makes what is drawn depend only on what the test does:
 /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
 /// and the carets of the text fields stay lit instead of blinking. R_FALSE

@@ -1418,6 +1418,7 @@ static struct {
 	int (*Rhaptic_is_supported)(void);
 	int (*Rhaptic_play)(RHaptic);
 	void (*Rshare_show)(const RShareDesc*, RDeviceCallback, void*);
+	void (*Rdevice_set_restored_callback)(RDeviceRestoredCallback, void*);
 	void (*Rviewport_set_texture)(Rid, Rid);
 	void (*Rviewport_set_stretch)(Rid, RStretch);
 	void (*Rviewport_set_flip_y)(Rid, int);
@@ -1606,6 +1607,7 @@ static struct {
 	void (*Rhost_inject_close)(Rid);
 	void (*Rhost_permission_answer)(RPermission, RPermissionStatus);
 	void (*Rhost_service_complete)(Ruint, RDeviceResult, const RPickedFile*, int);
+	void (*Rhost_service_restored)(RHostService, RDeviceResult, const RPickedFile*, int);
 	void (*Rtest_set_deterministic)(int);
 	int (*Rtest_is_deterministic)(void);
 	const char* (*Rtest_get_platform_tag)(void);
@@ -3030,6 +3032,7 @@ static const struct {
 	{"Rhaptic_is_supported", offsetof(__typeof__(rn), Rhaptic_is_supported)},
 	{"Rhaptic_play", offsetof(__typeof__(rn), Rhaptic_play)},
 	{"Rshare_show", offsetof(__typeof__(rn), Rshare_show)},
+	{"Rdevice_set_restored_callback", offsetof(__typeof__(rn), Rdevice_set_restored_callback)},
 	{"Rviewport_set_texture", offsetof(__typeof__(rn), Rviewport_set_texture)},
 	{"Rviewport_set_stretch", offsetof(__typeof__(rn), Rviewport_set_stretch)},
 	{"Rviewport_set_flip_y", offsetof(__typeof__(rn), Rviewport_set_flip_y)},
@@ -3218,6 +3221,7 @@ static const struct {
 	{"Rhost_inject_close", offsetof(__typeof__(rn), Rhost_inject_close)},
 	{"Rhost_permission_answer", offsetof(__typeof__(rn), Rhost_permission_answer)},
 	{"Rhost_service_complete", offsetof(__typeof__(rn), Rhost_service_complete)},
+	{"Rhost_service_restored", offsetof(__typeof__(rn), Rhost_service_restored)},
 	{"Rtest_set_deterministic", offsetof(__typeof__(rn), Rtest_set_deterministic)},
 	{"Rtest_is_deterministic", offsetof(__typeof__(rn), Rtest_is_deterministic)},
 	{"Rtest_get_platform_tag", offsetof(__typeof__(rn), Rtest_get_platform_tag)},
@@ -4183,6 +4187,7 @@ static void rn_t_RNotificationClickedCallback(void*);
 static void rn_t_RNotificationCallback(const char*, RNotificationEvent, const char*, void*);
 static void rn_t_RPermissionCallback(RPermission, RPermissionStatus, void*);
 static void rn_t_RDeviceCallback(RDeviceResult, const RPickedFile*, int, void*);
+static void rn_t_RDeviceRestoredCallback(RDeviceRequest, RDeviceResult, const RPickedFile*, int, void*);
 static void rn_t_RViewportResizeCallback(Rid, int, int, void*);
 static void rn_t_RPaintCallback(Rid, RPainter*, float, float, void*);
 static void rn_t_RMeasureCallback(Rid, float*, float*, void*);
@@ -5666,6 +5671,23 @@ static void rn_t_RDeviceCallback(RDeviceResult a0, const RPickedFile* a1, int a2
 	napi_create_int32(env, (int32_t)a2, &argv[2]);
 	argv[3] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 4, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RDeviceRestoredCallback(RDeviceRequest a0, RDeviceResult a1, const RPickedFile* a2, int a3, void* a4) {
+	rn_cb* cb = (rn_cb*)a4;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[5];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_int32(env, (int32_t)a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, a2);
+	napi_create_int32(env, (int32_t)a3, &argv[3]);
+	argv[4] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 5, argv);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 }
@@ -28651,6 +28673,29 @@ static napi_value rn_w_Rshare_show(napi_env env, napi_callback_info info) {
 	return result_;
 }
 
+static napi_value rn_w_Rdevice_set_restored_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a1;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	k0_ = rn_callback_arg(env, argv[0], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && 1) {
+		cb_ = rn_cb_new(env, &argv[0], 1, a1);
+		if (!cb_) return NULL;
+	}
+	rn.Rdevice_set_restored_callback(cb_ ? (RDeviceRestoredCallback)rn_t_RDeviceRestoredCallback : (RDeviceRestoredCallback)n0_, cb_ ? (void*)cb_ : a1);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 125, NULL, cb_);
+	return result_;
+}
+
 static napi_value rn_w_Rviewport_set_texture(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -28784,7 +28829,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 125, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 126, NULL, cb_);
 	return result_;
 }
 
@@ -28823,7 +28868,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 126, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 127, NULL, cb_);
 	return result_;
 }
 
@@ -28848,7 +28893,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 127, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 128, NULL, cb_);
 	return result_;
 }
 
@@ -29590,7 +29635,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 128, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 129, NULL, cb_);
 	return result_;
 }
 
@@ -29725,7 +29770,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 130, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -29742,7 +29787,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 130, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -30587,7 +30632,7 @@ static napi_value rn_w_Rscript_set_log_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_log_callback(cb_ ? (RScriptLogCallback)rn_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 130, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
 	return result_;
 }
 
@@ -30610,7 +30655,7 @@ static napi_value rn_w_Rscript_set_diagnostic_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_diagnostic_callback(cb_ ? (RScriptDiagnosticCallback)rn_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 132, NULL, cb_);
 	return result_;
 }
 
@@ -30773,7 +30818,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 132, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 133, NULL, cb_);
 	return result_;
 }
 
@@ -31401,7 +31446,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 133, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 134, NULL, cb_);
 	return result_;
 }
 
@@ -31692,6 +31737,24 @@ static napi_value rn_w_Rhost_service_complete(napi_env env, napi_callback_info i
 	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
 	if (!rn_get_int(env, argv[3], &a3)) return NULL;
 	rn.Rhost_service_complete((Ruint)a0, (RDeviceResult)a1, (const RPickedFile*)a2, a3);
+	return result_;
+}
+
+static napi_value rn_w_Rhost_service_restored(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	int a1;
+	void* a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rhost_service_restored((RHostService)a0, (RDeviceResult)a1, (const RPickedFile*)a2, a3);
 	return result_;
 }
 
@@ -33674,6 +33737,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhaptic_is_supported", NULL, rn_w_Rhaptic_is_supported, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhaptic_play", NULL, rn_w_Rhaptic_play, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rshare_show", NULL, rn_w_Rshare_show, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdevice_set_restored_callback", NULL, rn_w_Rdevice_set_restored_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_texture", NULL, rn_w_Rviewport_set_texture, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_stretch", NULL, rn_w_Rviewport_set_stretch, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_flip_y", NULL, rn_w_Rviewport_set_flip_y, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -33862,6 +33926,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhost_inject_close", NULL, rn_w_Rhost_inject_close, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_permission_answer", NULL, rn_w_Rhost_permission_answer, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_service_complete", NULL, rn_w_Rhost_service_complete, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_service_restored", NULL, rn_w_Rhost_service_restored, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_set_deterministic", NULL, rn_w_Rtest_set_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_is_deterministic", NULL, rn_w_Rtest_is_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_get_platform_tag", NULL, rn_w_Rtest_get_platform_tag, NULL, NULL, NULL, napi_enumerable, NULL},

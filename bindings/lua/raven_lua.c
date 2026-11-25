@@ -1464,6 +1464,7 @@ typedef struct rl_table {
 	int (*Rhaptic_is_supported)(void);
 	int (*Rhaptic_play)(RHaptic);
 	void (*Rshare_show)(const RShareDesc*, RDeviceCallback, void*);
+	void (*Rdevice_set_restored_callback)(RDeviceRestoredCallback, void*);
 	void (*Rviewport_set_texture)(Rid, Rid);
 	void (*Rviewport_set_stretch)(Rid, RStretch);
 	void (*Rviewport_set_flip_y)(Rid, int);
@@ -1652,6 +1653,7 @@ typedef struct rl_table {
 	void (*Rhost_inject_close)(Rid);
 	void (*Rhost_permission_answer)(RPermission, RPermissionStatus);
 	void (*Rhost_service_complete)(Ruint, RDeviceResult, const RPickedFile*, int);
+	void (*Rhost_service_restored)(RHostService, RDeviceResult, const RPickedFile*, int);
 	void (*Rtest_set_deterministic)(int);
 	int (*Rtest_is_deterministic)(void);
 	const char* (*Rtest_get_platform_tag)(void);
@@ -3078,6 +3080,7 @@ static const struct {
 	{"Rhaptic_is_supported", offsetof(rl_table, Rhaptic_is_supported)},
 	{"Rhaptic_play", offsetof(rl_table, Rhaptic_play)},
 	{"Rshare_show", offsetof(rl_table, Rshare_show)},
+	{"Rdevice_set_restored_callback", offsetof(rl_table, Rdevice_set_restored_callback)},
 	{"Rviewport_set_texture", offsetof(rl_table, Rviewport_set_texture)},
 	{"Rviewport_set_stretch", offsetof(rl_table, Rviewport_set_stretch)},
 	{"Rviewport_set_flip_y", offsetof(rl_table, Rviewport_set_flip_y)},
@@ -3266,6 +3269,7 @@ static const struct {
 	{"Rhost_inject_close", offsetof(rl_table, Rhost_inject_close)},
 	{"Rhost_permission_answer", offsetof(rl_table, Rhost_permission_answer)},
 	{"Rhost_service_complete", offsetof(rl_table, Rhost_service_complete)},
+	{"Rhost_service_restored", offsetof(rl_table, Rhost_service_restored)},
 	{"Rtest_set_deterministic", offsetof(rl_table, Rtest_set_deterministic)},
 	{"Rtest_is_deterministic", offsetof(rl_table, Rtest_is_deterministic)},
 	{"Rtest_get_platform_tag", offsetof(rl_table, Rtest_get_platform_tag)},
@@ -8554,6 +8558,40 @@ static void rl_t_RDeviceCallback(RDeviceResult a0, const RPickedFile* a1, int a2
 	c.a2 = a2;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RDeviceCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RDeviceRestoredCallback {
+	rl_cb* cb;
+	RDeviceRequest a0;
+	RDeviceResult a1;
+	const RPickedFile* a2;
+	int a3;
+} rl_c_RDeviceRestoredCallback;
+
+static int rl_k_RDeviceRestoredCallback(lua_State* L) {
+	rl_c_RDeviceRestoredCallback* c = (rl_c_RDeviceRestoredCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 13, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	lua_pushinteger(L, (lua_Integer)c->a0);
+	lua_pushinteger(L, (lua_Integer)c->a1);
+	rl_push_RPickedFile(L, c->a2);
+	lua_pushinteger(L, (lua_Integer)c->a3);
+	rl_push_user(L, c->cb);
+	lua_call(L, 5, 0);
+	return 0;
+}
+
+static void rl_t_RDeviceRestoredCallback(RDeviceRequest a0, RDeviceResult a1, const RPickedFile* a2, int a3, void* a4) {
+	rl_cb* cb = (rl_cb*)a4;
+	rl_c_RDeviceRestoredCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	c.a2 = a2;
+	c.a3 = a3;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RDeviceRestoredCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -29853,6 +29891,24 @@ static int rl_w_Rshare_show(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rdevice_set_restored_callback(lua_State* L) {
+	void* a1;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	k0_ = rl_callback_arg(L, 1, &n0_);
+	a1 = lua_touserdata(L, 2);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && 1) {
+		cb_ = rl_cb_new(L, 1, 0, 2);
+	}
+	RL(Rdevice_set_restored_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDeviceRestoredCallback)rl_t_RDeviceRestoredCallback : (RDeviceRestoredCallback)n0_, cb_ ? (void*)cb_ : a1);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 125, NULL, cb_);
+	return results_;
+}
+
 static int rl_w_Rviewport_set_texture(lua_State* L) {
 	uint32_t a0;
 	uint32_t a1;
@@ -29980,7 +30036,7 @@ static int rl_w_Rviewport_set_resize_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rviewport_set_resize_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RViewportResizeCallback)rl_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 125, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 126, NULL, cb_);
 	return results_;
 }
 
@@ -30012,7 +30068,7 @@ static int rl_w_Rcustom_set_paint_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_paint_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPaintCallback)rl_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 126, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
 	return results_;
 }
 
@@ -30032,7 +30088,7 @@ static int rl_w_Rcustom_set_measure_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_measure_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMeasureCallback)rl_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 128, NULL, cb_);
 	return results_;
 }
 
@@ -30794,7 +30850,7 @@ static int rl_w_Rxml_set_reload_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rxml_set_reload_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RXmlReloadCallback)rl_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 128, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 129, NULL, cb_);
 	return results_;
 }
 
@@ -30915,7 +30971,7 @@ static int rl_w_Rxml_register_tag(lua_State* L) {
 			rl_cb_release(cb_);
 			cb_ = NULL;
 		}
-		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, cb_);
+		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 130, a0, cb_);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -30929,7 +30985,7 @@ static int rl_w_Rxml_unregister_tag(lua_State* L) {
 	lua_settop(L, 1);
 	a0 = rl_str(L, 1, NULL);
 	RL(Rxml_unregister_tag)(a0);
-	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, NULL);
+	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 130, a0, NULL);
 	return results_;
 }
 
@@ -31760,7 +31816,7 @@ static int rl_w_Rscript_set_log_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_log_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptLogCallback)rl_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 130, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
 	return results_;
 }
 
@@ -31778,7 +31834,7 @@ static int rl_w_Rscript_set_diagnostic_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_diagnostic_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptDiagnosticCallback)rl_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
 	return results_;
 }
 
@@ -31929,7 +31985,7 @@ static int rl_w_Rlocale_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rlocale_set_changed_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RLocaleChangedCallback)rl_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 133, NULL, cb_);
 	return results_;
 }
 
@@ -32519,7 +32575,7 @@ static int rl_w_Rwidget_set_accessible_action(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_accessible_action)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RAccessiblePressCallback)rl_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 133, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 134, NULL, cb_);
 	return results_;
 }
 
@@ -32797,6 +32853,33 @@ static int rl_w_Rhost_service_complete(lua_State* L) {
 	}
 	a2_count = rl_count_opt(L, 4, a2_count);
 	RL(Rhost_service_complete)((Ruint)a0, (RDeviceResult)a1, a2_count > 0 ? a2 : NULL, a2_count);
+	return results_;
+}
+
+static int rl_w_Rhost_service_restored(lua_State* L) {
+	int a0;
+	int a1;
+	RPickedFile* a2 = NULL;
+	int a2_count = 0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 4);
+	a0 = rl_enum(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	if (!lua_isnoneornil(L, 3)) {
+		int k_;
+		luaL_checktype(L, 3, LUA_TTABLE);
+		a2_count = (int)rl_rawlen(L, 3);
+		a2 = (RPickedFile*)rl_scratch(L, (size_t)a2_count * sizeof(RPickedFile));
+		for (k_ = 0; k_ < a2_count; k_++) {
+			luaL_checkstack(L, 4, "raven");
+			lua_rawgeti(L, 3, k_ + 1);
+			if (!lua_istable(L, -1)) luaL_argerror(L, 3, "every element must be a table");
+			rl_get_RPickedFile(L, lua_gettop(L), &a2[k_]);
+		}
+	}
+	a2_count = rl_count_opt(L, 4, a2_count);
+	RL(Rhost_service_restored)((RHostService)a0, (RDeviceResult)a1, a2_count > 0 ? a2 : NULL, a2_count);
 	return results_;
 }
 
@@ -34684,6 +34767,7 @@ static const luaL_Reg rl_functions[] = {
 	{"Rhaptic_is_supported", rl_w_Rhaptic_is_supported},
 	{"Rhaptic_play", rl_w_Rhaptic_play},
 	{"Rshare_show", rl_w_Rshare_show},
+	{"Rdevice_set_restored_callback", rl_w_Rdevice_set_restored_callback},
 	{"Rviewport_set_texture", rl_w_Rviewport_set_texture},
 	{"Rviewport_set_stretch", rl_w_Rviewport_set_stretch},
 	{"Rviewport_set_flip_y", rl_w_Rviewport_set_flip_y},
@@ -34872,6 +34956,7 @@ static const luaL_Reg rl_functions[] = {
 	{"Rhost_inject_close", rl_w_Rhost_inject_close},
 	{"Rhost_permission_answer", rl_w_Rhost_permission_answer},
 	{"Rhost_service_complete", rl_w_Rhost_service_complete},
+	{"Rhost_service_restored", rl_w_Rhost_service_restored},
 	{"Rtest_set_deterministic", rl_w_Rtest_set_deterministic},
 	{"Rtest_is_deterministic", rl_w_Rtest_is_deterministic},
 	{"Rtest_get_platform_tag", rl_w_Rtest_get_platform_tag},
@@ -35681,6 +35766,11 @@ static const rl_constant rl_constants[] = {
 	{"R_HAPTIC_SUCCESS", 3124.0},
 	{"R_HAPTIC_WARNING", 3125.0},
 	{"R_HAPTIC_ERROR", 3126.0},
+	{"R_DEVICE_REQUEST_OPEN_FILES", 3152.0},
+	{"R_DEVICE_REQUEST_SAVE_FILE", 3153.0},
+	{"R_DEVICE_REQUEST_SELECT_FOLDER", 3154.0},
+	{"R_DEVICE_REQUEST_TAKE_PHOTO", 3155.0},
+	{"R_DEVICE_REQUEST_PICK_PHOTOS", 3156.0},
 	{"R_MOTION_SNAPPY", 800.0},
 	{"R_MOTION_SMOOTH", 801.0},
 	{"R_MOTION_BOUNCY", 802.0},

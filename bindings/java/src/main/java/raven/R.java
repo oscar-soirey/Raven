@@ -1971,6 +1971,28 @@ public final class R {
     public static final int R_HAPTIC_WARNING = 0x0C35;
     public static final int R_HAPTIC_ERROR = 0x0C36;
 
+    // RDeviceRequest: Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+    /**
+     * Rfile_open_async.
+     */
+    public static final int R_DEVICE_REQUEST_OPEN_FILES = 0x0C50;
+    /**
+     * Rfile_save_async, Rfile_export_async.
+     */
+    public static final int R_DEVICE_REQUEST_SAVE_FILE = 0x0C51;
+    /**
+     * Rfile_select_folder_async.
+     */
+    public static final int R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52;
+    /**
+     * Rcamera_take_photo.
+     */
+    public static final int R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53;
+    /**
+     * Rphoto_pick.
+     */
+    public static final int R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54;
+
     // RMotion: How a spring moves. Animations in Raven are springs, as on iOS: a value is
     /**
      * Fast, no bounce: hover, highlights.
@@ -7286,6 +7308,29 @@ public final class R {
 
     private static MemorySegment upcall(RDeviceCallback f) {
         return stub(f, RDeviceCallback.class, "RDeviceCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * The answer to a request made before the application was started
+     * again (Rdevice_set_restored_callback): `request` tells which kind it was,
+     * the rest is what its RDeviceCallback would have been given.
+     */
+    @FunctionalInterface
+    public interface RDeviceRestoredCallback {
+        void invoke(int request, int result, RPickedFile files, int count, MemorySegment user_data);
+    }
+
+    private static void RDeviceRestoredCallback$raw(RDeviceRestoredCallback f, int request, int result, MemorySegment files, int count, MemorySegment user_data) {
+        try {
+            f.invoke(request, result, files.equals(MemorySegment.NULL) ? null : new RPickedFile(files), count, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RDeviceRestoredCallback f) {
+        return stub(f, RDeviceRestoredCallback.class, "RDeviceRestoredCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -29655,6 +29700,38 @@ public final class R {
         Rshare_show(desc, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rdevice_set_restored_callback$;
+
+    /**
+     * Sets the function that gets the answers to requests made before
+     * a restart. Set it at the start, after Rinit: the answers waiting are
+     * then given to it, and those that come later too, on the UI thread at a
+     * later frame (never inside this call), each once. Until a callback is
+     * set they are kept (Android: also across further restarts, for a day).
+     * `callback` NULL keeps them again. Forgotten by Rshutdown.
+     */
+    public static void Rdevice_set_restored_callback(RDeviceRestoredCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rdevice_set_restored_callback$;
+        if ($h == null) Rdevice_set_restored_callback$ = $h = find("Rdevice_set_restored_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Sets the function that gets the answers to requests made before
+     * a restart. Set it at the start, after Rinit: the answers waiting are
+     * then given to it, and those that come later too, on the UI thread at a
+     * later frame (never inside this call), each once. Until a callback is
+     * set they are kept (Android: also across further restarts, for a day).
+     * `callback` NULL keeps them again. Forgotten by Rshutdown.
+     */
+    public static void Rdevice_set_restored_callback(RDeviceRestoredCallback callback) {
+        Rdevice_set_restored_callback(callback, (MemorySegment) null);
+    }
+
     private static MethodHandle Rviewport_set_texture$;
 
     /**
@@ -32696,6 +32773,26 @@ public final class R {
         if ($h == null) Rhost_service_complete$ = $h = find("Rhost_service_complete", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT));
         try {
             $h.invokeExact(request, result, (MemorySegment) (files == null ? MemorySegment.NULL : files.segment()), count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_service_restored$;
+
+    /**
+     * The answer to a request made before the application was started
+     * again (an embedder whose process the system ended while its screen was
+     * in front), for the Rdevice_set_restored_callback of the application:
+     * `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+     * files are copied. Kept until the application sets the callback, then
+     * given to it at a later frame. Any thread.
+     */
+    public static void Rhost_service_restored(int service, int result, RPickedFile files, int count) {
+        MethodHandle $h = Rhost_service_restored$;
+        if ($h == null) Rhost_service_restored$ = $h = find("Rhost_service_restored", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            $h.invokeExact(service, result, (MemorySegment) (files == null ? MemorySegment.NULL : files.segment()), count);
         } catch (Throwable $t) {
             throw fail($t);
         }

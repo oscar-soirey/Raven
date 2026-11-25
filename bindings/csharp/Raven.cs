@@ -2201,6 +2201,33 @@ namespace Raven
     }
 
     /// <summary>
+    /// Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+    /// </summary>
+    public enum RDeviceRequest : int
+    {
+        /// <summary>
+        /// Rfile_open_async.
+        /// </summary>
+        R_DEVICE_REQUEST_OPEN_FILES = 0x0C50,
+        /// <summary>
+        /// Rfile_save_async, Rfile_export_async.
+        /// </summary>
+        R_DEVICE_REQUEST_SAVE_FILE = 0x0C51,
+        /// <summary>
+        /// Rfile_select_folder_async.
+        /// </summary>
+        R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52,
+        /// <summary>
+        /// Rcamera_take_photo.
+        /// </summary>
+        R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53,
+        /// <summary>
+        /// Rphoto_pick.
+        /// </summary>
+        R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54,
+    }
+
+    /// <summary>
     /// How a spring moves. Animations in Raven are springs, as on iOS: a value is
     /// pulled toward its target and may run past it before settling, which is what
     /// makes a control feel alive rather than mechanical.
@@ -4312,6 +4339,14 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RDeviceCallback(RDeviceResult result, ref RPickedFile files, int count, IntPtr user_data);
+
+    /// <summary>
+    /// The answer to a request made before the application was started
+    /// again (Rdevice_set_restored_callback): `request` tells which kind it was,
+    /// the rest is what its RDeviceCallback would have been given.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RDeviceRestoredCallback(RDeviceRequest request, RDeviceResult result, ref RPickedFile files, int count, IntPtr user_data);
 
     /// <summary>
     /// Called on the render thread each time the window is rendered.
@@ -12470,6 +12505,17 @@ namespace Raven
         public static extern void Rshare_show(IntPtr desc, RDeviceCallback callback, IntPtr user_data);
 
         /// <summary>
+        /// Sets the function that gets the answers to requests made before
+        /// a restart. Set it at the start, after Rinit: the answers waiting are
+        /// then given to it, and those that come later too, on the UI thread at a
+        /// later frame (never inside this call), each once. Until a callback is
+        /// set they are kept (Android: also across further restarts, for a day).
+        /// `callback` NULL keeps them again. Forgotten by Rshutdown.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdevice_set_restored_callback(RDeviceRestoredCallback callback, IntPtr user_data);
+
+        /// <summary>
         /// Shows a texture. R_INVALID_ID shows nothing.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -13712,6 +13758,28 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rhost_service_complete(uint request, RDeviceResult result, IntPtr files, int count);
+
+        /// <summary>
+        /// The answer to a request made before the application was started
+        /// again (an embedder whose process the system ended while its screen was
+        /// in front), for the Rdevice_set_restored_callback of the application:
+        /// `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+        /// files are copied. Kept until the application sets the callback, then
+        /// given to it at a later frame. Any thread.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rhost_service_restored(RHostService service, RDeviceResult result, ref RPickedFile files, int count);
+
+        /// <summary>
+        /// The answer to a request made before the application was started
+        /// again (an embedder whose process the system ended while its screen was
+        /// in front), for the Rdevice_set_restored_callback of the application:
+        /// `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+        /// files are copied. Kept until the application sets the callback, then
+        /// given to it at a later frame. Any thread.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rhost_service_restored(RHostService service, RDeviceResult result, IntPtr files, int count);
 
         /// <summary>
         /// R_TRUE makes what is drawn depend only on what the test does:

@@ -214,6 +214,8 @@ type
     ## How a request of a picker, the camera or a share sheet ended.
   RHaptic* = cint
     ## A short vibration that answers a touch (Rhaptic_play).
+  RDeviceRequest* = cint
+    ## Which request an answer given after a restart was for (Rdevice_set_restored_callback).
   RMotion* = cint
     ## How a spring moves. Animations in Raven are springs, as on iOS: a value is
     ## pulled toward its target and may run past it before settling, which is what
@@ -517,6 +519,10 @@ type
     ## The end of a request of a picker, the camera, a save or a share
     ## sheet. `files` (count of them) are what it gave: none unless `result` is
     ## R_DEVICE_DONE. Called on the UI thread, once.
+  RDeviceRestoredCallback* = proc (request: RDeviceRequest, result_value: RDeviceResult, files: ptr RPickedFile, count: cint, user_data: pointer) {.cdecl.}
+    ## The answer to a request made before the application was started
+    ## again (Rdevice_set_restored_callback): `request` tells which kind it was,
+    ## the rest is what its RDeviceCallback would have been given.
   RViewportDrawCallback* = proc (info: ptr RViewportDrawInfo, user_data: pointer) {.cdecl.}
     ## Called on the render thread each time the window is rendered.
     ## State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -2368,6 +2374,18 @@ const
     ## The outcome of an action.
   R_HAPTIC_WARNING*: RHaptic = 0x0C35
   R_HAPTIC_ERROR*: RHaptic = 0x0C36
+
+  # RDeviceRequest
+  R_DEVICE_REQUEST_OPEN_FILES*: RDeviceRequest = 0x0C50
+    ## Rfile_open_async.
+  R_DEVICE_REQUEST_SAVE_FILE*: RDeviceRequest = 0x0C51
+    ## Rfile_save_async, Rfile_export_async.
+  R_DEVICE_REQUEST_SELECT_FOLDER*: RDeviceRequest = 0x0C52
+    ## Rfile_select_folder_async.
+  R_DEVICE_REQUEST_TAKE_PHOTO*: RDeviceRequest = 0x0C53
+    ## Rcamera_take_photo.
+  R_DEVICE_REQUEST_PICK_PHOTOS*: RDeviceRequest = 0x0C54
+    ## Rphoto_pick.
 
   # RMotion
   R_MOTION_SNAPPY*: RMotion = 0x0320
@@ -5707,6 +5725,13 @@ proc Rshare_show*(desc: ptr RShareDesc, callback: RDeviceCallback, user_data: po
   ## callback says R_DEVICE_DONE once something was chosen (Android: once the
   ## sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
   ## closed. R_DEVICE_UNSUPPORTED on desktops.
+proc Rdevice_set_restored_callback*(callback: RDeviceRestoredCallback, user_data: pointer) {.rapi.}
+  ## Sets the function that gets the answers to requests made before
+  ## a restart. Set it at the start, after Rinit: the answers waiting are
+  ## then given to it, and those that come later too, on the UI thread at a
+  ## later frame (never inside this call), each once. Until a callback is
+  ## set they are kept (Android: also across further restarts, for a day).
+  ## `callback` NULL keeps them again. Forgotten by Rshutdown.
 proc Rviewport_set_texture*(viewport: Rid, texture: Rid) {.rapi.}
   ## Shows a texture. R_INVALID_ID shows nothing.
 proc Rviewport_set_stretch*(viewport: Rid, stretch: RStretch) {.rapi.}
@@ -6171,6 +6196,13 @@ proc Rhost_service_complete*(request: uint32, result_value: RDeviceResult, files
   ## The end of a service_request: the files it gave (copied; paths
   ## Raven can read; size 0 is read from the file), at the next frame. Once
   ## per request. Any thread.
+proc Rhost_service_restored*(service: RHostService, result_value: RDeviceResult, files: ptr RPickedFile, count: cint) {.rapi.}
+  ## The answer to a request made before the application was started
+  ## again (an embedder whose process the system ended while its screen was
+  ## in front), for the Rdevice_set_restored_callback of the application:
+  ## `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+  ## files are copied. Kept until the application sets the callback, then
+  ## given to it at a later frame. Any thread.
 proc Rtest_set_deterministic*(enabled: cint) {.rapi.}
   ## R_TRUE makes what is drawn depend only on what the test does:
   ## every frame advances the animations by 1/60 s (Rset_animation_time_step),

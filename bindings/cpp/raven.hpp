@@ -5686,6 +5686,17 @@ inline void share_show(const RShareDesc* desc, std::function<void(RDeviceResult,
 	Rshare_show(desc, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 129, std::move(callback)));
 }
 
+/// Sets the function that gets the answers to requests made before
+/// a restart. Set it at the start, after Rinit: the answers waiting are
+/// then given to it, and those that come later too, on the UI thread at a
+/// later frame (never inside this call), each once. Until a callback is
+/// set they are kept (Android: also across further restarts, for a day).
+/// `callback` NULL keeps them again. Forgotten by Rshutdown.
+inline void device_set_restored_callback(RDeviceRestoredCallback callback, void* user_data) { Rdevice_set_restored_callback(callback, user_data); }
+inline void device_set_restored_callback(std::function<void(RDeviceRequest, RDeviceResult, const RPickedFile*, int)> callback) {
+	Rdevice_set_restored_callback([](RDeviceRequest request, RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceRequest, RDeviceResult, const RPickedFile*, int)>*>(kept_))(request, result, files, count); }, detail::keep(0, 130, std::move(callback)));
+}
+
 /// Pushes a spring away from its target (units per second): it bounces back.
 inline void spring_kick(RSpring* spring, float velocity) { Rspring_kick(spring, velocity); }
 
@@ -5746,7 +5757,7 @@ inline int xml_get_live_reload() { return Rxml_get_live_reload(); }
 
 inline void xml_set_reload_callback(RXmlReloadCallback callback, void* user_data) { Rxml_set_reload_callback(callback, user_data); }
 inline void xml_set_reload_callback(std::function<void(const char*, int)> callback) {
-	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 130, std::move(callback)));
+	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 131, std::move(callback)));
 }
 
 /// Looks at the files now, without waiting for the next look
@@ -5775,7 +5786,7 @@ inline const char* xml_get_registered_widget_name(int index) { return Rxml_get_r
 /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, void* user_data) { return Rxml_register_tag(tag, create, set_attribute, user_data); }
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, std::function<int(Rid, const char*, const char*)> set_attribute) {
-	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 131, std::move(set_attribute)));
+	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 132, std::move(set_attribute)));
 }
 
 inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
@@ -5857,12 +5868,12 @@ inline void script_set_limits(Ruint max_instructions, int max_depth, size_t max_
 
 inline void script_set_log_callback(RScriptLogCallback callback, void* user_data) { Rscript_set_log_callback(callback, user_data); }
 inline void script_set_log_callback(std::function<void(const char*)> callback) {
-	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 132, std::move(callback)));
+	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 133, std::move(callback)));
 }
 
 inline void script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) { Rscript_set_diagnostic_callback(callback, user_data); }
 inline void script_set_diagnostic_callback(std::function<void(RSeverity, const char*, const char*, int, int, const char*)> callback) {
-	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 133, std::move(callback)));
+	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 134, std::move(callback)));
 }
 
 /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
@@ -5904,7 +5915,7 @@ inline int locale_is_rtl() { return Rlocale_is_rtl(); }
 /// Called after the language or the tables changed (the widgets are already updated).
 inline void locale_set_changed_callback(RLocaleChangedCallback callback, void* user_data) { Rlocale_set_changed_callback(callback, user_data); }
 inline void locale_set_changed_callback(std::function<void(const char*)> callback) {
-	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 134, std::move(callback)));
+	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 135, std::move(callback)));
 }
 
 /// The text of a key in the current language (see the fallbacks above). Never NULL.
@@ -6087,6 +6098,14 @@ inline void host_permission_answer(RPermission permission, RPermissionStatus sta
 /// Raven can read; size 0 is read from the file), at the next frame. Once
 /// per request. Any thread.
 inline void host_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count) { Rhost_service_complete(request, result, files, count); }
+
+/// The answer to a request made before the application was started
+/// again (an embedder whose process the system ended while its screen was
+/// in front), for the Rdevice_set_restored_callback of the application:
+/// `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+/// files are copied. Kept until the application sets the callback, then
+/// given to it at a later frame. Any thread.
+inline void host_service_restored(RHostService service, RDeviceResult result, const RPickedFile* files, int count) { Rhost_service_restored(service, result, files, count); }
 
 /// R_TRUE makes what is drawn depend only on what the test does:
 /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
