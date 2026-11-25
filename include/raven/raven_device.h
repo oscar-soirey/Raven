@@ -11,7 +11,8 @@
  * later, on the UI thread, during a frame (Rwait_frame, Rdraw_frame), never
  * from inside the call that asked. A callback is always called exactly once,
  * also when the service does not exist here (R_DEVICE_UNSUPPORTED), unless
- * Raven shuts down first.
+ * Raven shuts down first, or the process ends: on Android the answer then
+ * comes after a restart (Rdevice_set_restored_callback).
  *
  * While the system shows its screen the application may receive
  * R_APP_WILL_PAUSE and R_APP_DID_RESUME (Rset_app_event_callback): a
@@ -28,7 +29,8 @@
  * fopen. On iOS and Android, where the system gives a security-scoped URL or
  * a content:// URI rather than a path, the file is first copied into the
  * cache folder of the application: the copy may be removed by the system
- * when it needs space, and at the next start of the application.
+ * when it needs space, and at the next start of the application (on
+ * Android a later one while an answer after a restart is still waiting).
  *
  * On desktops these functions use the file dialogs of raven_dialogs.h
  * (Rfile_dialog_open...), which wait for the user, then answer at the next
@@ -130,6 +132,20 @@ typedef enum RHaptic{
 	R_HAPTIC_ERROR
 }RHaptic;
 
+/** Which request an answer given after a restart was for (Rdevice_set_restored_callback). */
+typedef enum RDeviceRequest{
+	/** Rfile_open_async. */
+	R_DEVICE_REQUEST_OPEN_FILES = 0x0C50,
+	/** Rfile_save_async, Rfile_export_async. */
+	R_DEVICE_REQUEST_SAVE_FILE,
+	/** Rfile_select_folder_async. */
+	R_DEVICE_REQUEST_SELECT_FOLDER,
+	/** Rcamera_take_photo. */
+	R_DEVICE_REQUEST_TAKE_PHOTO,
+	/** Rphoto_pick. */
+	R_DEVICE_REQUEST_PICK_PHOTOS
+}RDeviceRequest;
+
 /** A file given by a service of the device. Valid during the callback only: copy what you keep. */
 typedef struct RPickedFile {
 	/**
@@ -172,6 +188,13 @@ typedef void (*RPermissionCallback)(RPermission permission, RPermissionStatus st
  * R_DEVICE_DONE. Called on the UI thread, once.
  */
 typedef void (*RDeviceCallback)(RDeviceResult result, const RPickedFile* files, int count, void* user_data);
+
+/**
+ * @brief The answer to a request made before the application was started
+ * again (Rdevice_set_restored_callback): `request` tells which kind it was,
+ * the rest is what its RDeviceCallback would have been given.
+ */
+typedef void (*RDeviceRestoredCallback)(RDeviceRequest request, RDeviceResult result, const RPickedFile* files, int count, void* user_data);
 
 
 #ifdef __cplusplus
@@ -286,6 +309,34 @@ extern "C" {
 	 * closed. R_DEVICE_UNSUPPORTED on desktops.
 	 */
 	RAVEN_API void Rshare_show(const RShareDesc* desc, RDeviceCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  ANSWERS AFTER A RESTART
+	 *
+	 * Android may end the process of the application while a screen of the
+	 * system is in front (the camera, the photo picker, the document picker,
+	 * a save): it needs the memory. When the user is done there, the system
+	 * starts the application again and gives it the answer. The request, its
+	 * callback and its user_data died with the old process: the answer comes
+	 * to the callback set here instead, with the kind of request it was, and
+	 * the application rebuilds what it needs from it (shows the photo, opens
+	 * the file). Files are copies in the cache, as for a normal answer.
+	 *
+	 * Never called on iOS (its screens of the system run in the application's
+	 * process) nor on desktops. Permissions need nothing: read
+	 * Rpermission_get_status again when the application starts or resumes.
+	 * ============================================================================ */
+
+	/**
+	 * @brief Sets the function that gets the answers to requests made before
+	 * a restart. Set it at the start, after Rinit: the answers waiting are
+	 * then given to it, and those that come later too, on the UI thread at a
+	 * later frame (never inside this call), each once. Until a callback is
+	 * set they are kept (Android: also across further restarts, for a day).
+	 * `callback` NULL keeps them again. Forgotten by Rshutdown.
+	 */
+	RAVEN_API void Rdevice_set_restored_callback(RDeviceRestoredCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -14,6 +14,11 @@
  * widgets/dialogs.c (which wait for the user, run from a task); the phones
  * answer R_DEVICE_UNSUPPORTED (their window system cannot run a dialog that
  * waits).
+ *
+ * Answers of requests made by an earlier process (Android ended it while
+ * the system's screen was in front) come through rvn_service_restored, the
+ * same way, and go to the Rdevice_set_restored_callback of the application,
+ * or wait in g_services.restored until it sets one.
  */
 
 #include "platform.h"
@@ -57,8 +62,9 @@ typedef struct rvn_permission_wait_t {
 
 /* Built on the thread that answers, delivered on the UI thread (a task). */
 typedef struct rvn_service_answer_t {
-	/* a request (id != 0), or a permission */
+	/* a request (id != 0), an answer of an earlier process (restored != 0: an RDeviceRequest), or a permission */
 	uint32_t id;
+	int restored;
 	int result;
 	RPickedFile* files;
 	int count;
@@ -68,6 +74,8 @@ typedef struct rvn_service_answer_t {
 	/* a status given to one callback only (Rpermission_request answered at once) */
 	RPermissionCallback callback;
 	void* user_data;
+	/* (the answers of an earlier process kept for the application's callback) */
+	struct rvn_service_answer_t* next;
 } rvn_service_answer_t;
 
 static struct {
@@ -81,6 +89,10 @@ static struct {
 		/* the platform was asked and has not answered yet */
 		int asking;
 	} permissions[RVN_PERMISSION_COUNT];
+	/* the answers of an earlier process: the application's callback, those kept until it is set (oldest first) */
+	RDeviceRestoredCallback restored_callback;
+	void* restored_user_data;
+	struct rvn_service_answer_t* restored;
 } g_services;
 
 /*
@@ -118,6 +130,8 @@ static void rvn_service_free(rvn_service_t* service) {
 	rvn_free(service);
 }
 
+static void rvn_service_answer_free(struct rvn_service_answer_t* answer);
+
 /* Before the windows go: the requests still open are forgotten, their callbacks never called. */
 void rvn_services_shutdown(void) {
 	int i;
@@ -130,11 +144,16 @@ void rvn_services_shutdown(void) {
 		rvn_service_free(g_services.pending);
 		g_services.pending = next;
 	}
+	while (g_services.restored) {
+		rvn_service_answer_t* next = g_services.restored->next;
+		rvn_service_answer_free(g_services.restored);
+		g_services.restored = next;
+	}
 	for (i = 0; i < RVN_PERMISSION_COUNT; i++) rvn_free(g_services.permissions[i].waits);
 	memset(&g_services, 0, sizeof(g_services));
 }
 
-static void rvn_service_answer_free(rvn_service_answer_t* answer) {
+static void rvn_service_answer_free(struct rvn_service_answer_t* answer) {
 	int i;
 	for (i = 0; i < answer->count; i++) {
 		rvn_free((char*)answer->files[i].path);
@@ -170,6 +189,23 @@ static void rvn_service_deliver(void* arg) {
 	rvn_service_answer_t* answer = (rvn_service_answer_t*)arg;
 	if (!g_services_alive) {
 		rvn_service_answer_free(answer);
+		return;
+	}
+	if (answer->restored) {
+		rvn_service_answer_t** link;
+		if (g_services.restored_callback) {
+			int done = answer->result == (int)R_DEVICE_DONE;
+			if (answer->error && *answer->error)
+				rvn_error(R_ERROR_PLATFORM, R_SEVERITY_WARNING, "device services (after a restart): %s", answer->error);
+			g_services.restored_callback((RDeviceRequest)answer->restored, (RDeviceResult)answer->result,
+				done && answer->count ? answer->files : NULL, done ? answer->count : 0, g_services.restored_user_data);
+			rvn_service_answer_free(answer);
+			return;
+		}
+		/* no callback yet: kept for it, in the order they came */
+		for (link = &g_services.restored; *link; link = &(*link)->next) {}
+		answer->next = NULL;
+		*link = answer;
 		return;
 	}
 	if (answer->id) {
@@ -232,13 +268,12 @@ void rvn_permission_answer(int permission, int status) {
 	rvn_service_post(answer);
 }
 
-void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int count, const char* error) {
+/* An answer of a request with its own copy of the files (any thread). */
+static rvn_service_answer_t* rvn_service_answer_new(int result, const RPickedFile* files, int count, const char* error) {
 	rvn_service_answer_t* answer;
 	int i;
-	if (!id) return;
 	if (result < (int)R_DEVICE_DONE || result > (int)R_DEVICE_FAILED) result = (int)R_DEVICE_FAILED;
 	answer = (rvn_service_answer_t*)rvn_calloc(sizeof(*answer));
-	answer->id = id;
 	answer->result = result;
 	answer->error = error && *error ? rvn_strdup(error) : NULL;
 	if (files && count > 0) {
@@ -256,7 +291,54 @@ void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int
 			answer->count++;
 		}
 	}
+	return answer;
+}
+
+void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int count, const char* error) {
+	rvn_service_answer_t* answer;
+	if (!id) return;
+	answer = rvn_service_answer_new(result, files, count, error);
+	answer->id = id;
 	rvn_service_post(answer);
+}
+
+void rvn_service_restored(int request, int result, const RPickedFile* files, int count, const char* error) {
+	rvn_service_answer_t* answer;
+	if (request < (int)R_DEVICE_REQUEST_OPEN_FILES || request > (int)R_DEVICE_REQUEST_PICK_PHOTOS) return;
+	answer = rvn_service_answer_new(result, files, count, error);
+	answer->restored = request;
+	rvn_service_post(answer);
+}
+
+/* UI thread (a task): the platform has answers of an earlier process; taken when the application wants them. */
+static void rvn_service_restored_poll(void* arg) {
+	RVN_UNUSED(arg);
+	if (g_services_alive && g_services.restored_callback && g_rvn.platform && g_rvn.platform->restored_poll) g_rvn.platform->restored_poll();
+}
+
+void rvn_service_restored_ready(void) {
+	if (!g_services_lock_made) return;
+	rvn_mutex_lock(&g_services_lock);
+	if (g_services_alive) Rtask_post(rvn_service_restored_poll, NULL);
+	rvn_mutex_unlock(&g_services_lock);
+}
+
+void Rdevice_set_restored_callback(RDeviceRestoredCallback callback, void* user_data) {
+	rvn_service_answer_t* kept;
+	RVN_API_GUARD_VOID();
+	g_services.restored_callback = callback;
+	g_services.restored_user_data = user_data;
+	if (!callback) return;
+	/* those kept go to it at the next frame (delivered again: a task each, in order), then those the platform kept */
+	kept = g_services.restored;
+	g_services.restored = NULL;
+	while (kept) {
+		rvn_service_answer_t* next = kept->next;
+		kept->next = NULL;
+		Rtask_post(rvn_service_deliver, kept);
+		kept = next;
+	}
+	if (g_rvn.platform->restored_poll) g_rvn.platform->restored_poll();
 }
 
 /* UI thread: the core answers itself (not supported, busy, refused), at the next frame. */
