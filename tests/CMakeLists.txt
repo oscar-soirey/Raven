@@ -101,6 +101,10 @@ raven_add_test(test_host_platform)
 # permissions, pickers, camera, share, haptics, downloads: a phone played by the host platform, then a desktop
 raven_add_test(test_device)
 if(NOT RAVEN_BUILD_SHARED)
+	# text selected with a finger as on phones: handles, the edit menu (widget/text_touch.c)
+	raven_add_test(test_text_touch)
+endif()
+if(NOT RAVEN_BUILD_SHARED)
 	# the bookkeeping of the input methods of Linux (text-input-v3, XIM), apart from the window systems
 	raven_add_test(test_preedit)
 endif()

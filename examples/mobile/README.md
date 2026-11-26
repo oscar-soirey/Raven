@@ -76,6 +76,33 @@ This is an early stage port: see the platform sources
 (`src/platform/uikit/uikit_platform.m`, `src/platform/android/`) and grep for
 `SHORTCUT` for the places that are known to be simplified.
 
+## Text selected with a finger
+
+The Form tab has fields and a Message (a `TextEditor`) to try it on. A long
+press selects the word under the finger (keep the finger down and move it to
+select more), a double tap selects a word, the handles at both ends move the
+selection, and the edit menu of the system offers Cut, Copy, Paste and Select
+All. A tap places the caret: on iOS the caret itself can then be dragged, on
+Android its drop (which goes after a few seconds) can; a tap on the caret (iOS)
+or on its drop (Android) shows Paste and Select All.
+
+How it is split:
+
+- The core (`src/widget/text_touch.c`) decides what a finger does to text
+  and draws the selection and its handles in the look of the system: a bar
+  with a dot at each end on iOS, drops on Android. Neither system draws
+  handles for a view that is not its own text view (UIKit only with
+  `UITextInteraction`, whose gestures would take every touch of Raven's
+  single view and which needs the text and its geometry from the system's
+  side; Android only in `TextView`).
+- The menu is the system's: `UIEditMenuInteraction` on iOS 16+
+  (`UIMenuController` on iOS 15), a floating `ActionMode` on Android, through
+  `edit_menu_show` of the platform. Its entries come back as the keys of the
+  widget (Ctrl+X, C, V, A): Raven's clipboard, the undo of the widget, its
+  changed callbacks.
+- Nothing of it runs where the platform has no edit menu (the desktops): a
+  finger there is still a mouse and a long press a right click.
+
 ## iOS (Simulator)
 
 Needs Xcode with an iOS Simulator runtime, CMake and Ninja. Raven draws with

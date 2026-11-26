@@ -24,6 +24,11 @@
  * SHORTCUT: a scene that is disconnected (the system reclaims it) is not
  * handled: its windows are not moved to a new scene.
  *
+ * Text selected with a finger (widget/text_touch.c): the core draws the
+ * selection and its handles; the menu of Cut, Copy, Paste, Select All is
+ * the system's (UIEditMenuInteraction, iOS 16+; UIMenuController on iOS 15),
+ * shown by edit_menu_show over the view. See "The edit menu".
+ *
  * Relative paths read the resources of the app's bundle: see "Files of the
  * bundle". The services of the device (permissions, pickers, camera,
  * haptics, sharing, notifications, downloads) are in uikit_services.m.
@@ -81,6 +86,12 @@ static struct {
 	/* the last frame of the on-screen keyboard, in the screen's coordinates (keyboard_shown: on screen) */
 	CGRect keyboard_frame;
 	int keyboard_shown;
+	/*
+	 * Paste of the edit menu: the pasteboard read in paste: itself (what the
+	 * user chose: no "Allow Paste" question), given to the core as the
+	 * clipboard while pump hands the command over (retained NSString*).
+	 */
+	void* pasted;
 } g_uikit;
 
 /* main thread: the display link ticks again */
@@ -128,7 +139,7 @@ static float rvn_uikit_scale_of(UIView* view) {
  * Raven as text and key events, as with UIKeyInput alone. The return key is
  * always Enter, sent as a key.
  */
-@interface RavenUIKitView : UIView <UITextInput> {
+@interface RavenUIKitView : UIView <UITextInput, UIEditMenuInteractionDelegate> {
 @public
 	rvn_pwindow_t* ravenWindow;
 	/* pump asked for the keyboard (only then can the view be the first responder) */
@@ -152,6 +163,10 @@ static float rvn_uikit_scale_of(UIView* view) {
 	NSRange ravenToldSelection;
 	Rid ravenToldFocus;
 	UITextInputStringTokenizer* ravenTokenizer;
+	/* the edit menu (edit_menu_show): its RVN_EDIT_* entries (0: none shown), next to this rectangle (points), and iOS 16's interaction */
+	unsigned ravenMenuItems;
+	CGRect ravenMenuRect;
+	id ravenEditMenu;
 }
 @end
 
@@ -885,6 +900,102 @@ static void rvn_uikit_post_key(rvn_pwindow_t* window, RKey key) {
 	rvn_uikit_post(&e);
 }
 
+/* ---- the edit menu (edit_menu_show): Cut, Copy, Paste, Select All for the text the finger selected ---- */
+- (void)ravenPostEdit:(unsigned)command {
+	rvn_pevent_t e;
+	if (!ravenWindow) return;
+	RVN_TEXT_LOG(@"Raven text: edit menu entry %u", command);
+	memset(&e, 0, sizeof(e));
+	e.type = RVN_PEVENT_EDIT;
+	e.user = ravenWindow->user;
+	e.edit = command;
+	rvn_uikit_post(&e);
+}
+- (void)ravenShowEditMenu:(CGRect)rect items:(unsigned)items {
+	ravenMenuItems = items;
+	ravenMenuRect = rect;
+	RVN_TEXT_LOG(@"Raven text: edit menu %u at %@ (first responder %d)", items, NSStringFromCGRect(rect), self.isFirstResponder);
+	if (@available(iOS 16.0, *)) {
+		UIEditMenuInteraction* menu = (UIEditMenuInteraction*)ravenEditMenu;
+		UIEditMenuConfiguration* configuration;
+		if (!menu) {
+			menu = [[UIEditMenuInteraction alloc] initWithDelegate:self];
+			[self addInteraction:menu];
+			ravenEditMenu = menu;
+		}
+		configuration = [UIEditMenuConfiguration configurationWithIdentifier:nil
+			sourcePoint:CGPointMake(CGRectGetMidX(rect), CGRectGetMinY(rect))];
+		[menu presentEditMenuWithConfiguration:configuration];
+	} else {
+		/* (iOS 15: the menu of the first responder; the view is it while the keyboard is up) */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+		[[UIMenuController sharedMenuController] showMenuFromView:self rect:rect];
+#pragma clang diagnostic pop
+	}
+}
+- (void)ravenHideEditMenu {
+	RVN_TEXT_LOG(@"Raven text: edit menu hidden");
+	ravenMenuItems = 0;
+	if (@available(iOS 16.0, *)) {
+		[(UIEditMenuInteraction*)ravenEditMenu dismissMenu];
+	} else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+		[[UIMenuController sharedMenuController] hideMenuFromView:self];
+#pragma clang diagnostic pop
+	}
+}
+/* the entries Raven asked for, while its menu is up; otherwise none of them (Cmd+C... stay keys for the focused widget) */
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
+	if (action == @selector(cut:)) return (ravenMenuItems & RVN_EDIT_CUT) != 0;
+	if (action == @selector(copy:)) return (ravenMenuItems & RVN_EDIT_COPY) != 0;
+	if (action == @selector(paste:)) return (ravenMenuItems & RVN_EDIT_PASTE) != 0;
+	if (action == @selector(selectAll:)) return (ravenMenuItems & RVN_EDIT_SELECT_ALL) != 0;
+	/* (Look Up, Translate, Share... would need the text of the selection: not in Raven's menu) */
+	if (ravenMenuItems) return NO;
+	return [super canPerformAction:action withSender:sender];
+}
+- (void)cut:(id)sender { (void)sender; [self ravenPostEdit:RVN_EDIT_CUT]; }
+- (void)copy:(id)sender { (void)sender; [self ravenPostEdit:RVN_EDIT_COPY]; }
+- (void)selectAll:(id)sender { (void)sender; [self ravenPostEdit:RVN_EDIT_SELECT_ALL]; }
+- (void)paste:(id)sender {
+	NSString* string = [UIPasteboard generalPasteboard].string;
+	(void)sender;
+	if (g_uikit.pasted) CFBridgingRelease(g_uikit.pasted);
+	g_uikit.pasted = string ? (void*)CFBridgingRetain(string) : NULL;
+	[self ravenPostEdit:RVN_EDIT_PASTE];
+}
+- (CGRect)editMenuInteraction:(UIEditMenuInteraction*)interaction targetRectForConfiguration:(UIEditMenuConfiguration*)configuration API_AVAILABLE(ios(16.0)) {
+	(void)interaction;
+	(void)configuration;
+	return ravenMenuRect;
+}
+- (UIMenu*)editMenuInteraction:(UIEditMenuInteraction*)interaction menuForConfiguration:(UIEditMenuConfiguration*)configuration
+	suggestedActions:(NSArray<UIMenuElement*>*)suggestedActions API_AVAILABLE(ios(16.0)) {
+	NSMutableArray<UIMenuElement*>* own;
+	(void)interaction;
+	(void)configuration;
+	RVN_TEXT_LOG(@"Raven text: edit menu, %u suggested entries", (unsigned)suggestedActions.count);
+	/* the system's entries (its titles, in the user's language), from canPerformAction: above */
+	if (suggestedActions.count > 0) return [UIMenu menuWithChildren:suggestedActions];
+	/* SHORTCUT: when the system suggests nothing (the view is not the first responder), English titles */
+	own = [NSMutableArray array];
+	if (ravenMenuItems & RVN_EDIT_CUT) [own addObject:[UICommand commandWithTitle:@"Cut" image:nil action:@selector(cut:) propertyList:nil]];
+	if (ravenMenuItems & RVN_EDIT_COPY) [own addObject:[UICommand commandWithTitle:@"Copy" image:nil action:@selector(copy:) propertyList:nil]];
+	if (ravenMenuItems & RVN_EDIT_PASTE) [own addObject:[UICommand commandWithTitle:@"Paste" image:nil action:@selector(paste:) propertyList:nil]];
+	if (ravenMenuItems & RVN_EDIT_SELECT_ALL) [own addObject:[UICommand commandWithTitle:@"Select All" image:nil action:@selector(selectAll:) propertyList:nil]];
+	return [UIMenu menuWithChildren:own];
+}
+- (void)editMenuInteraction:(UIEditMenuInteraction*)interaction willDismissMenuForConfiguration:(UIEditMenuConfiguration*)configuration
+	animator:(id<UIEditMenuInteractionAnimating>)animator API_AVAILABLE(ios(16.0)) {
+	(void)interaction;
+	(void)configuration;
+	(void)animator;
+	/* (a touch elsewhere, an entry chosen: the core is told the menu is gone) */
+	if (ravenMenuItems) [self ravenPostEdit:0];
+}
+
 - (void)ravenTouches:(NSSet<UITouch*>*)touches phase:(int)phase {
 	if (!ravenWindow) return;
 	float scale = rvn_uikit_scale_of(self);
@@ -1571,6 +1682,11 @@ static void rvn_uikit_pump(double timeout_seconds) {
 	}
 	for (i = 0; i < g_uikit.count; i++) g_uikit.handler(&g_uikit.queue[i]);
 	g_uikit.count = 0;
+	/* (the text a Paste of the edit menu read was the clipboard for its command only) */
+	if (g_uikit.pasted) {
+		CFBridgingRelease(g_uikit.pasted);
+		g_uikit.pasted = NULL;
+	}
 	rvn_uikit_keyboard_sync();
 }
 /* any thread: Rwindow_request_redraw, Rpost, quit... */
@@ -1594,8 +1710,34 @@ static void rvn_uikit_clipboard_set(const char* text) {
 	dispatch_async(dispatch_get_main_queue(), ^{ [UIPasteboard generalPasteboard].string = string; });
 }
 static char* rvn_uikit_clipboard_get(void) {
-	NSString* string = [UIPasteboard generalPasteboard].string;
+	NSString* string = g_uikit.pasted ? (__bridge NSString*)g_uikit.pasted : [UIPasteboard generalPasteboard].string;
 	return string ? rvn_strdup([string UTF8String]) : NULL;
+}
+
+/* ---------------------------------------------------------------------------
+ *  The edit menu
+ *
+ * For the text a finger selected (widget/text_touch.c): the rectangle of the
+ * selection, in pixels of the window, becomes points of the view. The
+ * entries come back as RVN_PEVENT_EDIT (cut:, copy:, paste:, selectAll: of
+ * the view), and the core runs them as the keys of the focused widget.
+ * SHORTCUT: a read-only field has no keyboard, so the view is not the first
+ * responder: on iOS 15 its menu does not show, on iOS 16+ with English
+ * titles.
+ * ------------------------------------------------------------------------- */
+
+static int rvn_uikit_edit_menu_show(rvn_pwindow_t* window, const int rect[4], unsigned items) {
+	RavenUIKitView* view = window ? (__bridge RavenUIKitView*)window->view : nil;
+	float scale;
+	if (!view) return R_FALSE;
+	scale = rvn_uikit_scale_of(view);
+	[view ravenShowEditMenu:CGRectMake(rect[0] / scale, rect[1] / scale, rect[2] / scale, rect[3] / scale) items:items];
+	return R_TRUE;
+}
+
+static void rvn_uikit_edit_menu_hide(rvn_pwindow_t* window) {
+	RavenUIKitView* view = window ? (__bridge RavenUIKitView*)window->view : nil;
+	[view ravenHideEditMenu];
 }
 
 /* ---------------------------------------------------------------------------
@@ -1691,6 +1833,8 @@ const rvn_platform_t* rvn_platform_uikit(void) {
 		.haptic = rvn_uikit_haptic,
 		.download = rvn_uikit_download,
 		.clipboard_has_text = rvn_uikit_clipboard_has_text,
+		.edit_menu_show = rvn_uikit_edit_menu_show,
+		.edit_menu_hide = rvn_uikit_edit_menu_hide,
 		.web_view_supported = rvn_webkit_supported,
 		.web_view_create = rvn_webkit_create,
 		.web_view_destroy = rvn_webkit_destroy,

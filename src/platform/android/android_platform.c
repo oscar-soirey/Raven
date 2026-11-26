@@ -114,6 +114,7 @@ static struct {
 	jclass tx_class;       /* global ref; NULL without classes.dex: key events only */
 	jmethodID tx_set_field, tx_set_state, tx_show, tx_detach;
 	jmethodID tx_back_wanted, tx_back_default;  /* predictive back (NULL: an older view, key events only) */
+	jmethodID tx_edit_show, tx_edit_hide;  /* the edit menu of text selected with a finger (NULL: an older view) */
 	int tx_gen;            /* the field as last announced to Java */
 	int tx_kind;           /* RVN_TX_* */
 	Rid tx_widget;
@@ -145,7 +146,8 @@ enum {
 	RVN_TX_OP_KEY = 3,        /* a = Android key code, b = meta state */
 	RVN_TX_OP_BACK = 4,       /* the system's Back, from the predictive back callback (not a field op) */
 	RVN_TX_OP_LOW_MEMORY = 5, /* onTrimMemory, a = level (not a field op) */
-	RVN_TX_OP_A11Y = 6        /* RavenAccessibility.nativeAction: a = virtual view id, b = RVN_ANDROID_AX_*, text, number (not a field op) */
+	RVN_TX_OP_A11Y = 6,       /* RavenAccessibility.nativeAction: a = virtual view id, b = RVN_ANDROID_AX_*, text, number (not a field op) */
+	RVN_TX_OP_EDIT_MENU = 7   /* an entry of the edit menu: a = RVN_EDIT_*, 0 when it closed by itself (not a field op) */
 };
 
 typedef struct rvn_android_op_t {
@@ -1049,6 +1051,11 @@ static void rvn_android_text_load(void) {
 	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
 	g_android.tx_back_default = g_android.tx_back_wanted ? (*env)->GetStaticMethodID(env, (jclass)cls, "backDefault", "()V") : NULL;
 	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+	g_android.tx_edit_show = (*env)->GetStaticMethodID(env, (jclass)cls, "showEditMenu", "(IIIII)V");
+	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+	g_android.tx_edit_hide = g_android.tx_edit_show ? (*env)->GetStaticMethodID(env, (jclass)cls, "hideEditMenu", "()V") : NULL;
+	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+	if (!g_android.tx_edit_hide) g_android.tx_edit_show = NULL;
 	{
 		jmethodID attach = (*env)->GetStaticMethodID(env, (jclass)cls, "attach", "(Landroid/app/Activity;)V");
 		if ((*env)->ExceptionCheck(env) || !attach || !g_android.tx_set_field || !g_android.tx_set_state || !g_android.tx_show || !g_android.tx_detach) {
@@ -1152,6 +1159,46 @@ static void rvn_android_text_apply_edit(Rid window, const rvn_android_op_t* op) 
 static void rvn_android_text_sync(void);
 static void rvn_android_ax_action(const rvn_android_op_t* op);
 
+/*
+ * The edit menu of text selected with a finger (widget/text_touch.c): the
+ * floating toolbar of the system, shown by the Java view (showEditMenu); the
+ * entry chosen comes back as RVN_TX_OP_EDIT_MENU and goes to the core as
+ * RVN_PEVENT_EDIT (the keys of the focused widget, Raven's clipboard).
+ */
+static void rvn_android_edit_command(unsigned command) {
+	rvn_pevent_t event;
+	if (!g_android.window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_EDIT;
+	event.user = g_android.window->user;
+	event.edit = command;
+	g_android.handler(&event);
+}
+
+static int rvn_android_edit_menu_show(rvn_pwindow_t* window, const int rect[4], unsigned items) {
+	JNIEnv* env = g_android.env;
+	RVN_UNUSED(window);
+	if (!env || !g_android.tx_class || !g_android.tx_edit_show) return R_FALSE;
+	(*env)->CallStaticVoidMethod(env, g_android.tx_class, g_android.tx_edit_show, (jint)rect[0], (jint)rect[1], (jint)rect[2], (jint)rect[3], (jint)items);
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+		return R_FALSE;
+	}
+	return R_TRUE;
+}
+
+static void rvn_android_edit_menu_hide(rvn_pwindow_t* window) {
+	JNIEnv* env = g_android.env;
+	RVN_UNUSED(window);
+	if (!env || !g_android.tx_class || !g_android.tx_edit_hide) return;
+	(*env)->CallStaticVoidMethod(env, g_android.tx_class, g_android.tx_edit_hide);
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+}
+
 /* The ops of the Java view, in order, on android_main. */
 static void rvn_android_text_apply(void) {
 	rvn_android_op_t* items;
@@ -1174,6 +1221,10 @@ static void rvn_android_text_apply(void) {
 		}
 		if (item->op == RVN_TX_OP_A11Y) {
 			rvn_android_ax_action(item);
+			continue;
+		}
+		if (item->op == RVN_TX_OP_EDIT_MENU) {
+			rvn_android_edit_command((unsigned)item->a);
 			continue;
 		}
 		g_android.tx_applied = item->seq;
@@ -2891,7 +2942,9 @@ const rvn_platform_t* rvn_platform_android(void) {
 		.haptic_supported = rvn_android_haptic_supported,
 		.haptic = rvn_android_haptic,
 		.download = rvn_android_download,
-		.clipboard_has_text = rvn_android_clipboard_has_text
+		.clipboard_has_text = rvn_android_clipboard_has_text,
+		.edit_menu_show = rvn_android_edit_menu_show,
+		.edit_menu_hide = rvn_android_edit_menu_hide
 	};
 	return &platform;
 }

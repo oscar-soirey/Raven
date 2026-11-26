@@ -125,6 +125,35 @@ typedef struct rvn_transition_state_t {
 	float pivot_x, pivot_y;
 } rvn_transition_state_t;
 
+/** A place in the text of a widget: a line (0 in a single-line field) and a byte offset in it (widget/text_touch.c). */
+typedef struct rvn_text_pos_t {
+	int line, column;
+} rvn_text_pos_t;
+
+/** rvn_text_touch_ops_t::state */
+#define RVN_TEXT_TOUCH_EDITABLE 1u
+/** The text is hidden (a password): it is neither copied nor cut. */
+#define RVN_TEXT_TOUCH_SECRET   2u
+#define RVN_TEXT_TOUCH_EMPTY    4u
+/** The whole text is selected. */
+#define RVN_TEXT_TOUCH_ALL      8u
+
+/**
+ * What a text widget lets a finger do with its selection (handles, the edit
+ * menu: widget/text_touch.c). Points are local units of the widget.
+ */
+typedef struct rvn_text_touch_ops_t {
+	/** The position nearest to a point of the widget. */
+	rvn_text_pos_t (*position_at)(rvn_widget_t* widget, float x, float y);
+	void (*get_selection)(rvn_widget_t* widget, rvn_text_pos_t* anchor, rvn_text_pos_t* caret);
+	/** Selects from `anchor` to `caret` (a single cursor) and scrolls the caret into view. */
+	void (*set_selection)(rvn_widget_t* widget, rvn_text_pos_t anchor, rvn_text_pos_t caret);
+	/** The word at a position, as a double click selects it (from == to: none). */
+	void (*word_at)(rvn_widget_t* widget, rvn_text_pos_t pos, rvn_text_pos_t* from, rvn_text_pos_t* to);
+	/** RVN_TEXT_TOUCH_* */
+	unsigned (*state)(rvn_widget_t* widget);
+} rvn_text_touch_ops_t;
+
 typedef struct rvn_widget_class_t {
 	RWidgetType type;
 	/** Tag of the widget in XML. */
@@ -200,6 +229,8 @@ typedef struct rvn_widget_class_t {
 	 * (a node, a clip, a scrollbar) instead of panning it. NULL: it pans everywhere.
 	 */
 	int  (*touch_drags)(rvn_widget_t* widget, float x, float y);
+	/** Text whose selection a finger takes (handles, the edit menu of the system); NULL: none. */
+	const rvn_text_touch_ops_t* text_touch;
 } rvn_widget_class_t;
 
 /** What a widget was told about fingers and pens (widget/touch.c), allocated on first use. */
@@ -942,6 +973,8 @@ struct rvn_window_t {
 	void* event_hook_user;
 	/** Fingers, pen, inertia (widget/touch.c), or NULL before the first of them. */
 	rvn_touch_state_t* touch;
+	/** The text selected with a finger: its handles and edit menu (widget/text_touch.c), or NULL. */
+	struct rvn_text_touch_t* text_touch;
 	/** Theme of the window (Rwindow_set_theme, <Window Theme>): what its widgets wear when they have none of their own; NULL: the one of the application. */
 	const rvn_theme_t* theme;
 
@@ -1041,6 +1074,50 @@ void rvn_widget_reveal(rvn_widget_t* widget, float margin);
 void rvn_window_reveal_focus(rvn_window_t* window);
 /** RTouchSettings::min_touch_size of the window (NULL: of the application). */
 float rvn_touch_min_size(const rvn_window_t* window);
+
+/* ---- text selected with a finger: handles and the edit menu (widget/text_touch.c) ---- */
+
+/** R_TRUE where fingers select text the way phones do (the platform has an edit menu: iOS, Android). */
+int  rvn_text_touch_enabled(void);
+/** Tests: as if the platform had an edit menu, with the handles of Android (1) or of iOS (2); 0: what the platform has. */
+void rvn_text_touch_force(int mode);
+/**
+ * A finger came down at (x, y) of the window: 1 when it took a handle of the
+ * selection (it drags it), 2 when it is on the caret of iOS (it drags it if
+ * it moves: rvn_text_touch_grab; lifted, it is a tap), 0 otherwise.
+ */
+int  rvn_text_touch_press(rvn_window_t* window, float x, float y);
+/** The finger on the caret (rvn_text_touch_press gave 2) moved: R_TRUE when it drags the caret now. */
+int  rvn_text_touch_grab(rvn_window_t* window);
+/** The finger that took a handle (or that long-pressed a word) moved, or was lifted. */
+void rvn_text_touch_drag(rvn_window_t* window, float x, float y);
+void rvn_text_touch_release(rvn_window_t* window, float x, float y, int cancelled);
+/** A long press on `target`: R_TRUE when it is text, whose word is then selected (the finger then drags its end). */
+int  rvn_text_touch_long_press(rvn_window_t* window, rvn_widget_t* target, float x, float y);
+/** Around the click a tap makes: what it did to the text (a caret, a word) decides the handles and the menu. */
+void rvn_text_touch_before_tap(rvn_window_t* window);
+void rvn_text_touch_after_tap(rvn_window_t* window, rvn_widget_t* target);
+/** Content scrolls under a finger (R_TRUE) or stopped: the edit menu hides meanwhile. */
+void rvn_text_touch_scrolling(rvn_window_t* window, int scrolling);
+/**
+ * Paint of the widget whose selection the finger has: the line of the caret
+ * at the start and at the end of the selection (local units), for the handles.
+ */
+void rvn_text_touch_ends(const rvn_widget_t* widget, const RPainter* painter, rvn_rect_t start, rvn_rect_t end);
+/** The handles, over everything but the popups (after the widgets are painted). */
+void rvn_text_touch_paint(rvn_window_t* window, RPainter* painter);
+/** An entry of the edit menu was chosen: an RVN_EDIT_* (0: the system closed the menu). */
+void rvn_text_touch_command(rvn_window_t* window, unsigned command);
+/** The handles and the menu go away. */
+void rvn_text_touch_end(rvn_window_t* window);
+void rvn_text_touch_forget_widget(rvn_window_t* window, rvn_widget_t* widget);
+void rvn_text_touch_window_free(rvn_window_t* window);
+/** Tests: what is shown (RVN_TEXT_TOUCH_SHOWN_*) and the entries of the menu (RVN_EDIT_*, 0: no menu). */
+#define RVN_TEXT_TOUCH_SHOWN_CARET     1u
+#define RVN_TEXT_TOUCH_SHOWN_SELECTION 2u
+unsigned rvn_text_touch_shown(const rvn_window_t* window, unsigned* menu);
+/** Tests: where a handle is (window units): 0 the start of the selection (or the caret), 1 its end. R_FALSE when not shown. */
+int  rvn_text_touch_handle(const rvn_window_t* window, int end, float* x, float* y);
 /** Touch.*, Pen.* and Trackpad.* attributes of <Window>, applied to its settings. -1: not one of them. */
 int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */

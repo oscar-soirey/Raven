@@ -189,8 +189,20 @@ typedef enum rvn_pevent_type_t {
 	 * target did (RDragOperation, 0 when nothing took it). `user` may be NULL
 	 * (the window is gone): the core keeps the drag itself.
 	 */
-	RVN_PEVENT_DRAG_END
+	RVN_PEVENT_DRAG_END,
+	/**
+	 * An entry of the edit menu (edit_menu_show) was chosen: `edit` is one
+	 * RVN_EDIT_*, for the text the finger selected; 0: the system closed
+	 * the menu by itself.
+	 */
+	RVN_PEVENT_EDIT
 } rvn_pevent_type_t;
+
+/** The entries of the edit menu of the system (edit_menu_show, RVN_PEVENT_EDIT). */
+#define RVN_EDIT_CUT        1u
+#define RVN_EDIT_COPY       2u
+#define RVN_EDIT_PASTE      4u
+#define RVN_EDIT_SELECT_ALL 8u
 
 /**
  * An entry of a menu the system draws itself (window_set_menu_bar): a copy of
@@ -292,6 +304,8 @@ typedef struct rvn_pevent_t {
 	int composition_start, composition_end;
 	/** RVN_PEVENT_DRAG_END: an RDragOperation. */
 	int operation;
+	/** RVN_PEVENT_EDIT: an RVN_EDIT_*, 0 when the menu closed by itself. */
+	unsigned edit;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -684,6 +698,20 @@ typedef struct rvn_platform_t {
 	 * clipboard to know.
 	 */
 	int   (*clipboard_has_text)(void);
+
+	/*
+	 * ---- the edit menu of the system, for text selected with a finger (optional) ----
+	 *
+	 * Phones (iOS, Android): Cut, Copy, Paste, Select All in the floating
+	 * menu of the system, next to the selection. The core draws the
+	 * selection and its handles; the entry chosen comes back as
+	 * RVN_PEVENT_EDIT. NULL: none (the desktops: a finger there is a mouse,
+	 * a long press a right click).
+	 */
+
+	/** Shows (or moves) the menu with the RVN_EDIT_* `items`, next to `rect` (x, y, width, height in pixels of the window). */
+	int   (*edit_menu_show)(rvn_pwindow_t* window, const int rect[4], unsigned items);
+	void  (*edit_menu_hide)(rvn_pwindow_t* window);
 
 	/*
 	 * ---- the web view of the system (optional, all NULL when there is none) ----

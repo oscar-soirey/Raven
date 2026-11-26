@@ -34,6 +34,15 @@
  *    is invoked, native gets OP_BACK. backDefault is the system's default
  *    when nothing took a Back after all.
  *  - onTrimMemory (NativeActivity only forwards onLowMemory): OP_LOW_MEMORY.
+ *  - the edit menu of text a finger selected (widget/text_touch.c): Cut,
+ *    Copy, Paste, Select All in the floating toolbar of the system
+ *    (startActionMode, TYPE_FLOATING), next to the rectangle native gives
+ *    (showEditMenu); the entry chosen goes back as OP_EDIT_MENU, and the core
+ *    runs it as the keys of the focused widget. Raven draws the selection and
+ *    its handles itself: Android draws them only for its own TextView. The
+ *    view covers the window for that (the floating toolbar only shows next to
+ *    a rectangle inside its view); NativeActivity sends the touches to native
+ *    code, never to the views, so it takes none of them.
  */
 
 package raven.android;
@@ -44,6 +53,7 @@ import android.content.ClipboardManager;
 import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -52,7 +62,10 @@ import android.text.InputType;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -89,6 +102,11 @@ public final class RavenTextView extends View {
 	static final int OP_KEY = 3;     /* a key the mirror does not handle: a = key code, b = meta state */
 	static final int OP_BACK = 4;    /* the system's Back, from the predictive back callback (not about the field) */
 	static final int OP_LOW_MEMORY = 5;  /* onTrimMemory: a = level (not about the field) */
+	/* (6: RavenAccessibility's) */
+	static final int OP_EDIT_MENU = 7;   /* an entry of the edit menu: a = RVN_EDIT_*, 0 when the toolbar closed by itself (not about the field) */
+
+	/* RVN_EDIT_* (platform.h) */
+	static final int EDIT_CUT = 1, EDIT_COPY = 2, EDIT_PASTE = 4, EDIT_SELECT_ALL = 8;
 
 	/** Registered by native (RegisterNatives). Thread-safe: queues the op for the android_main thread. */
 	private static native void nativeOp(int op, int gen, int seq, byte[] text, int a, int b);
@@ -122,6 +140,12 @@ public final class RavenTextView extends View {
 	private static final String IME_TAG = "RavenIme";
 	private final StringBuilder calls = new StringBuilder();
 	private boolean logCalls;
+	/* the floating toolbar of the edit menu (showEditMenu), its entries (EDIT_*) and the rectangle of the selection (pixels of the window) */
+	private ActionMode editMode;
+	private int editItems;
+	private final Rect editRect = new Rect();
+	/* the toolbar is being closed by Raven (or after an entry): native is not told it closed */
+	private boolean editClosing;
 
 	private void call(String what) {
 		if (!logCalls) return;
@@ -149,7 +173,8 @@ public final class RavenTextView extends View {
 			@Override public void run() {
 				if (sView != null) return;
 				RavenTextView view = new RavenTextView(activity);
-				activity.addContentView(view, new ViewGroup.LayoutParams(1, 1));
+				/* (the whole window: the floating toolbar of the edit menu is placed inside its view) */
+				activity.addContentView(view, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 				boolean focused = view.requestFocus();
 				activity.getApplicationContext().registerComponentCallbacks(view.memory);
 				sView = view;
@@ -191,6 +216,23 @@ public final class RavenTextView extends View {
 		});
 	}
 
+	/** The edit menu with the entries `items` (EDIT_*) next to (x, y, width, height), pixels of the window; shown again if it is. */
+	public static void showEditMenu(final int x, final int y, final int width, final int height, final int items) {
+		MAIN.post(new Runnable() {
+			@Override public void run() {
+				if (sView != null) sView.onShowEditMenu(x, y, width, height, items);
+			}
+		});
+	}
+
+	public static void hideEditMenu() {
+		MAIN.post(new Runnable() {
+			@Override public void run() {
+				if (sView != null) sView.onHideEditMenu();
+			}
+		});
+	}
+
 	public static void showKeyboard(final boolean show) {
 		MAIN.post(new Runnable() {
 			@Override public void run() {
@@ -217,6 +259,84 @@ public final class RavenTextView extends View {
 			}
 		});
 	}
+
+	/* ------------------------------------------------------------------ the edit menu (UI thread) */
+
+	private void onShowEditMenu(int x, int y, int width, int height, int items) {
+		editItems = items;
+		editRect.set(x, y, x + Math.max(width, 1), y + Math.max(height, 1));
+		if (editMode != null) {
+			/* (new entries, a new place) */
+			editMode.invalidate();
+			editMode.invalidateContentRect();
+			return;
+		}
+		editClosing = false;
+		editMode = startActionMode(editCallback, ActionMode.TYPE_FLOATING);
+		if (editMode == null) Log.w(TAG, "edit menu: no floating action mode");
+	}
+
+	private void onHideEditMenu() {
+		if (editMode == null) return;
+		editClosing = true;
+		editMode.finish();
+	}
+
+	private void editEntries(Menu menu) {
+		menu.clear();
+		/* (the titles of the system, in the user's language) */
+		if ((editItems & EDIT_CUT) != 0)
+			menu.add(Menu.NONE, android.R.id.cut, 1, android.R.string.cut).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+		if ((editItems & EDIT_COPY) != 0)
+			menu.add(Menu.NONE, android.R.id.copy, 2, android.R.string.copy).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+		if ((editItems & EDIT_PASTE) != 0)
+			menu.add(Menu.NONE, android.R.id.paste, 3, android.R.string.paste).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+		if ((editItems & EDIT_SELECT_ALL) != 0)
+			menu.add(Menu.NONE, android.R.id.selectAll, 4, android.R.string.selectAll).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+	}
+
+	private final ActionMode.Callback2 editCallback = new ActionMode.Callback2() {
+		@Override public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+			editEntries(menu);
+			return true;
+		}
+
+		@Override public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+			editEntries(menu);
+			return true;
+		}
+
+		@Override public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+			int id = item.getItemId(), command;
+			if (id == android.R.id.cut) command = EDIT_CUT;
+			else if (id == android.R.id.copy) command = EDIT_COPY;
+			else if (id == android.R.id.paste) command = EDIT_PASTE;
+			else if (id == android.R.id.selectAll) command = EDIT_SELECT_ALL;
+			else return false;
+			Log.i(TAG, "edit menu: " + item.getTitle());
+			nativeOp(OP_EDIT_MENU, 0, 0, null, command, 0);
+			/* (after Select All, native shows the menu again for all of it) */
+			if (command != EDIT_SELECT_ALL) {
+				editClosing = true;
+				mode.finish();
+			}
+			return true;
+		}
+
+		@Override public void onDestroyActionMode(ActionMode mode) {
+			if (editMode != mode) return;
+			editMode = null;
+			if (!editClosing) nativeOp(OP_EDIT_MENU, 0, 0, null, 0, 0);
+			editClosing = false;
+		}
+
+		@Override public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+			int[] at = new int[2];
+			view.getLocationInWindow(at);
+			outRect.set(editRect);
+			outRect.offset(-at[0], -at[1]);
+		}
+	};
 
 	/* ------------------------------------------------------------------ UI thread */
 

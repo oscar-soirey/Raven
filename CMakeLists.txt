@@ -214,6 +214,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/anim.c
 	src/widget/events.c
 	src/widget/touch.c
+	src/widget/text_touch.c
 	src/widget/layout.c
 	src/widget/direction.c
 	src/widget/paint.c

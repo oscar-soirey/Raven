@@ -121,6 +121,7 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	rvn_textedit_paint(&input->edit, widget, painter, area, R_INVALID_ID, 0.0f,
 		rvn_widget_text_color(widget, painter), focused);
+	if (focused) rvn_textedit_touch_ends(&input->edit, widget, painter, area, R_INVALID_ID, 0.0f);
 }
 
 /* Calls back after an edit. The text is copied: the callback may change it. */
@@ -263,6 +264,50 @@ static int rvn_text_input_set_attribute(rvn_widget_t* widget, const char* name, 
 	return R_TRUE;
 }
 
+/* ---- the selection with a finger, on phones (widget/text_touch.c) ---- */
+
+static rvn_text_pos_t rvn_text_input_touch_position(rvn_widget_t* widget, float x, float y) {
+	rvn_text_pos_t pos;
+	RVN_UNUSED(y);
+	pos.line = 0;
+	pos.column = rvn_textedit_offset_at(&((rvn_text_input_t*)widget)->edit, widget, R_INVALID_ID, 0.0f, x - rvn_text_input_area(widget).x);
+	return pos;
+}
+
+static void rvn_text_input_touch_get(rvn_widget_t* widget, rvn_text_pos_t* anchor, rvn_text_pos_t* caret) {
+	const rvn_textedit_t* edit = &((rvn_text_input_t*)widget)->edit;
+	anchor->line = caret->line = 0;
+	anchor->column = edit->anchor;
+	caret->column = edit->caret;
+}
+
+static void rvn_text_input_touch_set(rvn_widget_t* widget, rvn_text_pos_t anchor, rvn_text_pos_t caret) {
+	rvn_text_input_set_selection(widget, anchor.column, caret.column);
+}
+
+static void rvn_text_input_touch_word(rvn_widget_t* widget, rvn_text_pos_t pos, rvn_text_pos_t* from, rvn_text_pos_t* to) {
+	from->line = to->line = 0;
+	rvn_textedit_word_at(&((rvn_text_input_t*)widget)->edit, pos.column, &from->column, &to->column);
+}
+
+static unsigned rvn_text_input_touch_state(rvn_widget_t* widget) {
+	const rvn_textedit_t* edit = &((rvn_text_input_t*)widget)->edit;
+	unsigned state = 0;
+	if (!edit->read_only) state |= RVN_TEXT_TOUCH_EDITABLE;
+	if (edit->password) state |= RVN_TEXT_TOUCH_SECRET;
+	if (edit->length == 0) state |= RVN_TEXT_TOUCH_EMPTY;
+	else if (rvn_mini(edit->anchor, edit->caret) == 0 && rvn_maxi(edit->anchor, edit->caret) == edit->length) state |= RVN_TEXT_TOUCH_ALL;
+	return state;
+}
+
+static const rvn_text_touch_ops_t rvn_text_input_touch = {
+	rvn_text_input_touch_position,
+	rvn_text_input_touch_get,
+	rvn_text_input_touch_set,
+	rvn_text_input_touch_word,
+	rvn_text_input_touch_state
+};
+
 const rvn_widget_class_t rvn_class_text_input = {
 	.type = R_WIDGET_TEXT_INPUT,
 	.name = "TextInput",
@@ -273,7 +318,8 @@ const rvn_widget_class_t rvn_class_text_input = {
 	.measure = rvn_text_input_measure,
 	.paint = rvn_text_input_paint,
 	.event = rvn_text_input_event,
-	.set_attribute = rvn_text_input_set_attribute
+	.set_attribute = rvn_text_input_set_attribute,
+	.text_touch = &rvn_text_input_touch
 };
 
 void Rtext_input_set_text(Rid id, const char* text) {
