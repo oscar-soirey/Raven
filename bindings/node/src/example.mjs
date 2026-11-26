@@ -89,6 +89,59 @@ async function check(window, title, name, clicks, errors) {
 	assert.equal(r.Rlist_view_get_item_text(list, 2), "row 2");
 	r.Rwidget_destroy(list);
 
+	// addresses are bigints that keep all 64 bits: a pointer of Android carries a tag in its top byte
+	const tagged = 0xb400007ab1234560n;
+	const items = r.Rwidget_create(r.R_WIDGET_LIST_VIEW);
+	const received = [];
+	r.Rlist_view_set_virtual_items(items, 2, (_view, index, userData) => {
+		received.push(userData);
+		return `item ${index}`;
+	}, tagged);
+	assert.equal(r.Rlist_view_get_item_text(items, 1), "item 1");
+	assert.equal(received.at(-1), tagged);
+	r.Rwidget_destroy(items);
+	let postedWith = null;
+	r.Rtask_post((userData) => void (postedWith = userData), tagged);
+	r.Rdraw_frame();
+	assert.equal(postedWith, tagged);
+	const graph = r.Rwidget_create(r.R_WIDGET_NODE_GRAPH);
+	const node = r.Rnode_graph_add_node(graph, "node", 0, 0);
+	r.Rnode_graph_set_node_user_data(graph, node, tagged);
+	assert.equal(r.Rnode_graph_get_node_user_data(graph, node), tagged);
+	// ...numbers are still taken where they hold an address exactly, and NULL is 0, 0n or null
+	r.Rnode_graph_set_node_user_data(graph, node, 0x12345678);
+	assert.equal(r.Rnode_graph_get_node_user_data(graph, node), 0x12345678n);
+	for (const nothing of [0, 0n, null, undefined]) {
+		r.Rnode_graph_set_node_user_data(graph, node, tagged);
+		r.Rnode_graph_set_node_user_data(graph, node, nothing);
+		assert.equal(r.Rnode_graph_get_node_user_data(graph, node), null);
+	}
+	assert.throws(() => r.Rnode_graph_set_node_user_data(graph, node, 2 ** 60), RangeError);
+	assert.throws(() => r.Rnode_graph_set_node_user_data(graph, node, 1.5), RangeError);
+	assert.throws(() => r.Rnode_graph_set_node_user_data(graph, node, -1n), RangeError);
+	assert.throws(() => r.Rnode_graph_set_node_user_data(graph, node, 1n << 64n), RangeError);
+	r.Rwidget_destroy(graph);
+	// ...in fields of structures, a uintptr_t too
+	const allocator = new r.RAllocator();
+	allocator.user_data = tagged;
+	assert.equal(allocator.user_data, tagged);
+	allocator.user_data = null;
+	assert.equal(allocator.user_data, null);
+	assert.throws(() => (allocator.user_data = 2 ** 60), RangeError);
+	const native = new r.RNativeWindow();
+	native.window = tagged;
+	assert.equal(native.window, tagged);
+	// ...from the library, and for memory of JavaScript, with an offset
+	const block = r.Rmemory_alloc(16);
+	assert.equal(typeof block, "bigint");
+	new Uint8Array(r.toArrayBuffer(block, 0, 16)).set([5, 6, 7, 8], 4);
+	assert.deepEqual([...new Uint8Array(r.toArrayBuffer(block, 5, 2))], [6, 7]);
+	assert.deepEqual([...new Uint8Array(r.toArrayBuffer(block, 6n, 2))], [7, 8]);
+	r.Rmemory_free(block);
+	const bytes = new Uint8Array([1, 2, 3, 4]);
+	assert.equal(typeof r.ptr(bytes), "bigint");
+	assert.equal(r.ptr(bytes, 2), r.ptr(bytes) + 2n);
+
 	// an error of the caller reaches the callback as text
 	r.Rwidget_set_tooltip(0x12345, "x");
 	assert.equal(errors.at(-1)?.[0], r.R_ERROR_INVALID_ID);
