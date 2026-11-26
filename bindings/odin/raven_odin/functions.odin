@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1176 of the 1608 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 400 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (169):
@@ -63,7 +63,7 @@
 //     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
 //     Rtest_save_png
 //
-//   a callback (113):
+//   a callback (114):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -99,9 +99,10 @@
 //     Rfile_browser_set_accepted_callback Rfile_browser_set_cancelled_callback
 //     Rfile_browser_set_selection_changed_callback Rnotification_set_fallback
 //     Rnotification_set_clicked_callback Rnotification_set_callback Rpermission_request Rcamera_take_photo
-//     Rphoto_pick Rviewport_set_draw_callback Rviewport_set_resize_callback Rcustom_set_paint_callback
-//     Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback
-//     Rscript_set_diagnostic_callback Rlocale_set_changed_callback Rwidget_set_accessible_action
+//     Rphoto_pick Rdevice_set_restored_callback Rviewport_set_draw_callback Rviewport_set_resize_callback
+//     Rcustom_set_paint_callback Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag
+//     Rscript_set_log_callback Rscript_set_diagnostic_callback Rlocale_set_changed_callback
+//     Rwidget_set_accessible_action
 //
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
@@ -162,6 +163,9 @@
 //   a parameter of type const RDataItem* (2):
 //     Rclipboard_set_data Rdrag_begin_external
 //
+//   a parameter of type const RPickedFile* (2):
+//     Rhost_service_complete Rhost_service_restored
+//
 //   a parameter of type const RTouchSettings* (2):
 //     Rtouch_set_settings Rwindow_set_touch_settings
 //
@@ -212,9 +216,6 @@
 //
 //   a parameter of type const RNotificationDesc* (1):
 //     Rnotification_show_desc
-//
-//   a parameter of type const RPickedFile* (1):
-//     Rhost_service_complete
 //
 //   a parameter of type const RShaderLook* (1):
 //     Rborder_set_effect

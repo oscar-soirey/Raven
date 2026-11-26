@@ -1542,6 +1542,7 @@ const _symbols = {
 	Rhaptic_is_supported: { args: [], returns: "i32" },
 	Rhaptic_play: { args: ["i32"], returns: "i32" },
 	Rshare_show: { args: ["ptr", "ptr", "ptr"], returns: "void" },
+	Rdevice_set_restored_callback: { args: ["ptr", "ptr"], returns: "void" },
 	Rviewport_set_texture: { args: ["u32", "u32"], returns: "void" },
 	Rviewport_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rviewport_set_flip_y: { args: ["u32", "i32"], returns: "void" },
@@ -1730,6 +1731,7 @@ const _symbols = {
 	Rhost_inject_close: { args: ["u32"], returns: "void" },
 	Rhost_permission_answer: { args: ["i32", "i32"], returns: "void" },
 	Rhost_service_complete: { args: ["u32", "i32", "ptr", "i32"], returns: "void" },
+	Rhost_service_restored: { args: ["i32", "i32", "ptr", "i32"], returns: "void" },
 	Rtest_set_deterministic: { args: ["i32"], returns: "void" },
 	Rtest_is_deterministic: { args: [], returns: "i32" },
 	Rtest_get_platform_tag: { args: [], returns: "cstring" },
@@ -3953,6 +3955,26 @@ export const R_HAPTIC_SELECTION = RHaptic.R_HAPTIC_SELECTION;
 export const R_HAPTIC_SUCCESS = RHaptic.R_HAPTIC_SUCCESS;
 export const R_HAPTIC_WARNING = RHaptic.R_HAPTIC_WARNING;
 export const R_HAPTIC_ERROR = RHaptic.R_HAPTIC_ERROR;
+
+/** Which request an answer given after a restart was for (Rdevice_set_restored_callback). */
+export enum RDeviceRequest {
+	/** Rfile_open_async. */
+	R_DEVICE_REQUEST_OPEN_FILES = 0x0C50,
+	/** Rfile_save_async, Rfile_export_async. */
+	R_DEVICE_REQUEST_SAVE_FILE = 0x0C51,
+	/** Rfile_select_folder_async. */
+	R_DEVICE_REQUEST_SELECT_FOLDER = 0x0C52,
+	/** Rcamera_take_photo. */
+	R_DEVICE_REQUEST_TAKE_PHOTO = 0x0C53,
+	/** Rphoto_pick. */
+	R_DEVICE_REQUEST_PICK_PHOTOS = 0x0C54,
+}
+
+export const R_DEVICE_REQUEST_OPEN_FILES = RDeviceRequest.R_DEVICE_REQUEST_OPEN_FILES;
+export const R_DEVICE_REQUEST_SAVE_FILE = RDeviceRequest.R_DEVICE_REQUEST_SAVE_FILE;
+export const R_DEVICE_REQUEST_SELECT_FOLDER = RDeviceRequest.R_DEVICE_REQUEST_SELECT_FOLDER;
+export const R_DEVICE_REQUEST_TAKE_PHOTO = RDeviceRequest.R_DEVICE_REQUEST_TAKE_PHOTO;
+export const R_DEVICE_REQUEST_PICK_PHOTOS = RDeviceRequest.R_DEVICE_REQUEST_PICK_PHOTOS;
 
 /**
  * How a spring moves. Animations in Raven are springs, as on iOS: a value is
@@ -8724,6 +8746,26 @@ function _adapt_RDeviceCallback(function_: RDeviceCallback | Pointer | null, thr
 			_report(error as Error);
 		}
 	}, { args: ["i32", "ptr", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * The answer to a request made before the application was started
+ * again (Rdevice_set_restored_callback): `request` tells which kind it was,
+ * the rest is what its RDeviceCallback would have been given.
+ */
+export type RDeviceRestoredCallback = (request: RDeviceRequest, result: RDeviceResult, files: RPickedFile | null, count: number, user_data: Pointer | null) => void;
+
+function _adapt_RDeviceRestoredCallback(function_: RDeviceRestoredCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((request: number, result: number, files: Pointer | null, count: number, user_data: Pointer | null): void => {
+		try {
+			function_(request as RDeviceRequest, result as RDeviceResult, RPickedFile.from(files), count, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "i32", "ptr", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -17134,6 +17176,18 @@ export function Rshare_show(desc: RShareDesc | null, callback: RDeviceCallback |
 	_lib.Rshare_show(_p(desc), _adapt_RDeviceCallback(callback), user_data);
 }
 
+/**
+ * Sets the function that gets the answers to requests made before
+ * a restart. Set it at the start, after Rinit: the answers waiting are
+ * then given to it, and those that come later too, on the UI thread at a
+ * later frame (never inside this call), each once. Until a callback is
+ * set they are kept (Android: also across further restarts, for a day).
+ * `callback` NULL keeps them again. Forgotten by Rshutdown.
+ */
+export function Rdevice_set_restored_callback(callback: RDeviceRestoredCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdevice_set_restored_callback(_adapt_RDeviceRestoredCallback(callback), user_data);
+}
+
 /** Shows a texture. R_INVALID_ID shows nothing. */
 export function Rviewport_set_texture(viewport: Rid, texture: Rid): void {
 	_lib.Rviewport_set_texture(viewport, texture);
@@ -18286,6 +18340,18 @@ export function Rhost_permission_answer(permission: RPermission, status: RPermis
  */
 export function Rhost_service_complete(request: number, result: RDeviceResult, files: readonly RPickedFile[] | null): void {
 	_lib.Rhost_service_complete(request, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
+}
+
+/**
+ * The answer to a request made before the application was started
+ * again (an embedder whose process the system ended while its screen was
+ * in front), for the Rdevice_set_restored_callback of the application:
+ * `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+ * files are copied. Kept until the application sets the callback, then
+ * given to it at a later frame. Any thread.
+ */
+export function Rhost_service_restored(service: RHostService, result: RDeviceResult, files: readonly RPickedFile[] | null): void {
+	_lib.Rhost_service_restored(service, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
 }
 
 /**

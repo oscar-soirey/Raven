@@ -10,8 +10,8 @@
  *
  * Call Rhost_platform_register before Rinit / Rinit_ex. Positions are in
  * pixels of the window, origin top-left, as with a native window. Every
- * function must be called from the UI thread, except Rhost_permission_answer
- * and Rhost_service_complete.
+ * function must be called from the UI thread, except Rhost_permission_answer,
+ * Rhost_service_complete and Rhost_service_restored.
  *
  * The services of the device (raven_device.h) go to the application too,
  * when it gives the functions for them: a phone application that embeds
@@ -162,6 +162,15 @@ extern "C" {
 	 * per request. Any thread.
 	 */
 	RAVEN_API void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count);
+	/**
+	 * @brief The answer to a request made before the application was started
+	 * again (an embedder whose process the system ended while its screen was
+	 * in front), for the Rdevice_set_restored_callback of the application:
+	 * `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+	 * files are copied. Kept until the application sets the callback, then
+	 * given to it at a later frame. Any thread.
+	 */
+	RAVEN_API void Rhost_service_restored(RHostService service, RDeviceResult result, const RPickedFile* files, int count);
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -1676,6 +1676,21 @@ constset Haptic : CInt
 	ERROR = 0x0C36,
 }
 
+<* Which request an answer given after a restart was for (Rdevice_set_restored_callback). *>
+constset DeviceRequest : CInt
+{
+	<* Rfile_open_async. *>
+	OPEN_FILES = 0x0C50,
+	<* Rfile_save_async, Rfile_export_async. *>
+	SAVE_FILE = 0x0C51,
+	<* Rfile_select_folder_async. *>
+	SELECT_FOLDER = 0x0C52,
+	<* Rcamera_take_photo. *>
+	TAKE_PHOTO = 0x0C53,
+	<* Rphoto_pick. *>
+	PICK_PHOTOS = 0x0C54,
+}
+
 <*
  How a spring moves. Animations in Raven are springs, as on iOS: a value is
  pulled toward its target and may run past it before settling, which is what
@@ -2261,6 +2276,12 @@ alias PermissionCallback = fn void(Permission permission, PermissionStatus statu
  R_DEVICE_DONE. Called on the UI thread, once.
 *>
 alias DeviceCallback = fn void(DeviceResult result, PickedFile* files, CInt count, void* user_data);
+<*
+ The answer to a request made before the application was started
+ again (Rdevice_set_restored_callback): `request` tells which kind it was,
+ the rest is what its RDeviceCallback would have been given.
+*>
+alias DeviceRestoredCallback = fn void(DeviceRequest request, DeviceResult result, PickedFile* files, CInt count, void* user_data);
 <*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -9214,6 +9235,16 @@ fn bool haptic_play(Haptic haptic) @inline => c::r_haptic_play((c::RHaptic)hapti
 *>
 fn void share_show(ShareDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_share_show((c::RShareDesc*)desc, (c::RDeviceCallback)callback, user_data);
 
+<*
+ Sets the function that gets the answers to requests made before
+ a restart. Set it at the start, after Rinit: the answers waiting are
+ then given to it, and those that come later too, on the UI thread at a
+ later frame (never inside this call), each once. Until a callback is
+ set they are kept (Android: also across further restarts, for a day).
+ `callback` NULL keeps them again. Forgotten by Rshutdown.
+*>
+fn void device_set_restored_callback(DeviceRestoredCallback callback, void* user_data) @inline => c::r_device_set_restored_callback((c::RDeviceRestoredCallback)callback, user_data);
+
 <* Pushes a spring away from its target (units per second): it bounces back. *>
 fn void spring_kick(Spring* spring, float velocity) @inline => c::r_spring_kick((c::RSpring*)spring, velocity);
 
@@ -9631,6 +9662,16 @@ fn void host_permission_answer(Permission permission, PermissionStatus status) @
  per request. Any thread.
 *>
 fn void host_service_complete(uint request, DeviceResult result, PickedFile* files, CInt count) @inline => c::r_host_service_complete(request, (c::RDeviceResult)result, (c::RPickedFile*)files, count);
+
+<*
+ The answer to a request made before the application was started
+ again (an embedder whose process the system ended while its screen was
+ in front), for the Rdevice_set_restored_callback of the application:
+ `service` is the kind of request it was (not R_HOST_SERVICE_SHARE); the
+ files are copied. Kept until the application sets the callback, then
+ given to it at a later frame. Any thread.
+*>
+fn void host_service_restored(HostService service, DeviceResult result, PickedFile* files, CInt count) @inline => c::r_host_service_restored((c::RHostService)service, (c::RDeviceResult)result, (c::RPickedFile*)files, count);
 
 <*
  R_TRUE makes what is drawn depend only on what the test does:

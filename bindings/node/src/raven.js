@@ -1153,6 +1153,15 @@ export const RHaptic = _enum({
 });
 export const { R_HAPTIC_LIGHT, R_HAPTIC_MEDIUM, R_HAPTIC_HEAVY, R_HAPTIC_SELECTION, R_HAPTIC_SUCCESS, R_HAPTIC_WARNING, R_HAPTIC_ERROR } = RHaptic;
 
+export const RDeviceRequest = _enum({
+	R_DEVICE_REQUEST_OPEN_FILES: 3152,
+	R_DEVICE_REQUEST_SAVE_FILE: 3153,
+	R_DEVICE_REQUEST_SELECT_FOLDER: 3154,
+	R_DEVICE_REQUEST_TAKE_PHOTO: 3155,
+	R_DEVICE_REQUEST_PICK_PHOTOS: 3156,
+});
+export const { R_DEVICE_REQUEST_OPEN_FILES, R_DEVICE_REQUEST_SAVE_FILE, R_DEVICE_REQUEST_SELECT_FOLDER, R_DEVICE_REQUEST_TAKE_PHOTO, R_DEVICE_REQUEST_PICK_PHOTOS } = RDeviceRequest;
+
 export const RMotion = _enum({
 	R_MOTION_SNAPPY: 800,
 	R_MOTION_SMOOTH: 801,
@@ -3899,6 +3908,16 @@ function _adapt_RDeviceCallback(function_) {
 	};
 }
 
+function _adapt_RDeviceRestoredCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (request, result, files, count, user_data) => {
+		const files_ = RPickedFile.from(files);
+		return function_(request, result, files_, count, user_data);
+	};
+}
+
 function _adapt_RMeasureCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -5401,6 +5420,9 @@ export const Rhaptic_play = _lib.Rhaptic_play;
 export function Rshare_show(desc, callback, user_data = null) {
 	return _lib.Rshare_show(_p(desc), _adapt_RDeviceCallback(callback), user_data);
 }
+export function Rdevice_set_restored_callback(callback, user_data = null) {
+	return _lib.Rdevice_set_restored_callback(_adapt_RDeviceRestoredCallback(callback), user_data);
+}
 export const Rviewport_set_texture = _lib.Rviewport_set_texture;
 export const Rviewport_set_stretch = _lib.Rviewport_set_stretch;
 export const Rviewport_set_flip_y = _lib.Rviewport_set_flip_y;
@@ -5620,6 +5642,9 @@ export const Rhost_inject_close = _lib.Rhost_inject_close;
 export const Rhost_permission_answer = _lib.Rhost_permission_answer;
 export function Rhost_service_complete(request, result, files) {
 	return _lib.Rhost_service_complete(request, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
+}
+export function Rhost_service_restored(service, result, files) {
+	return _lib.Rhost_service_restored(service, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
 }
 export const Rtest_set_deterministic = _lib.Rtest_set_deterministic;
 export const Rtest_is_deterministic = _lib.Rtest_is_deterministic;

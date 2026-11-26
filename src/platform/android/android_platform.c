@@ -1800,6 +1800,10 @@ static void rvn_android_poll(int timeout_ms) {
  * returns at once; RavenDevice answers later through its native methods
  * (nativePermission, nativeComplete: rvn_permission_answer and
  * rvn_service_complete, on the Java main thread or a copying thread).
+ * Answers of requests made before a restart are stored by RavenDevice;
+ * nativeRestoredReady (rvn_service_restored_ready) says one came, and
+ * restored_poll has RavenDevice.replayRestored give each to
+ * nativeRestored (rvn_service_restored).
  * Without the class (no classes.dex) every service answers "unsupported".
  *
  * Strings cross JNI as UTF-8 byte arrays: NewStringUTF wants modified UTF-8,
@@ -1819,7 +1823,7 @@ static struct {
 	jmethodID attach, detach, status, request, settings, notify;
 	jmethodID file_open, file_save, camera_available, take_photo, pick_photos, share;
 	jmethodID open_url, download, download_error, haptic_supported, haptic;
-	jmethodID clip_set, clip_get, clip_has;
+	jmethodID clip_set, clip_get, clip_has, replay;
 } g_dev_java;
 static JavaVM* g_dev_vm;
 
@@ -1915,12 +1919,11 @@ static void JNICALL rvn_android_jni_permission(JNIEnv* env, jclass cls, jint per
 	}
 }
 
-static void JNICALL rvn_android_jni_complete(JNIEnv* env, jclass cls, jint id, jint result, jobjectArray paths, jobjectArray names,
-	jobjectArray mimes, jlongArray sizes, jintArray widths, jintArray heights, jbyteArray error) {
+/* The files of nativeComplete / nativeRestored as malloc'ed RPickedFile (*count of them; free with rvn_android_files_free). */
+static RPickedFile* rvn_android_files(JNIEnv* env, jobjectArray paths, jobjectArray names, jobjectArray mimes, jlongArray sizes,
+	jintArray widths, jintArray heights, int* count_out) {
 	int count = paths ? (int)(*env)->GetArrayLength(env, paths) : 0, i;
 	RPickedFile* files = count > 0 ? (RPickedFile*)calloc((size_t)count, sizeof(RPickedFile)) : NULL;
-	char* message = rvn_android_cstring(env, error);
-	RVN_UNUSED(cls);
 	if (count > 0 && !files) count = 0;
 	for (i = 0; i < count; i++) {
 		jbyteArray item;
@@ -1942,14 +1945,48 @@ static void JNICALL rvn_android_jni_complete(JNIEnv* env, jclass cls, jint id, j
 		files[i].width = width;
 		files[i].height = height;
 	}
-	rvn_service_complete((uint32_t)id, (int)R_DEVICE_DONE + result, files, count, message);
+	*count_out = count;
+	return files;
+}
+
+static void rvn_android_files_free(RPickedFile* files, int count) {
+	int i;
 	for (i = 0; i < count; i++) {
 		free((char*)files[i].path);
 		free((char*)files[i].name);
 		free((char*)files[i].mime_type);
 	}
 	free(files);
+}
+
+static void JNICALL rvn_android_jni_complete(JNIEnv* env, jclass cls, jint id, jint result, jobjectArray paths, jobjectArray names,
+	jobjectArray mimes, jlongArray sizes, jintArray widths, jintArray heights, jbyteArray error) {
+	int count = 0;
+	RPickedFile* files = rvn_android_files(env, paths, names, mimes, sizes, widths, heights, &count);
+	char* message = rvn_android_cstring(env, error);
+	RVN_UNUSED(cls);
+	rvn_service_complete((uint32_t)id, (int)R_DEVICE_DONE + result, files, count, message);
+	rvn_android_files_free(files, count);
 	free(message);
+}
+
+/* An answer of a request made before a restart (kind: RDeviceRequest - R_DEVICE_REQUEST_OPEN_FILES). */
+static void JNICALL rvn_android_jni_restored(JNIEnv* env, jclass cls, jint kind, jint result, jobjectArray paths, jobjectArray names,
+	jobjectArray mimes, jlongArray sizes, jintArray widths, jintArray heights, jbyteArray error) {
+	int count = 0;
+	RPickedFile* files = rvn_android_files(env, paths, names, mimes, sizes, widths, heights, &count);
+	char* message = rvn_android_cstring(env, error);
+	RVN_UNUSED(cls);
+	rvn_service_restored((int)R_DEVICE_REQUEST_OPEN_FILES + kind, (int)R_DEVICE_DONE + result, files, count, message);
+	rvn_android_files_free(files, count);
+	free(message);
+}
+
+/* RavenDevice stored an answer after a restart (a copying thread, the Java main thread). */
+static void JNICALL rvn_android_jni_restored_ready(JNIEnv* env, jclass cls) {
+	RVN_UNUSED(env);
+	RVN_UNUSED(cls);
+	rvn_service_restored_ready();
 }
 
 /* ---- loading ---- */
@@ -1975,7 +2012,9 @@ static jclass rvn_android_app_class(JNIEnv* env, const char* name) {
 static int rvn_android_device_methods(JNIEnv* env, jclass cls) {
 	static const JNINativeMethod natives[] = {
 		{ "nativePermission", "(II)V", (void*)rvn_android_jni_permission },
-		{ "nativeComplete", "(II[[B[[B[[B[J[I[I[B)V", (void*)rvn_android_jni_complete }
+		{ "nativeComplete", "(II[[B[[B[[B[J[I[I[B)V", (void*)rvn_android_jni_complete },
+		{ "nativeRestored", "(II[[B[[B[[B[J[I[I[B)V", (void*)rvn_android_jni_restored },
+		{ "nativeRestoredReady", "()V", (void*)rvn_android_jni_restored_ready }
 	};
 	static const struct { jmethodID* id; const char* name; const char* signature; } methods[] = {
 		{ &g_dev_java.attach, "attach", "(Landroid/app/Activity;)Ljava/lang/String;" },
@@ -1997,10 +2036,11 @@ static int rvn_android_device_methods(JNIEnv* env, jclass cls) {
 		{ &g_dev_java.haptic, "haptic", "(I)Z" },
 		{ &g_dev_java.clip_set, "clipboardSet", "([B)Z" },
 		{ &g_dev_java.clip_get, "clipboardGet", "()[B" },
-		{ &g_dev_java.clip_has, "clipboardHasText", "()Z" }
+		{ &g_dev_java.clip_has, "clipboardHasText", "()Z" },
+		{ &g_dev_java.replay, "replayRestored", "()V" }
 	};
 	size_t i;
-	if ((*env)->RegisterNatives(env, cls, natives, 2) != 0 || (*env)->ExceptionCheck(env)) {
+	if ((*env)->RegisterNatives(env, cls, natives, (jint)(sizeof(natives) / sizeof(natives[0]))) != 0 || (*env)->ExceptionCheck(env)) {
 		(*env)->ExceptionClear(env);
 		__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "RavenDevice: RegisterNatives failed");
 		return R_FALSE;
@@ -2283,6 +2323,15 @@ static void rvn_android_request_int(const rvn_service_request_t* request, jmetho
 	if (with_count) (*env)->CallStaticVoidMethod(env, g_dev_java.cls, method, (jint)request->id, (jint)count);
 	else (*env)->CallStaticVoidMethod(env, g_dev_java.cls, method, (jint)request->id);
 	if (rvn_android_jni_failed(env, name)) rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "RavenDevice failed to start the request");
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+/* The answers RavenDevice stored for after a restart: each to rvn_service_restored, through nativeRestored. */
+static void rvn_android_restored_poll(void) {
+	JNIEnv* env = rvn_android_device_env();
+	if (!env) return;
+	(*env)->CallStaticVoidMethod(env, g_dev_java.cls, g_dev_java.replay);
+	rvn_android_jni_failed(env, "replayRestored");
 	(*env)->PopLocalFrame(env, NULL);
 }
 
@@ -2891,7 +2940,8 @@ const rvn_platform_t* rvn_platform_android(void) {
 		.haptic_supported = rvn_android_haptic_supported,
 		.haptic = rvn_android_haptic,
 		.download = rvn_android_download,
-		.clipboard_has_text = rvn_android_clipboard_has_text
+		.clipboard_has_text = rvn_android_clipboard_has_text,
+		.restored_poll = rvn_android_restored_poll
 	};
 	return &platform;
 }

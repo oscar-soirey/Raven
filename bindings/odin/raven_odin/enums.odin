@@ -1387,6 +1387,20 @@ Haptic :: enum i32 {
 	Error = 0x0C36,
 }
 
+// Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+Device_Request :: enum i32 {
+	// Rfile_open_async.
+	Open_Files = 0x0C50,
+	// Rfile_save_async, Rfile_export_async.
+	Save_File = 0x0C51,
+	// Rfile_select_folder_async.
+	Select_Folder = 0x0C52,
+	// Rcamera_take_photo.
+	Take_Photo = 0x0C53,
+	// Rphoto_pick.
+	Pick_Photos = 0x0C54,
+}
+
 // How a spring moves. Animations in Raven are springs, as on iOS: a value is
 // pulled toward its target and may run past it before settling, which is what
 // makes a control feel alive rather than mechanical.

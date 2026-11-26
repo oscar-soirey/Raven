@@ -1286,6 +1286,17 @@ const (
 	R_HAPTIC_ERROR     RHaptic = 0x0C36
 )
 
+// RDeviceRequest: Which request an answer given after a restart was for (Rdevice_set_restored_callback).
+type RDeviceRequest int32
+
+const (
+	R_DEVICE_REQUEST_OPEN_FILES    RDeviceRequest = 0x0C50
+	R_DEVICE_REQUEST_SAVE_FILE     RDeviceRequest = 0x0C51
+	R_DEVICE_REQUEST_SELECT_FOLDER RDeviceRequest = 0x0C52
+	R_DEVICE_REQUEST_TAKE_PHOTO    RDeviceRequest = 0x0C53
+	R_DEVICE_REQUEST_PICK_PHOTOS   RDeviceRequest = 0x0C54
+)
+
 // RMotion: How a spring moves. Animations in Raven are springs, as on iOS: a value is pulled toward its
 // target and may run past it before settling, which is what makes a control feel alive rather than
 // mechanical.
@@ -9588,13 +9599,14 @@ func TestGetScriptError() string {
 // Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
 // Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc
 // Rnotification_set_callback, Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async
-// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line
-// Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
-// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rhost_service_complete
-// Rtest_expect_golden, Rtest_compare_pixels
+// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rdevice_set_restored_callback
+// Rviewport_set_draw_callback, Rviewport_get_native_handle, Rviewport_set_resize_callback
+// Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline
+// Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring
+// Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults
+// Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback
+// Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info, Rscript_set_log_callback
+// Rscript_set_diagnostic_callback, Rlocale_set_changed_callback, Rtr_format
+// Raccessibility_get_system_settings, Rwidget_set_accessible_action, Rhost_platform_register
+// Rhost_window_set_insets, Rhost_service_complete, Rhost_service_restored, Rtest_expect_golden
+// Rtest_compare_pixels

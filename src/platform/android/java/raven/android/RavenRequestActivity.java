@@ -25,10 +25,15 @@
  * Every request is answered exactly once: the screen of the system closed
  * without a result, or this activity going away before it came, is
  * R_DEVICE_CANCELLED (a permission: its status as it now is).
- * SHORTCUT: when Android kills the process while the system's screen is in
- * front, the request dies with it: a new process has no native request to
- * answer (RavenDevice drops the answer until Raven is attached again).
- * See docs/device-services.md.
+ *
+ * When Android ends the process while the system's screen is in front, it
+ * recreates this activity in a new process (with its saved state) to give
+ * it the result. The request carries the session of Raven that made it
+ * (EXTRA_SESSION): when that is not the session attached now, the answer is
+ * copied the same way, into folders of its own (another session may use the
+ * same request id), and RavenDevice.answer stores it for
+ * Rdevice_set_restored_callback. A permission asked that way needs nothing:
+ * the application reads its status again. See docs/device-services.md.
  */
 
 package raven.android;
@@ -66,6 +71,7 @@ public final class RavenRequestActivity extends Activity {
 
 	static final String EXTRA_OP = "raven.op";
 	static final String EXTRA_ID = "raven.id";
+	static final String EXTRA_SESSION = "raven.session";
 	static final String EXTRA_PERMISSION = "raven.permission";
 	static final String EXTRA_NAMES = "raven.names";
 	static final String EXTRA_MIMES = "raven.mimes";
@@ -80,6 +86,8 @@ public final class RavenRequestActivity extends Activity {
 	private static final int CODE = 0x5241;
 
 	private int op, id;
+	/* the session of Raven that made the request (RavenDevice.session) */
+	private long session;
 	/* the status of the permission before the question (OP_PERMISSION) */
 	private int before = -1;
 	private boolean answered;
@@ -88,6 +96,7 @@ public final class RavenRequestActivity extends Activity {
 		Intent intent = new Intent(context, RavenRequestActivity.class);
 		intent.putExtra(EXTRA_OP, op);
 		intent.putExtra(EXTRA_ID, id);
+		intent.putExtra(EXTRA_SESSION, RavenDevice.session());
 		return intent;
 	}
 
@@ -106,12 +115,16 @@ public final class RavenRequestActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle state) {
 		super.onCreate(state);
+		/* (a new process: RavenDevice has no context until Raven attaches, and the answer may come first) */
+		RavenDevice.ensureContext(this);
 		Intent intent = getIntent();
 		op = intent.getIntExtra(EXTRA_OP, 0);
 		id = intent.getIntExtra(EXTRA_ID, 0);
+		session = intent.getLongExtra(EXTRA_SESSION, 0);
 		if (state != null) {
-			/* recreated while the system's screen is open: its result comes to this instance */
+			/* recreated while the system's screen is open (also in a new process): its result comes to this instance */
 			before = state.getInt(STATE_STATUS, -1);
+			if (!RavenDevice.current(session)) Log.i(TAG, "request " + id + " of an earlier session: waiting for its result");
 			return;
 		}
 		try {
@@ -144,10 +157,20 @@ public final class RavenRequestActivity extends Activity {
 			if (op == OP_PERMISSION) RavenDevice.answerPermission(getIntent().getIntExtra(EXTRA_PERMISSION, 0));
 			else if (op == OP_SAVE) {
 				deleteTemporary(getIntent());
-				RavenDevice.complete(id, RavenDevice.CANCELLED, null);
-			} else if (op != 0) RavenDevice.complete(id, RavenDevice.CANCELLED, null);
+				reply(this, RavenDevice.CANCELLED, null, null);
+			} else if (op != 0) reply(this, RavenDevice.CANCELLED, null, null);
 		}
 		super.onDestroy();
+	}
+
+	/* The answer of the request: to its session, or stored for after a restart (any thread). */
+	private void reply(Context context, int result, RavenDevice.Picked[] files, String error) {
+		RavenDevice.answer(context.getApplicationContext(), session, op, id, result, files, error);
+	}
+
+	/* The name of the copies of the request: the id, and a stamp when it is of an earlier session (whose ids start again at 1). */
+	private String key() {
+		return RavenDevice.current(session) ? Integer.toString(id) : id + "-" + Long.toHexString(System.currentTimeMillis());
 	}
 
 	private void close() {
@@ -159,7 +182,7 @@ public final class RavenRequestActivity extends Activity {
 		if (!answered) {
 			answered = true;
 			if (op == OP_PERMISSION) RavenDevice.answerPermission(getIntent().getIntExtra(EXTRA_PERMISSION, 0));
-			else RavenDevice.complete(id, RavenDevice.FAILED, error);
+			else reply(this, RavenDevice.FAILED, null, error);
 		}
 		close();
 	}
@@ -267,11 +290,11 @@ public final class RavenRequestActivity extends Activity {
 		final Context context = getApplicationContext();
 		final Intent request = getIntent();
 		final boolean ok = result == RESULT_OK;
-		close();
 		if (!ok) {
+			close();
 			if (op == OP_SAVE) deleteTemporary(request);
 			if (op == OP_CAMERA) photoFile().delete();
-			RavenDevice.complete(id, RavenDevice.CANCELLED, null);
+			reply(context, RavenDevice.CANCELLED, null, null);
 			return;
 		}
 		final ArrayList<Uri> uris = new ArrayList<Uri>();
@@ -282,6 +305,29 @@ public final class RavenRequestActivity extends Activity {
 			}
 			if (uris.isEmpty() && data.getData() != null) uris.add(data.getData());
 		}
+		/*
+		 * The access to the URIs a picker gives (the photo picker's above all)
+		 * may end with this activity: they are opened here, before it finishes,
+		 * and only read on the thread (an open stream stays readable).
+		 */
+		final ArrayList<Opened> opened = new ArrayList<Opened>();
+		try {
+			if (op == OP_OPEN || op == OP_PHOTOS) {
+				int max = op == OP_PHOTOS ? request.getIntExtra(EXTRA_MAX, 0) : 0;
+				int count = max > 0 && uris.size() > max ? max : uris.size();
+				for (int i = 0; i < count; i++) opened.add(Opened.read(context.getContentResolver(), uris.get(i)));
+			} else if (op == OP_SAVE && !uris.isEmpty()) {
+				opened.add(Opened.write(context.getContentResolver(), uris.get(0)));
+			}
+		} catch (IOException | RuntimeException e) {
+			Opened.closeAll(opened);
+			close();
+			Log.w(TAG, "request " + id + ": cannot open what was chosen", e);
+			if (op == OP_SAVE) deleteTemporary(request);
+			reply(context, RavenDevice.FAILED, null, e.toString());
+			return;
+		}
+		close();
 		final File photo = photoFile();
 		final Bitmap thumbnail = op == OP_CAMERA && data != null ? (Bitmap)data.getParcelableExtra("data") : null;
 		/* (copies and conversions off the main thread: a large file must not freeze the UI) */
@@ -289,19 +335,59 @@ public final class RavenRequestActivity extends Activity {
 			@Override public void run() {
 				try {
 					switch (op) {
-					case OP_OPEN: answerCopies(context, uris, false, 0); break;
-					case OP_PHOTOS: answerCopies(context, uris, true, request.getIntExtra(EXTRA_MAX, 0)); break;
-					case OP_SAVE: answerSave(context, request, uris.isEmpty() ? null : uris.get(0)); break;
-					case OP_CAMERA: answerPhoto(photo, thumbnail); break;
+					case OP_OPEN: answerCopies(context, opened, false); break;
+					case OP_PHOTOS: answerCopies(context, opened, true); break;
+					case OP_SAVE: answerSave(context, request, opened.isEmpty() ? null : opened.get(0)); break;
+					case OP_CAMERA: answerPhoto(context, photo, thumbnail); break;
 					default: break;
 					}
 				} catch (IOException | RuntimeException e) {
 					Log.w(TAG, "request " + id + " failed", e);
 					if (op == OP_SAVE) deleteTemporary(request);
-					RavenDevice.complete(id, RavenDevice.FAILED, e.toString());
+					reply(context, RavenDevice.FAILED, null, e.toString());
+				} finally {
+					Opened.closeAll(opened);
 				}
 			}
 		}, "Raven request " + id).start();
+	}
+
+	/* A URI that was chosen, resolved and opened on the main thread while its access lasts. */
+	private static final class Opened {
+		String name, mime;
+		InputStream input;
+		OutputStream output;
+
+		static Opened read(ContentResolver resolver, Uri uri) throws IOException {
+			Opened opened = new Opened();
+			opened.name = displayName(resolver, uri);
+			opened.mime = resolver.getType(uri);
+			opened.input = resolver.openInputStream(uri);
+			if (opened.input == null) throw new IOException("cannot read " + uri);
+			return opened;
+		}
+
+		static Opened write(ContentResolver resolver, Uri uri) throws IOException {
+			Opened opened = new Opened();
+			opened.name = displayName(resolver, uri);
+			opened.mime = resolver.getType(uri);
+			opened.output = resolver.openOutputStream(uri, "w");
+			if (opened.output == null) throw new IOException("cannot write " + uri);
+			return opened;
+		}
+
+		static void closeAll(ArrayList<Opened> list) {
+			for (Opened opened : list) {
+				try {
+					if (opened.input != null) opened.input.close();
+					if (opened.output != null) opened.output.close();
+				} catch (IOException e) {
+					Log.w(TAG, "closing a stream", e);
+				}
+				opened.input = null;
+				opened.output = null;
+			}
+		}
 	}
 
 	/* ------------------------------------------------------------------ answers (copying thread) */
@@ -329,48 +415,45 @@ public final class RavenRequestActivity extends Activity {
 		return uri.getLastPathSegment();
 	}
 
-	private void answerCopies(Context context, ArrayList<Uri> uris, boolean photos, int max) throws IOException {
-		ContentResolver resolver = context.getContentResolver();
-		File folder = new File(new File(RavenFileProvider.root(context), "picked"), Integer.toString(id));
+	private void answerCopies(Context context, ArrayList<Opened> sources, boolean photos) throws IOException {
+		File folder = new File(new File(RavenFileProvider.root(context), "picked"), key());
 		if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("cannot create " + folder);
-		if (uris.isEmpty()) {
-			RavenDevice.complete(id, RavenDevice.CANCELLED, null);
+		if (sources.isEmpty()) {
+			reply(context, RavenDevice.CANCELLED, null, null);
 			return;
 		}
-		int count = photos && max > 0 && uris.size() > max ? max : uris.size();
+		int count = sources.size();
 		RavenDevice.Picked[] files = new RavenDevice.Picked[count];
 		for (int i = 0; i < count; i++) {
-			Uri uri = uris.get(i);
+			Opened source = sources.get(i);
 			RavenDevice.Picked file = new RavenDevice.Picked();
-			file.name = safeName(displayName(resolver, uri), "file");
-			file.mime = resolver.getType(uri);
+			file.name = safeName(source.name, "file");
+			file.mime = source.mime;
 			File copy = new File(folder, file.name);
 			for (int n = 2; copy.exists(); n++) copy = new File(folder, n + "-" + file.name);
-			InputStream input = resolver.openInputStream(uri);
-			if (input == null) throw new IOException("cannot read " + uri);
 			try {
-				file.size = RavenFileProvider.copy(input, copy);
+				file.size = RavenFileProvider.copy(source.input, copy);
 			} finally {
-				input.close();
+				source.input.close();
+				source.input = null;
 			}
 			file.path = copy.getAbsolutePath();
 			if (photos) uprightImage(file);
 			files[i] = file;
 		}
-		RavenDevice.complete(id, RavenDevice.DONE, files, null);
+		reply(context, RavenDevice.DONE, files, null);
 	}
 
-	private void answerSave(Context context, Intent request, Uri uri) throws IOException {
+	private void answerSave(Context context, Intent request, Opened target) throws IOException {
 		String source = request.getStringExtra(EXTRA_SOURCE);
-		if (uri == null) {
+		if (target == null) {
 			deleteTemporary(request);
-			RavenDevice.complete(id, RavenDevice.CANCELLED, null);
+			reply(context, RavenDevice.CANCELLED, null, null);
 			return;
 		}
-		ContentResolver resolver = context.getContentResolver();
 		RavenDevice.Picked file = new RavenDevice.Picked();
-		OutputStream output = resolver.openOutputStream(uri, "w");
-		if (output == null) throw new IOException("cannot write " + uri);
+		OutputStream output = target.output;
+		target.output = null;
 		try {
 			InputStream input = RavenFileProvider.open(context, source);
 			try {
@@ -382,14 +465,14 @@ public final class RavenRequestActivity extends Activity {
 			output.close();
 		}
 		deleteTemporary(request);
-		file.name = displayName(resolver, uri);
+		file.name = target.name;
 		if (file.name == null) file.name = request.getStringExtra(EXTRA_TITLE);
-		file.mime = resolver.getType(uri);
+		file.mime = target.mime;
 		/* (path NULL: the place is the user's, the application cannot write there again) */
-		RavenDevice.complete(id, RavenDevice.DONE, new RavenDevice.Picked[] { file }, null);
+		reply(context, RavenDevice.DONE, new RavenDevice.Picked[] { file }, null);
 	}
 
-	private void answerPhoto(File photo, Bitmap thumbnail) throws IOException {
+	private void answerPhoto(Context context, File photo, Bitmap thumbnail) throws IOException {
 		if ((!photo.isFile() || photo.length() == 0) && thumbnail != null) {
 			/* a camera application that ignored EXTRA_OUTPUT: only its small picture */
 			Log.w(TAG, "camera: no photo in EXTRA_OUTPUT, keeping the thumbnail");
@@ -397,15 +480,22 @@ public final class RavenRequestActivity extends Activity {
 		}
 		if (!photo.isFile() || photo.length() == 0) {
 			photo.delete();
-			RavenDevice.complete(id, RavenDevice.FAILED, "the camera gave no photo");
+			reply(context, RavenDevice.FAILED, null, "the camera gave no photo");
 			return;
+		}
+		String key = key();
+		if (!key.equals(Integer.toString(id))) {
+			/* (of an earlier session: a request of this one may soon write <id>.jpg) */
+			File renamed = new File(photo.getParentFile(), key + ".jpg");
+			if (!photo.renameTo(renamed)) throw new IOException("cannot rename to " + renamed);
+			photo = renamed;
 		}
 		RavenDevice.Picked file = new RavenDevice.Picked();
 		file.path = photo.getAbsolutePath();
 		file.name = photo.getName();
 		file.mime = "image/jpeg";
 		uprightImage(file);
-		RavenDevice.complete(id, RavenDevice.DONE, new RavenDevice.Picked[] { file }, null);
+		reply(context, RavenDevice.DONE, new RavenDevice.Picked[] { file }, null);
 	}
 
 	private static void deleteTemporary(Intent request) {

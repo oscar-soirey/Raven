@@ -571,6 +571,19 @@ void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFi
 	rvn_service_complete((uint32_t)request, (int)result, files, count, NULL);
 }
 
+void Rhost_service_restored(RHostService service, RDeviceResult result, const RPickedFile* files, int count) {
+	if ((int)service < (int)R_HOST_SERVICE_OPEN_FILES || (int)service > (int)R_HOST_SERVICE_PICK_PHOTOS) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rhost_service_restored: %d is not an RHostService that can come back (not R_HOST_SERVICE_SHARE)", (int)service);
+		return;
+	}
+	if ((int)result < (int)R_DEVICE_DONE || (int)result > (int)R_DEVICE_FAILED) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rhost_service_restored: %d is not an RDeviceResult", (int)result);
+		return;
+	}
+	/* (the kinds are in the same order) */
+	rvn_service_restored((int)R_DEVICE_REQUEST_OPEN_FILES + ((int)service - (int)R_HOST_SERVICE_OPEN_FILES), (int)result, files, count, NULL);
+}
+
 void Rhost_inject_close(Rid id) {
 	rvn_window_t* window = rvn_host_target(id, "Rhost_inject_close");
 	rvn_pevent_t event;

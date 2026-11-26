@@ -684,6 +684,16 @@ typedef struct rvn_platform_t {
 	 * clipboard to know.
 	 */
 	int   (*clipboard_has_text)(void);
+	/**
+	 * Answers of requests made by an earlier process, that the platform kept
+	 * (Android: the system ended the process while its screen was in front,
+	 * then started it again with the answer). Called on the UI thread when
+	 * the application sets its Rdevice_set_restored_callback, and after
+	 * rvn_service_restored_ready while one is set: give each answer kept to
+	 * rvn_service_restored, then forget it. NULL: the platform keeps none
+	 * (iOS, desktops).
+	 */
+	void  (*restored_poll)(void);
 
 	/*
 	 * ---- the web view of the system (optional, all NULL when there is none) ----
@@ -765,6 +775,20 @@ void rvn_permission_answer(int permission, int status);
  * NULL) says what failed, reported as a warning. Any thread, once per request.
  */
 void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int count, const char* error);
+/**
+ * The answer to a request of an earlier process (see restored_poll): its
+ * RDeviceRequest, an RDeviceResult and the files it gave, copied as by
+ * rvn_service_complete. Handed to the Rdevice_set_restored_callback of the
+ * application at a later frame, or kept by the core until one is set;
+ * dropped after Rshutdown. Any thread.
+ */
+void rvn_service_restored(int request, int result, const RPickedFile* files, int count, const char* error);
+/**
+ * The platform has kept a new answer of an earlier process: the core calls
+ * restored_poll at a later frame when the application has a callback for
+ * it (otherwise the platform keeps it). Any thread.
+ */
+void rvn_service_restored_ready(void);
 /**
  * The extensions request->filters name, lowercase, without the dot ("png",
  * "jpg"): for the platform to turn into its own types (UTType, MIME). count 0

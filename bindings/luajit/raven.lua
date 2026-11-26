@@ -858,6 +858,13 @@ typedef enum RHaptic {
 	R_HAPTIC_WARNING = 3125,
 	R_HAPTIC_ERROR = 3126,
 } RHaptic;
+typedef enum RDeviceRequest {
+	R_DEVICE_REQUEST_OPEN_FILES = 3152,
+	R_DEVICE_REQUEST_SAVE_FILE = 3153,
+	R_DEVICE_REQUEST_SELECT_FOLDER = 3154,
+	R_DEVICE_REQUEST_TAKE_PHOTO = 3155,
+	R_DEVICE_REQUEST_PICK_PHOTOS = 3156,
+} RDeviceRequest;
 typedef enum RMotion {
 	R_MOTION_SNAPPY = 800,
 	R_MOTION_SMOOTH = 801,
@@ -1090,6 +1097,7 @@ typedef void (*RNotificationClickedCallback)(void* user_data);
 typedef void (*RNotificationCallback)(const char* tag, RNotificationEvent event, const char* action, void* user_data);
 typedef void (*RPermissionCallback)(RPermission permission, RPermissionStatus status, void* user_data);
 typedef void (*RDeviceCallback)(RDeviceResult result, const RPickedFile* files, int count, void* user_data);
+typedef void (*RDeviceRestoredCallback)(RDeviceRequest request, RDeviceResult result, const RPickedFile* files, int count, void* user_data);
 typedef void (*RViewportDrawCallback)(const RViewportDrawInfo* info, void* user_data);
 typedef void (*RViewportResizeCallback)(Rid viewport, int width, int height, void* user_data);
 typedef void (*RPaintCallback)(Rid widget, RPainter* painter, float width, float height, void* user_data);
@@ -2848,6 +2856,7 @@ void Rphoto_pick(int max_count, RDeviceCallback callback, void* user_data);
 int Rhaptic_is_supported(void);
 int Rhaptic_play(RHaptic haptic);
 void Rshare_show(const RShareDesc* desc, RDeviceCallback callback, void* user_data);
+void Rdevice_set_restored_callback(RDeviceRestoredCallback callback, void* user_data);
 void Rviewport_set_texture(Rid viewport, Rid texture);
 void Rviewport_set_stretch(Rid viewport, RStretch stretch);
 void Rviewport_set_flip_y(Rid viewport, int flip);
@@ -3036,6 +3045,7 @@ void Rhost_inject_focus(Rid window, int focused);
 void Rhost_inject_close(Rid window);
 void Rhost_permission_answer(RPermission permission, RPermissionStatus status);
 void Rhost_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count);
+void Rhost_service_restored(RHostService service, RDeviceResult result, const RPickedFile* files, int count);
 void Rtest_set_deterministic(int enabled);
 int Rtest_is_deterministic(void);
 const char* Rtest_get_platform_tag(void);

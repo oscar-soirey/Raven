@@ -5,8 +5,9 @@
 # setBackWanted, backDefault; RavenDevice: attach, detach, permissionStatus,
 # requestPermission, openSettings, notify, fileOpen, fileSave, cameraAvailable, takePhoto,
 # pickPhotos, share, openUrl, download, downloadError, hapticSupported, haptic,
-# clipboardSet, clipboardGet, clipboardHasText) and registers their native methods
-# (nativeOp, nativePermission, nativeComplete) with RegisterNatives: none of them may be
+# clipboardSet, clipboardGet, clipboardHasText, replayRestored) and registers their native
+# methods (nativeOp, nativePermission, nativeComplete, nativeRestored, nativeRestoredReady)
+# with RegisterNatives: none of them may be
 # renamed or removed. RavenRequestActivity and RavenFileProvider are named by the manifest.
 -keep class raven.android.** {
     public static <methods>;
