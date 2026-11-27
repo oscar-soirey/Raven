@@ -1,9 +1,10 @@
 /**
  * Raven tests - SystemWebView where there is no web view of the system
- * (headless: the null platform), as on Windows, Linux, the browser and
- * Android: the widget exists, keeps the address it is given, draws a message,
- * and its scripts end with an error, later. test_cocoa_web_view checks a real
- * WKWebView on macOS.
+ * (headless: the null platform), as on Linux, the browser, Android and
+ * Windows without the WebView2 Runtime: the widget exists, keeps the address
+ * it is given, draws a message, and its scripts end with an error, later.
+ * test_cocoa_web_view checks a real WKWebView on macOS, test_win32_web_view a
+ * real WebView2 on Windows.
  */
 
 #include "test.h"

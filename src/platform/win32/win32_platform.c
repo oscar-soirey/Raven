@@ -12,6 +12,7 @@
  *     WM_NCHITTEST,
  *   - files dropped from the Explorer (WM_DROPFILES),
  *   - clipboard formats and drags out of the windows (win32_transfer.c),
+ *   - the web view of the system, Microsoft Edge WebView2 (win32_web_view.c),
  *   - precision touchpads through Direct Manipulation (win32_manipulation.c):
  *     scrolling by pixels, its inertia and the pinch,
  *   - an event object so that other threads can wake the event loop.
@@ -43,6 +44,7 @@
 #include "win32_manipulation.h"
 #include "win32_taskbar.h"
 #include "win32_transfer.h"
+#include "win32_web_view.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -1479,6 +1481,7 @@ static void rvn_win32_notify_shutdown(void) {
 
 static void rvn_win32_shutdown(void) {
 	rvn_win32_notify_shutdown();
+	rvn_wv2_shutdown();
 	rvn_uia_shutdown();
 	rvn_win32_manipulation_shutdown();
 	rvn_win32_taskbar_shutdown();
@@ -2226,6 +2229,11 @@ static void rvn_win32_a11y_announce(rvn_pwindow_t* window, const char* text, int
 	rvn_uia_announce(window->handle, window->user, text, assertive);
 }
 
+/* The web view of the system (win32_web_view.c) goes into the client area of the window. */
+static void rvn_win32_web_view_set_parent(rvn_pweb_view_t* view, rvn_pwindow_t* parent) {
+	rvn_wv2_set_parent_window(view, parent ? (void*)parent->handle : NULL);
+}
+
 const rvn_platform_t* rvn_platform_win32(void) {
 	static const rvn_platform_t platform = {
 		.name = "Win32",
@@ -2284,7 +2292,13 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.a11y_settings = rvn_uia_settings,
 		.notify = rvn_win32_notify,
 		.notify_close = rvn_win32_notify_close,
-		.notify_features = rvn_win32_notify_features
+		.notify_features = rvn_win32_notify_features,
+		.web_view_supported = rvn_wv2_supported, .web_view_create = rvn_wv2_create,
+		.web_view_destroy = rvn_wv2_destroy, .web_view_set_parent = rvn_win32_web_view_set_parent,
+		.web_view_set_rect = rvn_wv2_set_rect, .web_view_load_url = rvn_wv2_load_url,
+		.web_view_load_html = rvn_wv2_load_html, .web_view_command = rvn_wv2_command,
+		.web_view_can = rvn_wv2_can, .web_view_run_javascript = rvn_wv2_run_javascript,
+		.web_view_focus = rvn_wv2_focus, .web_view_native = rvn_wv2_native
 	};
 	return &platform;
 }

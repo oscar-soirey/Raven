@@ -4538,7 +4538,9 @@ inline void system_web_view_set_event_callback(Rid view, std::function<void(Rid,
 }
 
 /// The view of the system, to go further than these functions:
-/// a WKWebView* on macOS and iOS. NULL where unsupported.
+/// a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+/// until WebView2 has made the view, a moment after it is created). NULL
+/// where unsupported.
 inline void* system_web_view_get_native_handle(Rid view) { return Rsystem_web_view_get_native_handle(view); }
 
 /// Returns: R_TRUE when the system can play media here (the framework is there).
