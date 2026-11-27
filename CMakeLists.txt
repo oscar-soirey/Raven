@@ -385,6 +385,9 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_transfer.c
 		src/platform/win32/win32_transfer.h
 		src/platform/win32/win32_manipulation.h
+		src/platform/win32/win32_web_view.c
+		src/platform/win32/win32_web_view.h
+		src/platform/win32/webview2_com.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
 	list(APPEND RAVEN_LIBRARIES user32 gdi32 shell32 comdlg32 ole32)
@@ -620,6 +623,21 @@ target_include_directories(raven
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 target_compile_definitions(raven PRIVATE ${RAVEN_DEFINITIONS} RVN_VERSION_STRING="${PROJECT_VERSION}")
+if(APPLE)
+	# the frameworks by name, not by the path of the SDK they were found in: a static library
+	# hands them to the programs (ravenTargets.cmake), which may be built with another SDK
+	# (Xcode instead of the command line tools, another version, a Homebrew bottle, vcpkg)
+	set(RAVEN_APPLE_LIBRARIES "")
+	foreach(library IN LISTS RAVEN_LIBRARIES)
+		if(library MATCHES "/([^/]+)\\.framework/?$")
+			list(APPEND RAVEN_APPLE_LIBRARIES "-framework ${CMAKE_MATCH_1}")
+		else()
+			list(APPEND RAVEN_APPLE_LIBRARIES "${library}")
+		endif()
+	endforeach()
+	list(REMOVE_DUPLICATES RAVEN_APPLE_LIBRARIES)
+	set(RAVEN_LIBRARIES ${RAVEN_APPLE_LIBRARIES})
+endif()
 target_link_libraries(raven PRIVATE ${RAVEN_LIBRARIES})
 set_target_properties(raven PROPERTIES
 	C_STANDARD 11
@@ -728,6 +746,10 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion
 	VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ravenConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion.cmake"
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven)
+
+# pkg-config:  cc app.c $(pkg-config --cflags --libs raven)   (lib/pkgconfig/raven.pc)
+include(RavenPkgConfig)
+raven_write_pkgconfig(raven ${RAVEN_LIBRARIES})
 
 # ---------------------------------------------------------------------------
 #  Packages:  cmake --build <dir> --target package

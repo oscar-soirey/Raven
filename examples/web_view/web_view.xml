@@ -3,9 +3,9 @@
   Raven example - web_view
 
   <SystemWebView> shows a page with the web engine of the system (WKWebView
-  on macOS), in a view of its own kept over the widget. Where the system has
-  none Raven can embed, it says so in its place; the rest of the window is the
-  same.
+  on macOS, WebView2 on Windows), in a view of its own kept over the widget.
+  Where the system has none Raven can embed, it says so in its place; the rest
+  of the window is the same.
 -->
 <Window Title="Raven - system web view" Width="1120" Height="720" MinWidth="720" MinHeight="460">
 	<VBox>

@@ -740,7 +740,7 @@ pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
 /// Pages shown one at a time and swiped (a page view), with dots and arrows.
 pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
-/// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+/// A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
 pub const R_WIDGET_SYSTEM_WEB_VIEW: RWidgetType = 0x0237;
 /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pub const R_WIDGET_DIFF_VIEW: RWidgetType = 0x0238;
@@ -4551,7 +4551,9 @@ pub extern fn Rsystem_web_view_set_message_callback(view: Rid, callback: RSystem
 /// time the address changes.
 pub extern fn Rsystem_web_view_set_event_callback(view: Rid, callback: RSystemWebViewEventCallback, user_data: ?*anyopaque) void;
 /// The view of the system, to go further than these functions:
-/// a WKWebView* on macOS and iOS. NULL where unsupported.
+/// a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+/// until WebView2 has made the view, a moment after it is created). NULL
+/// where unsupported.
 pub extern fn Rsystem_web_view_get_native_handle(view: Rid) ?*anyopaque;
 pub extern fn Rpdf_document_create() Rid;
 pub extern fn Rpdf_document_delete(document: Rid) void;

@@ -8,7 +8,7 @@ One UI written in C, `shared/showcase.c` with its layout in
 | `shared/` | The showcase: a bottom tab bar with List (1,000 rows and a detail page), Controls (counter, switch, slider, progress, dialog, toast), Glass (blur over a picture), Form (text fields with keyboard types) and Device (permissions, camera, pickers, haptics, links, sharing, clipboard, an image from the network) |
 | `shared/assets/` | The files the app reads at run time: the layout and the picture |
 | `ios/` | The iOS app: `src/main.m` (UIKit scene, `CADisplayLink` that drives `Rdraw_frame`), `Info.plist`, `build.sh` |
-| `android/` | The Android app: `main.c` (`android_main`, NativeActivity), `AndroidManifest.xml`, `build.sh` |
+| `android/` | The Android app: `main.c` (`android_main`, NativeActivity), `AndroidManifest.xml`, `build.sh`, `smoke.sh` |
 | `desktop/` | The same UI in a desktop window (`raven_mobile`, built with the other examples): to work on it without a phone; `raven_mobile --check` runs the Device tab without a window |
 
 Both build scripts compile Raven itself with CMake, then the app by hand, so no
@@ -145,7 +145,10 @@ newest NDK, build tools and platform it finds in `$ANDROID_HOME` (default
 
 `cd android && ./build.sh install` builds `raven-hello.apk` (arm64-v8a,
 signed with a debug key made on the first build) and starts it on the device
-`adb` sees (`ANDROID_SERIAL` picks one).
+`adb` sees (`ANDROID_SERIAL` picks one). `ABI=x86_64 ./build.sh` builds it for
+the emulator of an x86_64 computer instead. `./smoke.sh` (what CI runs on an
+emulator) installs and launches the APK, then checks that the app keeps
+running and that the screen is not blank, and prints the app's log when not.
 
 The script builds Raven as `libraven.so` and its AAR with CMake
 (`RAVEN_BUILD_SHARED=ON`, target `raven_aar`), then makes the APK from it: the

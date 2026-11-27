@@ -1,8 +1,10 @@
 #!/bin/sh
-# Raven on Android (experimental): builds Raven's AAR with CMake (NDK, arm64-v8a:
-# libraven.so and its Java part) and the showcase APK (../shared) by hand from it,
-# without Gradle. See ../README.md.
+# Raven on Android (experimental): builds Raven's AAR with CMake (NDK: libraven.so and
+# its Java part) and the showcase APK (../shared) by hand from it, without Gradle.
+# See ../README.md.
 # Usage: ./build.sh [install]
+# ABI=arm64-v8a (default, phones) or ABI=x86_64 (the emulator of an x86_64 host, as
+# in CI): the one ABI of the APK.
 # Uses the newest NDK, build tools and platform of the SDK unless ANDROID_NDK,
 # ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise. RAVEN_CMAKE_ARGS is added to the
 # CMake configuration of Raven (CI: -DRAVEN_WARNINGS_AS_ERRORS=ON).
@@ -14,8 +16,14 @@ NDK=${ANDROID_NDK:-$(ls -d "$SDK"/ndk/* | tail -1)}
 BT=${ANDROID_BUILD_TOOLS:-$(ls -d "$SDK"/build-tools/* | tail -1)}
 JAR=${ANDROID_JAR:-$(ls -d "$SDK"/platforms/android-* | sort -t- -k2 -n | tail -1)/android.jar}
 API=29
+ABI=${ABI:-arm64-v8a}
+case $ABI in
+arm64-v8a) TRIPLE=aarch64-linux-android ;;
+x86_64) TRIPLE=x86_64-linux-android ;;
+*) echo "ABI=$ABI: arm64-v8a or x86_64" >&2; exit 1 ;;
+esac
 HOST_TAG=$(uname -s | tr '[:upper:]' '[:lower:]')-x86_64
-CC="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin/aarch64-linux-android$API-clang"
+CC="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin/$TRIPLE$API-clang"
 GLUE=$NDK/sources/android/native_app_glue
 OUT=$HERE/build
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
@@ -25,26 +33,27 @@ export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 #    also leaves it dexed as android/classes.dex). The build tools and the platform the
 #    script uses are given to CMake, which compiles the Java part with them.
 BUILD=$RAVEN/build-android
+[ "$ABI" = arm64-v8a ] || BUILD=$BUILD-$ABI
 cmake -S "$RAVEN" -B "$BUILD" -G Ninja \
 	-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-	-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-$API -DRAVEN_BUILD_SHARED=ON \
+	-DANDROID_ABI=$ABI -DANDROID_PLATFORM=android-$API -DRAVEN_BUILD_SHARED=ON \
 	-DRAVEN_ANDROID_SDK="$SDK" -DRAVEN_ANDROID_BUILD_TOOLS="$BT" -DRAVEN_ANDROID_JAR="$JAR" \
 	-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo ${RAVEN_CMAKE_ARGS:-} >/dev/null
 cmake --build "$BUILD" --target raven_aar
-AAR=$(ls "$BUILD"/raven-*-arm64-v8a.aar)
+AAR=$(ls "$BUILD"/raven-*-"$ABI".aar)
 
 # 2. the app's .so: main.c + the shared showcase + native_app_glue, linked with the AAR's
 #    libraven.so (what Gradle's prefab gives an app's CMake); both go into the APK
 SHARED=$HERE/../shared
 rm -rf "$OUT"
-mkdir -p "$OUT/apk/lib/arm64-v8a" "$OUT/aar"
+mkdir -p "$OUT/apk/lib/$ABI" "$OUT/aar"
 (cd "$OUT/aar" && unzip -q "$AAR")
-cp "$OUT/aar/jni/arm64-v8a/libraven.so" "$OUT/apk/lib/arm64-v8a/"
-"$CC" -std=c11 -O2 -g -fPIC -shared -o "$OUT/apk/lib/arm64-v8a/libravenhello.so" \
+cp "$OUT/aar/jni/$ABI/libraven.so" "$OUT/apk/lib/$ABI/"
+"$CC" -std=c11 -O2 -g -fPIC -shared -o "$OUT/apk/lib/$ABI/libravenhello.so" \
 	-I"$OUT/aar/prefab/modules/raven/include" -I"$GLUE" -I"$SHARED" \
 	"$HERE/main.c" "$SHARED/showcase.c" "$GLUE/android_native_app_glue.c" \
-	-L"$OUT/apk/lib/arm64-v8a" -lraven \
+	-L"$OUT/apk/lib/$ABI" -lraven \
 	-u ANativeActivity_onCreate -Wl,-z,max-page-size=16384 \
 	-landroid -llog -lm -ldl
 

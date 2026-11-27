@@ -688,7 +688,7 @@ typedef struct rvn_platform_t {
 	/*
 	 * ---- the web view of the system (optional, all NULL when there is none) ----
 	 *
-	 * A view of the web engine of the system (WKWebView), kept over a
+	 * A view of the web engine of the system (WKWebView, WebView2), kept over a
 	 * SystemWebView widget as a native child window is. What happens in it
 	 * comes back through rvn_web_view_event.
 	 */
@@ -717,7 +717,7 @@ typedef struct rvn_platform_t {
 	void  (*web_view_run_javascript)(rvn_pweb_view_t* view, const char* script, uint64_t request);
 	/** Gives the keyboard to the page, or takes it back to the window. */
 	void  (*web_view_focus)(rvn_pweb_view_t* view, int focused);
-	/** The view of the system (WKWebView*). */
+	/** The view of the system (WKWebView*, ICoreWebView2*). */
 	void* (*web_view_native)(rvn_pweb_view_t* view);
 } rvn_platform_t;
 
