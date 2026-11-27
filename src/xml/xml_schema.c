@@ -308,7 +308,14 @@ static const rvn_schema_attribute_t g_date_picker[] = {
 	C("FirstDayOfWeek", "Sunday|Monday|Saturday", "The day the weeks of the calendar start with (or 0 to 6)."),
 	T("Format", "How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD."),
 	T("TimeZone", "The time zone of the date for Rdate_picker_get_instant: \"Europe/Paris\"; empty: the zone of the system."),
-	A("OnChanged", "Action fired when the user chooses a date."),
+	C("SelectionMode", "Single|Range", "One date (default) or a range of two: a first and a last day."),
+	T("Selection", "The range, \"YYYY-MM-DD/YYYY-MM-DD\" (first and last day included); empty: none."),
+	N("Months", "The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date."),
+	N("MinDays", "The fewest days of a range the user chooses, both ends counted; 0: no limit."),
+	N("MaxDays", "The most days of a range the user chooses, both ends counted; 0: no limit."),
+	T("Placeholder", "Shown, dimmed, while a range picker has no range."),
+	L("Presets", "Presets of a range in a column of the calendar: Today, Yesterday, Last7Days, Last30Days, ThisMonth, LastMonth."),
+	A("OnChanged", "Action fired when the user chooses a date, or a whole range."),
 };
 static const rvn_schema_attribute_t g_time_picker[] = {
 	T("Time", "The time, \"HH:MM\" or \"HH:MM:SS\"."),

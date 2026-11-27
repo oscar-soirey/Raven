@@ -1060,6 +1060,14 @@ Table_Column_Kind :: enum i32 {
 	Progress = 0x0BD2,
 }
 
+// What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+Date_Selection_Mode :: enum i32 {
+	// One date (the default): Rdate_picker_get_date.
+	Single = 0x0D00,
+	// A first and a last day: Rdate_picker_get_selection.
+	Range = 0x0D01,
+}
+
 // Shorthands of Rtext_editor_set_language for two languages.
 Syntax :: enum i32 {
 	None = 0x0340,

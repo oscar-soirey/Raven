@@ -88,6 +88,25 @@ int  rvn_date_parse(const char* text, int* year, int* month, int* day);
 const char* rvn_date_month_name(int month);
 const char* rvn_date_day_name(int weekday);
 
+/* ---- widgets/date_picker.c: a date picker and its calendar as a screen reader sees them ---- */
+#define RVN_CALENDAR_ITEM_SELECTED 1u
+#define RVN_CALENDAR_ITEM_DISABLED 2u
+#define RVN_CALENDAR_ITEM_FOCUSED  4u
+#define RVN_CALENDAR_ITEM_PRESET   8u
+/** The value of the field: the date as shown, or the range spoken ("from 12 March 2026 to 18 March 2026"). */
+void rvn_date_picker_describe(const rvn_widget_t* picker, char* out, size_t size);
+int  rvn_date_picker_is_range_picker(const rvn_widget_t* picker);
+/** The items of an open calendar: its presets, then the days of the months shown. */
+int  rvn_calendar_item_count(const rvn_widget_t* calendar);
+/** The name ("Thursday 12 March 2026"), the rectangle in the calendar and RVN_CALENDAR_ITEM_* of an item; R_FALSE past the last one. */
+int  rvn_calendar_item_info(const rvn_widget_t* calendar, int item, char* name, size_t size, rvn_rect_t* rect, uint32_t* flags);
+/** The item at a point of the calendar, -1: none. */
+int  rvn_calendar_item_at(const rvn_widget_t* calendar, float x, float y);
+/** Chooses an item as a click does. */
+void rvn_calendar_item_press(rvn_widget_t* calendar, int item);
+/** The range the calendar shows (the one being chosen, else the one chosen), spoken; "" for none. */
+void rvn_calendar_describe(const rvn_widget_t* calendar, char* out, size_t size);
+
 /** Panels sharing Rpanel_set_spacing start with this layout. */
 typedef struct rvn_spaced_panel_t {
 	rvn_widget_t base;

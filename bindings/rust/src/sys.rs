@@ -1008,6 +1008,13 @@ pub const R_TABLE_COLUMN_CHECK: RTableColumnKind = 0x0BD1;
 /// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
 pub const R_TABLE_COLUMN_PROGRESS: RTableColumnKind = 0x0BD2;
 
+/// What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+pub type RDateSelectionMode = c_int;
+/// One date (the default): Rdate_picker_get_date.
+pub const R_DATE_SELECTION_SINGLE: RDateSelectionMode = 0x0D00;
+/// A first and a last day: Rdate_picker_get_selection.
+pub const R_DATE_SELECTION_RANGE: RDateSelectionMode = 0x0D01;
+
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub type RSyntax = c_int;
 pub const R_SYNTAX_NONE: RSyntax = 0x0340;
@@ -1612,6 +1619,10 @@ pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_
 pub type RTableCellEditedCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, text: *const c_char, user_data: *mut c_void) -> c_int>;
 /// Called when the user chooses a date. This also fires the action of the widget.
 pub type RDateChangedCallback = Option<unsafe extern "C" fn(date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: *mut c_void)>;
+/// Called once per range the user chooses (in the calendar or with a
+/// preset), not on the first click. The changed callback is called then too,
+/// with the first day, and the action of the widget is fired.
+pub type RDateSelectionCallback = Option<unsafe extern "C" fn(date_picker: Rid, start_year: c_int, start_month: c_int, start_day: c_int, end_year: c_int, end_month: c_int, end_day: c_int, user_data: *mut c_void)>;
 /// Called when the user changes the time. This also fires the action of the widget.
 pub type RTimeChangedCallback = Option<unsafe extern "C" fn(time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: *mut c_void)>;
 /// Called by the button of a message, which then hides. This also fires the action of the widget.
@@ -4188,6 +4199,42 @@ extern "C" {
     pub fn Rdate_picker_set_instant(date_picker: Rid, utc: f64);
     /// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
     pub fn Rdate_picker_get_instant(date_picker: Rid) -> f64;
+    /// One date (default) or a range of two. In the range mode the field
+    /// shows "first – last" in the Format of the picker (the placeholder while
+    /// there is no range) and the calendar shows two months unless
+    /// Rdate_picker_set_month_count says another number.
+    pub fn Rdate_picker_set_selection_mode(date_picker: Rid, mode: RDateSelectionMode);
+    pub fn Rdate_picker_get_selection_mode(date_picker: Rid) -> RDateSelectionMode;
+    /// Sets the range (no callback is called): the ends are swapped if the
+    /// first is the later, and kept inside the bounds of Rdate_picker_set_range.
+    /// The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+    pub fn Rdate_picker_set_selection(date_picker: Rid, start_year: c_int, start_month: c_int, start_day: c_int, end_year: c_int, end_month: c_int, end_day: c_int);
+    /// The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+    pub fn Rdate_picker_get_selection(date_picker: Rid, start_year: *mut c_int, start_month: *mut c_int, start_day: *mut c_int, end_year: *mut c_int, end_month: *mut c_int, end_day: *mut c_int) -> c_int;
+    /// No range any more: the field shows its placeholder.
+    pub fn Rdate_picker_clear_selection(date_picker: Rid);
+    /// The range as instants of the time zone of the picker: the first
+    /// instant of the first day, and the first instant of the day after the
+    /// last one (an end excluded, so that the range holds its last day whole).
+    /// R_FALSE (and zeros) when there is no range.
+    pub fn Rdate_picker_get_selection_instants(date_picker: Rid, start_utc: *mut f64, end_utc: *mut f64) -> c_int;
+    pub fn Rdate_picker_set_selection_callback(date_picker: Rid, callback: RDateSelectionCallback, user_data: *mut c_void);
+    /// The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+    pub fn Rdate_picker_set_month_count(date_picker: Rid, months: c_int);
+    /// The months the calendar shows (the default resolved).
+    pub fn Rdate_picker_get_month_count(date_picker: Rid) -> c_int;
+    /// The fewest and the most days a range chosen by the user can have,
+    /// both ends counted (2 days = 1 night); 0: no limit. The days that would
+    /// break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+    pub fn Rdate_picker_set_selection_limits(date_picker: Rid, min_days: c_int, max_days: c_int);
+    /// Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+    pub fn Rdate_picker_set_placeholder(date_picker: Rid, text: *const c_char);
+    /// Adds a preset to the column at the left of the calendar: a click
+    /// chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+    /// in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+    pub fn Rdate_picker_add_preset(date_picker: Rid, label: *const c_char, start_year: c_int, start_month: c_int, start_day: c_int, end_year: c_int, end_month: c_int, end_day: c_int);
+    pub fn Rdate_picker_clear_presets(date_picker: Rid);
+    pub fn Rdate_picker_get_preset_count(date_picker: Rid) -> c_int;
     pub fn Rtime_picker_set_time(time_picker: Rid, hour: c_int, minute: c_int, second: c_int);
     pub fn Rtime_picker_get_time(time_picker: Rid, hour: *mut c_int, minute: *mut c_int, second: *mut c_int);
     pub fn Rtime_picker_set_seconds_visible(time_picker: Rid, visible: c_int);

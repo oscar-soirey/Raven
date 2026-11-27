@@ -834,6 +834,20 @@ const _symbols = {
 	Rdate_picker_get_time_zone: { args: ["u32"], returns: "cstring" },
 	Rdate_picker_set_instant: { args: ["u32", "f64"], returns: "void" },
 	Rdate_picker_get_instant: { args: ["u32"], returns: "f64" },
+	Rdate_picker_set_selection_mode: { args: ["u32", "i32"], returns: "void" },
+	Rdate_picker_get_selection_mode: { args: ["u32"], returns: "i32" },
+	Rdate_picker_set_selection: { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
+	Rdate_picker_get_selection: { args: ["u32", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rdate_picker_clear_selection: { args: ["u32"], returns: "void" },
+	Rdate_picker_get_selection_instants: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rdate_picker_set_selection_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdate_picker_set_month_count: { args: ["u32", "i32"], returns: "void" },
+	Rdate_picker_get_month_count: { args: ["u32"], returns: "i32" },
+	Rdate_picker_set_selection_limits: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rdate_picker_set_placeholder: { args: ["u32", "ptr"], returns: "void" },
+	Rdate_picker_add_preset: { args: ["u32", "ptr", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
+	Rdate_picker_clear_presets: { args: ["u32"], returns: "void" },
+	Rdate_picker_get_preset_count: { args: ["u32"], returns: "i32" },
 	Rtime_picker_set_time: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rtime_picker_get_time: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtime_picker_set_seconds_visible: { args: ["u32", "i32"], returns: "void" },
@@ -3464,6 +3478,17 @@ export enum RTableColumnKind {
 export const R_TABLE_COLUMN_TEXT = RTableColumnKind.R_TABLE_COLUMN_TEXT;
 export const R_TABLE_COLUMN_CHECK = RTableColumnKind.R_TABLE_COLUMN_CHECK;
 export const R_TABLE_COLUMN_PROGRESS = RTableColumnKind.R_TABLE_COLUMN_PROGRESS;
+
+/** What a DatePicker chooses (SelectionMode="Single|Range" in XML). */
+export enum RDateSelectionMode {
+	/** One date (the default): Rdate_picker_get_date. */
+	R_DATE_SELECTION_SINGLE = 0x0D00,
+	/** A first and a last day: Rdate_picker_get_selection. */
+	R_DATE_SELECTION_RANGE = 0x0D01,
+}
+
+export const R_DATE_SELECTION_SINGLE = RDateSelectionMode.R_DATE_SELECTION_SINGLE;
+export const R_DATE_SELECTION_RANGE = RDateSelectionMode.R_DATE_SELECTION_RANGE;
 
 /** Shorthands of Rtext_editor_set_language for two languages. */
 export enum RSyntax {
@@ -7943,6 +7968,26 @@ function _adapt_RDateChangedCallback(function_: RDateChangedCallback | Pointer |
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called once per range the user chooses (in the calendar or with a
+ * preset), not on the first click. The changed callback is called then too,
+ * with the first day, and the action of the widget is fired.
+ */
+export type RDateSelectionCallback = (date_picker: Rid, start_year: number, start_month: number, start_day: number, end_year: number, end_month: number, end_day: number, user_data: Pointer | null) => void;
+
+function _adapt_RDateSelectionCallback(function_: RDateSelectionCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((date_picker: number, start_year: number, start_month: number, start_day: number, end_year: number, end_month: number, end_day: number, user_data: Pointer | null): void => {
+		try {
+			function_(date_picker, start_year, start_month, start_day, end_year, end_month, end_day, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user changes the time. This also fires the action of the widget. */
@@ -13037,6 +13082,104 @@ export function Rdate_picker_set_instant(date_picker: Rid, utc: number): void {
 /** The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). */
 export function Rdate_picker_get_instant(date_picker: Rid): number {
 	return _lib.Rdate_picker_get_instant(date_picker);
+}
+
+/**
+ * One date (default) or a range of two. In the range mode the field
+ * shows "first – last" in the Format of the picker (the placeholder while
+ * there is no range) and the calendar shows two months unless
+ * Rdate_picker_set_month_count says another number.
+ */
+export function Rdate_picker_set_selection_mode(date_picker: Rid, mode: RDateSelectionMode): void {
+	_lib.Rdate_picker_set_selection_mode(date_picker, mode);
+}
+
+export function Rdate_picker_get_selection_mode(date_picker: Rid): RDateSelectionMode {
+	return _lib.Rdate_picker_get_selection_mode(date_picker) as RDateSelectionMode;
+}
+
+/**
+ * Sets the range (no callback is called): the ends are swapped if the
+ * first is the later, and kept inside the bounds of Rdate_picker_set_range.
+ * The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+ */
+export function Rdate_picker_set_selection(date_picker: Rid, start_year: number, start_month: number, start_day: number, end_year: number, end_month: number, end_day: number): void {
+	_lib.Rdate_picker_set_selection(date_picker, start_year, start_month, start_day, end_year, end_month, end_day);
+}
+
+/** The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL. */
+export function Rdate_picker_get_selection(date_picker: Rid): [result: number, start_year: number, start_month: number, start_day: number, end_year: number, end_month: number, end_day: number] {
+	const start_year_ = new Int32Array(1);
+	const start_month_ = new Int32Array(1);
+	const start_day_ = new Int32Array(1);
+	const end_year_ = new Int32Array(1);
+	const end_month_ = new Int32Array(1);
+	const end_day_ = new Int32Array(1);
+	const result_ = _lib.Rdate_picker_get_selection(date_picker, start_year_, start_month_, start_day_, end_year_, end_month_, end_day_);
+	return [result_, start_year_[0]!, start_month_[0]!, start_day_[0]!, end_year_[0]!, end_month_[0]!, end_day_[0]!];
+}
+
+/** No range any more: the field shows its placeholder. */
+export function Rdate_picker_clear_selection(date_picker: Rid): void {
+	_lib.Rdate_picker_clear_selection(date_picker);
+}
+
+/**
+ * The range as instants of the time zone of the picker: the first
+ * instant of the first day, and the first instant of the day after the
+ * last one (an end excluded, so that the range holds its last day whole).
+ * R_FALSE (and zeros) when there is no range.
+ */
+export function Rdate_picker_get_selection_instants(date_picker: Rid): [result: number, start_utc: number, end_utc: number] {
+	const start_utc_ = new Float64Array(1);
+	const end_utc_ = new Float64Array(1);
+	const result_ = _lib.Rdate_picker_get_selection_instants(date_picker, start_utc_, end_utc_);
+	return [result_, start_utc_[0]!, end_utc_[0]!];
+}
+
+export function Rdate_picker_set_selection_callback(date_picker: Rid, callback: RDateSelectionCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdate_picker_set_selection_callback(date_picker, _adapt_RDateSelectionCallback(callback), user_data);
+}
+
+/** The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML. */
+export function Rdate_picker_set_month_count(date_picker: Rid, months: number): void {
+	_lib.Rdate_picker_set_month_count(date_picker, months);
+}
+
+/** The months the calendar shows (the default resolved). */
+export function Rdate_picker_get_month_count(date_picker: Rid): number {
+	return _lib.Rdate_picker_get_month_count(date_picker);
+}
+
+/**
+ * The fewest and the most days a range chosen by the user can have,
+ * both ends counted (2 days = 1 night); 0: no limit. The days that would
+ * break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+ */
+export function Rdate_picker_set_selection_limits(date_picker: Rid, min_days: number, max_days: number): void {
+	_lib.Rdate_picker_set_selection_limits(date_picker, min_days, max_days);
+}
+
+/** Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder). */
+export function Rdate_picker_set_placeholder(date_picker: Rid, text: string | null): void {
+	_lib.Rdate_picker_set_placeholder(date_picker, _s(text));
+}
+
+/**
+ * Adds a preset to the column at the left of the calendar: a click
+ * chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+ * in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+ */
+export function Rdate_picker_add_preset(date_picker: Rid, label: string | null, start_year: number, start_month: number, start_day: number, end_year: number, end_month: number, end_day: number): void {
+	_lib.Rdate_picker_add_preset(date_picker, _s(label), start_year, start_month, start_day, end_year, end_month, end_day);
+}
+
+export function Rdate_picker_clear_presets(date_picker: Rid): void {
+	_lib.Rdate_picker_clear_presets(date_picker);
+}
+
+export function Rdate_picker_get_preset_count(date_picker: Rid): number {
+	return _lib.Rdate_picker_get_preset_count(date_picker);
 }
 
 export function Rtime_picker_set_time(time_picker: Rid, hour: number, minute: number, second: number): void {

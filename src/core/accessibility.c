@@ -284,6 +284,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_COMBO_BOX: return R_ROLE_COMBO_BOX;
 		/* the list of a combo box, while it is open (what matches the search) */
 		case RVN_WIDGET_INTERNAL_COMBO_LIST: return R_ROLE_LIST;
+		/* the calendar of a date picker, while it is open: its presets and days */
+		case RVN_WIDGET_INTERNAL_CALENDAR: return R_ROLE_LIST;
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
@@ -389,6 +391,7 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
 		case R_WIDGET_CAROUSEL: return (int)widget->child_count;
 		case RVN_WIDGET_INTERNAL_COMBO_LIST: return rvn_combo_list_row_count(widget);
+		case RVN_WIDGET_INTERNAL_CALENDAR: return rvn_calendar_item_count(widget);
 		case R_WIDGET_DIFF_VIEW: return Rdiff_view_get_row_count(widget->id);
 		default: return 0;
 	}
@@ -576,6 +579,11 @@ rvn_a11y_id_t rvn_a11y_hit(Rid id, float x, float y) {
 				rvn_vec2_t origin = rvn_widget_origin(hit);
 				int row = rvn_diff_view_row_at(hit, x - origin.x, y - origin.y);
 				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
+			}
+			if (hit->cls->type == RVN_WIDGET_INTERNAL_CALENDAR) {
+				rvn_vec2_t origin = rvn_widget_origin(hit);
+				int day = rvn_calendar_item_at(hit, x - origin.x, y - origin.y);
+				if (day >= 0) return rvn_a11y_make_item(hit->id, day);
 			}
 			return rvn_a11y_node_of(hit);
 		}
@@ -836,6 +844,24 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				if (rvn_combo_list_hot(widget) == item) node->states |= RVN_A11Y_FOCUSED;
 				break;
 			}
+			case RVN_WIDGET_INTERNAL_CALENDAR: {
+				/* a day of the calendar ("Thursday 12 March 2026"), selected when it is in the range; or a preset */
+				char name[96];
+				rvn_rect_t rect;
+				uint32_t flags = 0;
+				if (!rvn_calendar_item_info(widget, item, name, sizeof(name), &rect, &flags)) return R_FALSE;
+				node->role = (flags & RVN_CALENDAR_ITEM_PRESET) ? R_ROLE_BUTTON : R_ROLE_LIST_ITEM;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				rvn_text_add(&g_a11y.name, name);
+				if (flags & RVN_CALENDAR_ITEM_DISABLED) node->states |= RVN_A11Y_DISABLED;
+				else node->states |= RVN_A11Y_INVOKABLE | ((flags & RVN_CALENDAR_ITEM_PRESET) ? 0 : RVN_A11Y_SELECTABLE);
+				if (flags & RVN_CALENDAR_ITEM_SELECTED) node->states |= RVN_A11Y_SELECTED;
+				if (flags & RVN_CALENDAR_ITEM_FOCUSED) node->states |= RVN_A11Y_FOCUSED;
+				break;
+			}
 			case R_WIDGET_CAROUSEL: {
 				/* a dot: named by its page, else "Page 2 of 5" */
 				rvn_widget_t* page = (uint32_t)item < widget->child_count ? widget->children[item] : NULL;
@@ -905,11 +931,23 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			}
 			break;
 		}
-		case R_WIDGET_DATE_PICKER:
+		case R_WIDGET_DATE_PICKER: {
+			/* a date as shown; a range spoken: "from 12 March 2026 to 18 March 2026" */
+			char value[192];
 			node->states |= RVN_A11Y_EXPANDABLE | RVN_A11Y_INVOKABLE;
 			if (Rdate_picker_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
-			rvn_text_add(&g_a11y.value, Rdate_picker_get_text(widget->id));
+			if (rvn_date_picker_is_range_picker(widget) && !rvn_a11y_str(&g_a11y.name)[0])
+				rvn_text_add(&g_a11y.name, Rtr_exists("Raven.DateRangeName") ? Rtr("Raven.DateRangeName") : "Date range");
+			rvn_date_picker_describe(widget, value, sizeof(value));
+			rvn_text_add(&g_a11y.value, value);
 			break;
+		}
+		case RVN_WIDGET_INTERNAL_CALENDAR: {
+			char value[192];
+			rvn_calendar_describe(widget, value, sizeof(value));
+			rvn_text_add(&g_a11y.value, value);
+			break;
+		}
 		case R_WIDGET_TIME_PICKER:
 			/* as shown: "3:05 PM EST", "15:05" */
 			rvn_text_add(&g_a11y.value, Rtime_picker_get_text(widget->id));
@@ -1135,6 +1173,13 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				if (item >= Rmap_view_get_marker_count(widget->id)) return R_FALSE;
 				rvn_dispatch_begin();
 				rvn_map_view_press_marker(widget, item);
+				rvn_dispatch_end();
+				return R_TRUE;
+			case RVN_WIDGET_INTERNAL_CALENDAR:
+				if (action != RVN_A11Y_SELECT && action != RVN_A11Y_PRESS) return R_FALSE;
+				if (item >= rvn_calendar_item_count(widget)) return R_FALSE;
+				rvn_dispatch_begin();
+				rvn_calendar_item_press(widget, item);
 				rvn_dispatch_end();
 				return R_TRUE;
 			case R_WIDGET_DIFF_VIEW:

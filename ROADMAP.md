@@ -124,7 +124,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   not planned: the table draws its cells itself.
 - [x] ComboBox: editable (any text) and searchable (typing filters the list,
   without regard to case or accents).
-- [~] Date picker: a range of two dates (to do). Done: a 12-hour clock with
+- [x] Date picker: a range of two dates (`SelectionMode="Range"`: two
+  clicks, the range to come under the pointer, two months side by side,
+  `MinDays` / `MaxDays`, presets, the keyboard, the range as instants of its
+  zone). Also a 12-hour clock with
   AM and PM where the locale uses one (`Clock="Auto|12|24"`,
   `Rlocale_uses_12_hour_clock`), and time zones (`Rtimezone_*`, the tz
   database of the system, `TimeZone` and `ShowTimeZone` on the pickers).

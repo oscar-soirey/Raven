@@ -1531,6 +1531,16 @@ public final class R {
      */
     public static final int R_TABLE_COLUMN_PROGRESS = 0x0BD2;
 
+    // RDateSelectionMode: What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+    /**
+     * One date (the default): Rdate_picker_get_date.
+     */
+    public static final int R_DATE_SELECTION_SINGLE = 0x0D00;
+    /**
+     * A first and a last day: Rdate_picker_get_selection.
+     */
+    public static final int R_DATE_SELECTION_RANGE = 0x0D01;
+
     // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
     public static final int R_SYNTAX_NONE = 0x0340;
     public static final int R_SYNTAX_XML = 0x0341;
@@ -6321,6 +6331,29 @@ public final class R {
 
     private static MemorySegment upcall(RDateChangedCallback f) {
         return stub(f, RDateChangedCallback.class, "RDateChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called once per range the user chooses (in the calendar or with a
+     * preset), not on the first click. The changed callback is called then too,
+     * with the first day, and the action of the widget is fired.
+     */
+    @FunctionalInterface
+    public interface RDateSelectionCallback {
+        void invoke(int date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day, MemorySegment user_data);
+    }
+
+    private static void RDateSelectionCallback$raw(RDateSelectionCallback f, int date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day, MemorySegment user_data) {
+        try {
+            f.invoke(date_picker, start_year, start_month, start_day, end_year, end_month, end_day, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RDateSelectionCallback f) {
+        return stub(f, RDateSelectionCallback.class, "RDateSelectionCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -18323,6 +18356,243 @@ public final class R {
         if ($h == null) Rdate_picker_get_instant$ = $h = find("Rdate_picker_get_instant", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
         try {
             double $r = (double) $h.invokeExact(date_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_selection_mode$;
+
+    /**
+     * One date (default) or a range of two. In the range mode the field
+     * shows "first – last" in the Format of the picker (the placeholder while
+     * there is no range) and the calendar shows two months unless
+     * Rdate_picker_set_month_count says another number.
+     */
+    public static void Rdate_picker_set_selection_mode(int date_picker, int mode) {
+        MethodHandle $h = Rdate_picker_set_selection_mode$;
+        if ($h == null) Rdate_picker_set_selection_mode$ = $h = find("Rdate_picker_set_selection_mode", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(date_picker, mode);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_selection_mode$;
+
+    public static int Rdate_picker_get_selection_mode(int date_picker) {
+        MethodHandle $h = Rdate_picker_get_selection_mode$;
+        if ($h == null) Rdate_picker_get_selection_mode$ = $h = find("Rdate_picker_get_selection_mode", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(date_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_selection$;
+
+    /**
+     * Sets the range (no callback is called): the ends are swapped if the
+     * first is the later, and kept inside the bounds of Rdate_picker_set_range.
+     * The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+     */
+    public static void Rdate_picker_set_selection(int date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day) {
+        MethodHandle $h = Rdate_picker_set_selection$;
+        if ($h == null) Rdate_picker_set_selection$ = $h = find("Rdate_picker_set_selection", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(date_picker, start_year, start_month, start_day, end_year, end_month, end_day);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_selection$;
+
+    /**
+     * The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+     */
+    public static int Rdate_picker_get_selection(int date_picker, int[] start_year, int[] start_month, int[] start_day, int[] end_year, int[] end_month, int[] end_day) {
+        MethodHandle $h = Rdate_picker_get_selection$;
+        if ($h == null) Rdate_picker_get_selection$ = $h = find("Rdate_picker_get_selection", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment start_year$ = start_year == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment start_month$ = start_month == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment start_day$ = start_day == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment end_year$ = end_year == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment end_month$ = end_month == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment end_day$ = end_day == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(date_picker, start_year$, start_month$, start_day$, end_year$, end_month$, end_day$);
+            if (start_year != null && start_year.length > 0) start_year[0] = start_year$.get(JAVA_INT, 0);
+            if (start_month != null && start_month.length > 0) start_month[0] = start_month$.get(JAVA_INT, 0);
+            if (start_day != null && start_day.length > 0) start_day[0] = start_day$.get(JAVA_INT, 0);
+            if (end_year != null && end_year.length > 0) end_year[0] = end_year$.get(JAVA_INT, 0);
+            if (end_month != null && end_month.length > 0) end_month[0] = end_month$.get(JAVA_INT, 0);
+            if (end_day != null && end_day.length > 0) end_day[0] = end_day$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_clear_selection$;
+
+    /**
+     * No range any more: the field shows its placeholder.
+     */
+    public static void Rdate_picker_clear_selection(int date_picker) {
+        MethodHandle $h = Rdate_picker_clear_selection$;
+        if ($h == null) Rdate_picker_clear_selection$ = $h = find("Rdate_picker_clear_selection", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(date_picker);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_selection_instants$;
+
+    /**
+     * The range as instants of the time zone of the picker: the first
+     * instant of the first day, and the first instant of the day after the
+     * last one (an end excluded, so that the range holds its last day whole).
+     * R_FALSE (and zeros) when there is no range.
+     */
+    public static int Rdate_picker_get_selection_instants(int date_picker, double[] start_utc, double[] end_utc) {
+        MethodHandle $h = Rdate_picker_get_selection_instants$;
+        if ($h == null) Rdate_picker_get_selection_instants$ = $h = find("Rdate_picker_get_selection_instants", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment start_utc$ = start_utc == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment end_utc$ = end_utc == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            int $r = (int) $h.invokeExact(date_picker, start_utc$, end_utc$);
+            if (start_utc != null && start_utc.length > 0) start_utc[0] = start_utc$.get(JAVA_DOUBLE, 0);
+            if (end_utc != null && end_utc.length > 0) end_utc[0] = end_utc$.get(JAVA_DOUBLE, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_selection_callback$;
+
+    public static void Rdate_picker_set_selection_callback(int date_picker, RDateSelectionCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rdate_picker_set_selection_callback$;
+        if ($h == null) Rdate_picker_set_selection_callback$ = $h = find("Rdate_picker_set_selection_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(date_picker, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rdate_picker_set_selection_callback(int date_picker, RDateSelectionCallback callback) {
+        Rdate_picker_set_selection_callback(date_picker, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rdate_picker_set_month_count$;
+
+    /**
+     * The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+     */
+    public static void Rdate_picker_set_month_count(int date_picker, int months) {
+        MethodHandle $h = Rdate_picker_set_month_count$;
+        if ($h == null) Rdate_picker_set_month_count$ = $h = find("Rdate_picker_set_month_count", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(date_picker, months);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_month_count$;
+
+    /**
+     * The months the calendar shows (the default resolved).
+     */
+    public static int Rdate_picker_get_month_count(int date_picker) {
+        MethodHandle $h = Rdate_picker_get_month_count$;
+        if ($h == null) Rdate_picker_get_month_count$ = $h = find("Rdate_picker_get_month_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(date_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_selection_limits$;
+
+    /**
+     * The fewest and the most days a range chosen by the user can have,
+     * both ends counted (2 days = 1 night); 0: no limit. The days that would
+     * break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+     */
+    public static void Rdate_picker_set_selection_limits(int date_picker, int min_days, int max_days) {
+        MethodHandle $h = Rdate_picker_set_selection_limits$;
+        if ($h == null) Rdate_picker_set_selection_limits$ = $h = find("Rdate_picker_set_selection_limits", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(date_picker, min_days, max_days);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_placeholder$;
+
+    /**
+     * Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+     */
+    public static void Rdate_picker_set_placeholder(int date_picker, String text) {
+        MethodHandle $h = Rdate_picker_set_placeholder$;
+        if ($h == null) Rdate_picker_set_placeholder$ = $h = find("Rdate_picker_set_placeholder", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(date_picker, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_add_preset$;
+
+    /**
+     * Adds a preset to the column at the left of the calendar: a click
+     * chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+     * in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+     */
+    public static void Rdate_picker_add_preset(int date_picker, String label, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day) {
+        MethodHandle $h = Rdate_picker_add_preset$;
+        if ($h == null) Rdate_picker_add_preset$ = $h = find("Rdate_picker_add_preset", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            $h.invokeExact(date_picker, label$, start_year, start_month, start_day, end_year, end_month, end_day);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_clear_presets$;
+
+    public static void Rdate_picker_clear_presets(int date_picker) {
+        MethodHandle $h = Rdate_picker_clear_presets$;
+        if ($h == null) Rdate_picker_clear_presets$ = $h = find("Rdate_picker_clear_presets", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(date_picker);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_preset_count$;
+
+    public static int Rdate_picker_get_preset_count(int date_picker) {
+        MethodHandle $h = Rdate_picker_get_preset_count$;
+        if ($h == null) Rdate_picker_get_preset_count$ = $h = find("Rdate_picker_get_preset_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(date_picker);
             return $r;
         } catch (Throwable $t) {
             throw fail($t);

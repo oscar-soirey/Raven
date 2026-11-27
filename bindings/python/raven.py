@@ -1404,6 +1404,14 @@ R_TABLE_COLUMN_TEXT = RTableColumnKind.R_TABLE_COLUMN_TEXT
 R_TABLE_COLUMN_CHECK = RTableColumnKind.R_TABLE_COLUMN_CHECK
 R_TABLE_COLUMN_PROGRESS = RTableColumnKind.R_TABLE_COLUMN_PROGRESS
 
+class RDateSelectionMode(enum.IntEnum):
+    """What a DatePicker chooses (SelectionMode="Single|Range" in XML)."""
+    R_DATE_SELECTION_SINGLE = 0x0D00
+    R_DATE_SELECTION_RANGE = 0x0D01
+
+R_DATE_SELECTION_SINGLE = RDateSelectionMode.R_DATE_SELECTION_SINGLE
+R_DATE_SELECTION_RANGE = RDateSelectionMode.R_DATE_SELECTION_RANGE
+
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
     R_SYNTAX_NONE = 0x0340
@@ -2906,6 +2914,14 @@ RDateChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, cty
 def _adapt_RDateChangedCallback(function):
     def call(date_picker, year, month, day, user_data):
         function(date_picker, year, month, day, user_data)
+    return call
+
+RDateSelectionCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDateSelectionCallback(function):
+    def call(date_picker, start_year, start_month, start_day, end_year, end_month, end_day, user_data):
+        function(date_picker, start_year, start_month, start_day, end_year, end_month, end_day, user_data)
     return call
 
 RTimeChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
@@ -9867,6 +9883,150 @@ _lib.Rdate_picker_get_instant.restype = ctypes.c_double
 def Rdate_picker_get_instant(date_picker):
     """The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to)."""
     return _lib.Rdate_picker_get_instant(date_picker)
+
+
+_lib.Rdate_picker_set_selection_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdate_picker_set_selection_mode.restype = None
+
+
+def Rdate_picker_set_selection_mode(date_picker, mode):
+    """One date (default) or a range of two. In the range mode the field
+    shows "first – last" in the Format of the picker (the placeholder while
+    there is no range) and the calendar shows two months unless
+    Rdate_picker_set_month_count says another number."""
+    _lib.Rdate_picker_set_selection_mode(date_picker, int(mode))
+
+
+_lib.Rdate_picker_get_selection_mode.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_selection_mode.restype = ctypes.c_int
+
+
+def Rdate_picker_get_selection_mode(date_picker):
+    return _e(RDateSelectionMode, _lib.Rdate_picker_get_selection_mode(date_picker))
+
+
+_lib.Rdate_picker_set_selection.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rdate_picker_set_selection.restype = None
+
+
+def Rdate_picker_set_selection(date_picker, start_year, start_month, start_day, end_year, end_month, end_day):
+    """Sets the range (no callback is called): the ends are swapped if the
+    first is the later, and kept inside the bounds of Rdate_picker_set_range.
+    The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML."""
+    _lib.Rdate_picker_set_selection(date_picker, start_year, start_month, start_day, end_year, end_month, end_day)
+
+
+_lib.Rdate_picker_get_selection.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdate_picker_get_selection.restype = ctypes.c_int
+
+
+def Rdate_picker_get_selection(date_picker):
+    """The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL."""
+    start_year_ = ctypes.c_int()
+    start_month_ = ctypes.c_int()
+    start_day_ = ctypes.c_int()
+    end_year_ = ctypes.c_int()
+    end_month_ = ctypes.c_int()
+    end_day_ = ctypes.c_int()
+    result = _lib.Rdate_picker_get_selection(date_picker, ctypes.byref(start_year_), ctypes.byref(start_month_), ctypes.byref(start_day_), ctypes.byref(end_year_), ctypes.byref(end_month_), ctypes.byref(end_day_))
+    return (result, start_year_.value, start_month_.value, start_day_.value, end_year_.value, end_month_.value, end_day_.value)
+
+
+_lib.Rdate_picker_clear_selection.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_clear_selection.restype = None
+
+
+def Rdate_picker_clear_selection(date_picker):
+    """No range any more: the field shows its placeholder."""
+    _lib.Rdate_picker_clear_selection(date_picker)
+
+
+_lib.Rdate_picker_get_selection_instants.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rdate_picker_get_selection_instants.restype = ctypes.c_int
+
+
+def Rdate_picker_get_selection_instants(date_picker):
+    """The range as instants of the time zone of the picker: the first
+    instant of the first day, and the first instant of the day after the
+    last one (an end excluded, so that the range holds its last day whole).
+    R_FALSE (and zeros) when there is no range."""
+    start_utc_ = ctypes.c_double()
+    end_utc_ = ctypes.c_double()
+    result = _lib.Rdate_picker_get_selection_instants(date_picker, ctypes.byref(start_utc_), ctypes.byref(end_utc_))
+    return (result, start_utc_.value, end_utc_.value)
+
+
+_lib.Rdate_picker_set_selection_callback.argtypes = [ctypes.c_uint32, RDateSelectionCallback, ctypes.c_void_p]
+_lib.Rdate_picker_set_selection_callback.restype = None
+
+
+def Rdate_picker_set_selection_callback(date_picker, callback, user_data=None):
+    _lib.Rdate_picker_set_selection_callback(date_picker, _callback(RDateSelectionCallback, _adapt_RDateSelectionCallback, callback), user_data)
+
+
+_lib.Rdate_picker_set_month_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdate_picker_set_month_count.restype = None
+
+
+def Rdate_picker_set_month_count(date_picker, months):
+    """The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML."""
+    _lib.Rdate_picker_set_month_count(date_picker, months)
+
+
+_lib.Rdate_picker_get_month_count.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_month_count.restype = ctypes.c_int
+
+
+def Rdate_picker_get_month_count(date_picker):
+    """The months the calendar shows (the default resolved)."""
+    return _lib.Rdate_picker_get_month_count(date_picker)
+
+
+_lib.Rdate_picker_set_selection_limits.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rdate_picker_set_selection_limits.restype = None
+
+
+def Rdate_picker_set_selection_limits(date_picker, min_days, max_days):
+    """The fewest and the most days a range chosen by the user can have,
+    both ends counted (2 days = 1 night); 0: no limit. The days that would
+    break them cannot be clicked as the second end. MinDays, MaxDays in XML."""
+    _lib.Rdate_picker_set_selection_limits(date_picker, min_days, max_days)
+
+
+_lib.Rdate_picker_set_placeholder.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdate_picker_set_placeholder.restype = None
+
+
+def Rdate_picker_set_placeholder(date_picker, text):
+    """Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder)."""
+    _lib.Rdate_picker_set_placeholder(date_picker, _s(text))
+
+
+_lib.Rdate_picker_add_preset.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rdate_picker_add_preset.restype = None
+
+
+def Rdate_picker_add_preset(date_picker, label, start_year, start_month, start_day, end_year, end_month, end_day):
+    """Adds a preset to the column at the left of the calendar: a click
+    chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+    in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...)."""
+    _lib.Rdate_picker_add_preset(date_picker, _s(label), start_year, start_month, start_day, end_year, end_month, end_day)
+
+
+_lib.Rdate_picker_clear_presets.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_clear_presets.restype = None
+
+
+def Rdate_picker_clear_presets(date_picker):
+    _lib.Rdate_picker_clear_presets(date_picker)
+
+
+_lib.Rdate_picker_get_preset_count.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_preset_count.restype = ctypes.c_int
+
+
+def Rdate_picker_get_preset_count(date_picker):
+    return _lib.Rdate_picker_get_preset_count(date_picker)
 
 
 _lib.Rtime_picker_set_time.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]

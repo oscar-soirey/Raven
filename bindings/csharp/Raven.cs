@@ -1651,6 +1651,21 @@ namespace Raven
     }
 
     /// <summary>
+    /// What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+    /// </summary>
+    public enum RDateSelectionMode : int
+    {
+        /// <summary>
+        /// One date (the default): Rdate_picker_get_date.
+        /// </summary>
+        R_DATE_SELECTION_SINGLE = 0x0D00,
+        /// <summary>
+        /// A first and a last day: Rdate_picker_get_selection.
+        /// </summary>
+        R_DATE_SELECTION_RANGE = 0x0D01,
+    }
+
+    /// <summary>
     /// Shorthands of Rtext_editor_set_language for two languages.
     /// </summary>
     public enum RSyntax : int
@@ -4015,6 +4030,14 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RDateChangedCallback(uint date_picker, int year, int month, int day, IntPtr user_data);
+
+    /// <summary>
+    /// Called once per range the user chooses (in the calendar or with a
+    /// preset), not on the first click. The changed callback is called then too,
+    /// with the first day, and the action of the widget is fired.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RDateSelectionCallback(uint date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day, IntPtr user_data);
 
     /// <summary>
     /// Called when the user changes the time. This also fires the action of the widget.
@@ -8417,6 +8440,90 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern double Rdate_picker_get_instant(uint date_picker);
+
+        /// <summary>
+        /// One date (default) or a range of two. In the range mode the field
+        /// shows "first – last" in the Format of the picker (the placeholder while
+        /// there is no range) and the calendar shows two months unless
+        /// Rdate_picker_set_month_count says another number.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_selection_mode(uint date_picker, RDateSelectionMode mode);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RDateSelectionMode Rdate_picker_get_selection_mode(uint date_picker);
+
+        /// <summary>
+        /// Sets the range (no callback is called): the ends are swapped if the
+        /// first is the later, and kept inside the bounds of Rdate_picker_set_range.
+        /// The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_selection(uint date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+
+        /// <summary>
+        /// The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdate_picker_get_selection(uint date_picker, out int start_year, out int start_month, out int start_day, out int end_year, out int end_month, out int end_day);
+
+        /// <summary>
+        /// No range any more: the field shows its placeholder.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_clear_selection(uint date_picker);
+
+        /// <summary>
+        /// The range as instants of the time zone of the picker: the first
+        /// instant of the first day, and the first instant of the day after the
+        /// last one (an end excluded, so that the range holds its last day whole).
+        /// R_FALSE (and zeros) when there is no range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdate_picker_get_selection_instants(uint date_picker, out double start_utc, out double end_utc);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_selection_callback(uint date_picker, RDateSelectionCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_month_count(uint date_picker, int months);
+
+        /// <summary>
+        /// The months the calendar shows (the default resolved).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdate_picker_get_month_count(uint date_picker);
+
+        /// <summary>
+        /// The fewest and the most days a range chosen by the user can have,
+        /// both ends counted (2 days = 1 night); 0: no limit. The days that would
+        /// break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_selection_limits(uint date_picker, int min_days, int max_days);
+
+        /// <summary>
+        /// Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_placeholder(uint date_picker, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Adds a preset to the column at the left of the calendar: a click
+        /// chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+        /// in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_add_preset(uint date_picker, [MarshalAs(Utf8.Str)] string label, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_clear_presets(uint date_picker);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdate_picker_get_preset_count(uint date_picker);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtime_picker_set_time(uint time_picker, int hour, int minute, int second);

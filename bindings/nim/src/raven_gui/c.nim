@@ -170,6 +170,8 @@ type
     ## How the rows of a Table are selected (Rtable_set_selection_mode).
   RTableColumnKind* = cint
     ## What the cells of a column show (Rtable_set_column_kind).
+  RDateSelectionMode* = cint
+    ## What a DatePicker chooses (SelectionMode="Single\|Range" in XML).
   RSyntax* = cint
     ## Shorthands of Rtext_editor_set_language for two languages.
   RLanguageFlags* = cint
@@ -390,6 +392,10 @@ type
     ## Without a callback, a stored table keeps every text.
   RDateChangedCallback* = proc (date_picker: Rid, year: cint, month: cint, day: cint, user_data: pointer) {.cdecl.}
     ## Called when the user chooses a date. This also fires the action of the widget.
+  RDateSelectionCallback* = proc (date_picker: Rid, start_year: cint, start_month: cint, start_day: cint, end_year: cint, end_month: cint, end_day: cint, user_data: pointer) {.cdecl.}
+    ## Called once per range the user chooses (in the calendar or with a
+    ## preset), not on the first click. The changed callback is called then too,
+    ## with the first day, and the action of the widget is fired.
   RTimeChangedCallback* = proc (time_picker: Rid, hour: cint, minute: cint, second: cint, user_data: pointer) {.cdecl.}
     ## Called when the user changes the time. This also fires the action of the widget.
   RToastCallback* = proc (toast: Rid, user_data: pointer) {.cdecl.}
@@ -2090,6 +2096,12 @@ const
     ## editable; the cell edited callback is then called with "1" or "0".
   R_TABLE_COLUMN_PROGRESS*: RTableColumnKind = 0x0BD2
     ## A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+
+  # RDateSelectionMode
+  R_DATE_SELECTION_SINGLE*: RDateSelectionMode = 0x0D00
+    ## One date (the default): Rdate_picker_get_date.
+  R_DATE_SELECTION_RANGE*: RDateSelectionMode = 0x0D01
+    ## A first and a last day: Rdate_picker_get_selection.
 
   # RSyntax
   R_SYNTAX_NONE*: RSyntax = 0x0340
@@ -4164,6 +4176,42 @@ proc Rdate_picker_set_instant*(date_picker: Rid, utc: cdouble) {.rapi.}
   ## Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
 proc Rdate_picker_get_instant*(date_picker: Rid): cdouble {.rapi.}
   ## The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+proc Rdate_picker_set_selection_mode*(date_picker: Rid, mode: RDateSelectionMode) {.rapi.}
+  ## One date (default) or a range of two. In the range mode the field
+  ## shows "first – last" in the Format of the picker (the placeholder while
+  ## there is no range) and the calendar shows two months unless
+  ## Rdate_picker_set_month_count says another number.
+proc Rdate_picker_get_selection_mode*(date_picker: Rid): RDateSelectionMode {.rapi.}
+proc Rdate_picker_set_selection*(date_picker: Rid, start_year: cint, start_month: cint, start_day: cint, end_year: cint, end_month: cint, end_day: cint) {.rapi.}
+  ## Sets the range (no callback is called): the ends are swapped if the
+  ## first is the later, and kept inside the bounds of Rdate_picker_set_range.
+  ## The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+proc Rdate_picker_get_selection*(date_picker: Rid, start_year: ptr cint, start_month: ptr cint, start_day: ptr cint, end_year: ptr cint, end_month: ptr cint, end_day: ptr cint): cint {.rapi.}
+  ## The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+proc Rdate_picker_clear_selection*(date_picker: Rid) {.rapi.}
+  ## No range any more: the field shows its placeholder.
+proc Rdate_picker_get_selection_instants*(date_picker: Rid, start_utc: ptr cdouble, end_utc: ptr cdouble): cint {.rapi.}
+  ## The range as instants of the time zone of the picker: the first
+  ## instant of the first day, and the first instant of the day after the
+  ## last one (an end excluded, so that the range holds its last day whole).
+  ## R_FALSE (and zeros) when there is no range.
+proc Rdate_picker_set_selection_callback*(date_picker: Rid, callback: RDateSelectionCallback, user_data: pointer) {.rapi.}
+proc Rdate_picker_set_month_count*(date_picker: Rid, months: cint) {.rapi.}
+  ## The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+proc Rdate_picker_get_month_count*(date_picker: Rid): cint {.rapi.}
+  ## The months the calendar shows (the default resolved).
+proc Rdate_picker_set_selection_limits*(date_picker: Rid, min_days: cint, max_days: cint) {.rapi.}
+  ## The fewest and the most days a range chosen by the user can have,
+  ## both ends counted (2 days = 1 night); 0: no limit. The days that would
+  ## break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+proc Rdate_picker_set_placeholder*(date_picker: Rid, text: cstring) {.rapi.}
+  ## Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+proc Rdate_picker_add_preset*(date_picker: Rid, label: cstring, start_year: cint, start_month: cint, start_day: cint, end_year: cint, end_month: cint, end_day: cint) {.rapi.}
+  ## Adds a preset to the column at the left of the calendar: a click
+  ## chooses its range at once. Presets="Today\|Yesterday\|Last7Days\|Last30Days\|ThisMonth\|LastMonth"
+  ## in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+proc Rdate_picker_clear_presets*(date_picker: Rid) {.rapi.}
+proc Rdate_picker_get_preset_count*(date_picker: Rid): cint {.rapi.}
 proc Rtime_picker_set_time*(time_picker: Rid, hour: cint, minute: cint, second: cint) {.rapi.}
 proc Rtime_picker_get_time*(time_picker: Rid, hour: ptr cint, minute: ptr cint, second: ptr cint) {.rapi.}
 proc Rtime_picker_set_seconds_visible*(time_picker: Rid, visible: cint) {.rapi.}

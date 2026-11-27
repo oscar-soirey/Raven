@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1189 of the 1620 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 399 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (169):
@@ -63,7 +63,7 @@
 //     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
 //     Rtest_save_png
 //
-//   a callback (113):
+//   a callback (114):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -82,26 +82,27 @@
 //     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
 //     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
 //     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
-//     Rtable_set_cell_edited_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
-//     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
-//     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
-//     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
-//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback Rdock_area_set_close_callback
-//     Rdock_area_set_float_window Rdock_area_set_changed_callback Risland_set_changed_callback
-//     Rtray_set_clicked_callback Rcolor_picker_set_changed_callback Rtimeline_set_time_callback
-//     Rtimeline_set_changed_callback Rtimeline_set_selection_callback Rtimeline_set_activated_callback
-//     Rtimeline_set_removed_callback Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback
-//     Rnode_graph_set_unlinked_callback Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback
-//     Rnode_graph_set_removed_callback Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
-//     Rnode_graph_set_canvas_activated_callback Rnode_graph_set_wire_dropped_callback
-//     Rnode_graph_set_pin_clicked_callback Rblock_editor_set_changed_callback
-//     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
-//     Rfile_browser_set_accepted_callback Rfile_browser_set_cancelled_callback
-//     Rfile_browser_set_selection_changed_callback Rnotification_set_fallback
-//     Rnotification_set_clicked_callback Rnotification_set_callback Rpermission_request Rcamera_take_photo
-//     Rphoto_pick Rviewport_set_draw_callback Rviewport_set_resize_callback Rcustom_set_paint_callback
-//     Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback
-//     Rscript_set_diagnostic_callback Rlocale_set_changed_callback Rwidget_set_accessible_action
+//     Rtable_set_cell_edited_callback Rdate_picker_set_changed_callback Rdate_picker_set_selection_callback
+//     Rtime_picker_set_changed_callback Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback
+//     Rrating_set_changed_callback Rpagination_set_changed_callback Rplot_set_view_changed_callback
+//     Rplot_set_drag_line_callback Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback
+//     Rtext_editor_set_completion_callback Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback
+//     Rdock_area_set_close_callback Rdock_area_set_float_window Rdock_area_set_changed_callback
+//     Risland_set_changed_callback Rtray_set_clicked_callback Rcolor_picker_set_changed_callback
+//     Rtimeline_set_time_callback Rtimeline_set_changed_callback Rtimeline_set_selection_callback
+//     Rtimeline_set_activated_callback Rtimeline_set_removed_callback Rnode_graph_set_connect_callback
+//     Rnode_graph_set_linked_callback Rnode_graph_set_unlinked_callback Rnode_graph_set_moved_callback
+//     Rnode_graph_set_selection_callback Rnode_graph_set_removed_callback Rnode_graph_set_activated_callback
+//     Rnode_graph_set_context_callback Rnode_graph_set_canvas_activated_callback
+//     Rnode_graph_set_wire_dropped_callback Rnode_graph_set_pin_clicked_callback
+//     Rblock_editor_set_changed_callback Rblock_editor_set_clicked_callback
+//     Rblock_editor_set_context_callback Rdialog_open Rpopup_open Rfile_browser_set_accepted_callback
+//     Rfile_browser_set_cancelled_callback Rfile_browser_set_selection_changed_callback
+//     Rnotification_set_fallback Rnotification_set_clicked_callback Rnotification_set_callback
+//     Rpermission_request Rcamera_take_photo Rphoto_pick Rviewport_set_draw_callback
+//     Rviewport_set_resize_callback Rcustom_set_paint_callback Rcustom_set_measure_callback
+//     Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback Rscript_set_diagnostic_callback
+//     Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
@@ -3354,6 +3355,83 @@ date_picker_set_instant :: proc(date_picker: Widget, utc: f64) {
 // The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
 date_picker_get_instant :: proc(date_picker: Widget) -> f64 {
 	return raw.Rdate_picker_get_instant(raw.Rid(date_picker))
+}
+
+// One date (default) or a range of two. In the range mode the field
+// shows "first – last" in the Format of the picker (the placeholder while
+// there is no range) and the calendar shows two months unless
+// Rdate_picker_set_month_count says another number.
+date_picker_set_selection_mode :: proc(date_picker: Widget, mode: Date_Selection_Mode) {
+	raw.Rdate_picker_set_selection_mode(raw.Rid(date_picker), raw.RDateSelectionMode(mode))
+}
+
+date_picker_get_selection_mode :: proc(date_picker: Widget) -> Date_Selection_Mode {
+	return Date_Selection_Mode(raw.Rdate_picker_get_selection_mode(raw.Rid(date_picker)))
+}
+
+// Sets the range (no callback is called): the ends are swapped if the
+// first is the later, and kept inside the bounds of Rdate_picker_set_range.
+// The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+date_picker_set_selection :: proc(date_picker: Widget, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32) {
+	raw.Rdate_picker_set_selection(raw.Rid(date_picker), start_year, start_month, start_day, end_year, end_month, end_day)
+}
+
+// The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+date_picker_get_selection :: proc(date_picker: Widget) -> (result: i32, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32) {
+	result = raw.Rdate_picker_get_selection(raw.Rid(date_picker), &start_year, &start_month, &start_day, &end_year, &end_month, &end_day)
+	return
+}
+
+// No range any more: the field shows its placeholder.
+date_picker_clear_selection :: proc(date_picker: Widget) {
+	raw.Rdate_picker_clear_selection(raw.Rid(date_picker))
+}
+
+// The range as instants of the time zone of the picker: the first
+// instant of the first day, and the first instant of the day after the
+// last one (an end excluded, so that the range holds its last day whole).
+// R_FALSE (and zeros) when there is no range.
+date_picker_get_selection_instants :: proc(date_picker: Widget) -> (result: i32, start_utc: f64, end_utc: f64) {
+	result = raw.Rdate_picker_get_selection_instants(raw.Rid(date_picker), &start_utc, &end_utc)
+	return
+}
+
+// The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+date_picker_set_month_count :: proc(date_picker: Widget, months: i32) {
+	raw.Rdate_picker_set_month_count(raw.Rid(date_picker), months)
+}
+
+// The months the calendar shows (the default resolved).
+date_picker_get_month_count :: proc(date_picker: Widget) -> i32 {
+	return raw.Rdate_picker_get_month_count(raw.Rid(date_picker))
+}
+
+// The fewest and the most days a range chosen by the user can have,
+// both ends counted (2 days = 1 night); 0: no limit. The days that would
+// break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+date_picker_set_selection_limits :: proc(date_picker: Widget, min_days: i32, max_days: i32) {
+	raw.Rdate_picker_set_selection_limits(raw.Rid(date_picker), min_days, max_days)
+}
+
+// Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+date_picker_set_placeholder :: proc(date_picker: Widget, text: cstring) {
+	raw.Rdate_picker_set_placeholder(raw.Rid(date_picker), text)
+}
+
+// Adds a preset to the column at the left of the calendar: a click
+// chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+// in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+date_picker_add_preset :: proc(date_picker: Widget, label: string, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32) {
+	buffer_label: [cstring_buffer_size]u8
+	raw.Rdate_picker_add_preset(raw.Rid(date_picker), to_cstring(label, &buffer_label), start_year, start_month, start_day, end_year, end_month, end_day)
+}
+
+date_picker_clear_presets :: proc(date_picker: Widget) {
+	raw.Rdate_picker_clear_presets(raw.Rid(date_picker))
+}
+
+date_picker_get_preset_count :: proc(date_picker: Widget) -> i32 {
+	return raw.Rdate_picker_get_preset_count(raw.Rid(date_picker))
 }
 
 time_picker_set_time :: proc(time_picker: Widget, hour: i32, minute: i32, second: i32) {
