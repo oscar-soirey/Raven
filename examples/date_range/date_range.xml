@@ -1,0 +1,41 @@
+<!-- A booking form: a DatePicker that chooses a range of nights in two months side by side, with presets; main.c counts the nights. -->
+<Window Title="Raven date range" Width="780" Height="620">
+	<VBox Spacing="14" Slot.Padding="22">
+		<VBox Spacing="2">
+			<Label Text="Book a stay" TextSize="24"/>
+			<Label Text="Click the day you arrive, then the day you leave (Escape starts again). Shift+arrows and Enter work too." Opacity="0.6"/>
+		</VBox>
+
+		<HBox Spacing="14">
+			<VBox Spacing="4">
+				<Label Text="Dates" Opacity="0.7"/>
+				<!-- at least one night, at most four weeks; main.c adds the presets and makes today the earliest day -->
+				<DatePicker Name="stay" SelectionMode="Range" Months="2" FirstDayOfWeek="Monday" Format="ddd D MMM YYYY"
+					MinDays="2" MaxDays="29" Placeholder="Check-in &#8211; Check-out" OnChanged="stay.changed" AccessibleName="Dates of the stay"/>
+			</VBox>
+			<VBox Spacing="4">
+				<Label Text="Guests" Opacity="0.7"/>
+				<SpinBox Name="guests" Min="1" Max="8" Value="2" Decimals="0" OnChanged="stay.changed"/>
+			</VBox>
+		</HBox>
+
+		<VBox Spacing="4">
+			<Label Name="nights" Text="No dates yet" TextSize="18"/>
+			<Label Name="price" Text="" Opacity="0.6"/>
+		</VBox>
+		<HBox Spacing="10">
+			<Button Name="book" Text="Book" Style="Primary" OnClicked="stay.book"/>
+			<Button Text="Clear" OnClicked="stay.clear"/>
+		</HBox>
+
+		<Separator/>
+
+		<VBox Spacing="4">
+			<Label Text="Report period" Opacity="0.7"/>
+			<HBox Spacing="12">
+				<DatePicker Name="report" SelectionMode="Range" Months="1" Format="D MMM YYYY" Presets="Today|Last7Days|Last30Days|ThisMonth|LastMonth" OnChanged="report.changed"/>
+				<Label Name="report_days" Text="" Opacity="0.6" Slot.VAlign="Center"/>
+			</HBox>
+		</VBox>
+	</VBox>
+</Window>

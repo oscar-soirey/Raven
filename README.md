@@ -706,6 +706,7 @@ The build trees are in `build\dist\`.
 | `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
 | `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
+| `examples/date_range` | a booking form: a `DatePicker` that chooses the nights of a stay in two months side by side, presets (a weekend, a week), at least one night and at most four weeks, the nights counted; a report period with the presets of Raven |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1597,6 +1598,38 @@ wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
 (`Rnotification_set_fallback`), to show it in a toast for instance.
+
+```xml
+<DatePicker Name="stay" SelectionMode="Range" FirstDayOfWeek="Monday" Format="ddd D MMM YYYY"
+    MinDays="2" MaxDays="29" Presets="Today|Last7Days|ThisMonth|LastMonth"/>
+```
+
+A `DatePicker` with `SelectionMode="Range"` chooses a range of two dates: a
+booking, the period of a report, a filter. The first click in the calendar
+is one end, the second the other (clicked before the first, the ends are
+swapped); in between, the days up to the one under the pointer are shown as
+the range to come. The range is a band with round ends, in the accent and
+selection colors of the theme. The calendar shows two months side by side
+(`Months` says 1 to 3), and the arrows move them together. `Min` and `Max`
+still bound the days that can be chosen; `MinDays` and `MaxDays` bound the
+length of a range (both ends counted: 2 days is one night), and the days that
+would break them cannot end it. Presets in a column at the left choose a
+range at once: `Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"`
+(computed from the day they are used), or ranges of the application
+(`Rdate_picker_add_preset`). The field writes "12 Mar 2026 – 18 Mar 2026" in
+the `Format` of the picker, and a `Placeholder` while there is no range. On
+the keyboard, the arrows move the day, Enter or Space takes one end then the
+other, Shift+arrows grow a range from the day of the keyboard, Page Up and
+Page Down change the month, and Escape forgets a first end (a second Escape
+closes the calendar). The changed callback and `OnChanged` come once per
+range, when its second end is chosen; `Rdate_picker_set_selection_callback`
+gives both ends, `Rdate_picker_get_selection` reads them, and
+`Rdate_picker_get_selection_instants` gives the range in the zone of the
+picker, from the midnight of its first day to the midnight after its last.
+Screen readers hear "from 12 March 2026 to 18 March 2026"; the days of the
+open calendar are items, those of the range selected.
+
+![A range being chosen over two months (dark), and the range chosen (light), with presets](docs/images/date_range_picker.png)
 
 `Rnotification_show_desc` adds a tag (a notification shown again with the same
 tag replaces the first one; `Rnotification_close` takes it away), up to three

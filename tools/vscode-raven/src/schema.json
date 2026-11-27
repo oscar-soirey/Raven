@@ -2682,9 +2682,48 @@
 					"description": "The time zone of the date for Rdate_picker_get_instant: \"Europe/Paris\"; empty: the zone of the system."
 				},
 				{
+					"name": "SelectionMode",
+					"kind": "choice",
+					"choices": [
+						"Single",
+						"Range"
+					],
+					"description": "One date (default) or a range of two: a first and a last day."
+				},
+				{
+					"name": "Selection",
+					"kind": "text",
+					"description": "The range, \"YYYY-MM-DD/YYYY-MM-DD\" (first and last day included); empty: none."
+				},
+				{
+					"name": "Months",
+					"kind": "number",
+					"description": "The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date."
+				},
+				{
+					"name": "MinDays",
+					"kind": "number",
+					"description": "The fewest days of a range the user chooses, both ends counted; 0: no limit."
+				},
+				{
+					"name": "MaxDays",
+					"kind": "number",
+					"description": "The most days of a range the user chooses, both ends counted; 0: no limit."
+				},
+				{
+					"name": "Placeholder",
+					"kind": "text",
+					"description": "Shown, dimmed, while a range picker has no range."
+				},
+				{
+					"name": "Presets",
+					"kind": "list",
+					"description": "Presets of a range in a column of the calendar: Today, Yesterday, Last7Days, Last30Days, ThisMonth, LastMonth."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
-					"description": "Action fired when the user chooses a date."
+					"description": "Action fired when the user chooses a date, or a whole range."
 				}
 			],
 			"accepted": []
