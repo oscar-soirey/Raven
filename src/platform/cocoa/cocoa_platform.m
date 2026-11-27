@@ -1677,8 +1677,15 @@ static void rvn_cocoa_pump(double timeout_seconds) {
     [g_cocoa.pool drain]; g_cocoa.pool = [[NSAutoreleasePool alloc] init];
 }
 static void rvn_cocoa_wake(void) {
-    NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
-    [NSApp postEvent:event atStart:YES];
+    /* Called from any thread: the render thread after every frame, worker
+       threads through Rtask_post, the application through Rwake_up. The event
+       is autoreleased on the calling thread, and only the UI thread drains a
+       pool (the pump): without one here, a thread that has none keeps every
+       event for good. */
+    @autoreleasepool {
+        NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
+        [NSApp postEvent:event atStart:YES];
+    }
 }
 
 /* ---------------------------------------------------------------------------
