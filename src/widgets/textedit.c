@@ -140,7 +140,8 @@ static int rvn_te_word_right(const rvn_textedit_t* edit, int offset) {
 static void rvn_te_blink(Rid timer, void* user_data) {
 	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user_data);
 	RVN_UNUSED(timer);
-	if (widget) rvn_widget_invalidate_paint(widget);
+	/* (no caret shows in a window in the background: nothing to repaint) */
+	if (widget && (!widget->window || widget->window->active)) rvn_widget_invalidate_paint(widget);
 }
 
 void rvn_textedit_set_focused(rvn_textedit_t* edit, rvn_widget_t* widget, int focused) {

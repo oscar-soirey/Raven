@@ -1211,7 +1211,7 @@ pattern R_WIDGET_MAP_VIEW = RWidgetType 565
 -- | Pages shown one at a time and swiped (a page view), with dots and arrows.
 pattern R_WIDGET_CAROUSEL :: RWidgetType
 pattern R_WIDGET_CAROUSEL = RWidgetType 566
--- | A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+-- | A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
 pattern R_WIDGET_SYSTEM_WEB_VIEW :: RWidgetType
 pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 -- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
@@ -7898,7 +7898,9 @@ foreign import ccall safe "Rsystem_web_view_set_message_callback" rsystem_web_vi
 foreign import ccall safe "Rsystem_web_view_set_event_callback" rsystem_web_view_set_event_callback :: Rid -> RSystemWebViewEventCallback -> Ptr () -> IO ()
 
 -- | The view of the system, to go further than these functions:
--- a WKWebView* on macOS and iOS. NULL where unsupported.
+-- a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+-- until WebView2 has made the view, a moment after it is created). NULL
+-- where unsupported.
 foreign import ccall safe "Rsystem_web_view_get_native_handle" rsystem_web_view_get_native_handle :: Rid -> IO (Ptr ())
 
 foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid

@@ -60,10 +60,10 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 2. Reliability
 
-- [ ] **Tests on Windows and macOS in CI.** Today the tests run on Linux
-  only; the Win32 and Cocoa platforms are only compiled. Run the headless
-  tests on `windows-latest` and `macos-latest`, and the platform tests where
-  a display is available.
+- [x] **Tests on Windows and macOS in CI.** The headless tests run on
+  `ubuntu-latest`, `macos-latest` and `windows-latest` (Visual C++), with the
+  platform tests the runners have a desktop for: `test_cocoa_input` (AppKit)
+  and `test_win32_backdrop` (DWM).
 - [x] **Tests of interfaces** (`raven_testing.h`): widgets found by name
   and driven through the input path of the window system (click, double
   click, drag, wheel, keys, text, tap, swipe), frames until nothing moves,
@@ -90,11 +90,14 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Text
 
-- [ ] **Input methods on Windows, macOS and Wayland** (Chinese, Japanese,
-  Korean): today only X11 (XIM) has them. TSF / IMM32 on Windows,
-  `NSTextInputClient` on macOS, `text-input-v3` on Wayland; the core already
-  tracks the composition rectangle (`Rwindow_get_text_input_rect`).
-- [ ] Placement of the composition window of the IME.
+- [x] **Input methods on Windows and macOS** (Chinese, Japanese, Korean):
+  `NSTextInputClient` on macOS, IMM32 on Windows. The composition is drawn
+  in the field, underlined (`Rwindow_inject_composition`), and the
+  candidate window is placed at the caret (`Rwindow_get_text_input_rect`).
+- [x] **Input methods on Linux**: `text-input-v3` on Wayland, XIM on the
+  spot on X11 (the composition drawn in the field, the candidates at the
+  caret), the input method's own window where it cannot.
+- [ ] TSF on Windows (IMM32 is used).
 - [x] Text editor: search and replace (find bar, match case, whole word,
   replace all as one undo step).
 - [x] Text editor: several cursors (Alt+click, Ctrl+D, Ctrl+Shift+L, column
@@ -157,15 +160,19 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Glass over a native child window.
 - [x] Embedding the system web view: `SystemWebView`, WKWebView on macOS
   (and iOS), WebKit opened at run time.
-- [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
+- [x] The system web view on Windows: Microsoft Edge WebView2, its runtime
+  found at run time (no SDK, nothing linked).
+- [ ] The system web view on Linux (WebKitGTK) and Android
   (`android.webkit.WebView`).
 
 ### Rendering
 
-- [ ] A Metal backend for macOS (MoltenVK is used today).
+- [x] A Metal backend for macOS and iOS (`R_BACKEND_METAL`, the default
+  there; Vulkan through MoltenVK can still be asked for).
 - [ ] A GPU memory sub-allocator; presenting several windows in one call.
-- [ ] WebAssembly: Raven in a web page (WebGPU or WebGL backend, a browser
-  platform), first for the tutorials of the documentation.
+- [x] WebAssembly: Raven in a web page (Emscripten platform, WebGL 2
+  backend; docs/emscripten.md), drawing only when something changes.
+- [ ] A WebGPU backend for the browser.
 
 ## 4. From `idee.txt`
 
@@ -185,8 +192,13 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 6. For the people who use Raven
 
-- [ ] **Packages**: vcpkg, Conan, Homebrew, a `pkg-config` file, and the
-  CMake config already installed.
+- [~] **Packages**: done: a `pkg-config` file (`raven.pc`) beside the CMake
+  config, both tested from an installed prefix (`package_pkgconfig`,
+  `package_cmake`); a Homebrew formula, a vcpkg port and a Conan recipe
+  (`raven-gui`, [packaging/](packaging/README.md)), each tested from a
+  working tree, their versions set by `set_version.py`. Left: submitting them
+  (homebrew-core or a tap, the vcpkg registry, Conan Center) after the first
+  release that has them.
 - [ ] **CONTRIBUTING.md**, issue and pull request templates, a code of
   conduct.
 - [ ] **Transparency about how Raven is made** (issue #1, "AI disclosure"):

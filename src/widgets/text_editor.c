@@ -1833,7 +1833,8 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_rect_t vertical, horizontal;
 	rvn_vec2_t origin = rvn_widget_origin(widget);
 	/* (the text has the keyboard; the frame shows the focus of the widget, which may be in the find bar) */
-	int focused = (widget->flags & RVN_WF_FOCUSED) != 0 && !rvn_ed_find_has_keys(ed);
+	int focused = (widget->flags & RVN_WF_FOCUSED) != 0 && !rvn_ed_find_has_keys(ed) &&
+		(!widget->window || widget->window->active);
 	int has_selection = rvn_ed_has_selection(ed);
 	rvn_ed_pos_t sel_min = rvn_ed_sel_min(ed), sel_max = rvn_ed_sel_max(ed);
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
@@ -3886,7 +3887,8 @@ static int rvn_ed_find_text(rvn_text_editor_t* ed, uint32_t codepoint) {
 static void rvn_ed_blink(Rid timer, void* user_data) {
 	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user_data);
 	RVN_UNUSED(timer);
-	if (widget) rvn_widget_invalidate_paint(widget);
+	/* (no caret shows in a window in the background: nothing to repaint) */
+	if (widget && (!widget->window || widget->window->active)) rvn_widget_invalidate_paint(widget);
 }
 
 static void rvn_ed_set_focused(rvn_widget_t* widget, int focused) {

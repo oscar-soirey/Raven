@@ -1128,7 +1128,7 @@ namespace Raven
         /// </summary>
         R_WIDGET_CAROUSEL = 0x0236,
         /// <summary>
-        /// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+        /// A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
         /// </summary>
         R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
         /// <summary>
@@ -9654,7 +9654,9 @@ namespace Raven
 
         /// <summary>
         /// The view of the system, to go further than these functions:
-        /// a WKWebView* on macOS and iOS. NULL where unsupported.
+        /// a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+        /// until WebView2 has made the view, a moment after it is created). NULL
+        /// where unsupported.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr Rsystem_web_view_get_native_handle(uint view);
