@@ -1217,6 +1217,9 @@ pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 -- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pattern R_WIDGET_DIFF_VIEW :: RWidgetType
 pattern R_WIDGET_DIFF_VIEW = RWidgetType 568
+-- | Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
+pattern R_WIDGET_RICH_TEXT_EDITOR :: RWidgetType
+pattern R_WIDGET_RICH_TEXT_EDITOR = RWidgetType 569
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1780,6 +1783,49 @@ pattern R_MARKER_WARNING :: RMarkerKind
 pattern R_MARKER_WARNING = RMarkerKind 849
 pattern R_MARKER_INFO :: RMarkerKind
 pattern R_MARKER_INFO = RMarkerKind 850
+
+-- | Looks of text: a bitmask.
+newtype RRichTextStyle = RRichTextStyle CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_RICH_TEXT_BOLD :: RRichTextStyle
+pattern R_RICH_TEXT_BOLD = RRichTextStyle 1
+pattern R_RICH_TEXT_ITALIC :: RRichTextStyle
+pattern R_RICH_TEXT_ITALIC = RRichTextStyle 2
+pattern R_RICH_TEXT_UNDERLINE :: RRichTextStyle
+pattern R_RICH_TEXT_UNDERLINE = RRichTextStyle 4
+pattern R_RICH_TEXT_STRIKETHROUGH :: RRichTextStyle
+pattern R_RICH_TEXT_STRIKETHROUGH = RRichTextStyle 8
+-- | Inline code: a monospace font on a tile.
+pattern R_RICH_TEXT_CODE :: RRichTextStyle
+pattern R_RICH_TEXT_CODE = RRichTextStyle 16
+-- | Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+pattern R_RICH_TEXT_LINK :: RRichTextStyle
+pattern R_RICH_TEXT_LINK = RRichTextStyle 32
+
+-- | Kinds of paragraphs.
+newtype RRichTextBlock = RRichTextBlock CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_RICH_TEXT_PARAGRAPH :: RRichTextBlock
+pattern R_RICH_TEXT_PARAGRAPH = RRichTextBlock 3264
+pattern R_RICH_TEXT_HEADING_1 :: RRichTextBlock
+pattern R_RICH_TEXT_HEADING_1 = RRichTextBlock 3265
+pattern R_RICH_TEXT_HEADING_2 :: RRichTextBlock
+pattern R_RICH_TEXT_HEADING_2 = RRichTextBlock 3266
+pattern R_RICH_TEXT_HEADING_3 :: RRichTextBlock
+pattern R_RICH_TEXT_HEADING_3 = RRichTextBlock 3267
+-- | An item of a bulleted list.
+pattern R_RICH_TEXT_BULLET_LIST :: RRichTextBlock
+pattern R_RICH_TEXT_BULLET_LIST = RRichTextBlock 3268
+-- | An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+pattern R_RICH_TEXT_NUMBERED_LIST :: RRichTextBlock
+pattern R_RICH_TEXT_NUMBERED_LIST = RRichTextBlock 3269
+pattern R_RICH_TEXT_QUOTE :: RRichTextBlock
+pattern R_RICH_TEXT_QUOTE = RRichTextBlock 3270
+-- | A line of a block of code: monospace, kept as typed, no looks.
+pattern R_RICH_TEXT_CODE_BLOCK :: RRichTextBlock
+pattern R_RICH_TEXT_CODE_BLOCK = RRichTextBlock 3271
 
 -- | Buttons of a header bar.
 newtype RHeaderButtons = RHeaderButtons CInt
@@ -2985,6 +3031,23 @@ type RTextEditorChangedCallback = FunPtr (Rid -> Ptr () -> IO ())
 -- | Makes a 'RTextEditorChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRTextEditorChangedCallback :: (Rid -> Ptr () -> IO ()) -> IO RTextEditorChangedCallback
+
+-- | Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too.
+type RRichTextChangedCallback = FunPtr (Rid -> Ptr () -> IO ())
+
+-- | Makes a 'RRichTextChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRRichTextChangedCallback :: (Rid -> Ptr () -> IO ()) -> IO RRichTextChangedCallback
+
+-- | Called when a link is followed: Ctrl+click (Cmd+click), or a
+-- click when the editor is read-only. Without a callback, a link
+-- written action:name fires the action "name" and http, https and mailto
+-- links open in the browser (Ropen_url).
+type RRichTextLinkCallback = FunPtr (Rid -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RRichTextLinkCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRRichTextLinkCallback :: (Rid -> CString -> Ptr () -> IO ()) -> IO RRichTextLinkCallback
 
 -- | Called when the tray icon is clicked (Rtray_set_clicked_callback).
 type RTrayClickedCallback = FunPtr (Rid -> RMouseButton -> Ptr () -> IO ())
@@ -8277,6 +8340,134 @@ foreign import ccall safe "Rtheme_get_token_color" rtheme_get_token_color :: RTo
 foreign import ccall safe "Rtheme_clear_token_colors" rtheme_clear_token_colors :: IO ()
 
 foreign import ccall safe "Rtext_editor_set_changed_callback" rtext_editor_set_changed_callback :: Rid -> RTextEditorChangedCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_create" rrich_text_editor_create :: IO Rid
+
+-- | Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown.
+foreign import ccall safe "Rrich_text_editor_set_markdown" rrich_text_editor_set_markdown :: Rid -> CString -> IO ()
+
+-- | The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+foreign import ccall safe "Rrich_text_editor_get_markdown" rrich_text_editor_get_markdown :: Rid -> IO CString
+
+-- | Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+foreign import ccall safe "Rrich_text_editor_set_html" rrich_text_editor_set_html :: Rid -> CString -> IO ()
+
+-- | The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+foreign import ccall safe "Rrich_text_editor_get_html" rrich_text_editor_get_html :: Rid -> IO CString
+
+-- | Replaces the document with plain text: a paragraph per line. Clears the history.
+foreign import ccall safe "Rrich_text_editor_set_text" rrich_text_editor_set_text :: Rid -> CString -> IO ()
+
+-- | The text without its looks, a line per paragraph. Valid until the next call.
+foreign import ccall safe "Rrich_text_editor_get_text" rrich_text_editor_get_text :: Rid -> IO CString
+
+-- | Types plain text in place of the selection, as one step of the history (the changed callback is called).
+foreign import ccall safe "Rrich_text_editor_insert_text" rrich_text_editor_insert_text :: Rid -> CString -> IO ()
+
+-- | Puts HTML in place of the selection, as pasting it would (one step of the history).
+foreign import ccall safe "Rrich_text_editor_insert_html" rrich_text_editor_insert_html :: Rid -> CString -> IO ()
+
+-- | Puts Markdown in place of the selection (one step of the history).
+foreign import ccall safe "Rrich_text_editor_insert_markdown" rrich_text_editor_insert_markdown :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_get_paragraph_count" rrich_text_editor_get_paragraph_count :: Rid -> IO CInt
+
+-- | The text of a paragraph, without its looks. Valid until the next call.
+foreign import ccall safe "Rrich_text_editor_get_paragraph_text" rrich_text_editor_get_paragraph_text :: Rid -> CInt -> IO CString
+
+foreign import ccall safe "Rrich_text_editor_get_paragraph_block" rrich_text_editor_get_paragraph_block :: Rid -> CInt -> IO RRichTextBlock
+
+-- | How deep an item of a list is (0: not in another list).
+foreign import ccall safe "Rrich_text_editor_get_paragraph_indent" rrich_text_editor_get_paragraph_indent :: Rid -> CInt -> IO CInt
+
+-- | The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+foreign import ccall safe "Rrich_text_editor_get_style_at" rrich_text_editor_get_style_at :: Rid -> CInt -> CInt -> IO Word32
+
+-- | Selects from the anchor to the caret (equal: no selection, the caret there).
+foreign import ccall safe "Rrich_text_editor_set_selection" rrich_text_editor_set_selection :: Rid -> CInt -> CInt -> CInt -> CInt -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_get_selection" rrich_text_editor_get_selection :: Rid -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_select_all" rrich_text_editor_select_all :: Rid -> IO ()
+
+-- | The selected text, without its looks. Valid until the next call.
+foreign import ccall safe "Rrich_text_editor_get_selected_text" rrich_text_editor_get_selected_text :: Rid -> IO CString
+
+-- | Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+-- over the selection; with no selection, for what is typed next at the
+-- caret.
+foreign import ccall safe "Rrich_text_editor_set_style" rrich_text_editor_set_style :: Rid -> Word32 -> CInt -> IO ()
+
+-- | Turns a look off where all the selection has it, else on (Ctrl+B...).
+foreign import ccall safe "Rrich_text_editor_toggle_style" rrich_text_editor_toggle_style :: Rid -> Word32 -> IO ()
+
+-- | The looks the whole selection has (with no selection: those
+-- that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+foreign import ccall safe "Rrich_text_editor_get_style" rrich_text_editor_get_style :: Rid -> IO Word32
+
+-- | Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+foreign import ccall safe "Rrich_text_editor_set_block" rrich_text_editor_set_block :: Rid -> RRichTextBlock -> IO ()
+
+-- | The kind of the paragraph of the caret.
+foreign import ccall safe "Rrich_text_editor_get_block" rrich_text_editor_get_block :: Rid -> IO RRichTextBlock
+
+-- | Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+foreign import ccall safe "Rrich_text_editor_indent" rrich_text_editor_indent :: Rid -> CInt -> IO ()
+
+-- | Makes the selection a link to `url` (NULL or "": no link any
+-- more). With no selection: the link the caret is in; outside of any, the
+-- address is typed as a link.
+foreign import ccall safe "Rrich_text_editor_set_link" rrich_text_editor_set_link :: Rid -> CString -> IO ()
+
+-- | The address of the link at the caret (or at the start of the selection), NULL when there is none.
+foreign import ccall safe "Rrich_text_editor_get_link" rrich_text_editor_get_link :: Rid -> IO CString
+
+-- | Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+foreign import ccall safe "Rrich_text_editor_edit_link" rrich_text_editor_edit_link :: Rid -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_undo" rrich_text_editor_undo :: Rid -> IO CInt
+
+foreign import ccall safe "Rrich_text_editor_redo" rrich_text_editor_redo :: Rid -> IO CInt
+
+foreign import ccall safe "Rrich_text_editor_can_undo" rrich_text_editor_can_undo :: Rid -> IO CInt
+
+foreign import ccall safe "Rrich_text_editor_can_redo" rrich_text_editor_can_redo :: Rid -> IO CInt
+
+foreign import ccall safe "Rrich_text_editor_clear_history" rrich_text_editor_clear_history :: Rid -> IO ()
+
+-- | The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+foreign import ccall safe "Rrich_text_editor_set_read_only" rrich_text_editor_set_read_only :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_is_read_only" rrich_text_editor_is_read_only :: Rid -> IO CInt
+
+-- | Text shown while the document is empty. XML: Placeholder.
+foreign import ccall safe "Rrich_text_editor_set_placeholder" rrich_text_editor_set_placeholder :: Rid -> CString -> IO ()
+
+-- | Shows or hides the toolbar (shown by default). XML: Toolbar.
+foreign import ccall safe "Rrich_text_editor_set_toolbar" rrich_text_editor_set_toolbar :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_get_toolbar" rrich_text_editor_get_toolbar :: Rid -> IO CInt
+
+-- | Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+foreign import ccall safe "Rrich_text_editor_set_markdown_shortcuts" rrich_text_editor_set_markdown_shortcuts :: Rid -> CInt -> IO ()
+
+-- | Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+foreign import ccall safe "Rrich_text_editor_set_spell_check" rrich_text_editor_set_spell_check :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_set_spell_language" rrich_text_editor_set_spell_language :: Rid -> CString -> IO ()
+
+-- | The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+foreign import ccall safe "Rrich_text_editor_set_font" rrich_text_editor_set_font :: Rid -> Rid -> CFloat -> IO ()
+
+-- | Scrolls so that the caret is seen.
+foreign import ccall safe "Rrich_text_editor_scroll_to_caret" rrich_text_editor_scroll_to_caret :: Rid -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_set_changed_callback" rrich_text_editor_set_changed_callback :: Rid -> RRichTextChangedCallback -> Ptr () -> IO ()
+
+-- | Called when the selection or the caret moved (to update a toolbar of the application).
+foreign import ccall safe "Rrich_text_editor_set_selection_callback" rrich_text_editor_set_selection_callback :: Rid -> RRichTextChangedCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rrich_text_editor_set_link_callback" rrich_text_editor_set_link_callback :: Rid -> RRichTextLinkCallback -> Ptr () -> IO ()
 
 -- | title Text shown in the bar; NULL shows the title of the window.
 foreign import ccall safe "Rheader_bar_create" rheader_bar_create :: CString -> IO Rid

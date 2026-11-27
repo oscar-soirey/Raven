@@ -1135,6 +1135,10 @@ namespace Raven
         /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
         /// </summary>
         R_WIDGET_DIFF_VIEW = 0x0238,
+        /// <summary>
+        /// Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
+        /// </summary>
+        R_WIDGET_RICH_TEXT_EDITOR = 0x0239,
     }
 
     public enum RHAlign : int
@@ -1766,6 +1770,50 @@ namespace Raven
         R_MARKER_ERROR = 0x0350,
         R_MARKER_WARNING = 0x0351,
         R_MARKER_INFO = 0x0352,
+    }
+
+    /// <summary>
+    /// Looks of text: a bitmask.
+    /// </summary>
+    [Flags]
+    public enum RRichTextStyle : int
+    {
+        R_RICH_TEXT_BOLD = 1,
+        R_RICH_TEXT_ITALIC = 2,
+        R_RICH_TEXT_UNDERLINE = 4,
+        R_RICH_TEXT_STRIKETHROUGH = 8,
+        /// <summary>
+        /// Inline code: a monospace font on a tile.
+        /// </summary>
+        R_RICH_TEXT_CODE = 0x0010,
+        /// <summary>
+        /// Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+        /// </summary>
+        R_RICH_TEXT_LINK = 0x0020,
+    }
+
+    /// <summary>
+    /// Kinds of paragraphs.
+    /// </summary>
+    public enum RRichTextBlock : int
+    {
+        R_RICH_TEXT_PARAGRAPH = 0x0CC0,
+        R_RICH_TEXT_HEADING_1 = 0x0CC1,
+        R_RICH_TEXT_HEADING_2 = 0x0CC2,
+        R_RICH_TEXT_HEADING_3 = 0x0CC3,
+        /// <summary>
+        /// An item of a bulleted list.
+        /// </summary>
+        R_RICH_TEXT_BULLET_LIST = 0x0CC4,
+        /// <summary>
+        /// An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+        /// </summary>
+        R_RICH_TEXT_NUMBERED_LIST = 0x0CC5,
+        R_RICH_TEXT_QUOTE = 0x0CC6,
+        /// <summary>
+        /// A line of a block of code: monospace, kept as typed, no looks.
+        /// </summary>
+        R_RICH_TEXT_CODE_BLOCK = 0x0CC7,
     }
 
     /// <summary>
@@ -4159,6 +4207,21 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTextEditorChangedCallback(uint editor, IntPtr user_data);
+
+    /// <summary>
+    /// Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RRichTextChangedCallback(uint editor, IntPtr user_data);
+
+    /// <summary>
+    /// Called when a link is followed: Ctrl+click (Cmd+click), or a
+    /// click when the editor is read-only. Without a callback, a link
+    /// written action:name fires the action "name" and http, https and mailto
+    /// links open in the browser (Ropen_url).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RRichTextLinkCallback(uint editor, IntPtr url, IntPtr user_data);
 
     /// <summary>
     /// Called when the tray icon is clicked (Rtray_set_clicked_callback).
@@ -10359,6 +10422,248 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_set_changed_callback(uint editor, RTextEditorChangedCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rrich_text_editor_create();
+
+        /// <summary>
+        /// Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; &lt;u&gt; for underlined). Clears the history. XML: the text inside the element, or Markdown.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_markdown(uint editor, [MarshalAs(Utf8.Str)] string markdown);
+
+        /// <summary>
+        /// The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_markdown", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_markdown_(uint editor);
+        public static string Rrich_text_editor_get_markdown(uint editor) { return Text(Rrich_text_editor_get_markdown_(editor)); }
+
+        /// <summary>
+        /// Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_html(uint editor, [MarshalAs(Utf8.Str)] string html);
+
+        /// <summary>
+        /// The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_html", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_html_(uint editor);
+        public static string Rrich_text_editor_get_html(uint editor) { return Text(Rrich_text_editor_get_html_(editor)); }
+
+        /// <summary>
+        /// Replaces the document with plain text: a paragraph per line. Clears the history.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_text(uint editor, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The text without its looks, a line per paragraph. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_text_(uint editor);
+        public static string Rrich_text_editor_get_text(uint editor) { return Text(Rrich_text_editor_get_text_(editor)); }
+
+        /// <summary>
+        /// Types plain text in place of the selection, as one step of the history (the changed callback is called).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_insert_text(uint editor, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Puts HTML in place of the selection, as pasting it would (one step of the history).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_insert_html(uint editor, [MarshalAs(Utf8.Str)] string html);
+
+        /// <summary>
+        /// Puts Markdown in place of the selection (one step of the history).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_insert_markdown(uint editor, [MarshalAs(Utf8.Str)] string markdown);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_get_paragraph_count(uint editor);
+
+        /// <summary>
+        /// The text of a paragraph, without its looks. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_paragraph_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_paragraph_text_(uint editor, int paragraph);
+        public static string Rrich_text_editor_get_paragraph_text(uint editor, int paragraph) { return Text(Rrich_text_editor_get_paragraph_text_(editor, paragraph)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RRichTextBlock Rrich_text_editor_get_paragraph_block(uint editor, int paragraph);
+
+        /// <summary>
+        /// How deep an item of a list is (0: not in another list).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_get_paragraph_indent(uint editor, int paragraph);
+
+        /// <summary>
+        /// The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rrich_text_editor_get_style_at(uint editor, int paragraph, int offset);
+
+        /// <summary>
+        /// Selects from the anchor to the caret (equal: no selection, the caret there).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_selection(uint editor, int anchor_paragraph, int anchor_offset, int caret_paragraph, int caret_offset);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_get_selection(uint editor, out int anchor_paragraph, out int anchor_offset, out int caret_paragraph, out int caret_offset);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_select_all(uint editor);
+
+        /// <summary>
+        /// The selected text, without its looks. Valid until the next call.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_selected_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_selected_text_(uint editor);
+        public static string Rrich_text_editor_get_selected_text(uint editor) { return Text(Rrich_text_editor_get_selected_text_(editor)); }
+
+        /// <summary>
+        /// Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+        /// over the selection; with no selection, for what is typed next at the
+        /// caret.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_style(uint editor, uint style, int enabled);
+
+        /// <summary>
+        /// Turns a look off where all the selection has it, else on (Ctrl+B...).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_toggle_style(uint editor, uint style);
+
+        /// <summary>
+        /// The looks the whole selection has (with no selection: those
+        /// that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rrich_text_editor_get_style(uint editor);
+
+        /// <summary>
+        /// Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_block(uint editor, RRichTextBlock block);
+
+        /// <summary>
+        /// The kind of the paragraph of the caret.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RRichTextBlock Rrich_text_editor_get_block(uint editor);
+
+        /// <summary>
+        /// Indents (`levels` &gt; 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_indent(uint editor, int levels);
+
+        /// <summary>
+        /// Makes the selection a link to `url` (NULL or "": no link any
+        /// more). With no selection: the link the caret is in; outside of any, the
+        /// address is typed as a link.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_link(uint editor, [MarshalAs(Utf8.Str)] string url);
+
+        /// <summary>
+        /// The address of the link at the caret (or at the start of the selection), NULL when there is none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rrich_text_editor_get_link", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rrich_text_editor_get_link_(uint editor);
+        public static string Rrich_text_editor_get_link(uint editor) { return Text(Rrich_text_editor_get_link_(editor)); }
+
+        /// <summary>
+        /// Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_edit_link(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_undo(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_redo(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_can_undo(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_can_redo(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_clear_history(uint editor);
+
+        /// <summary>
+        /// The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_read_only(uint editor, int read_only);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_is_read_only(uint editor);
+
+        /// <summary>
+        /// Text shown while the document is empty. XML: Placeholder.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_placeholder(uint editor, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Shows or hides the toolbar (shown by default). XML: Toolbar.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_toolbar(uint editor, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrich_text_editor_get_toolbar(uint editor);
+
+        /// <summary>
+        /// Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_markdown_shortcuts(uint editor, int enabled);
+
+        /// <summary>
+        /// Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_spell_check(uint editor, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_spell_language(uint editor, [MarshalAs(Utf8.Str)] string language);
+
+        /// <summary>
+        /// The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_font(uint editor, uint font, float size);
+
+        /// <summary>
+        /// Scrolls so that the caret is seen.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_scroll_to_caret(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_changed_callback(uint editor, RRichTextChangedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Called when the selection or the caret moved (to update a toolbar of the application).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_selection_callback(uint editor, RRichTextChangedCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrich_text_editor_set_link_callback(uint editor, RRichTextLinkCallback callback, IntPtr user_data);
 
         /// <summary>
         /// title Text shown in the bar; NULL shows the title of the window.

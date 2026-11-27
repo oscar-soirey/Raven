@@ -1,6 +1,7 @@
 /**
  * Raven
- * raven_text_editor.h : multi-line text editor, and the languages it knows.
+ * raven_text_editor.h : multi-line text editor, and the languages it knows;
+ * the rich text editor (styled text: notes, mails, messages).
  *
  * R_WIDGET_TEXT_EDITOR edits a text of any number of lines: selection with
  * the mouse and the keyboard, clipboard, undo and redo, line numbers, word
@@ -544,6 +545,210 @@ extern "C" {
 	 */
 	typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
 	RAVEN_API void Rtext_editor_set_changed_callback(Rid editor, RTextEditorChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  RICH TEXT EDITOR
+	 * ============================================================================ */
+
+	/**
+	 * R_WIDGET_RICH_TEXT_EDITOR edits styled text: notes, mails, messages,
+	 * comments (TextEditor is for code; a Markdown Label only shows). In XML:
+	 *
+	 *     <RichTextEditor Name="note" Placeholder="Write a note" Slot.Fill="1">
+	 *         # Groceries
+	 *         - **eggs**, *milk*
+	 *     </RichTextEditor>
+	 *
+	 * The document is a list of paragraphs (RRichTextBlock): text, titles of
+	 * three levels, items of bulleted and numbered lists (lists in lists, by
+	 * indentation), quotes, lines of code. Their text has looks
+	 * (RRichTextStyle): bold, italic, underlined, struck, inline code, and
+	 * links. It is read and written as Markdown (Rrich_text_editor_set_markdown
+	 * / get_markdown, what the editor holds goes through unchanged), written
+	 * as HTML and plain text, and HTML is read too (a subset: what the
+	 * document can hold).
+	 *
+	 * Positions are a paragraph (from 0) and a byte offset in the UTF-8 text
+	 * of that paragraph. Out-of-range positions are clamped.
+	 *
+	 * Keys (Cmd instead of Ctrl on macOS): arrows, Home / End, Page Up /
+	 * Down, with Ctrl (or Alt) to move by word and Shift to select; Ctrl+A,
+	 * C, X, V; Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z. Ctrl+B, I, U toggle bold,
+	 * italic, underline, Ctrl+Shift+X strikes, Ctrl+E makes inline code,
+	 * Ctrl+K edits the link of the selection (in a bar over the text: Enter
+	 * applies, Escape cancels, an empty address removes the link).
+	 * Ctrl+Shift+1, 2, 3 make a title, Ctrl+Shift+0 a paragraph, Ctrl+Shift+7
+	 * a numbered list, Ctrl+Shift+8 a bulleted list, Ctrl+Shift+9 a quote.
+	 * Tab and Shift+Tab indent and outdent the items of a list. Enter starts a
+	 * paragraph (Shift+Enter a line in the same paragraph); Enter on an empty
+	 * item ends its list, on the empty last line of a code block ends the
+	 * block. Backspace at the start of an item, a title or a quote makes it a
+	 * paragraph again. Ctrl+click (Cmd+click) on a link follows it
+	 * (Rrich_text_editor_set_link_callback).
+	 *
+	 * What is typed as Markdown is formatted as it is typed (unless
+	 * MarkdownShortcuts is off): "# ", "## ", "### " start a title, "- " or
+	 * "* " a bulleted list, "1. " a numbered one, "> " a quote, "```" a code
+	 * block; **bold**, *italic*, ~~struck~~ and `code` take their look when
+	 * the closing mark is typed. Each of these is a step of the history of
+	 * its own: Ctrl+Z gives back what was typed.
+	 *
+	 * The clipboard gets the selection as HTML, plain text and Markdown
+	 * ("text/markdown"); pasting takes HTML when there is some (cleaned: only
+	 * what the document can hold is kept, links that would run code are
+	 * dropped), else plain text.
+	 *
+	 * A toolbar above the text (on by default) shows the looks and the kinds
+	 * of paragraphs, lit when the selection has them; Rrich_text_editor_set_toolbar
+	 * hides it for an application that makes its own from
+	 * Rrich_text_editor_toggle_style, set_block, get_style, get_block and the
+	 * selection callback.
+	 */
+
+	/** Looks of text: a bitmask. */
+	typedef enum RRichTextStyle{
+		R_RICH_TEXT_BOLD          = (1 << 0),
+		R_RICH_TEXT_ITALIC        = (1 << 1),
+		R_RICH_TEXT_UNDERLINE     = (1 << 2),
+		R_RICH_TEXT_STRIKETHROUGH = (1 << 3),
+		/** Inline code: a monospace font on a tile. */
+		R_RICH_TEXT_CODE          = (1 << 4),
+		/** Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it). */
+		R_RICH_TEXT_LINK          = (1 << 5)
+	}RRichTextStyle;
+
+	/** Kinds of paragraphs. */
+	typedef enum RRichTextBlock{
+		R_RICH_TEXT_PARAGRAPH = 0x0CC0,
+		R_RICH_TEXT_HEADING_1,
+		R_RICH_TEXT_HEADING_2,
+		R_RICH_TEXT_HEADING_3,
+		/** An item of a bulleted list. */
+		R_RICH_TEXT_BULLET_LIST,
+		/** An item of a numbered list: numbered 1, 2, 3... in its list and its level. */
+		R_RICH_TEXT_NUMBERED_LIST,
+		R_RICH_TEXT_QUOTE,
+		/** A line of a block of code: monospace, kept as typed, no looks. */
+		R_RICH_TEXT_CODE_BLOCK
+	}RRichTextBlock;
+
+	RAVEN_API Rid Rrich_text_editor_create(void);
+
+	/* ---- content ---- */
+
+	/** @brief Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown. */
+	RAVEN_API void Rrich_text_editor_set_markdown(Rid editor, const char* markdown);
+	/** @brief The document as Markdown; set_markdown gives the same document back. Valid until the next call. */
+	RAVEN_API const char* Rrich_text_editor_get_markdown(Rid editor);
+	/** @brief Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html. */
+	RAVEN_API void Rrich_text_editor_set_html(Rid editor, const char* html);
+	/** @brief The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call. */
+	RAVEN_API const char* Rrich_text_editor_get_html(Rid editor);
+	/** @brief Replaces the document with plain text: a paragraph per line. Clears the history. */
+	RAVEN_API void Rrich_text_editor_set_text(Rid editor, const char* text);
+	/** @brief The text without its looks, a line per paragraph. Valid until the next call. */
+	RAVEN_API const char* Rrich_text_editor_get_text(Rid editor);
+	/** @brief Types plain text in place of the selection, as one step of the history (the changed callback is called). */
+	RAVEN_API void Rrich_text_editor_insert_text(Rid editor, const char* text);
+	/** @brief Puts HTML in place of the selection, as pasting it would (one step of the history). */
+	RAVEN_API void Rrich_text_editor_insert_html(Rid editor, const char* html);
+	/** @brief Puts Markdown in place of the selection (one step of the history). */
+	RAVEN_API void Rrich_text_editor_insert_markdown(Rid editor, const char* markdown);
+
+	RAVEN_API int Rrich_text_editor_get_paragraph_count(Rid editor);
+	/** @brief The text of a paragraph, without its looks. Valid until the next call. */
+	RAVEN_API const char* Rrich_text_editor_get_paragraph_text(Rid editor, int paragraph);
+	RAVEN_API RRichTextBlock Rrich_text_editor_get_paragraph_block(Rid editor, int paragraph);
+	/** @brief How deep an item of a list is (0: not in another list). */
+	RAVEN_API int Rrich_text_editor_get_paragraph_indent(Rid editor, int paragraph);
+	/** @brief The looks (RRichTextStyle) of the character at `offset` of a paragraph. */
+	RAVEN_API Ruint Rrich_text_editor_get_style_at(Rid editor, int paragraph, int offset);
+
+	/* ---- selection ---- */
+
+	/** @brief Selects from the anchor to the caret (equal: no selection, the caret there). */
+	RAVEN_API void Rrich_text_editor_set_selection(Rid editor, int anchor_paragraph, int anchor_offset, int caret_paragraph, int caret_offset);
+	RAVEN_API void Rrich_text_editor_get_selection(Rid editor, int* anchor_paragraph, int* anchor_offset, int* caret_paragraph, int* caret_offset);
+	RAVEN_API void Rrich_text_editor_select_all(Rid editor);
+	/** @brief The selected text, without its looks. Valid until the next call. */
+	RAVEN_API const char* Rrich_text_editor_get_selected_text(Rid editor);
+
+	/* ---- formatting ---- */
+
+	/**
+	 * @brief Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+	 * over the selection; with no selection, for what is typed next at the
+	 * caret.
+	 */
+	RAVEN_API void Rrich_text_editor_set_style(Rid editor, Ruint style, int enabled);
+	/** @brief Turns a look off where all the selection has it, else on (Ctrl+B...). */
+	RAVEN_API void Rrich_text_editor_toggle_style(Rid editor, Ruint style);
+	/**
+	 * @brief The looks the whole selection has (with no selection: those
+	 * that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+	 */
+	RAVEN_API Ruint Rrich_text_editor_get_style(Rid editor);
+	/** @brief Makes the paragraphs of the selection of a kind. Lines of code lose their looks. */
+	RAVEN_API void Rrich_text_editor_set_block(Rid editor, RRichTextBlock block);
+	/** @brief The kind of the paragraph of the caret. */
+	RAVEN_API RRichTextBlock Rrich_text_editor_get_block(Rid editor);
+	/** @brief Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab). */
+	RAVEN_API void Rrich_text_editor_indent(Rid editor, int levels);
+	/**
+	 * @brief Makes the selection a link to `url` (NULL or "": no link any
+	 * more). With no selection: the link the caret is in; outside of any, the
+	 * address is typed as a link.
+	 */
+	RAVEN_API void Rrich_text_editor_set_link(Rid editor, const char* url);
+	/** @brief The address of the link at the caret (or at the start of the selection), NULL when there is none. */
+	RAVEN_API const char* Rrich_text_editor_get_link(Rid editor);
+	/** @brief Opens the bar where the address of the link of the selection is typed (Ctrl+K). */
+	RAVEN_API void Rrich_text_editor_edit_link(Rid editor);
+
+	/* ---- history ---- */
+
+	RAVEN_API int Rrich_text_editor_undo(Rid editor);
+	RAVEN_API int Rrich_text_editor_redo(Rid editor);
+	RAVEN_API int Rrich_text_editor_can_undo(Rid editor);
+	RAVEN_API int Rrich_text_editor_can_redo(Rid editor);
+	RAVEN_API void Rrich_text_editor_clear_history(Rid editor);
+
+	/* ---- options ---- */
+
+	/** @brief The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly. */
+	RAVEN_API void Rrich_text_editor_set_read_only(Rid editor, int read_only);
+	RAVEN_API int Rrich_text_editor_is_read_only(Rid editor);
+	/** @brief Text shown while the document is empty. XML: Placeholder. */
+	RAVEN_API void Rrich_text_editor_set_placeholder(Rid editor, const char* text);
+	/** @brief Shows or hides the toolbar (shown by default). XML: Toolbar. */
+	RAVEN_API void Rrich_text_editor_set_toolbar(Rid editor, int visible);
+	RAVEN_API int Rrich_text_editor_get_toolbar(Rid editor);
+	/** @brief Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts. */
+	RAVEN_API void Rrich_text_editor_set_markdown_shortcuts(Rid editor, int enabled);
+	/** @brief Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage. */
+	RAVEN_API void Rrich_text_editor_set_spell_check(Rid editor, int enabled);
+	RAVEN_API void Rrich_text_editor_set_spell_language(Rid editor, const char* language);
+	/** @brief The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize. */
+	RAVEN_API void Rrich_text_editor_set_font(Rid editor, Rid font, float size);
+	/** @brief Scrolls so that the caret is seen. */
+	RAVEN_API void Rrich_text_editor_scroll_to_caret(Rid editor);
+
+	/* ---- callbacks ---- */
+
+	/** @brief Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too. */
+	typedef void (*RRichTextChangedCallback)(Rid editor, void* user_data);
+	RAVEN_API void Rrich_text_editor_set_changed_callback(Rid editor, RRichTextChangedCallback callback, void* user_data);
+	/** @brief Called when the selection or the caret moved (to update a toolbar of the application). */
+	RAVEN_API void Rrich_text_editor_set_selection_callback(Rid editor, RRichTextChangedCallback callback, void* user_data);
+	/**
+	 * @brief Called when a link is followed: Ctrl+click (Cmd+click), or a
+	 * click when the editor is read-only. Without a callback, a link
+	 * written action:name fires the action "name" and http, https and mailto
+	 * links open in the browser (Ropen_url).
+	 */
+	typedef void (*RRichTextLinkCallback)(Rid editor, const char* url, void* user_data);
+	RAVEN_API void Rrich_text_editor_set_link_callback(Rid editor, RRichTextLinkCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

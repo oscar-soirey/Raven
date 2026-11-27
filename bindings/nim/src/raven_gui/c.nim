@@ -179,6 +179,10 @@ type
     ## Options of a search (Rtext_editor_set_search), a bitmask.
   RMarkerKind* = cint
     ## What a marker says about the text it underlines.
+  RRichTextStyle* = cint
+    ## Looks of text: a bitmask.
+  RRichTextBlock* = cint
+    ## Kinds of paragraphs.
   RHeaderButtons* = cint
     ## Buttons of a header bar.
   RTaskbarProgress* = cint
@@ -448,6 +452,13 @@ type
     ## Called after each change made by the user (typing, pasting,
     ## undoing...) or by Rtext_editor_insert_text. The action of the widget
     ## (OnChanged in XML) fires at the same time.
+  RRichTextChangedCallback* = proc (editor: Rid, user_data: pointer) {.cdecl.}
+    ## Called after each change of the document (typing, pasting, undoing, formatting, the set functions). The action of the widget (OnChanged) fires too.
+  RRichTextLinkCallback* = proc (editor: Rid, url: cstring, user_data: pointer) {.cdecl.}
+    ## Called when a link is followed: Ctrl+click (Cmd+click), or a
+    ## click when the editor is read-only. Without a callback, a link
+    ## written action:name fires the action "name" and http, https and mailto
+    ## links open in the browser (Ropen_url).
   RTrayClickedCallback* = proc (tray: Rid, button: RMouseButton, user_data: pointer) {.cdecl.}
     ## Called when the tray icon is clicked (Rtray_set_clicked_callback).
   RDockCloseCallback* = proc (area: Rid, panel: Rid, user_data: pointer): cint {.cdecl.}
@@ -1833,6 +1844,8 @@ const
     ## A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
   R_WIDGET_DIFF_VIEW*: RWidgetType = 0x0238
     ## The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+  R_WIDGET_RICH_TEXT_EDITOR*: RWidgetType = 0x0239
+    ## Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -2152,6 +2165,29 @@ const
   R_MARKER_ERROR*: RMarkerKind = 0x0350
   R_MARKER_WARNING*: RMarkerKind = 0x0351
   R_MARKER_INFO*: RMarkerKind = 0x0352
+
+  # RRichTextStyle
+  R_RICH_TEXT_BOLD*: RRichTextStyle = 1
+  R_RICH_TEXT_ITALIC*: RRichTextStyle = 2
+  R_RICH_TEXT_UNDERLINE*: RRichTextStyle = 4
+  R_RICH_TEXT_STRIKETHROUGH*: RRichTextStyle = 8
+  R_RICH_TEXT_CODE*: RRichTextStyle = 0x0010
+    ## Inline code: a monospace font on a tile.
+  R_RICH_TEXT_LINK*: RRichTextStyle = 0x0020
+    ## Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+
+  # RRichTextBlock
+  R_RICH_TEXT_PARAGRAPH*: RRichTextBlock = 0x0CC0
+  R_RICH_TEXT_HEADING_1*: RRichTextBlock = 0x0CC1
+  R_RICH_TEXT_HEADING_2*: RRichTextBlock = 0x0CC2
+  R_RICH_TEXT_HEADING_3*: RRichTextBlock = 0x0CC3
+  R_RICH_TEXT_BULLET_LIST*: RRichTextBlock = 0x0CC4
+    ## An item of a bulleted list.
+  R_RICH_TEXT_NUMBERED_LIST*: RRichTextBlock = 0x0CC5
+    ## An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+  R_RICH_TEXT_QUOTE*: RRichTextBlock = 0x0CC6
+  R_RICH_TEXT_CODE_BLOCK*: RRichTextBlock = 0x0CC7
+    ## A line of a block of code: monospace, kept as typed, no looks.
 
   # RHeaderButtons
   R_HEADER_NO_BUTTONS*: RHeaderButtons = 0
@@ -4881,6 +4917,88 @@ proc Rtheme_get_token_color*(token: RToken, r: ptr cfloat, g: ptr cfloat, b: ptr
 proc Rtheme_clear_token_colors*() {.rapi.}
   ## Back to the colors Raven picks.
 proc Rtext_editor_set_changed_callback*(editor: Rid, callback: RTextEditorChangedCallback, user_data: pointer) {.rapi.}
+proc Rrich_text_editor_create*(): Rid {.rapi.}
+proc Rrich_text_editor_set_markdown*(editor: Rid, markdown: cstring) {.rapi.}
+  ## Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown.
+proc Rrich_text_editor_get_markdown*(editor: Rid): cstring {.rapi.}
+  ## The document as Markdown; set_markdown gives the same document back. Valid until the next call.
+proc Rrich_text_editor_set_html*(editor: Rid, html: cstring) {.rapi.}
+  ## Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html.
+proc Rrich_text_editor_get_html*(editor: Rid): cstring {.rapi.}
+  ## The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call.
+proc Rrich_text_editor_set_text*(editor: Rid, text: cstring) {.rapi.}
+  ## Replaces the document with plain text: a paragraph per line. Clears the history.
+proc Rrich_text_editor_get_text*(editor: Rid): cstring {.rapi.}
+  ## The text without its looks, a line per paragraph. Valid until the next call.
+proc Rrich_text_editor_insert_text*(editor: Rid, text: cstring) {.rapi.}
+  ## Types plain text in place of the selection, as one step of the history (the changed callback is called).
+proc Rrich_text_editor_insert_html*(editor: Rid, html: cstring) {.rapi.}
+  ## Puts HTML in place of the selection, as pasting it would (one step of the history).
+proc Rrich_text_editor_insert_markdown*(editor: Rid, markdown: cstring) {.rapi.}
+  ## Puts Markdown in place of the selection (one step of the history).
+proc Rrich_text_editor_get_paragraph_count*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_get_paragraph_text*(editor: Rid, paragraph: cint): cstring {.rapi.}
+  ## The text of a paragraph, without its looks. Valid until the next call.
+proc Rrich_text_editor_get_paragraph_block*(editor: Rid, paragraph: cint): RRichTextBlock {.rapi.}
+proc Rrich_text_editor_get_paragraph_indent*(editor: Rid, paragraph: cint): cint {.rapi.}
+  ## How deep an item of a list is (0: not in another list).
+proc Rrich_text_editor_get_style_at*(editor: Rid, paragraph: cint, offset: cint): uint32 {.rapi.}
+  ## The looks (RRichTextStyle) of the character at `offset` of a paragraph.
+proc Rrich_text_editor_set_selection*(editor: Rid, anchor_paragraph: cint, anchor_offset: cint, caret_paragraph: cint, caret_offset: cint) {.rapi.}
+  ## Selects from the anchor to the caret (equal: no selection, the caret there).
+proc Rrich_text_editor_get_selection*(editor: Rid, anchor_paragraph: ptr cint, anchor_offset: ptr cint, caret_paragraph: ptr cint, caret_offset: ptr cint) {.rapi.}
+proc Rrich_text_editor_select_all*(editor: Rid) {.rapi.}
+proc Rrich_text_editor_get_selected_text*(editor: Rid): cstring {.rapi.}
+  ## The selected text, without its looks. Valid until the next call.
+proc Rrich_text_editor_set_style*(editor: Rid, style: uint32, enabled: cint) {.rapi.}
+  ## Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+  ## over the selection; with no selection, for what is typed next at the
+  ## caret.
+proc Rrich_text_editor_toggle_style*(editor: Rid, style: uint32) {.rapi.}
+  ## Turns a look off where all the selection has it, else on (Ctrl+B...).
+proc Rrich_text_editor_get_style*(editor: Rid): uint32 {.rapi.}
+  ## The looks the whole selection has (with no selection: those
+  ## that what is typed will have), R_RICH_TEXT_LINK when some of it is a link.
+proc Rrich_text_editor_set_block*(editor: Rid, `block`: RRichTextBlock) {.rapi.}
+  ## Makes the paragraphs of the selection of a kind. Lines of code lose their looks.
+proc Rrich_text_editor_get_block*(editor: Rid): RRichTextBlock {.rapi.}
+  ## The kind of the paragraph of the caret.
+proc Rrich_text_editor_indent*(editor: Rid, levels: cint) {.rapi.}
+  ## Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab).
+proc Rrich_text_editor_set_link*(editor: Rid, url: cstring) {.rapi.}
+  ## Makes the selection a link to `url` (NULL or "": no link any
+  ## more). With no selection: the link the caret is in; outside of any, the
+  ## address is typed as a link.
+proc Rrich_text_editor_get_link*(editor: Rid): cstring {.rapi.}
+  ## The address of the link at the caret (or at the start of the selection), NULL when there is none.
+proc Rrich_text_editor_edit_link*(editor: Rid) {.rapi.}
+  ## Opens the bar where the address of the link of the selection is typed (Ctrl+K).
+proc Rrich_text_editor_undo*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_redo*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_can_undo*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_can_redo*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_clear_history*(editor: Rid) {.rapi.}
+proc Rrich_text_editor_set_read_only*(editor: Rid, read_only: cint) {.rapi.}
+  ## The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly.
+proc Rrich_text_editor_is_read_only*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_set_placeholder*(editor: Rid, text: cstring) {.rapi.}
+  ## Text shown while the document is empty. XML: Placeholder.
+proc Rrich_text_editor_set_toolbar*(editor: Rid, visible: cint) {.rapi.}
+  ## Shows or hides the toolbar (shown by default). XML: Toolbar.
+proc Rrich_text_editor_get_toolbar*(editor: Rid): cint {.rapi.}
+proc Rrich_text_editor_set_markdown_shortcuts*(editor: Rid, enabled: cint) {.rapi.}
+  ## Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts.
+proc Rrich_text_editor_set_spell_check*(editor: Rid, enabled: cint) {.rapi.}
+  ## Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage.
+proc Rrich_text_editor_set_spell_language*(editor: Rid, language: cstring) {.rapi.}
+proc Rrich_text_editor_set_font*(editor: Rid, font: Rid, size: cfloat) {.rapi.}
+  ## The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize.
+proc Rrich_text_editor_scroll_to_caret*(editor: Rid) {.rapi.}
+  ## Scrolls so that the caret is seen.
+proc Rrich_text_editor_set_changed_callback*(editor: Rid, callback: RRichTextChangedCallback, user_data: pointer) {.rapi.}
+proc Rrich_text_editor_set_selection_callback*(editor: Rid, callback: RRichTextChangedCallback, user_data: pointer) {.rapi.}
+  ## Called when the selection or the caret moved (to update a toolbar of the application).
+proc Rrich_text_editor_set_link_callback*(editor: Rid, callback: RRichTextLinkCallback, user_data: pointer) {.rapi.}
 proc Rheader_bar_create*(title: cstring): Rid {.rapi.}
   ## title Text shown in the bar; NULL shows the title of the window.
 proc Rheader_bar_set_title*(bar: Rid, title: cstring) {.rapi.}

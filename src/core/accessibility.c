@@ -312,6 +312,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_ISLAND: return R_ROLE_GROUP;
 		case R_WIDGET_HEADER_BAR: return R_ROLE_TOOLBAR;
 		case R_WIDGET_TEXT_EDITOR: return R_ROLE_DOCUMENT;
+		case R_WIDGET_RICH_TEXT_EDITOR: return R_ROLE_DOCUMENT;
 		case R_WIDGET_FILE_BROWSER: return R_ROLE_GROUP;
 		case R_WIDGET_COLOR_PICKER: return R_ROLE_GROUP;
 		case R_WIDGET_VIEWPORT: case R_WIDGET_TIMELINE: case R_WIDGET_NODE_GRAPH: case R_WIDGET_BLOCK_EDITOR:
@@ -1002,6 +1003,14 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (text) rvn_text_add(&g_a11y.value, text);
 			break;
 		}
+		case R_WIDGET_RICH_TEXT_EDITOR: {
+			/* the text, without its looks: a line per paragraph */
+			const char* text = Rrich_text_editor_get_text(widget->id);
+			node->states |= RVN_A11Y_MULTILINE;
+			if (!Rrich_text_editor_is_read_only(widget->id)) node->states |= RVN_A11Y_EDITABLE;
+			if (text) rvn_text_add(&g_a11y.value, text);
+			break;
+		}
 		case R_WIDGET_COMBO_BOX: {
 			/* the text shown: the item chosen, or what was typed in an editable one */
 			const char* text = Rcombo_box_get_text(widget->id);
@@ -1193,6 +1202,10 @@ int rvn_a11y_set_value(rvn_a11y_id_t id, const char* text) {
 			return R_TRUE;
 		case R_WIDGET_TEXT_EDITOR:
 			Rtext_editor_set_text(widget->id, text);
+			return R_TRUE;
+		case R_WIDGET_RICH_TEXT_EDITOR:
+			if (Rrich_text_editor_is_read_only(widget->id)) return R_FALSE;
+			Rrich_text_editor_set_text(widget->id, text);
 			return R_TRUE;
 		case R_WIDGET_COMBO_BOX:
 			/* an editable combo box takes any text; another one the text of one of its items */

@@ -291,6 +291,9 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/carousel.c
 	src/widgets/system_web_view.c
 	src/widgets/diff_view.c
+	src/widgets/rich_text.c
+	src/widgets/rich_text.h
+	src/widgets/rich_text_doc.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )

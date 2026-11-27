@@ -747,6 +747,8 @@ Widget_Type :: enum i32 {
 	System_Web_View = 0x0237,
 	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 	Diff_View = 0x0238,
+	// Styled text edited: paragraphs, titles, lists, quotes, code; bold, italic, links; Markdown and HTML (raven_text_editor.h).
+	Rich_Text_Editor = 0x0239,
 }
 
 H_Align :: enum i32 {
@@ -1131,6 +1133,34 @@ Marker_Kind :: enum i32 {
 	Error = 0x0350,
 	Warning = 0x0351,
 	Info = 0x0352,
+}
+
+// Looks of text: a bitmask.
+Rich_Text_Style :: enum u32 {
+	Bold = 0,
+	Italic = 1,
+	Underline = 2,
+	Strikethrough = 3,
+	// Inline code: a monospace font on a tile.
+	Code = 4,
+	// Only in what Rrich_text_editor_get_style returns: the text is a link (Rrich_text_editor_set_link sets it).
+	Link = 5,
+}
+Rich_Text_Styles :: bit_set[Rich_Text_Style; u32]
+
+// Kinds of paragraphs.
+Rich_Text_Block :: enum i32 {
+	Paragraph = 0x0CC0,
+	Heading_1 = 0x0CC1,
+	Heading_2 = 0x0CC2,
+	Heading_3 = 0x0CC3,
+	// An item of a bulleted list.
+	Bullet_List = 0x0CC4,
+	// An item of a numbered list: numbered 1, 2, 3... in its list and its level.
+	Numbered_List = 0x0CC5,
+	Quote = 0x0CC6,
+	// A line of a block of code: monospace, kept as typed, no looks.
+	Code_Block = 0x0CC7,
 }
 
 // Buttons of a header bar.

@@ -998,6 +998,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CAROUSEL = 0x0236
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
     R_WIDGET_DIFF_VIEW = 0x0238
+    R_WIDGET_RICH_TEXT_EDITOR = 0x0239
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1056,6 +1057,7 @@ R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
 R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
+R_WIDGET_RICH_TEXT_EDITOR = RWidgetType.R_WIDGET_RICH_TEXT_EDITOR
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1484,6 +1486,42 @@ class RMarkerKind(enum.IntEnum):
 R_MARKER_ERROR = RMarkerKind.R_MARKER_ERROR
 R_MARKER_WARNING = RMarkerKind.R_MARKER_WARNING
 R_MARKER_INFO = RMarkerKind.R_MARKER_INFO
+
+class RRichTextStyle(enum.IntFlag):
+    """Looks of text: a bitmask."""
+    R_RICH_TEXT_BOLD = 1
+    R_RICH_TEXT_ITALIC = 2
+    R_RICH_TEXT_UNDERLINE = 4
+    R_RICH_TEXT_STRIKETHROUGH = 8
+    R_RICH_TEXT_CODE = 0x0010
+    R_RICH_TEXT_LINK = 0x0020
+
+R_RICH_TEXT_BOLD = RRichTextStyle.R_RICH_TEXT_BOLD
+R_RICH_TEXT_ITALIC = RRichTextStyle.R_RICH_TEXT_ITALIC
+R_RICH_TEXT_UNDERLINE = RRichTextStyle.R_RICH_TEXT_UNDERLINE
+R_RICH_TEXT_STRIKETHROUGH = RRichTextStyle.R_RICH_TEXT_STRIKETHROUGH
+R_RICH_TEXT_CODE = RRichTextStyle.R_RICH_TEXT_CODE
+R_RICH_TEXT_LINK = RRichTextStyle.R_RICH_TEXT_LINK
+
+class RRichTextBlock(enum.IntEnum):
+    """Kinds of paragraphs."""
+    R_RICH_TEXT_PARAGRAPH = 0x0CC0
+    R_RICH_TEXT_HEADING_1 = 0x0CC1
+    R_RICH_TEXT_HEADING_2 = 0x0CC2
+    R_RICH_TEXT_HEADING_3 = 0x0CC3
+    R_RICH_TEXT_BULLET_LIST = 0x0CC4
+    R_RICH_TEXT_NUMBERED_LIST = 0x0CC5
+    R_RICH_TEXT_QUOTE = 0x0CC6
+    R_RICH_TEXT_CODE_BLOCK = 0x0CC7
+
+R_RICH_TEXT_PARAGRAPH = RRichTextBlock.R_RICH_TEXT_PARAGRAPH
+R_RICH_TEXT_HEADING_1 = RRichTextBlock.R_RICH_TEXT_HEADING_1
+R_RICH_TEXT_HEADING_2 = RRichTextBlock.R_RICH_TEXT_HEADING_2
+R_RICH_TEXT_HEADING_3 = RRichTextBlock.R_RICH_TEXT_HEADING_3
+R_RICH_TEXT_BULLET_LIST = RRichTextBlock.R_RICH_TEXT_BULLET_LIST
+R_RICH_TEXT_NUMBERED_LIST = RRichTextBlock.R_RICH_TEXT_NUMBERED_LIST
+R_RICH_TEXT_QUOTE = RRichTextBlock.R_RICH_TEXT_QUOTE
+R_RICH_TEXT_CODE_BLOCK = RRichTextBlock.R_RICH_TEXT_CODE_BLOCK
 
 class RHeaderButtons(enum.IntFlag):
     """Buttons of a header bar."""
@@ -3084,6 +3122,22 @@ RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_vo
 def _adapt_RTextEditorChangedCallback(function):
     def call(editor, user_data):
         function(editor, user_data)
+    return call
+
+RRichTextChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RRichTextChangedCallback(function):
+    def call(editor, user_data):
+        function(editor, user_data)
+    return call
+
+RRichTextLinkCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RRichTextLinkCallback(function):
+    def call(editor, url, user_data):
+        function(editor, _r(url), user_data)
     return call
 
 RTrayClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
@@ -13149,6 +13203,415 @@ _lib.Rtext_editor_set_changed_callback.restype = None
 
 def Rtext_editor_set_changed_callback(editor, callback, user_data=None):
     _lib.Rtext_editor_set_changed_callback(editor, _callback(RTextEditorChangedCallback, _adapt_RTextEditorChangedCallback, callback), user_data)
+
+
+_lib.Rrich_text_editor_create.argtypes = []
+_lib.Rrich_text_editor_create.restype = ctypes.c_uint32
+
+
+def Rrich_text_editor_create():
+    return _lib.Rrich_text_editor_create()
+
+
+_lib.Rrich_text_editor_set_markdown.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_markdown.restype = None
+
+
+def Rrich_text_editor_set_markdown(editor, markdown):
+    """Replaces the document with Markdown (CommonMark: titles, lists, quotes, code, emphasis, links; <u> for underlined). Clears the history. XML: the text inside the element, or Markdown."""
+    _lib.Rrich_text_editor_set_markdown(editor, _s(markdown))
+
+
+_lib.Rrich_text_editor_get_markdown.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_markdown.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_markdown(editor):
+    """The document as Markdown; set_markdown gives the same document back. Valid until the next call."""
+    return _r(_lib.Rrich_text_editor_get_markdown(editor))
+
+
+_lib.Rrich_text_editor_set_html.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_html.restype = None
+
+
+def Rrich_text_editor_set_html(editor, html):
+    """Replaces the document with HTML, keeping what it can hold. Clears the history. XML: Html."""
+    _lib.Rrich_text_editor_set_html(editor, _s(html))
+
+
+_lib.Rrich_text_editor_get_html.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_html.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_html(editor):
+    """The document as HTML (a fragment: h1-h3, p, ul / ol / li, blockquote, pre, strong, em, u, s, code, a). Valid until the next call."""
+    return _r(_lib.Rrich_text_editor_get_html(editor))
+
+
+_lib.Rrich_text_editor_set_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_text.restype = None
+
+
+def Rrich_text_editor_set_text(editor, text):
+    """Replaces the document with plain text: a paragraph per line. Clears the history."""
+    _lib.Rrich_text_editor_set_text(editor, _s(text))
+
+
+_lib.Rrich_text_editor_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_text.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_text(editor):
+    """The text without its looks, a line per paragraph. Valid until the next call."""
+    return _r(_lib.Rrich_text_editor_get_text(editor))
+
+
+_lib.Rrich_text_editor_insert_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_insert_text.restype = None
+
+
+def Rrich_text_editor_insert_text(editor, text):
+    """Types plain text in place of the selection, as one step of the history (the changed callback is called)."""
+    _lib.Rrich_text_editor_insert_text(editor, _s(text))
+
+
+_lib.Rrich_text_editor_insert_html.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_insert_html.restype = None
+
+
+def Rrich_text_editor_insert_html(editor, html):
+    """Puts HTML in place of the selection, as pasting it would (one step of the history)."""
+    _lib.Rrich_text_editor_insert_html(editor, _s(html))
+
+
+_lib.Rrich_text_editor_insert_markdown.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_insert_markdown.restype = None
+
+
+def Rrich_text_editor_insert_markdown(editor, markdown):
+    """Puts Markdown in place of the selection (one step of the history)."""
+    _lib.Rrich_text_editor_insert_markdown(editor, _s(markdown))
+
+
+_lib.Rrich_text_editor_get_paragraph_count.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_paragraph_count.restype = ctypes.c_int
+
+
+def Rrich_text_editor_get_paragraph_count(editor):
+    return _lib.Rrich_text_editor_get_paragraph_count(editor)
+
+
+_lib.Rrich_text_editor_get_paragraph_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_get_paragraph_text.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_paragraph_text(editor, paragraph):
+    """The text of a paragraph, without its looks. Valid until the next call."""
+    return _r(_lib.Rrich_text_editor_get_paragraph_text(editor, paragraph))
+
+
+_lib.Rrich_text_editor_get_paragraph_block.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_get_paragraph_block.restype = ctypes.c_int
+
+
+def Rrich_text_editor_get_paragraph_block(editor, paragraph):
+    return _e(RRichTextBlock, _lib.Rrich_text_editor_get_paragraph_block(editor, paragraph))
+
+
+_lib.Rrich_text_editor_get_paragraph_indent.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_get_paragraph_indent.restype = ctypes.c_int
+
+
+def Rrich_text_editor_get_paragraph_indent(editor, paragraph):
+    """How deep an item of a list is (0: not in another list)."""
+    return _lib.Rrich_text_editor_get_paragraph_indent(editor, paragraph)
+
+
+_lib.Rrich_text_editor_get_style_at.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rrich_text_editor_get_style_at.restype = ctypes.c_uint32
+
+
+def Rrich_text_editor_get_style_at(editor, paragraph, offset):
+    """The looks (RRichTextStyle) of the character at `offset` of a paragraph."""
+    return _lib.Rrich_text_editor_get_style_at(editor, paragraph, offset)
+
+
+_lib.Rrich_text_editor_set_selection.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rrich_text_editor_set_selection.restype = None
+
+
+def Rrich_text_editor_set_selection(editor, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset):
+    """Selects from the anchor to the caret (equal: no selection, the caret there)."""
+    _lib.Rrich_text_editor_set_selection(editor, anchor_paragraph, anchor_offset, caret_paragraph, caret_offset)
+
+
+_lib.Rrich_text_editor_get_selection.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rrich_text_editor_get_selection.restype = None
+
+
+def Rrich_text_editor_get_selection(editor):
+    anchor_paragraph_ = ctypes.c_int()
+    anchor_offset_ = ctypes.c_int()
+    caret_paragraph_ = ctypes.c_int()
+    caret_offset_ = ctypes.c_int()
+    _lib.Rrich_text_editor_get_selection(editor, ctypes.byref(anchor_paragraph_), ctypes.byref(anchor_offset_), ctypes.byref(caret_paragraph_), ctypes.byref(caret_offset_))
+    return (anchor_paragraph_.value, anchor_offset_.value, caret_paragraph_.value, caret_offset_.value)
+
+
+_lib.Rrich_text_editor_select_all.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_select_all.restype = None
+
+
+def Rrich_text_editor_select_all(editor):
+    _lib.Rrich_text_editor_select_all(editor)
+
+
+_lib.Rrich_text_editor_get_selected_text.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_selected_text.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_selected_text(editor):
+    """The selected text, without its looks. Valid until the next call."""
+    return _r(_lib.Rrich_text_editor_get_selected_text(editor))
+
+
+_lib.Rrich_text_editor_set_style.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_style.restype = None
+
+
+def Rrich_text_editor_set_style(editor, style, enabled):
+    """Turns looks (RRichTextStyle, R_RICH_TEXT_LINK aside) on or off
+    over the selection; with no selection, for what is typed next at the
+    caret."""
+    _lib.Rrich_text_editor_set_style(editor, style, enabled)
+
+
+_lib.Rrich_text_editor_toggle_style.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rrich_text_editor_toggle_style.restype = None
+
+
+def Rrich_text_editor_toggle_style(editor, style):
+    """Turns a look off where all the selection has it, else on (Ctrl+B...)."""
+    _lib.Rrich_text_editor_toggle_style(editor, style)
+
+
+_lib.Rrich_text_editor_get_style.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_style.restype = ctypes.c_uint32
+
+
+def Rrich_text_editor_get_style(editor):
+    """The looks the whole selection has (with no selection: those
+    that what is typed will have), R_RICH_TEXT_LINK when some of it is a link."""
+    return _lib.Rrich_text_editor_get_style(editor)
+
+
+_lib.Rrich_text_editor_set_block.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_block.restype = None
+
+
+def Rrich_text_editor_set_block(editor, block):
+    """Makes the paragraphs of the selection of a kind. Lines of code lose their looks."""
+    _lib.Rrich_text_editor_set_block(editor, int(block))
+
+
+_lib.Rrich_text_editor_get_block.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_block.restype = ctypes.c_int
+
+
+def Rrich_text_editor_get_block(editor):
+    """The kind of the paragraph of the caret."""
+    return _e(RRichTextBlock, _lib.Rrich_text_editor_get_block(editor))
+
+
+_lib.Rrich_text_editor_indent.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_indent.restype = None
+
+
+def Rrich_text_editor_indent(editor, levels):
+    """Indents (`levels` > 0) or outdents the items of lists of the selection (Tab, Shift+Tab)."""
+    _lib.Rrich_text_editor_indent(editor, levels)
+
+
+_lib.Rrich_text_editor_set_link.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_link.restype = None
+
+
+def Rrich_text_editor_set_link(editor, url):
+    """Makes the selection a link to `url` (NULL or "": no link any
+    more). With no selection: the link the caret is in; outside of any, the
+    address is typed as a link."""
+    _lib.Rrich_text_editor_set_link(editor, _s(url))
+
+
+_lib.Rrich_text_editor_get_link.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_link.restype = ctypes.c_char_p
+
+
+def Rrich_text_editor_get_link(editor):
+    """The address of the link at the caret (or at the start of the selection), NULL when there is none."""
+    return _r(_lib.Rrich_text_editor_get_link(editor))
+
+
+_lib.Rrich_text_editor_edit_link.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_edit_link.restype = None
+
+
+def Rrich_text_editor_edit_link(editor):
+    """Opens the bar where the address of the link of the selection is typed (Ctrl+K)."""
+    _lib.Rrich_text_editor_edit_link(editor)
+
+
+_lib.Rrich_text_editor_undo.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_undo.restype = ctypes.c_int
+
+
+def Rrich_text_editor_undo(editor):
+    return _lib.Rrich_text_editor_undo(editor)
+
+
+_lib.Rrich_text_editor_redo.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_redo.restype = ctypes.c_int
+
+
+def Rrich_text_editor_redo(editor):
+    return _lib.Rrich_text_editor_redo(editor)
+
+
+_lib.Rrich_text_editor_can_undo.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_can_undo.restype = ctypes.c_int
+
+
+def Rrich_text_editor_can_undo(editor):
+    return _lib.Rrich_text_editor_can_undo(editor)
+
+
+_lib.Rrich_text_editor_can_redo.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_can_redo.restype = ctypes.c_int
+
+
+def Rrich_text_editor_can_redo(editor):
+    return _lib.Rrich_text_editor_can_redo(editor)
+
+
+_lib.Rrich_text_editor_clear_history.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_clear_history.restype = None
+
+
+def Rrich_text_editor_clear_history(editor):
+    _lib.Rrich_text_editor_clear_history(editor)
+
+
+_lib.Rrich_text_editor_set_read_only.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_read_only.restype = None
+
+
+def Rrich_text_editor_set_read_only(editor, read_only):
+    """The text can be selected and copied, not changed; links follow on a plain click. XML: ReadOnly."""
+    _lib.Rrich_text_editor_set_read_only(editor, read_only)
+
+
+_lib.Rrich_text_editor_is_read_only.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_is_read_only.restype = ctypes.c_int
+
+
+def Rrich_text_editor_is_read_only(editor):
+    return _lib.Rrich_text_editor_is_read_only(editor)
+
+
+_lib.Rrich_text_editor_set_placeholder.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_placeholder.restype = None
+
+
+def Rrich_text_editor_set_placeholder(editor, text):
+    """Text shown while the document is empty. XML: Placeholder."""
+    _lib.Rrich_text_editor_set_placeholder(editor, _s(text))
+
+
+_lib.Rrich_text_editor_set_toolbar.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_toolbar.restype = None
+
+
+def Rrich_text_editor_set_toolbar(editor, visible):
+    """Shows or hides the toolbar (shown by default). XML: Toolbar."""
+    _lib.Rrich_text_editor_set_toolbar(editor, visible)
+
+
+_lib.Rrich_text_editor_get_toolbar.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_get_toolbar.restype = ctypes.c_int
+
+
+def Rrich_text_editor_get_toolbar(editor):
+    return _lib.Rrich_text_editor_get_toolbar(editor)
+
+
+_lib.Rrich_text_editor_set_markdown_shortcuts.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_markdown_shortcuts.restype = None
+
+
+def Rrich_text_editor_set_markdown_shortcuts(editor, enabled):
+    """Formats what is typed as Markdown ("# ", "- ", **bold**...), on by default. XML: MarkdownShortcuts."""
+    _lib.Rrich_text_editor_set_markdown_shortcuts(editor, enabled)
+
+
+_lib.Rrich_text_editor_set_spell_check.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrich_text_editor_set_spell_check.restype = None
+
+
+def Rrich_text_editor_set_spell_check(editor, enabled):
+    """Underlines the misspelled words (off by default; widgets/spelling.c, as TextEditor). XML: SpellCheck, SpellLanguage."""
+    _lib.Rrich_text_editor_set_spell_check(editor, enabled)
+
+
+_lib.Rrich_text_editor_set_spell_language.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rrich_text_editor_set_spell_language.restype = None
+
+
+def Rrich_text_editor_set_spell_language(editor, language):
+    _lib.Rrich_text_editor_set_spell_language(editor, _s(language))
+
+
+_lib.Rrich_text_editor_set_font.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_float]
+_lib.Rrich_text_editor_set_font.restype = None
+
+
+def Rrich_text_editor_set_font(editor, font, size):
+    """The font of the text (titles are made from it, code is in the monospace font) and its size (0: the theme's). XML: Font, TextSize."""
+    _lib.Rrich_text_editor_set_font(editor, font, size)
+
+
+_lib.Rrich_text_editor_scroll_to_caret.argtypes = [ctypes.c_uint32]
+_lib.Rrich_text_editor_scroll_to_caret.restype = None
+
+
+def Rrich_text_editor_scroll_to_caret(editor):
+    """Scrolls so that the caret is seen."""
+    _lib.Rrich_text_editor_scroll_to_caret(editor)
+
+
+_lib.Rrich_text_editor_set_changed_callback.argtypes = [ctypes.c_uint32, RRichTextChangedCallback, ctypes.c_void_p]
+_lib.Rrich_text_editor_set_changed_callback.restype = None
+
+
+def Rrich_text_editor_set_changed_callback(editor, callback, user_data=None):
+    _lib.Rrich_text_editor_set_changed_callback(editor, _callback(RRichTextChangedCallback, _adapt_RRichTextChangedCallback, callback), user_data)
+
+
+_lib.Rrich_text_editor_set_selection_callback.argtypes = [ctypes.c_uint32, RRichTextChangedCallback, ctypes.c_void_p]
+_lib.Rrich_text_editor_set_selection_callback.restype = None
+
+
+def Rrich_text_editor_set_selection_callback(editor, callback, user_data=None):
+    """Called when the selection or the caret moved (to update a toolbar of the application)."""
+    _lib.Rrich_text_editor_set_selection_callback(editor, _callback(RRichTextChangedCallback, _adapt_RRichTextChangedCallback, callback), user_data)
+
+
+_lib.Rrich_text_editor_set_link_callback.argtypes = [ctypes.c_uint32, RRichTextLinkCallback, ctypes.c_void_p]
+_lib.Rrich_text_editor_set_link_callback.restype = None
+
+
+def Rrich_text_editor_set_link_callback(editor, callback, user_data=None):
+    _lib.Rrich_text_editor_set_link_callback(editor, _callback(RRichTextLinkCallback, _adapt_RRichTextLinkCallback, callback), user_data)
 
 
 _lib.Rheader_bar_create.argtypes = [ctypes.c_char_p]

@@ -493,6 +493,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CAROUSEL = 566,
 	R_WIDGET_SYSTEM_WEB_VIEW = 567,
 	R_WIDGET_DIFF_VIEW = 568,
+	R_WIDGET_RICH_TEXT_EDITOR = 569,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -712,6 +713,24 @@ typedef enum RMarkerKind {
 	R_MARKER_WARNING = 849,
 	R_MARKER_INFO = 850,
 } RMarkerKind;
+typedef enum RRichTextStyle {
+	R_RICH_TEXT_BOLD = 1,
+	R_RICH_TEXT_ITALIC = 2,
+	R_RICH_TEXT_UNDERLINE = 4,
+	R_RICH_TEXT_STRIKETHROUGH = 8,
+	R_RICH_TEXT_CODE = 16,
+	R_RICH_TEXT_LINK = 32,
+} RRichTextStyle;
+typedef enum RRichTextBlock {
+	R_RICH_TEXT_PARAGRAPH = 3264,
+	R_RICH_TEXT_HEADING_1 = 3265,
+	R_RICH_TEXT_HEADING_2 = 3266,
+	R_RICH_TEXT_HEADING_3 = 3267,
+	R_RICH_TEXT_BULLET_LIST = 3268,
+	R_RICH_TEXT_NUMBERED_LIST = 3269,
+	R_RICH_TEXT_QUOTE = 3270,
+	R_RICH_TEXT_CODE_BLOCK = 3271,
+} RRichTextBlock;
 typedef enum RHeaderButtons {
 	R_HEADER_NO_BUTTONS = 0,
 	R_HEADER_CLOSE = 1,
@@ -1068,6 +1087,8 @@ typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data)
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
+typedef void (*RRichTextChangedCallback)(Rid editor, void* user_data);
+typedef void (*RRichTextLinkCallback)(Rid editor, const char* url, void* user_data);
 typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
 typedef int (*RDockCloseCallback)(Rid area, Rid panel, void* user_data);
 typedef Rid (*RDockFloatWindowCallback)(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data);
@@ -2496,6 +2517,52 @@ void Rtheme_set_token_color(RToken token, float r, float g, float b, float a);
 void Rtheme_get_token_color(RToken token, float* r, float* g, float* b, float* a);
 void Rtheme_clear_token_colors(void);
 void Rtext_editor_set_changed_callback(Rid editor, RTextEditorChangedCallback callback, void* user_data);
+Rid Rrich_text_editor_create(void);
+void Rrich_text_editor_set_markdown(Rid editor, const char* markdown);
+const char* Rrich_text_editor_get_markdown(Rid editor);
+void Rrich_text_editor_set_html(Rid editor, const char* html);
+const char* Rrich_text_editor_get_html(Rid editor);
+void Rrich_text_editor_set_text(Rid editor, const char* text);
+const char* Rrich_text_editor_get_text(Rid editor);
+void Rrich_text_editor_insert_text(Rid editor, const char* text);
+void Rrich_text_editor_insert_html(Rid editor, const char* html);
+void Rrich_text_editor_insert_markdown(Rid editor, const char* markdown);
+int Rrich_text_editor_get_paragraph_count(Rid editor);
+const char* Rrich_text_editor_get_paragraph_text(Rid editor, int paragraph);
+RRichTextBlock Rrich_text_editor_get_paragraph_block(Rid editor, int paragraph);
+int Rrich_text_editor_get_paragraph_indent(Rid editor, int paragraph);
+Ruint Rrich_text_editor_get_style_at(Rid editor, int paragraph, int offset);
+void Rrich_text_editor_set_selection(Rid editor, int anchor_paragraph, int anchor_offset, int caret_paragraph, int caret_offset);
+void Rrich_text_editor_get_selection(Rid editor, int* anchor_paragraph, int* anchor_offset, int* caret_paragraph, int* caret_offset);
+void Rrich_text_editor_select_all(Rid editor);
+const char* Rrich_text_editor_get_selected_text(Rid editor);
+void Rrich_text_editor_set_style(Rid editor, Ruint style, int enabled);
+void Rrich_text_editor_toggle_style(Rid editor, Ruint style);
+Ruint Rrich_text_editor_get_style(Rid editor);
+void Rrich_text_editor_set_block(Rid editor, RRichTextBlock block);
+RRichTextBlock Rrich_text_editor_get_block(Rid editor);
+void Rrich_text_editor_indent(Rid editor, int levels);
+void Rrich_text_editor_set_link(Rid editor, const char* url);
+const char* Rrich_text_editor_get_link(Rid editor);
+void Rrich_text_editor_edit_link(Rid editor);
+int Rrich_text_editor_undo(Rid editor);
+int Rrich_text_editor_redo(Rid editor);
+int Rrich_text_editor_can_undo(Rid editor);
+int Rrich_text_editor_can_redo(Rid editor);
+void Rrich_text_editor_clear_history(Rid editor);
+void Rrich_text_editor_set_read_only(Rid editor, int read_only);
+int Rrich_text_editor_is_read_only(Rid editor);
+void Rrich_text_editor_set_placeholder(Rid editor, const char* text);
+void Rrich_text_editor_set_toolbar(Rid editor, int visible);
+int Rrich_text_editor_get_toolbar(Rid editor);
+void Rrich_text_editor_set_markdown_shortcuts(Rid editor, int enabled);
+void Rrich_text_editor_set_spell_check(Rid editor, int enabled);
+void Rrich_text_editor_set_spell_language(Rid editor, const char* language);
+void Rrich_text_editor_set_font(Rid editor, Rid font, float size);
+void Rrich_text_editor_scroll_to_caret(Rid editor);
+void Rrich_text_editor_set_changed_callback(Rid editor, RRichTextChangedCallback callback, void* user_data);
+void Rrich_text_editor_set_selection_callback(Rid editor, RRichTextChangedCallback callback, void* user_data);
+void Rrich_text_editor_set_link_callback(Rid editor, RRichTextLinkCallback callback, void* user_data);
 Rid Rheader_bar_create(const char* title);
 void Rheader_bar_set_title(Rid bar, const char* title);
 void Rheader_bar_set_buttons(Rid bar, Ruint buttons);

@@ -1112,6 +1112,52 @@ typedef struct rl_table {
 	void (*Rtheme_get_token_color)(RToken, float*, float*, float*, float*);
 	void (*Rtheme_clear_token_colors)(void);
 	void (*Rtext_editor_set_changed_callback)(Rid, RTextEditorChangedCallback, void*);
+	Rid (*Rrich_text_editor_create)(void);
+	void (*Rrich_text_editor_set_markdown)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_markdown)(Rid);
+	void (*Rrich_text_editor_set_html)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_html)(Rid);
+	void (*Rrich_text_editor_set_text)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_text)(Rid);
+	void (*Rrich_text_editor_insert_text)(Rid, const char*);
+	void (*Rrich_text_editor_insert_html)(Rid, const char*);
+	void (*Rrich_text_editor_insert_markdown)(Rid, const char*);
+	int (*Rrich_text_editor_get_paragraph_count)(Rid);
+	const char* (*Rrich_text_editor_get_paragraph_text)(Rid, int);
+	RRichTextBlock (*Rrich_text_editor_get_paragraph_block)(Rid, int);
+	int (*Rrich_text_editor_get_paragraph_indent)(Rid, int);
+	Ruint (*Rrich_text_editor_get_style_at)(Rid, int, int);
+	void (*Rrich_text_editor_set_selection)(Rid, int, int, int, int);
+	void (*Rrich_text_editor_get_selection)(Rid, int*, int*, int*, int*);
+	void (*Rrich_text_editor_select_all)(Rid);
+	const char* (*Rrich_text_editor_get_selected_text)(Rid);
+	void (*Rrich_text_editor_set_style)(Rid, Ruint, int);
+	void (*Rrich_text_editor_toggle_style)(Rid, Ruint);
+	Ruint (*Rrich_text_editor_get_style)(Rid);
+	void (*Rrich_text_editor_set_block)(Rid, RRichTextBlock);
+	RRichTextBlock (*Rrich_text_editor_get_block)(Rid);
+	void (*Rrich_text_editor_indent)(Rid, int);
+	void (*Rrich_text_editor_set_link)(Rid, const char*);
+	const char* (*Rrich_text_editor_get_link)(Rid);
+	void (*Rrich_text_editor_edit_link)(Rid);
+	int (*Rrich_text_editor_undo)(Rid);
+	int (*Rrich_text_editor_redo)(Rid);
+	int (*Rrich_text_editor_can_undo)(Rid);
+	int (*Rrich_text_editor_can_redo)(Rid);
+	void (*Rrich_text_editor_clear_history)(Rid);
+	void (*Rrich_text_editor_set_read_only)(Rid, int);
+	int (*Rrich_text_editor_is_read_only)(Rid);
+	void (*Rrich_text_editor_set_placeholder)(Rid, const char*);
+	void (*Rrich_text_editor_set_toolbar)(Rid, int);
+	int (*Rrich_text_editor_get_toolbar)(Rid);
+	void (*Rrich_text_editor_set_markdown_shortcuts)(Rid, int);
+	void (*Rrich_text_editor_set_spell_check)(Rid, int);
+	void (*Rrich_text_editor_set_spell_language)(Rid, const char*);
+	void (*Rrich_text_editor_set_font)(Rid, Rid, float);
+	void (*Rrich_text_editor_scroll_to_caret)(Rid);
+	void (*Rrich_text_editor_set_changed_callback)(Rid, RRichTextChangedCallback, void*);
+	void (*Rrich_text_editor_set_selection_callback)(Rid, RRichTextChangedCallback, void*);
+	void (*Rrich_text_editor_set_link_callback)(Rid, RRichTextLinkCallback, void*);
 	Rid (*Rheader_bar_create)(const char*);
 	void (*Rheader_bar_set_title)(Rid, const char*);
 	void (*Rheader_bar_set_buttons)(Rid, Ruint);
@@ -2726,6 +2772,52 @@ static const struct {
 	{"Rtheme_get_token_color", offsetof(rl_table, Rtheme_get_token_color)},
 	{"Rtheme_clear_token_colors", offsetof(rl_table, Rtheme_clear_token_colors)},
 	{"Rtext_editor_set_changed_callback", offsetof(rl_table, Rtext_editor_set_changed_callback)},
+	{"Rrich_text_editor_create", offsetof(rl_table, Rrich_text_editor_create)},
+	{"Rrich_text_editor_set_markdown", offsetof(rl_table, Rrich_text_editor_set_markdown)},
+	{"Rrich_text_editor_get_markdown", offsetof(rl_table, Rrich_text_editor_get_markdown)},
+	{"Rrich_text_editor_set_html", offsetof(rl_table, Rrich_text_editor_set_html)},
+	{"Rrich_text_editor_get_html", offsetof(rl_table, Rrich_text_editor_get_html)},
+	{"Rrich_text_editor_set_text", offsetof(rl_table, Rrich_text_editor_set_text)},
+	{"Rrich_text_editor_get_text", offsetof(rl_table, Rrich_text_editor_get_text)},
+	{"Rrich_text_editor_insert_text", offsetof(rl_table, Rrich_text_editor_insert_text)},
+	{"Rrich_text_editor_insert_html", offsetof(rl_table, Rrich_text_editor_insert_html)},
+	{"Rrich_text_editor_insert_markdown", offsetof(rl_table, Rrich_text_editor_insert_markdown)},
+	{"Rrich_text_editor_get_paragraph_count", offsetof(rl_table, Rrich_text_editor_get_paragraph_count)},
+	{"Rrich_text_editor_get_paragraph_text", offsetof(rl_table, Rrich_text_editor_get_paragraph_text)},
+	{"Rrich_text_editor_get_paragraph_block", offsetof(rl_table, Rrich_text_editor_get_paragraph_block)},
+	{"Rrich_text_editor_get_paragraph_indent", offsetof(rl_table, Rrich_text_editor_get_paragraph_indent)},
+	{"Rrich_text_editor_get_style_at", offsetof(rl_table, Rrich_text_editor_get_style_at)},
+	{"Rrich_text_editor_set_selection", offsetof(rl_table, Rrich_text_editor_set_selection)},
+	{"Rrich_text_editor_get_selection", offsetof(rl_table, Rrich_text_editor_get_selection)},
+	{"Rrich_text_editor_select_all", offsetof(rl_table, Rrich_text_editor_select_all)},
+	{"Rrich_text_editor_get_selected_text", offsetof(rl_table, Rrich_text_editor_get_selected_text)},
+	{"Rrich_text_editor_set_style", offsetof(rl_table, Rrich_text_editor_set_style)},
+	{"Rrich_text_editor_toggle_style", offsetof(rl_table, Rrich_text_editor_toggle_style)},
+	{"Rrich_text_editor_get_style", offsetof(rl_table, Rrich_text_editor_get_style)},
+	{"Rrich_text_editor_set_block", offsetof(rl_table, Rrich_text_editor_set_block)},
+	{"Rrich_text_editor_get_block", offsetof(rl_table, Rrich_text_editor_get_block)},
+	{"Rrich_text_editor_indent", offsetof(rl_table, Rrich_text_editor_indent)},
+	{"Rrich_text_editor_set_link", offsetof(rl_table, Rrich_text_editor_set_link)},
+	{"Rrich_text_editor_get_link", offsetof(rl_table, Rrich_text_editor_get_link)},
+	{"Rrich_text_editor_edit_link", offsetof(rl_table, Rrich_text_editor_edit_link)},
+	{"Rrich_text_editor_undo", offsetof(rl_table, Rrich_text_editor_undo)},
+	{"Rrich_text_editor_redo", offsetof(rl_table, Rrich_text_editor_redo)},
+	{"Rrich_text_editor_can_undo", offsetof(rl_table, Rrich_text_editor_can_undo)},
+	{"Rrich_text_editor_can_redo", offsetof(rl_table, Rrich_text_editor_can_redo)},
+	{"Rrich_text_editor_clear_history", offsetof(rl_table, Rrich_text_editor_clear_history)},
+	{"Rrich_text_editor_set_read_only", offsetof(rl_table, Rrich_text_editor_set_read_only)},
+	{"Rrich_text_editor_is_read_only", offsetof(rl_table, Rrich_text_editor_is_read_only)},
+	{"Rrich_text_editor_set_placeholder", offsetof(rl_table, Rrich_text_editor_set_placeholder)},
+	{"Rrich_text_editor_set_toolbar", offsetof(rl_table, Rrich_text_editor_set_toolbar)},
+	{"Rrich_text_editor_get_toolbar", offsetof(rl_table, Rrich_text_editor_get_toolbar)},
+	{"Rrich_text_editor_set_markdown_shortcuts", offsetof(rl_table, Rrich_text_editor_set_markdown_shortcuts)},
+	{"Rrich_text_editor_set_spell_check", offsetof(rl_table, Rrich_text_editor_set_spell_check)},
+	{"Rrich_text_editor_set_spell_language", offsetof(rl_table, Rrich_text_editor_set_spell_language)},
+	{"Rrich_text_editor_set_font", offsetof(rl_table, Rrich_text_editor_set_font)},
+	{"Rrich_text_editor_scroll_to_caret", offsetof(rl_table, Rrich_text_editor_scroll_to_caret)},
+	{"Rrich_text_editor_set_changed_callback", offsetof(rl_table, Rrich_text_editor_set_changed_callback)},
+	{"Rrich_text_editor_set_selection_callback", offsetof(rl_table, Rrich_text_editor_set_selection_callback)},
+	{"Rrich_text_editor_set_link_callback", offsetof(rl_table, Rrich_text_editor_set_link_callback)},
 	{"Rheader_bar_create", offsetof(rl_table, Rheader_bar_create)},
 	{"Rheader_bar_set_title", offsetof(rl_table, Rheader_bar_set_title)},
 	{"Rheader_bar_set_buttons", offsetof(rl_table, Rheader_bar_set_buttons)},
@@ -7884,6 +7976,59 @@ static void rl_t_RTextEditorChangedCallback(Rid a0, void* a1) {
 	c.a0 = a0;
 	if (!rl_cb_enter(cb)) return;
 	rl_run(cb, rl_k_RTextEditorChangedCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RRichTextChangedCallback {
+	rl_cb* cb;
+	Rid a0;
+} rl_c_RRichTextChangedCallback;
+
+static int rl_k_RRichTextChangedCallback(lua_State* L) {
+	rl_c_RRichTextChangedCallback* c = (rl_c_RRichTextChangedCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 10, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_user(L, c->cb);
+	lua_call(L, 2, 0);
+	return 0;
+}
+
+static void rl_t_RRichTextChangedCallback(Rid a0, void* a1) {
+	rl_cb* cb = (rl_cb*)a1;
+	rl_c_RRichTextChangedCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RRichTextChangedCallback, &c);
+	rl_cb_leave(cb);
+}
+
+typedef struct rl_c_RRichTextLinkCallback {
+	rl_cb* cb;
+	Rid a0;
+	const char* a1;
+} rl_c_RRichTextLinkCallback;
+
+static int rl_k_RRichTextLinkCallback(lua_State* L) {
+	rl_c_RRichTextLinkCallback* c = (rl_c_RRichTextLinkCallback*)lua_touserdata(L, 1);
+	luaL_checkstack(L, 11, "raven");
+	if (!rl_push_fn(L, c->cb, 0)) return 0;
+	rl_push_u32(L, (uint32_t)c->a0);
+	rl_push_text(L, c->a1);
+	rl_push_user(L, c->cb);
+	lua_call(L, 3, 0);
+	return 0;
+}
+
+static void rl_t_RRichTextLinkCallback(Rid a0, const char* a1, void* a2) {
+	rl_cb* cb = (rl_cb*)a2;
+	rl_c_RRichTextLinkCallback c;
+	c.cb = cb;
+	c.a0 = a0;
+	c.a1 = a1;
+	if (!rl_cb_enter(cb)) return;
+	rl_run(cb, rl_k_RRichTextLinkCallback, &c);
 	rl_cb_leave(cb);
 }
 
@@ -24249,6 +24394,644 @@ static int rl_w_Rtext_editor_set_changed_callback(lua_State* L) {
 	return results_;
 }
 
+static int rl_w_Rrich_text_editor_create(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		Rid value_ = RL(Rrich_text_editor_create)();
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_markdown(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_markdown)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_markdown(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_markdown)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_html(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_html)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_html(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_html)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_text(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_text)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_text(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_text)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_insert_text(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_insert_text)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_insert_html(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_insert_html)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_insert_markdown(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_insert_markdown)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_paragraph_count(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_get_paragraph_count)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_paragraph_text(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_paragraph_text)((Rid)a0, (int)a1);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_paragraph_block(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		RRichTextBlock value_ = RL(Rrich_text_editor_get_paragraph_block)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_paragraph_indent(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_get_paragraph_indent)((Rid)a0, (int)a1);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_style_at(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	{
+		Ruint value_ = RL(Rrich_text_editor_get_style_at)((Rid)a0, (int)a1, (int)a2);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_selection(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 5);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	a3 = rl_int(L, 4, NULL);
+	a4 = rl_int(L, 5, NULL);
+	RL(Rrich_text_editor_set_selection)((Rid)a0, (int)a1, (int)a2, (int)a3, (int)a4);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_selection(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	memset(&a1, 0, sizeof(a1));
+	memset(&a2, 0, sizeof(a2));
+	memset(&a3, 0, sizeof(a3));
+	memset(&a4, 0, sizeof(a4));
+	RL(Rrich_text_editor_get_selection)((Rid)a0, &a1, &a2, &a3, &a4);
+	luaL_checkstack(L, 6, "raven");
+	lua_pushinteger(L, (lua_Integer)a1);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a2);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a3);
+	results_++;
+	lua_pushinteger(L, (lua_Integer)a4);
+	results_++;
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_select_all(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rrich_text_editor_select_all)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_selected_text(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_selected_text)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_style(lua_State* L) {
+	uint32_t a0;
+	uint32_t a1;
+	int a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_u32(L, 2, NULL);
+	a2 = rl_int(L, 3, NULL);
+	RL(Rrich_text_editor_set_style)((Rid)a0, (Ruint)a1, (int)a2);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_toggle_style(lua_State* L) {
+	uint32_t a0;
+	uint32_t a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_u32(L, 2, NULL);
+	RL(Rrich_text_editor_toggle_style)((Rid)a0, (Ruint)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_style(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		Ruint value_ = RL(Rrich_text_editor_get_style)((Rid)a0);
+		rl_push_u32(L, (uint32_t)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_block(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_enum(L, 2, NULL);
+	RL(Rrich_text_editor_set_block)((Rid)a0, (RRichTextBlock)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_block(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		RRichTextBlock value_ = RL(Rrich_text_editor_get_block)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_indent(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rrich_text_editor_indent)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_link(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_link)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_link(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		const char* value_ = RL(Rrich_text_editor_get_link)((Rid)a0);
+		rl_push_text(L, value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_edit_link(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rrich_text_editor_edit_link)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_undo(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_undo)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_redo(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_redo)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_can_undo(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_can_undo)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_can_redo(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_can_redo)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_clear_history(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rrich_text_editor_clear_history)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_read_only(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rrich_text_editor_set_read_only)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_is_read_only(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_is_read_only)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_placeholder(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_placeholder)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_toolbar(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rrich_text_editor_set_toolbar)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_get_toolbar(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	{
+		int value_ = RL(Rrich_text_editor_get_toolbar)((Rid)a0);
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_markdown_shortcuts(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rrich_text_editor_set_markdown_shortcuts)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_spell_check(lua_State* L) {
+	uint32_t a0;
+	int a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_int(L, 2, NULL);
+	RL(Rrich_text_editor_set_spell_check)((Rid)a0, (int)a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_spell_language(lua_State* L) {
+	uint32_t a0;
+	const char* a1;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 2);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_str(L, 2, NULL);
+	RL(Rrich_text_editor_set_spell_language)((Rid)a0, a1);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_font(lua_State* L) {
+	uint32_t a0;
+	uint32_t a1;
+	float a2;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	a1 = rl_u32(L, 2, NULL);
+	a2 = (float)rl_number(L, 3, NULL);
+	RL(Rrich_text_editor_set_font)((Rid)a0, (Rid)a1, (float)a2);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_scroll_to_caret(lua_State* L) {
+	uint32_t a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_u32(L, 1, NULL);
+	RL(Rrich_text_editor_scroll_to_caret)((Rid)a0);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_changed_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rrich_text_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RRichTextChangedCallback)rl_t_RRichTextChangedCallback : (RRichTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_selection_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rrich_text_editor_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RRichTextChangedCallback)rl_t_RRichTextChangedCallback : (RRichTextChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
+	return results_;
+}
+
+static int rl_w_Rrich_text_editor_set_link_callback(lua_State* L) {
+	uint32_t a0;
+	void* a2;
+	rl_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 3);
+	a0 = rl_u32(L, 1, NULL);
+	k0_ = rl_callback_arg(L, 2, &n0_);
+	a2 = lua_touserdata(L, 3);
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwidget_is_valid)(a0)) {
+		cb_ = rl_cb_new(L, 2, 0, 3);
+	}
+	RL(Rrich_text_editor_set_link_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RRichTextLinkCallback)rl_t_RRichTextLinkCallback : (RRichTextLinkCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
+	return results_;
+}
+
 static int rl_w_Rheader_bar_create(lua_State* L) {
 	const char* a0;
 	int results_ = 0;
@@ -24586,7 +25369,7 @@ static int rl_w_Rdock_area_set_close_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_close_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockCloseCallback)rl_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 83, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
 	return results_;
 }
 
@@ -24646,7 +25429,7 @@ static int rl_w_Rdock_area_set_float_window(lua_State* L) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdock_area_set_float_window)((Rid)a0, (Ruint)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockFloatWindowCallback)rl_t_RDockFloatWindowCallback : (RDockFloatWindowCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rl_bind(a0, RL_OWNER_WIDGET, 84, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 87, NULL, cb_);
 	return results_;
 }
 
@@ -24714,7 +25497,7 @@ static int rl_w_Rdock_area_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdock_area_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDockChangedCallback)rl_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 85, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
 	return results_;
 }
 
@@ -24859,7 +25642,7 @@ static int rl_w_Risland_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Risland_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RIslandChangedCallback)rl_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 86, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 89, NULL, cb_);
 	return results_;
 }
 
@@ -25083,7 +25866,7 @@ static int rl_w_Rtray_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtray_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTrayClickedCallback)rl_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_PLAIN, 87, NULL, cb_);
+	rl_bind(a0, RL_OWNER_PLAIN, 90, NULL, cb_);
 	return results_;
 }
 
@@ -25367,7 +26150,7 @@ static int rl_w_Rcolor_picker_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcolor_picker_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RColorChangedCallback)rl_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 88, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
 	return results_;
 }
 
@@ -26231,7 +27014,7 @@ static int rl_w_Rtimeline_set_time_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_time_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineTimeCallback)rl_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 89, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
 	return results_;
 }
 
@@ -26251,7 +27034,7 @@ static int rl_w_Rtimeline_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 90, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
 	return results_;
 }
 
@@ -26271,7 +27054,7 @@ static int rl_w_Rtimeline_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 91, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
 	return results_;
 }
 
@@ -26291,7 +27074,7 @@ static int rl_w_Rtimeline_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 92, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
 	return results_;
 }
 
@@ -26311,7 +27094,7 @@ static int rl_w_Rtimeline_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rtimeline_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RTimelineItemCallback)rl_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 93, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
 	return results_;
 }
 
@@ -27244,7 +28027,7 @@ static int rl_w_Rnode_graph_set_connect_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_connect_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphConnectCallback)rl_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 94, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
 	return results_;
 }
 
@@ -27264,7 +28047,7 @@ static int rl_w_Rnode_graph_set_linked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_linked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 95, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
 	return results_;
 }
 
@@ -27284,7 +28067,7 @@ static int rl_w_Rnode_graph_set_unlinked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_unlinked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 96, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
 	return results_;
 }
 
@@ -27304,7 +28087,7 @@ static int rl_w_Rnode_graph_set_moved_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_moved_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 97, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 100, NULL, cb_);
 	return results_;
 }
 
@@ -27324,7 +28107,7 @@ static int rl_w_Rnode_graph_set_selection_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_selection_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 98, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
 	return results_;
 }
 
@@ -27344,7 +28127,7 @@ static int rl_w_Rnode_graph_set_removed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_removed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 99, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
 	return results_;
 }
 
@@ -27364,7 +28147,7 @@ static int rl_w_Rnode_graph_set_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphItemCallback)rl_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 100, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
 	return results_;
 }
 
@@ -27384,7 +28167,7 @@ static int rl_w_Rnode_graph_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphContextCallback)rl_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 101, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
 	return results_;
 }
 
@@ -27404,7 +28187,7 @@ static int rl_w_Rnode_graph_set_canvas_activated_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_canvas_activated_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 102, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 105, NULL, cb_);
 	return results_;
 }
 
@@ -27424,7 +28207,7 @@ static int rl_w_Rnode_graph_set_wire_dropped_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_wire_dropped_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 103, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 106, NULL, cb_);
 	return results_;
 }
 
@@ -27444,7 +28227,7 @@ static int rl_w_Rnode_graph_set_pin_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rnode_graph_set_pin_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNodeGraphPointCallback)rl_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 104, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
 	return results_;
 }
 
@@ -28145,7 +28928,7 @@ static int rl_w_Rblock_editor_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 105, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
 	return results_;
 }
 
@@ -28165,7 +28948,7 @@ static int rl_w_Rblock_editor_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorCallback)rl_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 106, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 109, NULL, cb_);
 	return results_;
 }
 
@@ -28185,7 +28968,7 @@ static int rl_w_Rblock_editor_set_context_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rblock_editor_set_context_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RBlockEditorContextCallback)rl_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 107, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 110, NULL, cb_);
 	return results_;
 }
 
@@ -28826,7 +29609,7 @@ static int rl_w_Rdiff_view_set_line_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rdiff_view_set_line_clicked_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDiffViewLineCallback)rl_t_RDiffViewLineCallback : (RDiffViewLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 108, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 111, NULL, cb_);
 	return results_;
 }
 
@@ -28844,13 +29627,13 @@ static int rl_w_Rdialog_open(lua_State* L) {
 	a1 = rl_u32(L, 2, NULL);
 	k0_ = rl_callback_arg(L, 3, &n0_);
 	a3 = lua_touserdata(L, 4);
-	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 109)) {
+	if ((k0_ == RL_CALLBACK_FUNCTION) && RL(Rwindow_is_valid)(a0) && RL(Rwidget_is_valid)(a1) && !rl_dialog_pending(a1, 112)) {
 		cb_ = rl_cb_new(L, 3, 0, 4);
 	}
 	RL(Rdialog_open)((Rid)a0, (Rid)a1, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rl_bind(a1, RL_OWNER_WIDGET, 109, NULL, cb_);
+		rl_bind(a1, RL_OWNER_WIDGET, 112, NULL, cb_);
 	}
 	return results_;
 }
@@ -28905,7 +29688,7 @@ static int rl_w_Rpopup_open(lua_State* L) {
 		cb_ = rl_cb_new(L, 5, 0, 6);
 	}
 	RL(Rpopup_open)((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RDialogClosedCallback)rl_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rl_bind(a0, RL_OWNER_WIDGET, 110, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 113, NULL, cb_);
 	return results_;
 }
 
@@ -29355,7 +30138,7 @@ static int rl_w_Rfile_browser_set_accepted_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_accepted_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 111, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 114, NULL, cb_);
 	return results_;
 }
 
@@ -29375,7 +30158,7 @@ static int rl_w_Rfile_browser_set_cancelled_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_cancelled_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 112, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 115, NULL, cb_);
 	return results_;
 }
 
@@ -29395,7 +30178,7 @@ static int rl_w_Rfile_browser_set_selection_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rfile_browser_set_selection_changed_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RFileBrowserCallback)rl_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 113, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 116, NULL, cb_);
 	return results_;
 }
 
@@ -29442,7 +30225,7 @@ static int rl_w_Rnotification_set_fallback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_fallback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationFallback)rl_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 114, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 117, NULL, cb_);
 	return results_;
 }
 
@@ -29460,7 +30243,7 @@ static int rl_w_Rnotification_set_clicked_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_clicked_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationClickedCallback)rl_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 115, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 118, NULL, cb_);
 	return results_;
 }
 
@@ -29508,7 +30291,7 @@ static int rl_w_Rnotification_set_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rnotification_set_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RNotificationCallback)rl_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 116, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 119, NULL, cb_);
 	return results_;
 }
 
@@ -29980,7 +30763,7 @@ static int rl_w_Rviewport_set_resize_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rviewport_set_resize_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RViewportResizeCallback)rl_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 125, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 128, NULL, cb_);
 	return results_;
 }
 
@@ -30012,7 +30795,7 @@ static int rl_w_Rcustom_set_paint_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_paint_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RPaintCallback)rl_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 126, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 129, NULL, cb_);
 	return results_;
 }
 
@@ -30032,7 +30815,7 @@ static int rl_w_Rcustom_set_measure_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rcustom_set_measure_callback)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RMeasureCallback)rl_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 127, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 130, NULL, cb_);
 	return results_;
 }
 
@@ -30794,7 +31577,7 @@ static int rl_w_Rxml_set_reload_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rxml_set_reload_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RXmlReloadCallback)rl_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 128, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
 	return results_;
 }
 
@@ -30915,7 +31698,7 @@ static int rl_w_Rxml_register_tag(lua_State* L) {
 			rl_cb_release(cb_);
 			cb_ = NULL;
 		}
-		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, cb_);
+		if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 132, a0, cb_);
 		lua_pushinteger(L, (lua_Integer)value_);
 		results_++;
 	}
@@ -30929,7 +31712,7 @@ static int rl_w_Rxml_unregister_tag(lua_State* L) {
 	lua_settop(L, 1);
 	a0 = rl_str(L, 1, NULL);
 	RL(Rxml_unregister_tag)(a0);
-	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 129, a0, NULL);
+	if (a0 && a0[0]) rl_bind(rl_name_key(a0), RL_OWNER_PLAIN, 132, a0, NULL);
 	return results_;
 }
 
@@ -31760,7 +32543,7 @@ static int rl_w_Rscript_set_log_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_log_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptLogCallback)rl_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 130, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 133, NULL, cb_);
 	return results_;
 }
 
@@ -31778,7 +32561,7 @@ static int rl_w_Rscript_set_diagnostic_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rscript_set_diagnostic_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RScriptDiagnosticCallback)rl_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 131, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 134, NULL, cb_);
 	return results_;
 }
 
@@ -31929,7 +32712,7 @@ static int rl_w_Rlocale_set_changed_callback(lua_State* L) {
 		cb_ = rl_cb_new(L, 1, 0, 2);
 	}
 	RL(Rlocale_set_changed_callback)(cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RLocaleChangedCallback)rl_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 132, NULL, cb_);
+	rl_bind(RL_KEY_APPLICATION, RL_OWNER_PLAIN, 135, NULL, cb_);
 	return results_;
 }
 
@@ -32519,7 +33302,7 @@ static int rl_w_Rwidget_set_accessible_action(lua_State* L) {
 		cb_ = rl_cb_new(L, 2, 0, 3);
 	}
 	RL(Rwidget_set_accessible_action)((Rid)a0, cb_ && k0_ == RL_CALLBACK_FUNCTION ? (RAccessiblePressCallback)rl_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rl_bind(a0, RL_OWNER_WIDGET, 133, NULL, cb_);
+	rl_bind(a0, RL_OWNER_WIDGET, 136, NULL, cb_);
 	return results_;
 }
 
@@ -34332,6 +35115,52 @@ static const luaL_Reg rl_functions[] = {
 	{"Rtheme_get_token_color", rl_w_Rtheme_get_token_color},
 	{"Rtheme_clear_token_colors", rl_w_Rtheme_clear_token_colors},
 	{"Rtext_editor_set_changed_callback", rl_w_Rtext_editor_set_changed_callback},
+	{"Rrich_text_editor_create", rl_w_Rrich_text_editor_create},
+	{"Rrich_text_editor_set_markdown", rl_w_Rrich_text_editor_set_markdown},
+	{"Rrich_text_editor_get_markdown", rl_w_Rrich_text_editor_get_markdown},
+	{"Rrich_text_editor_set_html", rl_w_Rrich_text_editor_set_html},
+	{"Rrich_text_editor_get_html", rl_w_Rrich_text_editor_get_html},
+	{"Rrich_text_editor_set_text", rl_w_Rrich_text_editor_set_text},
+	{"Rrich_text_editor_get_text", rl_w_Rrich_text_editor_get_text},
+	{"Rrich_text_editor_insert_text", rl_w_Rrich_text_editor_insert_text},
+	{"Rrich_text_editor_insert_html", rl_w_Rrich_text_editor_insert_html},
+	{"Rrich_text_editor_insert_markdown", rl_w_Rrich_text_editor_insert_markdown},
+	{"Rrich_text_editor_get_paragraph_count", rl_w_Rrich_text_editor_get_paragraph_count},
+	{"Rrich_text_editor_get_paragraph_text", rl_w_Rrich_text_editor_get_paragraph_text},
+	{"Rrich_text_editor_get_paragraph_block", rl_w_Rrich_text_editor_get_paragraph_block},
+	{"Rrich_text_editor_get_paragraph_indent", rl_w_Rrich_text_editor_get_paragraph_indent},
+	{"Rrich_text_editor_get_style_at", rl_w_Rrich_text_editor_get_style_at},
+	{"Rrich_text_editor_set_selection", rl_w_Rrich_text_editor_set_selection},
+	{"Rrich_text_editor_get_selection", rl_w_Rrich_text_editor_get_selection},
+	{"Rrich_text_editor_select_all", rl_w_Rrich_text_editor_select_all},
+	{"Rrich_text_editor_get_selected_text", rl_w_Rrich_text_editor_get_selected_text},
+	{"Rrich_text_editor_set_style", rl_w_Rrich_text_editor_set_style},
+	{"Rrich_text_editor_toggle_style", rl_w_Rrich_text_editor_toggle_style},
+	{"Rrich_text_editor_get_style", rl_w_Rrich_text_editor_get_style},
+	{"Rrich_text_editor_set_block", rl_w_Rrich_text_editor_set_block},
+	{"Rrich_text_editor_get_block", rl_w_Rrich_text_editor_get_block},
+	{"Rrich_text_editor_indent", rl_w_Rrich_text_editor_indent},
+	{"Rrich_text_editor_set_link", rl_w_Rrich_text_editor_set_link},
+	{"Rrich_text_editor_get_link", rl_w_Rrich_text_editor_get_link},
+	{"Rrich_text_editor_edit_link", rl_w_Rrich_text_editor_edit_link},
+	{"Rrich_text_editor_undo", rl_w_Rrich_text_editor_undo},
+	{"Rrich_text_editor_redo", rl_w_Rrich_text_editor_redo},
+	{"Rrich_text_editor_can_undo", rl_w_Rrich_text_editor_can_undo},
+	{"Rrich_text_editor_can_redo", rl_w_Rrich_text_editor_can_redo},
+	{"Rrich_text_editor_clear_history", rl_w_Rrich_text_editor_clear_history},
+	{"Rrich_text_editor_set_read_only", rl_w_Rrich_text_editor_set_read_only},
+	{"Rrich_text_editor_is_read_only", rl_w_Rrich_text_editor_is_read_only},
+	{"Rrich_text_editor_set_placeholder", rl_w_Rrich_text_editor_set_placeholder},
+	{"Rrich_text_editor_set_toolbar", rl_w_Rrich_text_editor_set_toolbar},
+	{"Rrich_text_editor_get_toolbar", rl_w_Rrich_text_editor_get_toolbar},
+	{"Rrich_text_editor_set_markdown_shortcuts", rl_w_Rrich_text_editor_set_markdown_shortcuts},
+	{"Rrich_text_editor_set_spell_check", rl_w_Rrich_text_editor_set_spell_check},
+	{"Rrich_text_editor_set_spell_language", rl_w_Rrich_text_editor_set_spell_language},
+	{"Rrich_text_editor_set_font", rl_w_Rrich_text_editor_set_font},
+	{"Rrich_text_editor_scroll_to_caret", rl_w_Rrich_text_editor_scroll_to_caret},
+	{"Rrich_text_editor_set_changed_callback", rl_w_Rrich_text_editor_set_changed_callback},
+	{"Rrich_text_editor_set_selection_callback", rl_w_Rrich_text_editor_set_selection_callback},
+	{"Rrich_text_editor_set_link_callback", rl_w_Rrich_text_editor_set_link_callback},
 	{"Rheader_bar_create", rl_w_Rheader_bar_create},
 	{"Rheader_bar_set_title", rl_w_Rheader_bar_set_title},
 	{"Rheader_bar_set_buttons", rl_w_Rheader_bar_set_buttons},
@@ -35431,6 +36260,7 @@ static const rl_constant rl_constants[] = {
 	{"R_WIDGET_CAROUSEL", 566.0},
 	{"R_WIDGET_SYSTEM_WEB_VIEW", 567.0},
 	{"R_WIDGET_DIFF_VIEW", 568.0},
+	{"R_WIDGET_RICH_TEXT_EDITOR", 569.0},
 	{"R_HALIGN_FILL", 576.0},
 	{"R_HALIGN_LEFT", 577.0},
 	{"R_HALIGN_CENTER", 578.0},
@@ -35581,6 +36411,20 @@ static const rl_constant rl_constants[] = {
 	{"R_MARKER_ERROR", 848.0},
 	{"R_MARKER_WARNING", 849.0},
 	{"R_MARKER_INFO", 850.0},
+	{"R_RICH_TEXT_BOLD", 1.0},
+	{"R_RICH_TEXT_ITALIC", 2.0},
+	{"R_RICH_TEXT_UNDERLINE", 4.0},
+	{"R_RICH_TEXT_STRIKETHROUGH", 8.0},
+	{"R_RICH_TEXT_CODE", 16.0},
+	{"R_RICH_TEXT_LINK", 32.0},
+	{"R_RICH_TEXT_PARAGRAPH", 3264.0},
+	{"R_RICH_TEXT_HEADING_1", 3265.0},
+	{"R_RICH_TEXT_HEADING_2", 3266.0},
+	{"R_RICH_TEXT_HEADING_3", 3267.0},
+	{"R_RICH_TEXT_BULLET_LIST", 3268.0},
+	{"R_RICH_TEXT_NUMBERED_LIST", 3269.0},
+	{"R_RICH_TEXT_QUOTE", 3270.0},
+	{"R_RICH_TEXT_CODE_BLOCK", 3271.0},
 	{"R_HEADER_NO_BUTTONS", 0.0},
 	{"R_HEADER_CLOSE", 1.0},
 	{"R_HEADER_MINIMIZE", 2.0},

@@ -705,6 +705,7 @@ The build trees are in `build\dist\`.
 | `examples/icons` | every icon shipped with Raven, and some in buttons, tabs and a tree, in the color of the text; a button switches between the dark and the light theme |
 | `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
+| `examples/rich_text` | a small notes application: a `RichTextEditor` with its toolbar (the looks of the selection lit), the Markdown of the note kept up to date beside it, read-only mode, the HTML copied, links followed |
 | `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
@@ -1514,6 +1515,59 @@ reached by the mouse and the keyboard. Screen readers see a list of tabs, one
 per page (its `Slot.Title`, else "Page 2 of 5").
 
 
+### Rich text editor
+
+```xml
+<RichTextEditor Name="note" Placeholder="Write a note" Slot.Fill="1">
+    # Groceries
+    - **eggs**, *milk*
+</RichTextEditor>
+```
+
+```c
+Rid note = Rrich_text_editor_create();
+Rrich_text_editor_set_markdown(note, "# Groceries\n\n- **eggs**, *milk*");
+Rrich_text_editor_set_changed_callback(note, on_changed, NULL);   /* save it: */
+const char* markdown = Rrich_text_editor_get_markdown(note);       /* the same document back */
+const char* html = Rrich_text_editor_get_html(note);               /* for a mail */
+Rrich_text_editor_toggle_style(note, R_RICH_TEXT_BOLD);            /* what the toolbar and Ctrl+B do */
+Rrich_text_editor_set_block(note, R_RICH_TEXT_NUMBERED_LIST);
+Rrich_text_editor_set_link(note, "https://raven.dev");
+```
+
+![examples/rich_text: a note with titles, looks, a link, lists, a quote and code; the toolbar lit for the bold word of a list the caret is in, the Markdown beside it](docs/images/rich_text.png)
+
+A `RichTextEditor` edits styled text: notes, mails, messages, comments
+(`TextEditor` is for code, a Markdown `Label` only shows). The document is a
+list of paragraphs (text, titles of three levels, items of bulleted and
+numbered lists with lists inside them, quotes, lines of code) whose text is
+bold, italic, underlined, struck, inline code, or a link. A toolbar above
+the text gives the looks and the kinds of paragraphs, lit for the
+selection; `Rrich_text_editor_set_toolbar(note, R_FALSE)` hides it for an
+application that makes its own from `toggle_style`, `set_block`,
+`get_style`, `get_block` and the selection callback. The keys are those of
+word processors (Ctrl+B, I, U, Ctrl+K for a link, Ctrl+Shift+1 to 3 for
+titles, Ctrl+Shift+7 / 8 for lists, Tab and Shift+Tab in a list; Cmd on
+macOS), and Markdown typed is formatted as it is typed: `# ` starts a title,
+`- ` or `1. ` a list, `> ` a quote, three backquotes a block of code,
+`**bold**`, `*italic*`, `~~struck~~` and `` `code` `` take their look when
+they are closed (Ctrl+Z gives back what was typed). Enter on an empty item
+ends its list. Ctrl+click on a link calls the link callback (or opens it).
+
+The document is read and written as Markdown (CommonMark; `<u>` for
+underlined text): what the editor holds comes back unchanged, through
+Markdown and through HTML. Copying puts HTML, plain text and Markdown on the
+clipboard; pasting takes HTML (from a browser, a word processor, Google
+Docs: what the document cannot hold is dropped, and so are scripts, styles,
+attributes and links that would run code), else plain text. Undo and redo
+go by steps (the characters typed in a row are one) and give the selection
+back. Input methods compose in place; spell checking is that of `TextEditor`
+(`SpellCheck="true"`). Each paragraph is laid out once and kept until it
+changes, and only those on screen are drawn: in a note of 5 000 paragraphs a
+character typed lays out one paragraph again (well under a millisecond in
+the tests). Screen readers
+see a document whose value is its text.
+
 ### Diff view
 
 ```xml
@@ -1668,14 +1722,16 @@ for (int i = 0; i < Ricon_get_count(); i++)     /* "add", "arrow-down"... in ord
     printf("%s\n", Ricon_get_name(i));
 ```
 
-Raven ships a set of 63 icons for the usual actions: add, remove, close,
+Raven ships a set of 75 icons for the usual actions: add, remove, close,
 check, chevrons and arrows, menu, search, settings, edit, delete, copy, cut,
 paste, undo, redo, save, open, folder, file, home, user, info, warning, error,
 help, refresh, download, upload, share, link, lock, eye, star, heart,
 calendar, clock, bell, mail, play, pause, stop, filter, sort, more,
-external-link, zoom, print, sun, moon... They are the icons of
+external-link, zoom, print, sun, moon, and those of text formatting (bold,
+italic, underline, strikethrough, code, code-block, heading-1 to 3, list,
+list-ordered, quote)... They are the icons of
 [Lucide](https://lucide.dev) (ISC License), drawn with lines on a grid of
-24 x 24, and take 7 KB in the library. `Ricon_get` gives one by its name, and
+24 x 24, and take 9 KB in the library. `Ricon_get` gives one by its name, and
 XML names one with `raven:` wherever an image goes: `Image Source`,
 `MenuItem Icon`, the `Icon` of a `TreeView` item, `Slot.Icon` (the tab of a
 `TabView` with `Documents="true"`, a docked panel), a `Node Icon`, a Markdown
@@ -2506,7 +2562,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 `stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
 (zlib, Mikko Mononen), a subset
 of the Roboto font (Apache 2.0, Google), a subset of Roboto Mono (SIL Open
-Font License 1.1) and 63 icons of Lucide (ISC, some MIT from Feather) are
+Font License 1.1) and 75 icons of Lucide (ISC, some MIT from Feather) are
 included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
 Khronos) are needed to build but are not part of this repository.
