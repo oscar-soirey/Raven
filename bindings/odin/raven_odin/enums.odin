@@ -743,7 +743,7 @@ Widget_Type :: enum i32 {
 	Map_View = 0x0235,
 	// Pages shown one at a time and swiped (a page view), with dots and arrows.
 	Carousel = 0x0236,
-	// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+	// A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
 	System_Web_View = 0x0237,
 	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 	Diff_View = 0x0238,

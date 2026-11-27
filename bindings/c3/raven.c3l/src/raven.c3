@@ -937,7 +937,7 @@ constset WidgetType : CInt
 	MAP_VIEW = 0x0235,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
-	<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+	<* A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget. *>
 	SYSTEM_WEB_VIEW = 0x0237,
 	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 	DIFF_VIEW = 0x0238,
@@ -6992,7 +6992,9 @@ fn void SystemWebView.set_event_callback(self, SystemWebViewEventCallback callba
 
 <*
  The view of the system, to go further than these functions:
- a WKWebView* on macOS and iOS. NULL where unsupported.
+ a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+ until WebView2 has made the view, a moment after it is created). NULL
+ where unsupported.
 *>
 fn void* SystemWebView.get_native_handle(self) @inline => c::r_system_web_view_get_native_handle((c::Rid)self);
 

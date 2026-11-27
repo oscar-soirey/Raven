@@ -14,6 +14,11 @@
 #       headless_app.c, an ordinary application, driven from outside by the
 #       environment (headless_cli.cmake); the pictures of headless_cli_snap need
 #       a GPU backend (skipped without).
+#   package_cmake, package_pkgconfig
+#       cmake --install of this build into a folder of its own, then
+#       tests/package/consumer.c built against it with find_package(raven) and
+#       with pkg-config (raven.pc; only where pkg-config or pkgconf is found,
+#       not with Visual C++), and run headless.
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
@@ -119,6 +124,10 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	raven_add_test(test_win32_backdrop)
 	target_link_libraries(test_win32_backdrop PRIVATE user32 gdi32)
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
+	# a real Microsoft Edge WebView2 in a Win32 window (skipped without the WebView2 Runtime); each step of WebView2 is printed
+	raven_add_test(test_win32_web_view)
+	target_link_libraries(test_win32_web_view PRIVATE user32)
+	set_tests_properties(test_win32_web_view PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 150 ENVIRONMENT "RAVEN_WEBVIEW2_LOG=1")
 endif()
 raven_add_test(test_touch)
 # the text field of the browser platform: UTF-16 offsets, the text around the caret, field attributes
@@ -212,6 +221,29 @@ if(NOT RAVEN_BUILD_SHARED)
 	# the application's package (APK assets, iOS bundle) through a provider of the test (core/file.c)
 	raven_add_test(test_package)
 	target_compile_definitions(test_package PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
+endif()
+
+# the installed package, used as a program outside this tree uses it: `cmake --install` into a
+# folder of the build, then tests/package/consumer.c built with pkg-config (raven.pc) and with
+# find_package(raven), and run headless
+if(NOT CMAKE_CROSSCOMPILING)
+	get_property(RAVEN_TESTS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+	set(RAVEN_CONSUMER_ARGS
+		-DBUILD_DIR=${PROJECT_BINARY_DIR} -DCONFIG=$<CONFIG> -DSHARED=${RAVEN_BUILD_SHARED}
+		-DC_COMPILER=${CMAKE_C_COMPILER})
+	if(NOT RAVEN_TESTS_MULTI_CONFIG)
+		list(APPEND RAVEN_CONSUMER_ARGS "-DGENERATOR=${CMAKE_GENERATOR}")
+	endif()
+	add_test(NAME package_cmake COMMAND ${CMAKE_COMMAND} -DMODE=cmake ${RAVEN_CONSUMER_ARGS}
+		-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/package_cmake -P ${CMAKE_CURRENT_SOURCE_DIR}/package/package_consumer.cmake)
+	set_tests_properties(package_cmake PROPERTIES TIMEOUT 300)
+	find_program(RAVEN_PKG_CONFIG NAMES pkgconf pkg-config)
+	if(RAVEN_PKG_CONFIG AND NOT MSVC)
+		add_test(NAME package_pkgconfig COMMAND ${CMAKE_COMMAND} -DMODE=pkgconfig ${RAVEN_CONSUMER_ARGS}
+			-DPKG_CONFIG=${RAVEN_PKG_CONFIG}
+			-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/package_pkgconfig -P ${CMAKE_CURRENT_SOURCE_DIR}/package/package_consumer.cmake)
+		set_tests_properties(package_pkgconfig PROPERTIES TIMEOUT 300)
+	endif()
 endif()
 
 # the Wayland platform against a compositor of its own (skipped without libwayland-server)

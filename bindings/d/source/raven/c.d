@@ -832,7 +832,7 @@ enum : RWidgetType
     R_WIDGET_MAP_VIEW = 0x0235,
     /// Pages shown one at a time and swiped (a page view), with dots and arrows.
     R_WIDGET_CAROUSEL = 0x0236,
-    /// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+    /// A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
     /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
     R_WIDGET_DIFF_VIEW = 0x0238,
@@ -4917,7 +4917,9 @@ void Rsystem_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallba
 /// time the address changes.
 void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
 /// The view of the system, to go further than these functions:
-/// a WKWebView* on macOS and iOS. NULL where unsupported.
+/// a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+/// until WebView2 has made the view, a moment after it is created). NULL
+/// where unsupported.
 void* Rsystem_web_view_get_native_handle(Rid view);
 Rid Rpdf_document_create();
 void Rpdf_document_delete(Rid document);
