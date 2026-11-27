@@ -1868,6 +1868,70 @@
 			"accepted": []
 		},
 		{
+			"name": "VideoView",
+			"description": "A video (or a sound) played by the media framework of the system, with controls; elsewhere a message.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "A video or sound file, found next to the document."
+				},
+				{
+					"name": "Url",
+					"kind": "text",
+					"description": "An address the system streams (\"https://...\")."
+				},
+				{
+					"name": "AutoPlay",
+					"kind": "bool",
+					"description": "Plays as soon as it is loaded."
+				},
+				{
+					"name": "Loop",
+					"kind": "bool",
+					"description": "Starts again at the end."
+				},
+				{
+					"name": "Muted",
+					"kind": "bool",
+					"description": "Without sound."
+				},
+				{
+					"name": "Volume",
+					"kind": "number",
+					"description": "Loudness, 0 to 1 (default 1)."
+				},
+				{
+					"name": "Rate",
+					"kind": "number",
+					"description": "Speed: 1 normal, 0.5 half, 2 twice."
+				},
+				{
+					"name": "Controls",
+					"kind": "bool",
+					"description": "Play / pause, the time, a bar to go anywhere, the sound, over the bottom of the picture."
+				},
+				{
+					"name": "Stretch",
+					"kind": "choice",
+					"choices": [
+						"Fill",
+						"Fit",
+						"Cover",
+						"None"
+					],
+					"description": "How the picture fills its place (Fit by default)."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when it starts or stops playing, ends, or fails."
+				}
+			],
+			"accepted": []
+		},
+		{
 			"name": "Custom",
 			"description": "A widget painted and measured by the application.",
 			"children": "many",
@@ -3413,6 +3477,8 @@
 		"Map": "MapView",
 		"TileMap": "MapView",
 		"PageView": "Carousel",
+		"Video": "VideoView",
+		"VideoPlayer": "VideoView",
 		"Slideshow": "Carousel",
 		"DiffViewer": "DiffView"
 	}

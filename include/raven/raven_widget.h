@@ -143,6 +143,8 @@ typedef enum RWidgetType{
 	R_WIDGET_SYSTEM_WEB_VIEW,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW,
+	/** The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND). */
+	R_WIDGET_VIDEO_VIEW,
 
 	R_WIDGET_LAST_
 }RWidgetType;

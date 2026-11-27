@@ -153,6 +153,47 @@ static void test_diff_view(void) {
 	Rwindow_destroy(window);
 }
 
+/* A video view is a group named "Video", its state and time as the value; pressed, it plays or pauses. Its controls are buttons and sliders. */
+static void test_video_view(void) {
+	rvn_a11y_node_t node;
+	Rid window = Rwindow_create("Video", 480, 320, 0);
+	Rid view = Rvideo_view_create();
+	int i, buttons = 0, sliders = 0;
+	Rtest_set_fake_media(20.0, 160, 120, 30.0);
+	Rvideo_view_set_controls(view, R_TRUE);
+	Rwindow_set_content(window, view);
+	Rvideo_view_load_file(view, "clip.mp4");
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(rvn_a11y_describe(view, &node));
+	CHECK(node.role == R_ROLE_GROUP);
+	CHECK_STR(node.name, "Video");
+	CHECK_STR(node.value, "paused, 0:00 of 0:20");
+	CHECK(node.states & RVN_A11Y_INVOKABLE);
+	CHECK(rvn_a11y_act(view, RVN_A11Y_PRESS));
+	CHECK(Rmedia_player_get_state(view) == R_MEDIA_PLAYING);
+	Rmedia_player_seek(view, 65.0 / 10.0);
+	CHECK(rvn_a11y_describe(view, &node));
+	CHECK_STR(node.value, "playing, 0:06 of 0:20");
+	CHECK(rvn_a11y_act(view, RVN_A11Y_PRESS));
+	CHECK(Rmedia_player_get_state(view) == R_MEDIA_PAUSED);
+	/* the controls: play, sound and full screen (collapsed) buttons; the position and the volume */
+	for (i = 0; i < 64; i++) {
+		rvn_a11y_id_t child = rvn_a11y_child(Rtest_find(view, "controls"), i);
+		if (!child || !rvn_a11y_describe(child, &node)) break;
+		if (node.role == R_ROLE_BUTTON) buttons++;
+		if (node.role == R_ROLE_SLIDER) sliders++;
+	}
+	CHECK(buttons >= 2);
+	CHECK(sliders == 2);
+	CHECK(rvn_a11y_describe(Rtest_find(view, "play"), &node));
+	CHECK_STR(node.name, "Play");
+	CHECK(rvn_a11y_describe(Rtest_find(view, "seek"), &node));
+	CHECK_STR(node.name, "Position");
+	Rwindow_destroy(window);
+	Rtest_set_fake_media(0.0, 0, 0, 0.0);
+}
+
 /* What VoiceOver and TalkBack are told (core/accessibility_touch.c), and the double tap / swipe they act with. */
 static void test_touch(void) {
 	rvn_a11y_node_t node;
@@ -374,6 +415,7 @@ int main(void) {
 	RUN(test_default_checked);
 	RUN(test_carousel);
 	RUN(test_diff_view);
+	RUN(test_video_view);
 	RUN(test_touch);
 	RUN(test_touch_roles);
 	RUN(test_switcher);

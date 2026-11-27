@@ -1072,6 +1072,52 @@ const _symbols = {
 	Rsystem_web_view_set_message_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rsystem_web_view_set_event_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rsystem_web_view_get_native_handle: { args: ["u32"], returns: "ptr" },
+	Rmedia_is_supported: { args: [], returns: "i32" },
+	Rmedia_get_backend_name: { args: [], returns: "cstring" },
+	Rmedia_player_create: { args: [], returns: "u32" },
+	Rmedia_player_destroy: { args: ["u32"], returns: "void" },
+	Rmedia_player_is_valid: { args: ["u32"], returns: "i32" },
+	Rmedia_player_load_file: { args: ["u32", "ptr"], returns: "i32" },
+	Rmedia_player_load_url: { args: ["u32", "ptr"], returns: "i32" },
+	Rmedia_player_close: { args: ["u32"], returns: "void" },
+	Rmedia_player_get_source: { args: ["u32"], returns: "cstring" },
+	Rmedia_player_play: { args: ["u32"], returns: "void" },
+	Rmedia_player_pause: { args: ["u32"], returns: "void" },
+	Rmedia_player_stop: { args: ["u32"], returns: "void" },
+	Rmedia_player_seek: { args: ["u32", "f64"], returns: "void" },
+	Rmedia_player_get_state: { args: ["u32"], returns: "i32" },
+	Rmedia_player_get_position: { args: ["u32"], returns: "f64" },
+	Rmedia_player_get_duration: { args: ["u32"], returns: "f64" },
+	Rmedia_player_get_video_size: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rmedia_player_has_audio: { args: ["u32"], returns: "i32" },
+	Rmedia_player_get_error: { args: ["u32"], returns: "cstring" },
+	Rmedia_player_set_volume: { args: ["u32", "f32"], returns: "void" },
+	Rmedia_player_get_volume: { args: ["u32"], returns: "f32" },
+	Rmedia_player_set_muted: { args: ["u32", "i32"], returns: "void" },
+	Rmedia_player_is_muted: { args: ["u32"], returns: "i32" },
+	Rmedia_player_set_loop: { args: ["u32", "i32"], returns: "void" },
+	Rmedia_player_get_loop: { args: ["u32"], returns: "i32" },
+	Rmedia_player_set_rate: { args: ["u32", "f32"], returns: "void" },
+	Rmedia_player_get_rate: { args: ["u32"], returns: "f32" },
+	Rmedia_player_get_texture: { args: ["u32"], returns: "u32" },
+	Rmedia_player_get_frame_count: { args: ["u32"], returns: "i32" },
+	Rmedia_player_set_event_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rsound_play: { args: ["ptr", "f32"], returns: "u32" },
+	Rsound_stop_all: { args: [], returns: "void" },
+	Rvideo_view_create: { args: [], returns: "u32" },
+	Rvideo_view_get_player: { args: ["u32"], returns: "u32" },
+	Rvideo_view_load_file: { args: ["u32", "ptr"], returns: "i32" },
+	Rvideo_view_load_url: { args: ["u32", "ptr"], returns: "i32" },
+	Rvideo_view_set_autoplay: { args: ["u32", "i32"], returns: "void" },
+	Rvideo_view_get_autoplay: { args: ["u32"], returns: "i32" },
+	Rvideo_view_set_stretch: { args: ["u32", "i32"], returns: "void" },
+	Rvideo_view_get_stretch: { args: ["u32"], returns: "i32" },
+	Rvideo_view_set_controls: { args: ["u32", "i32"], returns: "void" },
+	Rvideo_view_get_controls: { args: ["u32"], returns: "i32" },
+	Rvideo_view_are_controls_visible: { args: ["u32"], returns: "i32" },
+	Rvideo_view_set_fullscreen_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rvideo_view_set_fullscreen: { args: ["u32", "i32"], returns: "void" },
+	Rvideo_view_is_fullscreen: { args: ["u32"], returns: "i32" },
 	Rpdf_document_create: { args: [], returns: "u32" },
 	Rpdf_document_delete: { args: ["u32"], returns: "void" },
 	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
@@ -1732,6 +1778,7 @@ const _symbols = {
 	Rhost_service_complete: { args: ["u32", "i32", "ptr", "i32"], returns: "void" },
 	Rtest_set_deterministic: { args: ["i32"], returns: "void" },
 	Rtest_is_deterministic: { args: [], returns: "i32" },
+	Rtest_set_fake_media: { args: ["f64", "i32", "i32", "f64"], returns: "void" },
 	Rtest_get_platform_tag: { args: [], returns: "cstring" },
 	Rtest_find: { args: ["u32", "ptr"], returns: "u32" },
 	Rtest_click: { args: ["u32"], returns: "i32" },
@@ -2935,6 +2982,8 @@ export enum RWidgetType {
 	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW = 0x0238,
+	/** The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND). */
+	R_WIDGET_VIDEO_VIEW = 0x0239,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2994,6 +3043,7 @@ export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
 export const R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW;
+export const R_WIDGET_VIDEO_VIEW = RWidgetType.R_WIDGET_VIDEO_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3432,6 +3482,48 @@ export const R_SYSTEM_WEB_VIEW_TITLE = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_TIT
 export const R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADING;
 export const R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED;
 export const R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED;
+
+/** Where a media player is (Rmedia_player_get_state). */
+export enum RMediaState {
+	/** Nothing is loaded. */
+	R_MEDIA_EMPTY = 0x0CD0,
+	/** A file or an address is being opened: its duration and its size are not known yet. */
+	R_MEDIA_LOADING = 0x0CD1,
+	/** Loaded and still: paused, stopped, or loaded without being played. */
+	R_MEDIA_PAUSED = 0x0CD2,
+	R_MEDIA_PLAYING = 0x0CD3,
+	/** It played to its end (without Loop); Rmedia_player_play starts it again. */
+	R_MEDIA_ENDED = 0x0CD4,
+	/** It cannot be played (Rmedia_player_get_error). */
+	R_MEDIA_ERROR = 0x0CD5,
+}
+
+export const R_MEDIA_EMPTY = RMediaState.R_MEDIA_EMPTY;
+export const R_MEDIA_LOADING = RMediaState.R_MEDIA_LOADING;
+export const R_MEDIA_PAUSED = RMediaState.R_MEDIA_PAUSED;
+export const R_MEDIA_PLAYING = RMediaState.R_MEDIA_PLAYING;
+export const R_MEDIA_ENDED = RMediaState.R_MEDIA_ENDED;
+export const R_MEDIA_ERROR = RMediaState.R_MEDIA_ERROR;
+
+/** What a media player tells (Rmedia_player_set_event_callback). */
+export enum RMediaEvent {
+	/** The state changed (Rmedia_player_get_state). */
+	R_MEDIA_EVENT_STATE = 0x0CD8,
+	/** It is opened: its duration, the size of its picture and its tracks are known. */
+	R_MEDIA_EVENT_LOADED = 0x0CD9,
+	/** The position moved: about four times a second while it plays, and after a seek. */
+	R_MEDIA_EVENT_TIME = 0x0CDA,
+	/** It played to its end. With Loop it starts again instead, and this is not sent. */
+	R_MEDIA_EVENT_ENDED = 0x0CDB,
+	/** It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error). */
+	R_MEDIA_EVENT_ERROR = 0x0CDC,
+}
+
+export const R_MEDIA_EVENT_STATE = RMediaEvent.R_MEDIA_EVENT_STATE;
+export const R_MEDIA_EVENT_LOADED = RMediaEvent.R_MEDIA_EVENT_LOADED;
+export const R_MEDIA_EVENT_TIME = RMediaEvent.R_MEDIA_EVENT_TIME;
+export const R_MEDIA_EVENT_ENDED = RMediaEvent.R_MEDIA_EVENT_ENDED;
+export const R_MEDIA_EVENT_ERROR = RMediaEvent.R_MEDIA_EVENT_ERROR;
 
 /** How the rows of a Table are selected (Rtable_set_selection_mode). */
 export enum RTableSelectionMode {
@@ -8238,6 +8330,36 @@ function _adapt_RSystemWebViewEventCallback(function_: RSystemWebViewEventCallba
 	return _keep(new _JSCallback((view: number, event: number, user_data: Pointer | null): void => {
 		try {
 			function_(view, event as RSystemWebViewEvent, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RMediaEventCallback = (player: Rid, event: RMediaEvent, user_data: Pointer | null) => void;
+
+function _adapt_RMediaEventCallback(function_: RMediaEventCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((player: number, event: number, user_data: Pointer | null): void => {
+		try {
+			function_(player, event as RMediaEvent, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RVideoViewFullscreenCallback = (view: Rid, fullscreen: number, user_data: Pointer | null) => void;
+
+function _adapt_RVideoViewFullscreenCallback(function_: RVideoViewFullscreenCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, fullscreen: number, user_data: Pointer | null): void => {
+		try {
+			function_(view, fullscreen, user_data);
 		} catch (error) {
 			_report(error as Error);
 		}
@@ -14261,6 +14383,264 @@ export function Rsystem_web_view_get_native_handle(view: Rid): Pointer | null {
 	return _lib.Rsystem_web_view_get_native_handle(view) as Pointer | null;
 }
 
+/** Returns: R_TRUE when the system can play media here (the framework is there). */
+export function Rmedia_is_supported(): number {
+	return _lib.Rmedia_is_supported();
+}
+
+/** Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none. */
+export function Rmedia_get_backend_name(): string | null {
+	return _lib.Rmedia_get_backend_name();
+}
+
+/** A player with nothing loaded, for sound or for pictures drawn by the application. */
+export function Rmedia_player_create(): Rid {
+	return _lib.Rmedia_player_create();
+}
+
+/** Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it). */
+export function Rmedia_player_destroy(player: Rid): void {
+	_lib.Rmedia_player_destroy(player);
+}
+
+/** Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended). */
+export function Rmedia_player_is_valid(player: Rid): number {
+	return _lib.Rmedia_player_is_valid(player);
+}
+
+/**
+ * Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+ * then R_MEDIA_PAUSED). What was loaded before is stopped.
+ * Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+ */
+export function Rmedia_player_load_file(player: Rid, path: string | null): number {
+	return _lib.Rmedia_player_load_file(player, _s(path));
+}
+
+/** Opens an address ("https://...", "file:///..."), where the system streams it. */
+export function Rmedia_player_load_url(player: Rid, url: string | null): number {
+	return _lib.Rmedia_player_load_url(player, _s(url));
+}
+
+/** Stops and lets go of what is loaded (R_MEDIA_EMPTY). */
+export function Rmedia_player_close(player: Rid): void {
+	_lib.Rmedia_player_close(player);
+}
+
+/** Returns: The file or address loaded, "" when none. */
+export function Rmedia_player_get_source(player: Rid): string | null {
+	return _lib.Rmedia_player_get_source(player);
+}
+
+/** Plays. While it loads, it plays as soon as it can; at its end, it starts again. */
+export function Rmedia_player_play(player: Rid): void {
+	_lib.Rmedia_player_play(player);
+}
+
+export function Rmedia_player_pause(player: Rid): void {
+	_lib.Rmedia_player_pause(player);
+}
+
+/** Pauses and goes back to the start. */
+export function Rmedia_player_stop(player: Rid): void {
+	_lib.Rmedia_player_stop(player);
+}
+
+/** Goes to a time, in seconds from the start (playing or paused, it stays so). */
+export function Rmedia_player_seek(player: Rid, seconds: number): void {
+	_lib.Rmedia_player_seek(player, seconds);
+}
+
+export function Rmedia_player_get_state(player: Rid): RMediaState {
+	return _lib.Rmedia_player_get_state(player) as RMediaState;
+}
+
+/** Returns: Seconds from the start. */
+export function Rmedia_player_get_position(player: Rid): number {
+	return _lib.Rmedia_player_get_position(player);
+}
+
+/** Returns: Seconds; 0 while it loads, and for a live stream. */
+export function Rmedia_player_get_duration(player: Rid): number {
+	return _lib.Rmedia_player_get_duration(player);
+}
+
+/** Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels. */
+export function Rmedia_player_get_video_size(player: Rid): [result: number, width: number, height: number] {
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const result_ = _lib.Rmedia_player_get_video_size(player, width_, height_);
+	return [result_, width_[0]!, height_[0]!];
+}
+
+export function Rmedia_player_has_audio(player: Rid): number {
+	return _lib.Rmedia_player_has_audio(player);
+}
+
+/** Returns: Why it cannot be played, "" when all is well. */
+export function Rmedia_player_get_error(player: Rid): string | null {
+	return _lib.Rmedia_player_get_error(player);
+}
+
+/** The loudness, 0 (silent) to 1 (as recorded, the default). */
+export function Rmedia_player_set_volume(player: Rid, volume: number): void {
+	_lib.Rmedia_player_set_volume(player, volume);
+}
+
+export function Rmedia_player_get_volume(player: Rid): number {
+	return _lib.Rmedia_player_get_volume(player);
+}
+
+export function Rmedia_player_set_muted(player: Rid, muted: number): void {
+	_lib.Rmedia_player_set_muted(player, muted);
+}
+
+export function Rmedia_player_is_muted(player: Rid): number {
+	return _lib.Rmedia_player_is_muted(player);
+}
+
+/** R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent). */
+export function Rmedia_player_set_loop(player: Rid, loop: number): void {
+	_lib.Rmedia_player_set_loop(player, loop);
+}
+
+export function Rmedia_player_get_loop(player: Rid): number {
+	return _lib.Rmedia_player_get_loop(player);
+}
+
+/** The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can). */
+export function Rmedia_player_set_rate(player: Rid, rate: number): void {
+	_lib.Rmedia_player_set_rate(player, rate);
+}
+
+export function Rmedia_player_get_rate(player: Rid): number {
+	return _lib.Rmedia_player_get_rate(player);
+}
+
+/**
+ * The picture of now, as a texture to draw (Rdraw_image, an
+ * Image): brought up to date by this call, so call it each time you
+ * draw, from the UI thread. The same texture all along, while the size of
+ * the picture stays the same. R_INVALID_ID before the first picture.
+ */
+export function Rmedia_player_get_texture(player: Rid): Rid {
+	return _lib.Rmedia_player_get_texture(player);
+}
+
+/** Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test). */
+export function Rmedia_player_get_frame_count(player: Rid): number {
+	return _lib.Rmedia_player_get_frame_count(player);
+}
+
+/** Called when the player changes; `player` is the player itself, even for the player of a VideoView. */
+export function Rmedia_player_set_event_callback(player: Rid, callback: RMediaEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmedia_player_set_event_callback(player, _adapt_RMediaEventCallback(callback), user_data);
+}
+
+/**
+ * Plays a sound once, for the interface (a click, a chime), and
+ * forgets it: the player it makes deletes itself at the end, or on an
+ * error. Several play at once.
+ * volume 0 to 1.
+ * Returns: That player, valid until the sound ends (to stop it sooner);
+ * R_INVALID_ID when it cannot be played.
+ */
+export function Rsound_play(path: string | null, volume: number): Rid {
+	return _lib.Rsound_play(_s(path), volume);
+}
+
+/** Stops every sound of Rsound_play. */
+export function Rsound_stop_all(): void {
+	_lib.Rsound_stop_all();
+}
+
+/**
+ * VideoView: the picture of a media player, fitted in the widget as an
+ * Image (Rvideo_view_set_stretch), with controls over it when asked:
+ * play / pause, the time, a bar to go anywhere in it, the sound and its
+ * loudness, and full screen when the application handles it. The
+ * keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+ * and forth, Home / End to the start and the end, Up / Down change the
+ * loudness, M turns the sound off and on. A sound without picture shows
+ * its name. Where media cannot be played (Rmedia_is_supported) it shows
+ * why.
+ *
+ * The action of the widget (Rwidget_set_action, OnChanged in XML) is
+ * fired each time its state changes.
+ */
+export function Rvideo_view_create(): Rid {
+	return _lib.Rvideo_view_create();
+}
+
+/** Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself). */
+export function Rvideo_view_get_player(view: Rid): Rid {
+	return _lib.Rvideo_view_get_player(view);
+}
+
+/** Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays. */
+export function Rvideo_view_load_file(view: Rid, path: string | null): number {
+	return _lib.Rvideo_view_load_file(view, _s(path));
+}
+
+export function Rvideo_view_load_url(view: Rid, url: string | null): number {
+	return _lib.Rvideo_view_load_url(view, _s(url));
+}
+
+/** R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE. */
+export function Rvideo_view_set_autoplay(view: Rid, autoplay: number): void {
+	_lib.Rvideo_view_set_autoplay(view, autoplay);
+}
+
+export function Rvideo_view_get_autoplay(view: Rid): number {
+	return _lib.Rvideo_view_get_autoplay(view);
+}
+
+/** How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it. */
+export function Rvideo_view_set_stretch(view: Rid, stretch: RStretch): void {
+	_lib.Rvideo_view_set_stretch(view, stretch);
+}
+
+export function Rvideo_view_get_stretch(view: Rid): RStretch {
+	return _lib.Rvideo_view_get_stretch(view) as RStretch;
+}
+
+/**
+ * R_TRUE shows the controls over the bottom of the picture (XML
+ * Controls): always while it does not play, while the pointer moves
+ * over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+ */
+export function Rvideo_view_set_controls(view: Rid, shown: number): void {
+	_lib.Rvideo_view_set_controls(view, shown);
+}
+
+export function Rvideo_view_get_controls(view: Rid): number {
+	return _lib.Rvideo_view_get_controls(view);
+}
+
+/** Returns: R_TRUE while the controls are shown (they hide while it plays). */
+export function Rvideo_view_are_controls_visible(view: Rid): number {
+	return _lib.Rvideo_view_are_controls_visible(view);
+}
+
+/**
+ * The controls get a full screen button, which calls this with
+ * the state asked for: the application gives the view the room (hides
+ * what is around it, makes its window fill the screen) and the button
+ * shows the way back. NULL removes the button.
+ */
+export function Rvideo_view_set_fullscreen_callback(view: Rid, callback: RVideoViewFullscreenCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rvideo_view_set_fullscreen_callback(view, _adapt_RVideoViewFullscreenCallback(callback), user_data);
+}
+
+/** The state the button shows (also set by its clicks). */
+export function Rvideo_view_set_fullscreen(view: Rid, fullscreen: number): void {
+	_lib.Rvideo_view_set_fullscreen(view, fullscreen);
+}
+
+export function Rvideo_view_is_fullscreen(view: Rid): number {
+	return _lib.Rvideo_view_is_fullscreen(view);
+}
+
 export function Rpdf_document_create(): Rid {
 	return _lib.Rpdf_document_create();
 }
@@ -18300,6 +18680,22 @@ export function Rtest_set_deterministic(enabled: number): void {
 
 export function Rtest_is_deterministic(): number {
 	return _lib.Rtest_is_deterministic();
+}
+
+/**
+ * Media players (raven_controls.h, VIDEO AND SOUND) made from now
+ * on play a fake clip instead of their file: `duration` seconds of
+ * `width` x `height` pictures, `fps` per second, computed from the time
+ * (the red channel of the top-left pixel is the number of the picture,
+ * modulo 256), with a sound track. It plays on the clock of the
+ * animations, so with Rtest_set_deterministic each frame is 1/60 s of
+ * it. It opens at the first frame after the load; a source whose name
+ * contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+ * .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+ * A duration of 0 or less gives the media of the system back.
+ */
+export function Rtest_set_fake_media(duration: number, width: number, height: number, fps: number): void {
+	_lib.Rtest_set_fake_media(duration, width, height, fps);
 }
 
 /**

@@ -672,8 +672,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CAROUSEL: 566,
 	R_WIDGET_SYSTEM_WEB_VIEW: 567,
 	R_WIDGET_DIFF_VIEW: 568,
+	R_WIDGET_VIDEO_VIEW: 569,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW, R_WIDGET_VIDEO_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -895,6 +896,25 @@ export const RSystemWebViewEvent = _enum({
 	R_SYSTEM_WEB_VIEW_FAILED: 2964,
 });
 export const { R_SYSTEM_WEB_VIEW_NAVIGATED, R_SYSTEM_WEB_VIEW_TITLE, R_SYSTEM_WEB_VIEW_LOADING, R_SYSTEM_WEB_VIEW_LOADED, R_SYSTEM_WEB_VIEW_FAILED } = RSystemWebViewEvent;
+
+export const RMediaState = _enum({
+	R_MEDIA_EMPTY: 3280,
+	R_MEDIA_LOADING: 3281,
+	R_MEDIA_PAUSED: 3282,
+	R_MEDIA_PLAYING: 3283,
+	R_MEDIA_ENDED: 3284,
+	R_MEDIA_ERROR: 3285,
+});
+export const { R_MEDIA_EMPTY, R_MEDIA_LOADING, R_MEDIA_PAUSED, R_MEDIA_PLAYING, R_MEDIA_ENDED, R_MEDIA_ERROR } = RMediaState;
+
+export const RMediaEvent = _enum({
+	R_MEDIA_EVENT_STATE: 3288,
+	R_MEDIA_EVENT_LOADED: 3289,
+	R_MEDIA_EVENT_TIME: 3290,
+	R_MEDIA_EVENT_ENDED: 3291,
+	R_MEDIA_EVENT_ERROR: 3292,
+});
+export const { R_MEDIA_EVENT_STATE, R_MEDIA_EVENT_LOADED, R_MEDIA_EVENT_TIME, R_MEDIA_EVENT_ENDED, R_MEDIA_EVENT_ERROR } = RMediaEvent;
 
 export const RTableSelectionMode = _enum({
 	R_TABLE_SELECTION_SINGLE: 3008,
@@ -4895,6 +4915,52 @@ export const Rsystem_web_view_run_javascript = _lib.Rsystem_web_view_run_javascr
 export const Rsystem_web_view_set_message_callback = _lib.Rsystem_web_view_set_message_callback;
 export const Rsystem_web_view_set_event_callback = _lib.Rsystem_web_view_set_event_callback;
 export const Rsystem_web_view_get_native_handle = _lib.Rsystem_web_view_get_native_handle;
+export const Rmedia_is_supported = _lib.Rmedia_is_supported;
+export const Rmedia_get_backend_name = _lib.Rmedia_get_backend_name;
+export const Rmedia_player_create = _lib.Rmedia_player_create;
+export const Rmedia_player_destroy = _lib.Rmedia_player_destroy;
+export const Rmedia_player_is_valid = _lib.Rmedia_player_is_valid;
+export const Rmedia_player_load_file = _lib.Rmedia_player_load_file;
+export const Rmedia_player_load_url = _lib.Rmedia_player_load_url;
+export const Rmedia_player_close = _lib.Rmedia_player_close;
+export const Rmedia_player_get_source = _lib.Rmedia_player_get_source;
+export const Rmedia_player_play = _lib.Rmedia_player_play;
+export const Rmedia_player_pause = _lib.Rmedia_player_pause;
+export const Rmedia_player_stop = _lib.Rmedia_player_stop;
+export const Rmedia_player_seek = _lib.Rmedia_player_seek;
+export const Rmedia_player_get_state = _lib.Rmedia_player_get_state;
+export const Rmedia_player_get_position = _lib.Rmedia_player_get_position;
+export const Rmedia_player_get_duration = _lib.Rmedia_player_get_duration;
+export const Rmedia_player_get_video_size = _lib.Rmedia_player_get_video_size;
+export const Rmedia_player_has_audio = _lib.Rmedia_player_has_audio;
+export const Rmedia_player_get_error = _lib.Rmedia_player_get_error;
+export const Rmedia_player_set_volume = _lib.Rmedia_player_set_volume;
+export const Rmedia_player_get_volume = _lib.Rmedia_player_get_volume;
+export const Rmedia_player_set_muted = _lib.Rmedia_player_set_muted;
+export const Rmedia_player_is_muted = _lib.Rmedia_player_is_muted;
+export const Rmedia_player_set_loop = _lib.Rmedia_player_set_loop;
+export const Rmedia_player_get_loop = _lib.Rmedia_player_get_loop;
+export const Rmedia_player_set_rate = _lib.Rmedia_player_set_rate;
+export const Rmedia_player_get_rate = _lib.Rmedia_player_get_rate;
+export const Rmedia_player_get_texture = _lib.Rmedia_player_get_texture;
+export const Rmedia_player_get_frame_count = _lib.Rmedia_player_get_frame_count;
+export const Rmedia_player_set_event_callback = _lib.Rmedia_player_set_event_callback;
+export const Rsound_play = _lib.Rsound_play;
+export const Rsound_stop_all = _lib.Rsound_stop_all;
+export const Rvideo_view_create = _lib.Rvideo_view_create;
+export const Rvideo_view_get_player = _lib.Rvideo_view_get_player;
+export const Rvideo_view_load_file = _lib.Rvideo_view_load_file;
+export const Rvideo_view_load_url = _lib.Rvideo_view_load_url;
+export const Rvideo_view_set_autoplay = _lib.Rvideo_view_set_autoplay;
+export const Rvideo_view_get_autoplay = _lib.Rvideo_view_get_autoplay;
+export const Rvideo_view_set_stretch = _lib.Rvideo_view_set_stretch;
+export const Rvideo_view_get_stretch = _lib.Rvideo_view_get_stretch;
+export const Rvideo_view_set_controls = _lib.Rvideo_view_set_controls;
+export const Rvideo_view_get_controls = _lib.Rvideo_view_get_controls;
+export const Rvideo_view_are_controls_visible = _lib.Rvideo_view_are_controls_visible;
+export const Rvideo_view_set_fullscreen_callback = _lib.Rvideo_view_set_fullscreen_callback;
+export const Rvideo_view_set_fullscreen = _lib.Rvideo_view_set_fullscreen;
+export const Rvideo_view_is_fullscreen = _lib.Rvideo_view_is_fullscreen;
 export const Rpdf_document_create = _lib.Rpdf_document_create;
 export const Rpdf_document_delete = _lib.Rpdf_document_delete;
 export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;
@@ -5623,6 +5689,7 @@ export function Rhost_service_complete(request, result, files) {
 }
 export const Rtest_set_deterministic = _lib.Rtest_set_deterministic;
 export const Rtest_is_deterministic = _lib.Rtest_is_deterministic;
+export const Rtest_set_fake_media = _lib.Rtest_set_fake_media;
 export const Rtest_get_platform_tag = _lib.Rtest_get_platform_tag;
 export const Rtest_find = _lib.Rtest_find;
 export const Rtest_click = _lib.Rtest_click;

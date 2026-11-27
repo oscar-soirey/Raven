@@ -139,7 +139,7 @@ is a plan, not a promise: issues and pull requests can change the order.
 ### Images
 
 - [x] SVG icons tinted with the theme (`currentColor`), with a set of icons
-  shipped with Raven: 63 icons of Lucide (`Ricon_get`, `raven:search` in
+  shipped with Raven: 67 icons of Lucide (`Ricon_get`, `raven:search` in
   XML), drawn in white and tinted with the text color of the widget.
 - [x] Animated images (GIF, APNG): an `Image` plays them on the clock of the
   animations, only while it is painted; play / pause / stop / seek, loop
@@ -160,6 +160,12 @@ is a plan, not a promise: issues and pull requests can change the order.
   found at run time (no SDK, nothing linked).
 - [ ] The system web view on Linux (WebKitGTK) and Android
   (`android.webkit.WebView`).
+- [x] Video and sound with the media framework of the system: `VideoView`
+  (controls, keyboard, screen readers), media players and `Rsound_play`, on
+  AVFoundation (macOS, iOS), Media Foundation (Windows) and GStreamer (Linux),
+  each loaded at run time.
+- [ ] Video and sound in the browser (an HTML `<video>`) and on Android
+  (`MediaPlayer`); pictures drawn without a copy (IOSurface on Metal).
 
 ### Rendering
 

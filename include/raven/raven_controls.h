@@ -245,6 +245,35 @@ typedef enum RSystemWebViewEvent{
 	R_SYSTEM_WEB_VIEW_FAILED
 }RSystemWebViewEvent;
 
+/** Where a media player is (Rmedia_player_get_state). */
+typedef enum RMediaState{
+	/** Nothing is loaded. */
+	R_MEDIA_EMPTY = 0x0CD0,
+	/** A file or an address is being opened: its duration and its size are not known yet. */
+	R_MEDIA_LOADING,
+	/** Loaded and still: paused, stopped, or loaded without being played. */
+	R_MEDIA_PAUSED,
+	R_MEDIA_PLAYING,
+	/** It played to its end (without Loop); Rmedia_player_play starts it again. */
+	R_MEDIA_ENDED,
+	/** It cannot be played (Rmedia_player_get_error). */
+	R_MEDIA_ERROR
+}RMediaState;
+
+/** What a media player tells (Rmedia_player_set_event_callback). */
+typedef enum RMediaEvent{
+	/** The state changed (Rmedia_player_get_state). */
+	R_MEDIA_EVENT_STATE = 0x0CD8,
+	/** It is opened: its duration, the size of its picture and its tracks are known. */
+	R_MEDIA_EVENT_LOADED,
+	/** The position moved: about four times a second while it plays, and after a seek. */
+	R_MEDIA_EVENT_TIME,
+	/** It played to its end. With Loop it starts again instead, and this is not sent. */
+	R_MEDIA_EVENT_ENDED,
+	/** It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error). */
+	R_MEDIA_EVENT_ERROR
+}RMediaEvent;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -1965,6 +1994,162 @@ extern "C" {
 	 * where unsupported.
 	 */
 	RAVEN_API void* Rsystem_web_view_get_native_handle(Rid view);
+
+
+	/* ============================================================================
+	 *  VIDEO AND SOUND (played by the media framework of the system)
+	 *
+	 * A media player plays a video or a sound file, or an address where the
+	 * system can stream it, with what the system has: AVFoundation on macOS
+	 * and iOS, Media Foundation on Windows, GStreamer on Linux when it is
+	 * installed (it is opened at run time, Raven does not need it to build or
+	 * to run). The formats are those of the system: H.264 / AAC in MP4 and
+	 * WAV everywhere it plays, more where the system has more. Where there is
+	 * nothing to play with (the browser, Android, Linux without GStreamer)
+	 * Rmedia_is_supported is R_FALSE: players and VideoViews exist all the
+	 * same and end in R_MEDIA_ERROR, so programs stay the same everywhere.
+	 *
+	 * The sound goes to the output of the system on its own; the pictures
+	 * are copied into a texture of Raven (Rmedia_player_get_texture), which a
+	 * VideoView draws, fitted as an Image is. The player keeps its own time
+	 * (the clock of the sound card): a slow frame of the interface does not
+	 * slow the sound, the picture shown is the one of now. Nothing is decoded
+	 * for a picture no one looks at: a VideoView that is hidden or scrolled
+	 * away takes no picture, a paused one asks for no frame.
+	 *
+	 * The functions named Rmedia_player_* also take a VideoView: they act on
+	 * its player. Everything is called from the UI thread; the callbacks
+	 * come on it, between frames.
+	 *
+	 * XML: <VideoView Source="clip.mp4" AutoPlay="true" Loop="true" Muted="true" Controls="true"/>
+	 * ============================================================================ */
+
+	/** @return R_TRUE when the system can play media here (the framework is there). */
+	RAVEN_API int Rmedia_is_supported(void);
+	/** @return The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none. */
+	RAVEN_API const char* Rmedia_get_backend_name(void);
+
+	/** @brief A player with nothing loaded, for sound or for pictures drawn by the application. */
+	RAVEN_API Rid Rmedia_player_create(void);
+	/** @brief Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it). */
+	RAVEN_API void Rmedia_player_destroy(Rid player);
+	/** @return R_TRUE while the player exists (a sound of Rsound_play is gone once it ended). */
+	RAVEN_API int Rmedia_player_is_valid(Rid player);
+	/**
+	 * @brief Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+	 * then R_MEDIA_PAUSED). What was loaded before is stopped.
+	 * @return R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+	 */
+	RAVEN_API int Rmedia_player_load_file(Rid player, const char* path);
+	/** @brief Opens an address ("https://...", "file:///..."), where the system streams it. */
+	RAVEN_API int Rmedia_player_load_url(Rid player, const char* url);
+	/** @brief Stops and lets go of what is loaded (R_MEDIA_EMPTY). */
+	RAVEN_API void Rmedia_player_close(Rid player);
+	/** @return The file or address loaded, "" when none. */
+	RAVEN_API const char* Rmedia_player_get_source(Rid player);
+
+	/** @brief Plays. While it loads, it plays as soon as it can; at its end, it starts again. */
+	RAVEN_API void Rmedia_player_play(Rid player);
+	RAVEN_API void Rmedia_player_pause(Rid player);
+	/** @brief Pauses and goes back to the start. */
+	RAVEN_API void Rmedia_player_stop(Rid player);
+	/** @brief Goes to a time, in seconds from the start (playing or paused, it stays so). */
+	RAVEN_API void Rmedia_player_seek(Rid player, double seconds);
+	RAVEN_API RMediaState Rmedia_player_get_state(Rid player);
+	/** @return Seconds from the start. */
+	RAVEN_API double Rmedia_player_get_position(Rid player);
+	/** @return Seconds; 0 while it loads, and for a live stream. */
+	RAVEN_API double Rmedia_player_get_duration(Rid player);
+	/** @return R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels. */
+	RAVEN_API int Rmedia_player_get_video_size(Rid player, int* width, int* height);
+	RAVEN_API int Rmedia_player_has_audio(Rid player);
+	/** @return Why it cannot be played, "" when all is well. */
+	RAVEN_API const char* Rmedia_player_get_error(Rid player);
+
+	/** @brief The loudness, 0 (silent) to 1 (as recorded, the default). */
+	RAVEN_API void Rmedia_player_set_volume(Rid player, float volume);
+	RAVEN_API float Rmedia_player_get_volume(Rid player);
+	RAVEN_API void Rmedia_player_set_muted(Rid player, int muted);
+	RAVEN_API int Rmedia_player_is_muted(Rid player);
+	/** @brief R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent). */
+	RAVEN_API void Rmedia_player_set_loop(Rid player, int loop);
+	RAVEN_API int Rmedia_player_get_loop(Rid player);
+	/** @brief The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can). */
+	RAVEN_API void Rmedia_player_set_rate(Rid player, float rate);
+	RAVEN_API float Rmedia_player_get_rate(Rid player);
+
+	/**
+	 * @brief The picture of now, as a texture to draw (Rdraw_image, an
+	 * Image): brought up to date by this call, so call it each time you
+	 * draw, from the UI thread. The same texture all along, while the size of
+	 * the picture stays the same. R_INVALID_ID before the first picture.
+	 */
+	RAVEN_API Rid Rmedia_player_get_texture(Rid player);
+	/** @return The pictures taken from the stream since it was loaded (a measure of the frame rate, a test). */
+	RAVEN_API int Rmedia_player_get_frame_count(Rid player);
+
+	typedef void (*RMediaEventCallback)(Rid player, RMediaEvent event, void* user_data);
+	/** @brief Called when the player changes; `player` is the player itself, even for the player of a VideoView. */
+	RAVEN_API void Rmedia_player_set_event_callback(Rid player, RMediaEventCallback callback, void* user_data);
+
+	/**
+	 * @brief Plays a sound once, for the interface (a click, a chime), and
+	 * forgets it: the player it makes deletes itself at the end, or on an
+	 * error. Several play at once.
+	 * @param volume 0 to 1.
+	 * @return That player, valid until the sound ends (to stop it sooner);
+	 * R_INVALID_ID when it cannot be played.
+	 */
+	RAVEN_API Rid Rsound_play(const char* path, float volume);
+	/** @brief Stops every sound of Rsound_play. */
+	RAVEN_API void Rsound_stop_all(void);
+
+	/**
+	 * VideoView: the picture of a media player, fitted in the widget as an
+	 * Image (Rvideo_view_set_stretch), with controls over it when asked:
+	 * play / pause, the time, a bar to go anywhere in it, the sound and its
+	 * loudness, and full screen when the application handles it. The
+	 * keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+	 * and forth, Home / End to the start and the end, Up / Down change the
+	 * loudness, M turns the sound off and on. A sound without picture shows
+	 * its name. Where media cannot be played (Rmedia_is_supported) it shows
+	 * why.
+	 *
+	 * The action of the widget (Rwidget_set_action, OnChanged in XML) is
+	 * fired each time its state changes.
+	 */
+	RAVEN_API Rid Rvideo_view_create(void);
+	/** @return Its player, for every Rmedia_player_* function (they also take the VideoView itself). */
+	RAVEN_API Rid Rvideo_view_get_player(Rid view);
+	/** @brief Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays. */
+	RAVEN_API int Rvideo_view_load_file(Rid view, const char* path);
+	RAVEN_API int Rvideo_view_load_url(Rid view, const char* url);
+	/** @brief R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE. */
+	RAVEN_API void Rvideo_view_set_autoplay(Rid view, int autoplay);
+	RAVEN_API int Rvideo_view_get_autoplay(Rid view);
+	/** @brief How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it. */
+	RAVEN_API void Rvideo_view_set_stretch(Rid view, RStretch stretch);
+	RAVEN_API RStretch Rvideo_view_get_stretch(Rid view);
+	/**
+	 * @brief R_TRUE shows the controls over the bottom of the picture (XML
+	 * Controls): always while it does not play, while the pointer moves
+	 * over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+	 */
+	RAVEN_API void Rvideo_view_set_controls(Rid view, int shown);
+	RAVEN_API int Rvideo_view_get_controls(Rid view);
+	/** @return R_TRUE while the controls are shown (they hide while it plays). */
+	RAVEN_API int Rvideo_view_are_controls_visible(Rid view);
+	typedef void (*RVideoViewFullscreenCallback)(Rid view, int fullscreen, void* user_data);
+	/**
+	 * @brief The controls get a full screen button, which calls this with
+	 * the state asked for: the application gives the view the room (hides
+	 * what is around it, makes its window fill the screen) and the button
+	 * shows the way back. NULL removes the button.
+	 */
+	RAVEN_API void Rvideo_view_set_fullscreen_callback(Rid view, RVideoViewFullscreenCallback callback, void* user_data);
+	/** @brief The state the button shows (also set by its clicks). */
+	RAVEN_API void Rvideo_view_set_fullscreen(Rid view, int fullscreen);
+	RAVEN_API int Rvideo_view_is_fullscreen(Rid view);
 
 
 

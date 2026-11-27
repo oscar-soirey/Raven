@@ -279,6 +279,9 @@ code of a working tree rather than a release, see
   the window (`SystemWebView`: WKWebView on macOS and iOS, Microsoft Edge
   WebView2 on Windows), or (`raven_web.h`,
   built into the same library) by driving a browser already installed.
+- **Video and sound** played by the media framework of the system
+  (AVFoundation, Media Foundation, GStreamer, each loaded only when something
+  plays): a `VideoView` with its controls, and sounds for the interface.
 - **Every language.** Translations in **CSV tables**, read with `Rtr("key")`
   in C or `Text="@key"` in XML, with plurals, arguments, numbers and times
   (12 or 24 hours) in the conventions of each language, and the **time
@@ -706,6 +709,7 @@ The build trees are in `build\dist\`.
 | `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
 | `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
+| `examples/media_player` | a `VideoView` with its controls (play / pause, the time, a bar to go anywhere, the sound, full screen), a playlist that goes on at the end of each item, and the sounds of an interface played with `Rsound_play`; the clips are made by `media/generate.sh` |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1561,6 +1565,77 @@ and `R_DIFF_IGNORE_CASE` decide which lines are the same. The colors are the
 theme roles `R_COLOR_DIFF_ADDED`, `R_COLOR_DIFF_REMOVED` and their `_WORD`
 shades. Screen readers read each row ("added line 12: return 0;").
 
+### Video and sound
+
+```xml
+<VideoView Name="video" Source="media/clip.mp4" AutoPlay="true" Loop="true" Muted="true" Controls="true" Slot.Fill="1"/>
+```
+
+```c
+Rid video = Rvideo_view_create();
+Rvideo_view_set_controls(video, R_TRUE);
+Rvideo_view_load_file(video, "intro.mp4");              /* or _load_url("https://...") */
+Rmedia_player_play(video);                              /* the Rmedia_player_* functions take the view */
+Rmedia_player_set_event_callback(video, on_media, NULL);  /* state, loaded, time, ended, error */
+Rmedia_player_seek(video, 30.0);
+
+Rsound_play("click.wav", 0.8f);                         /* a sound of the interface, played once */
+
+Rid music = Rmedia_player_create();                     /* a player without a view: sound, or pictures */
+Rmedia_player_load_file(music, "theme.m4a");            /* drawn by the application (Rmedia_player_get_texture) */
+Rmedia_player_set_loop(music, R_TRUE);
+Rmedia_player_play(music);
+```
+
+![A VideoView playing with its controls](docs/images/media_player.png)
+
+A `VideoView` plays a video file, or an address where the system streams it,
+with the media framework of the system: **AVFoundation** on macOS and iOS,
+**Media Foundation** on Windows (8 and later), **GStreamer** on Linux and the
+BSDs where it is installed. Raven links none of them and needs none to build:
+each is opened when something is played for the first time (a program that
+plays nothing loads nothing more), so an application starts on a Windows "N"
+edition without Media Foundation, or on a Linux without GStreamer, and
+`Rmedia_is_supported()` is then false. The formats are those of the system:
+H.264 and AAC in MP4, and WAV, everywhere a framework is (on Linux, H.264
+needs one of the plugin sets that decode it); in the browser and on Android
+nothing plays yet. Where nothing plays, the widget says so in place of the
+picture, and the player ends in `R_MEDIA_ERROR`: the same program and the
+same XML run everywhere.
+
+The picture is fitted in the widget as an `Image` is (`Stretch`: `Fit`,
+`Cover`, `Fill`, `None`). The sound keeps the time: the picture drawn is the
+one due now, at the pace of the display. A paused view asks for no frame, and
+a view that is hidden, scrolled away or in a window not shown takes no
+picture at all. `Controls="true"` lays play / pause, the time, a bar to go
+anywhere, the sound and its loudness over the bottom of the picture (made of
+the buttons, icons and sliders of Raven, in the dark look of the theme); they
+hide while it plays and come back with the pointer. A full screen button
+appears when the application handles it (`Rvideo_view_set_fullscreen_callback`
+gives it the room). The keyboard: Space or K plays and pauses, Left / Right go
+5 seconds back and forth, Home / End, Up / Down the loudness, M the sound.
+Screen readers see a group named "Video" whose value is "playing, 0:05 of
+2:00", which a press plays or pauses, and the controls in it.
+
+A player without a view (`Rmedia_player_create`) plays sound, or gives the
+picture of now as a texture to draw (`Rmedia_player_get_texture`).
+`Rsound_play` plays a sound once and forgets it: the sounds of an interface.
+The events come between frames, never inside a call (a callback may delete
+its player); `R_MEDIA_EVENT_TIME` comes four times a second while it plays.
+
+The pictures are copied once into a texture of Raven (BGRA from
+AVFoundation and Media Foundation, RGBA from GStreamer), the same on every
+renderer (8 MB for a picture of 1080p), only while it is shown.
+The decoded pictures are in GPU memory on macOS (an IOSurface) and could be
+drawn without a copy by the Metal backend; that is left for later, as the
+copy keeps one path for every backend.
+
+Tests use fake media (`Rtest_set_fake_media`): pictures computed from the
+time, played on the clock of the animations, so a test of a player or of its
+controls is exact and runs anywhere. With that clock (tests, headless runs),
+a frame waits for its 1/60 s while a real player plays, so that headless
+pictures and films follow the video.
+
 ### Tables, dates and the small controls
 
 ```xml
@@ -1668,14 +1743,14 @@ for (int i = 0; i < Ricon_get_count(); i++)     /* "add", "arrow-down"... in ord
     printf("%s\n", Ricon_get_name(i));
 ```
 
-Raven ships a set of 63 icons for the usual actions: add, remove, close,
+Raven ships a set of 67 icons for the usual actions: add, remove, close,
 check, chevrons and arrows, menu, search, settings, edit, delete, copy, cut,
 paste, undo, redo, save, open, folder, file, home, user, info, warning, error,
 help, refresh, download, upload, share, link, lock, eye, star, heart,
-calendar, clock, bell, mail, play, pause, stop, filter, sort, more,
+calendar, clock, bell, mail, play, pause, stop, volume, maximize, filter, sort, more,
 external-link, zoom, print, sun, moon... They are the icons of
 [Lucide](https://lucide.dev) (ISC License), drawn with lines on a grid of
-24 x 24, and take 7 KB in the library. `Ricon_get` gives one by its name, and
+24 x 24, and take 8 KB in the library. `Ricon_get` gives one by its name, and
 XML names one with `raven:` wherever an image goes: `Image Source`,
 `MenuItem Icon`, the `Icon` of a `TreeView` item, `Slot.Icon` (the tab of a
 `TabView` with `Documents="true"`, a docked panel), a `Node Icon`, a Markdown
@@ -2421,6 +2496,7 @@ src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop bl
 src/render/metal/    the Metal backend (macOS, iOS) and its shaders in MSL, compiled at run time
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
 src/widgets/         one file per widget type (text_editor.c, markdown.c, node_graph.c, timeline.c, dialogs.c...)
+src/media/           video and sound: the players, and the frameworks of the systems that play (AVFoundation, Media Foundation, GStreamer)
 src/xml/             parser, loader, declared widgets, documents, watched files, the list of tags and attributes
 web/                 web pages (raven_web.h), compiled into the Raven library
 examples/            sixteen programs (bevy_editor: a scene editor in Rust; languages: one program in eight languages)
@@ -2457,6 +2533,10 @@ What Raven does not do yet, by area. Contributions are welcome.
   browser instead. On Windows an HTTP error page (404...) is told as a failure
   (WebView2 1.0 does not give the status), and a page given as text with no
   `http(s)` base is 2 MB at most.
+- Video and sound in the browser and on Android: `VideoView` and the media
+  players play nothing there yet (`Rmedia_is_supported` is false). Pictures of
+  a video are copied into their texture; drawing the IOSurface of
+  AVFoundation directly with Metal is not done.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
   On both, a window fills the screen: its size, position and title are left
   to the system. There are no native child windows, no tray icon, menu bar
@@ -2506,7 +2586,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 `stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
 (zlib, Mikko Mononen), a subset
 of the Roboto font (Apache 2.0, Google), a subset of Roboto Mono (SIL Open
-Font License 1.1) and 63 icons of Lucide (ISC, some MIT from Feather) are
+Font License 1.1) and 67 icons of Lucide (ISC, some MIT from Feather) are
 included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
 Khronos) are needed to build but are not part of this repository.

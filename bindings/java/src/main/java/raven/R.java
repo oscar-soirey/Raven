@@ -1135,6 +1135,10 @@ public final class R {
      * The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
      */
     public static final int R_WIDGET_DIFF_VIEW = 0x0238;
+    /**
+     * The picture of a media player, with controls (raven_controls.h, VIDEO AND SOUND).
+     */
+    public static final int R_WIDGET_VIDEO_VIEW = 0x0239;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1500,6 +1504,51 @@ public final class R {
      * The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
      */
     public static final int R_SYSTEM_WEB_VIEW_FAILED = 0x0B94;
+
+    // RMediaState: Where a media player is (Rmedia_player_get_state).
+    /**
+     * Nothing is loaded.
+     */
+    public static final int R_MEDIA_EMPTY = 0x0CD0;
+    /**
+     * A file or an address is being opened: its duration and its size are not known yet.
+     */
+    public static final int R_MEDIA_LOADING = 0x0CD1;
+    /**
+     * Loaded and still: paused, stopped, or loaded without being played.
+     */
+    public static final int R_MEDIA_PAUSED = 0x0CD2;
+    public static final int R_MEDIA_PLAYING = 0x0CD3;
+    /**
+     * It played to its end (without Loop); Rmedia_player_play starts it again.
+     */
+    public static final int R_MEDIA_ENDED = 0x0CD4;
+    /**
+     * It cannot be played (Rmedia_player_get_error).
+     */
+    public static final int R_MEDIA_ERROR = 0x0CD5;
+
+    // RMediaEvent: What a media player tells (Rmedia_player_set_event_callback).
+    /**
+     * The state changed (Rmedia_player_get_state).
+     */
+    public static final int R_MEDIA_EVENT_STATE = 0x0CD8;
+    /**
+     * It is opened: its duration, the size of its picture and its tracks are known.
+     */
+    public static final int R_MEDIA_EVENT_LOADED = 0x0CD9;
+    /**
+     * The position moved: about four times a second while it plays, and after a seek.
+     */
+    public static final int R_MEDIA_EVENT_TIME = 0x0CDA;
+    /**
+     * It played to its end. With Loop it starts again instead, and this is not sent.
+     */
+    public static final int R_MEDIA_EVENT_ENDED = 0x0CDB;
+    /**
+     * It cannot be played: a missing file, a format the system does not read... (Rmedia_player_get_error).
+     */
+    public static final int R_MEDIA_EVENT_ERROR = 0x0CDC;
 
     // RTableSelectionMode: How the rows of a Table are selected (Rtable_set_selection_mode).
     /**
@@ -6702,6 +6751,42 @@ public final class R {
 
     private static MemorySegment upcall(RSystemWebViewEventCallback f) {
         return stub(f, RSystemWebViewEventCallback.class, "RSystemWebViewEventCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    @FunctionalInterface
+    public interface RMediaEventCallback {
+        void invoke(int player, int event, MemorySegment user_data);
+    }
+
+    private static void RMediaEventCallback$raw(RMediaEventCallback f, int player, int event, MemorySegment user_data) {
+        try {
+            f.invoke(player, event, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RMediaEventCallback f) {
+        return stub(f, RMediaEventCallback.class, "RMediaEventCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    @FunctionalInterface
+    public interface RVideoViewFullscreenCallback {
+        void invoke(int view, int fullscreen, MemorySegment user_data);
+    }
+
+    private static void RVideoViewFullscreenCallback$raw(RVideoViewFullscreenCallback f, int view, int fullscreen, MemorySegment user_data) {
+        try {
+            f.invoke(view, fullscreen, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RVideoViewFullscreenCallback f) {
+        return stub(f, RVideoViewFullscreenCallback.class, "RVideoViewFullscreenCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -21925,6 +22010,738 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmedia_is_supported$;
+
+    /**
+     * Returns: R_TRUE when the system can play media here (the framework is there).
+     */
+    public static int Rmedia_is_supported() {
+        MethodHandle $h = Rmedia_is_supported$;
+        if ($h == null) Rmedia_is_supported$ = $h = find("Rmedia_is_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_get_backend_name$;
+
+    /**
+     * Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+     */
+    public static String Rmedia_get_backend_name() {
+        MethodHandle $h = Rmedia_get_backend_name$;
+        if ($h == null) Rmedia_get_backend_name$ = $h = find("Rmedia_get_backend_name", FunctionDescriptor.of(ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact();
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_create$;
+
+    /**
+     * A player with nothing loaded, for sound or for pictures drawn by the application.
+     */
+    public static int Rmedia_player_create() {
+        MethodHandle $h = Rmedia_player_create$;
+        if ($h == null) Rmedia_player_create$ = $h = find("Rmedia_player_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_destroy$;
+
+    /**
+     * Stops and deletes a player made by Rmedia_player_create (the one of a VideoView goes with it).
+     */
+    public static void Rmedia_player_destroy(int player) {
+        MethodHandle $h = Rmedia_player_destroy$;
+        if ($h == null) Rmedia_player_destroy$ = $h = find("Rmedia_player_destroy", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(player);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_is_valid$;
+
+    /**
+     * Returns: R_TRUE while the player exists (a sound of Rsound_play is gone once it ended).
+     */
+    public static int Rmedia_player_is_valid(int player) {
+        MethodHandle $h = Rmedia_player_is_valid$;
+        if ($h == null) Rmedia_player_is_valid$ = $h = find("Rmedia_player_is_valid", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_load_file$;
+
+    /**
+     * Opens a file; it is then paused at its start (R_MEDIA_LOADING,
+     * then R_MEDIA_PAUSED). What was loaded before is stopped.
+     * Returns: R_FALSE when it cannot even be opened (the state is then R_MEDIA_ERROR).
+     */
+    public static int Rmedia_player_load_file(int player, String path) {
+        MethodHandle $h = Rmedia_player_load_file$;
+        if ($h == null) Rmedia_player_load_file$ = $h = find("Rmedia_player_load_file", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(player, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_load_url$;
+
+    /**
+     * Opens an address ("https://...", "file:///..."), where the system streams it.
+     */
+    public static int Rmedia_player_load_url(int player, String url) {
+        MethodHandle $h = Rmedia_player_load_url$;
+        if ($h == null) Rmedia_player_load_url$ = $h = find("Rmedia_player_load_url", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment url$ = url == null ? MemorySegment.NULL : utf8($a, url);
+            int $r = (int) $h.invokeExact(player, url$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_close$;
+
+    /**
+     * Stops and lets go of what is loaded (R_MEDIA_EMPTY).
+     */
+    public static void Rmedia_player_close(int player) {
+        MethodHandle $h = Rmedia_player_close$;
+        if ($h == null) Rmedia_player_close$ = $h = find("Rmedia_player_close", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(player);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_source$;
+
+    /**
+     * Returns: The file or address loaded, "" when none.
+     */
+    public static String Rmedia_player_get_source(int player) {
+        MethodHandle $h = Rmedia_player_get_source$;
+        if ($h == null) Rmedia_player_get_source$ = $h = find("Rmedia_player_get_source", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(player);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_play$;
+
+    /**
+     * Plays. While it loads, it plays as soon as it can; at its end, it starts again.
+     */
+    public static void Rmedia_player_play(int player) {
+        MethodHandle $h = Rmedia_player_play$;
+        if ($h == null) Rmedia_player_play$ = $h = find("Rmedia_player_play", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(player);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_pause$;
+
+    public static void Rmedia_player_pause(int player) {
+        MethodHandle $h = Rmedia_player_pause$;
+        if ($h == null) Rmedia_player_pause$ = $h = find("Rmedia_player_pause", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(player);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_stop$;
+
+    /**
+     * Pauses and goes back to the start.
+     */
+    public static void Rmedia_player_stop(int player) {
+        MethodHandle $h = Rmedia_player_stop$;
+        if ($h == null) Rmedia_player_stop$ = $h = find("Rmedia_player_stop", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(player);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_seek$;
+
+    /**
+     * Goes to a time, in seconds from the start (playing or paused, it stays so).
+     */
+    public static void Rmedia_player_seek(int player, double seconds) {
+        MethodHandle $h = Rmedia_player_seek$;
+        if ($h == null) Rmedia_player_seek$ = $h = find("Rmedia_player_seek", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(player, seconds);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_state$;
+
+    public static int Rmedia_player_get_state(int player) {
+        MethodHandle $h = Rmedia_player_get_state$;
+        if ($h == null) Rmedia_player_get_state$ = $h = find("Rmedia_player_get_state", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_position$;
+
+    /**
+     * Returns: Seconds from the start.
+     */
+    public static double Rmedia_player_get_position(int player) {
+        MethodHandle $h = Rmedia_player_get_position$;
+        if ($h == null) Rmedia_player_get_position$ = $h = find("Rmedia_player_get_position", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_duration$;
+
+    /**
+     * Returns: Seconds; 0 while it loads, and for a live stream.
+     */
+    public static double Rmedia_player_get_duration(int player) {
+        MethodHandle $h = Rmedia_player_get_duration$;
+        if ($h == null) Rmedia_player_get_duration$ = $h = find("Rmedia_player_get_duration", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_video_size$;
+
+    /**
+     * Returns: R_TRUE when it has a picture; `width` and `height` (may be NULL) receive its size in pixels.
+     */
+    public static int Rmedia_player_get_video_size(int player, int[] width, int[] height) {
+        MethodHandle $h = Rmedia_player_get_video_size$;
+        if ($h == null) Rmedia_player_get_video_size$ = $h = find("Rmedia_player_get_video_size", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(player, width$, height$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_has_audio$;
+
+    public static int Rmedia_player_has_audio(int player) {
+        MethodHandle $h = Rmedia_player_has_audio$;
+        if ($h == null) Rmedia_player_has_audio$ = $h = find("Rmedia_player_has_audio", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_error$;
+
+    /**
+     * Returns: Why it cannot be played, "" when all is well.
+     */
+    public static String Rmedia_player_get_error(int player) {
+        MethodHandle $h = Rmedia_player_get_error$;
+        if ($h == null) Rmedia_player_get_error$ = $h = find("Rmedia_player_get_error", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(player);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_set_volume$;
+
+    /**
+     * The loudness, 0 (silent) to 1 (as recorded, the default).
+     */
+    public static void Rmedia_player_set_volume(int player, float volume) {
+        MethodHandle $h = Rmedia_player_set_volume$;
+        if ($h == null) Rmedia_player_set_volume$ = $h = find("Rmedia_player_set_volume", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(player, volume);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_volume$;
+
+    public static float Rmedia_player_get_volume(int player) {
+        MethodHandle $h = Rmedia_player_get_volume$;
+        if ($h == null) Rmedia_player_get_volume$ = $h = find("Rmedia_player_get_volume", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_set_muted$;
+
+    public static void Rmedia_player_set_muted(int player, int muted) {
+        MethodHandle $h = Rmedia_player_set_muted$;
+        if ($h == null) Rmedia_player_set_muted$ = $h = find("Rmedia_player_set_muted", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(player, muted);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_is_muted$;
+
+    public static int Rmedia_player_is_muted(int player) {
+        MethodHandle $h = Rmedia_player_is_muted$;
+        if ($h == null) Rmedia_player_is_muted$ = $h = find("Rmedia_player_is_muted", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_set_loop$;
+
+    /**
+     * R_TRUE: at its end it starts again (R_MEDIA_EVENT_ENDED is not sent).
+     */
+    public static void Rmedia_player_set_loop(int player, int loop) {
+        MethodHandle $h = Rmedia_player_set_loop$;
+        if ($h == null) Rmedia_player_set_loop$ = $h = find("Rmedia_player_set_loop", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(player, loop);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_loop$;
+
+    public static int Rmedia_player_get_loop(int player) {
+        MethodHandle $h = Rmedia_player_get_loop$;
+        if ($h == null) Rmedia_player_get_loop$ = $h = find("Rmedia_player_get_loop", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_set_rate$;
+
+    /**
+     * The speed: 1 normal, 0.5 half, 2 twice (0.25 to 4; the sound follows where the system can).
+     */
+    public static void Rmedia_player_set_rate(int player, float rate) {
+        MethodHandle $h = Rmedia_player_set_rate$;
+        if ($h == null) Rmedia_player_set_rate$ = $h = find("Rmedia_player_set_rate", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(player, rate);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_rate$;
+
+    public static float Rmedia_player_get_rate(int player) {
+        MethodHandle $h = Rmedia_player_get_rate$;
+        if ($h == null) Rmedia_player_get_rate$ = $h = find("Rmedia_player_get_rate", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_texture$;
+
+    /**
+     * The picture of now, as a texture to draw (Rdraw_image, an
+     * Image): brought up to date by this call, so call it each time you
+     * draw, from the UI thread. The same texture all along, while the size of
+     * the picture stays the same. R_INVALID_ID before the first picture.
+     */
+    public static int Rmedia_player_get_texture(int player) {
+        MethodHandle $h = Rmedia_player_get_texture$;
+        if ($h == null) Rmedia_player_get_texture$ = $h = find("Rmedia_player_get_texture", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_get_frame_count$;
+
+    /**
+     * Returns: The pictures taken from the stream since it was loaded (a measure of the frame rate, a test).
+     */
+    public static int Rmedia_player_get_frame_count(int player) {
+        MethodHandle $h = Rmedia_player_get_frame_count$;
+        if ($h == null) Rmedia_player_get_frame_count$ = $h = find("Rmedia_player_get_frame_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(player);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmedia_player_set_event_callback$;
+
+    /**
+     * Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+     */
+    public static void Rmedia_player_set_event_callback(int player, RMediaEventCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rmedia_player_set_event_callback$;
+        if ($h == null) Rmedia_player_set_event_callback$ = $h = find("Rmedia_player_set_event_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(player, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the player changes; `player` is the player itself, even for the player of a VideoView.
+     */
+    public static void Rmedia_player_set_event_callback(int player, RMediaEventCallback callback) {
+        Rmedia_player_set_event_callback(player, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rsound_play$;
+
+    /**
+     * Plays a sound once, for the interface (a click, a chime), and
+     * forgets it: the player it makes deletes itself at the end, or on an
+     * error. Several play at once.
+     * volume 0 to 1.
+     * Returns: That player, valid until the sound ends (to stop it sooner);
+     * R_INVALID_ID when it cannot be played.
+     */
+    public static int Rsound_play(String path, float volume) {
+        MethodHandle $h = Rsound_play$;
+        if ($h == null) Rsound_play$ = $h = find("Rsound_play", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_FLOAT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(path$, volume);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rsound_stop_all$;
+
+    /**
+     * Stops every sound of Rsound_play.
+     */
+    public static void Rsound_stop_all() {
+        MethodHandle $h = Rsound_stop_all$;
+        if ($h == null) Rsound_stop_all$ = $h = find("Rsound_stop_all", FunctionDescriptor.ofVoid());
+        try {
+            $h.invokeExact();
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_create$;
+
+    /**
+     * VideoView: the picture of a media player, fitted in the widget as an
+     * Image (Rvideo_view_set_stretch), with controls over it when asked:
+     * play / pause, the time, a bar to go anywhere in it, the sound and its
+     * loudness, and full screen when the application handles it. The
+     * keyboard: Space or K plays and pauses, Left / Right go 5 seconds back
+     * and forth, Home / End to the start and the end, Up / Down change the
+     * loudness, M turns the sound off and on. A sound without picture shows
+     * its name. Where media cannot be played (Rmedia_is_supported) it shows
+     * why.
+     *
+     * The action of the widget (Rwidget_set_action, OnChanged in XML) is
+     * fired each time its state changes.
+     */
+    public static int Rvideo_view_create() {
+        MethodHandle $h = Rvideo_view_create$;
+        if ($h == null) Rvideo_view_create$ = $h = find("Rvideo_view_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_get_player$;
+
+    /**
+     * Returns: Its player, for every Rmedia_player_* function (they also take the VideoView itself).
+     */
+    public static int Rvideo_view_get_player(int view) {
+        MethodHandle $h = Rvideo_view_get_player$;
+        if ($h == null) Rvideo_view_get_player$ = $h = find("Rvideo_view_get_player", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_load_file$;
+
+    /**
+     * Shortcuts for Rmedia_player_load_file / _load_url on its player; with AutoPlay, it plays.
+     */
+    public static int Rvideo_view_load_file(int view, String path) {
+        MethodHandle $h = Rvideo_view_load_file$;
+        if ($h == null) Rvideo_view_load_file$ = $h = find("Rvideo_view_load_file", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(view, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_load_url$;
+
+    public static int Rvideo_view_load_url(int view, String url) {
+        MethodHandle $h = Rvideo_view_load_url$;
+        if ($h == null) Rvideo_view_load_url$ = $h = find("Rvideo_view_load_url", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment url$ = url == null ? MemorySegment.NULL : utf8($a, url);
+            int $r = (int) $h.invokeExact(view, url$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_set_autoplay$;
+
+    /**
+     * R_TRUE: what is loaded plays at once (XML AutoPlay). Default R_FALSE.
+     */
+    public static void Rvideo_view_set_autoplay(int view, int autoplay) {
+        MethodHandle $h = Rvideo_view_set_autoplay$;
+        if ($h == null) Rvideo_view_set_autoplay$ = $h = find("Rvideo_view_set_autoplay", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, autoplay);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_get_autoplay$;
+
+    public static int Rvideo_view_get_autoplay(int view) {
+        MethodHandle $h = Rvideo_view_get_autoplay$;
+        if ($h == null) Rvideo_view_get_autoplay$ = $h = find("Rvideo_view_get_autoplay", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_set_stretch$;
+
+    /**
+     * How the picture fills the widget, as an Image: R_STRETCH_FIT (the default) keeps all of it.
+     */
+    public static void Rvideo_view_set_stretch(int view, int stretch) {
+        MethodHandle $h = Rvideo_view_set_stretch$;
+        if ($h == null) Rvideo_view_set_stretch$ = $h = find("Rvideo_view_set_stretch", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, stretch);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_get_stretch$;
+
+    public static int Rvideo_view_get_stretch(int view) {
+        MethodHandle $h = Rvideo_view_get_stretch$;
+        if ($h == null) Rvideo_view_get_stretch$ = $h = find("Rvideo_view_get_stretch", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_set_controls$;
+
+    /**
+     * R_TRUE shows the controls over the bottom of the picture (XML
+     * Controls): always while it does not play, while the pointer moves
+     * over it or the keyboard uses them; they hide 3 seconds after. Default R_FALSE.
+     */
+    public static void Rvideo_view_set_controls(int view, int shown) {
+        MethodHandle $h = Rvideo_view_set_controls$;
+        if ($h == null) Rvideo_view_set_controls$ = $h = find("Rvideo_view_set_controls", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_get_controls$;
+
+    public static int Rvideo_view_get_controls(int view) {
+        MethodHandle $h = Rvideo_view_get_controls$;
+        if ($h == null) Rvideo_view_get_controls$ = $h = find("Rvideo_view_get_controls", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_are_controls_visible$;
+
+    /**
+     * Returns: R_TRUE while the controls are shown (they hide while it plays).
+     */
+    public static int Rvideo_view_are_controls_visible(int view) {
+        MethodHandle $h = Rvideo_view_are_controls_visible$;
+        if ($h == null) Rvideo_view_are_controls_visible$ = $h = find("Rvideo_view_are_controls_visible", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_set_fullscreen_callback$;
+
+    /**
+     * The controls get a full screen button, which calls this with
+     * the state asked for: the application gives the view the room (hides
+     * what is around it, makes its window fill the screen) and the button
+     * shows the way back. NULL removes the button.
+     */
+    public static void Rvideo_view_set_fullscreen_callback(int view, RVideoViewFullscreenCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rvideo_view_set_fullscreen_callback$;
+        if ($h == null) Rvideo_view_set_fullscreen_callback$ = $h = find("Rvideo_view_set_fullscreen_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * The controls get a full screen button, which calls this with
+     * the state asked for: the application gives the view the room (hides
+     * what is around it, makes its window fill the screen) and the button
+     * shows the way back. NULL removes the button.
+     */
+    public static void Rvideo_view_set_fullscreen_callback(int view, RVideoViewFullscreenCallback callback) {
+        Rvideo_view_set_fullscreen_callback(view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rvideo_view_set_fullscreen$;
+
+    /**
+     * The state the button shows (also set by its clicks).
+     */
+    public static void Rvideo_view_set_fullscreen(int view, int fullscreen) {
+        MethodHandle $h = Rvideo_view_set_fullscreen$;
+        if ($h == null) Rvideo_view_set_fullscreen$ = $h = find("Rvideo_view_set_fullscreen", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, fullscreen);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rvideo_view_is_fullscreen$;
+
+    public static int Rvideo_view_is_fullscreen(int view) {
+        MethodHandle $h = Rvideo_view_is_fullscreen$;
+        if ($h == null) Rvideo_view_is_fullscreen$ = $h = find("Rvideo_view_is_fullscreen", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rpdf_document_create$;
 
     public static int Rpdf_document_create() {
@@ -32729,6 +33546,30 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact();
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_set_fake_media$;
+
+    /**
+     * Media players (raven_controls.h, VIDEO AND SOUND) made from now
+     * on play a fake clip instead of their file: `duration` seconds of
+     * `width` x `height` pictures, `fps` per second, computed from the time
+     * (the red channel of the top-left pixel is the number of the picture,
+     * modulo 256), with a sound track. It plays on the clock of the
+     * animations, so with Rtest_set_deterministic each frame is 1/60 s of
+     * it. It opens at the first frame after the load; a source whose name
+     * contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+     * .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+     * A duration of 0 or less gives the media of the system back.
+     */
+    public static void Rtest_set_fake_media(double duration, int width, int height, double fps) {
+        MethodHandle $h = Rtest_set_fake_media$;
+        if ($h == null) Rtest_set_fake_media$ = $h = find("Rtest_set_fake_media", FunctionDescriptor.ofVoid(JAVA_DOUBLE, JAVA_INT, JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(duration, width, height, fps);
         } catch (Throwable $t) {
             throw fail($t);
         }

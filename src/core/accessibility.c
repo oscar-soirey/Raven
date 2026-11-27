@@ -298,6 +298,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
 		/* (what is in the page is not in the tree of Raven: the view of the system holds it) */
 		case R_WIDGET_SYSTEM_WEB_VIEW: return R_ROLE_DOCUMENT;
+		/* the picture and its controls (buttons, sliders), each seen by itself */
+		case R_WIDGET_VIDEO_VIEW: return R_ROLE_GROUP;
 		/* a gauge is a meter: a value within a range; the other charts are pictures described in words */
 		case R_WIDGET_CHART: return Rchart_get_kind(widget->id) == R_CHART_GAUGE ? R_ROLE_PROGRESS_BAR : R_ROLE_IMAGE;
 		case R_WIDGET_MAP_VIEW: return R_ROLE_GROUP;
@@ -667,6 +669,11 @@ static void rvn_a11y_name_of(const rvn_widget_t* widget, RAccessibleRole role, r
 		case R_WIDGET_MENU_ITEM: rvn_text_add(out, Rmenu_item_get_text(widget->id)); break;
 		case R_WIDGET_EXPANDER: rvn_text_add(out, Rexpander_get_title(widget->id)); break;
 		case R_WIDGET_CHART: rvn_text_add(out, Rchart_get_title(widget->id)); break;
+		/* (not the time read by its controls) */
+		case R_WIDGET_VIDEO_VIEW:
+			rvn_text_add(out, Rmedia_player_get_video_size(widget->id, NULL, NULL) || Rmedia_player_get_state(widget->id) == R_MEDIA_EMPTY ||
+				Rmedia_player_get_state(widget->id) == R_MEDIA_LOADING ? "Video" : "Sound");
+			break;
 		default: break;
 	}
 	if (out->length) return;
@@ -933,6 +940,19 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (Rcarousel_get_page_count(widget->id) > 0)
 				rvn_text_printf(&g_a11y.value, "page %d of %d", Rcarousel_get_page(widget->id) + 1, Rcarousel_get_page_count(widget->id));
 			break;
+		case R_WIDGET_VIDEO_VIEW: {
+			/* "playing, 0:05 of 2:00" as the value (named "Video" or "Sound", rvn_a11y_name_of); a press plays or pauses */
+			RMediaState state = Rmedia_player_get_state(widget->id);
+			static const char* const states[] = { "empty", "loading", "paused", "playing", "ended", "cannot be played" };
+			double position = Rmedia_player_get_position(widget->id), duration = Rmedia_player_get_duration(widget->id);
+			rvn_text_add(&g_a11y.value, states[(int)state - (int)R_MEDIA_EMPTY]);
+			if (state != R_MEDIA_EMPTY && state != R_MEDIA_LOADING && state != R_MEDIA_ERROR) {
+				rvn_text_printf(&g_a11y.value, ", %d:%02d", (int)position / 60, (int)position % 60);
+				if (duration > 0.0) rvn_text_printf(&g_a11y.value, " of %d:%02d", (int)duration / 60, (int)duration % 60);
+			}
+			if (state != R_MEDIA_EMPTY && state != R_MEDIA_ERROR) node->states |= RVN_A11Y_INVOKABLE;
+			break;
+		}
 		case R_WIDGET_DIFF_VIEW: {
 			int changes = Rdiff_view_get_change_count(widget->id), current = Rdiff_view_get_current_change(widget->id);
 			if (current >= 0) rvn_text_printf(&g_a11y.value, "change %d of %d", current + 1, changes);
@@ -1165,6 +1185,11 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 			rvn_a11y_key(widget, R_KEY_ENTER);
 			return R_TRUE;
 		case R_WIDGET_CHECKBOX:
+			rvn_a11y_key(widget, R_KEY_SPACE);
+			return R_TRUE;
+		case R_WIDGET_VIDEO_VIEW:
+			/* plays or pauses, as Space does */
+			if (action != RVN_A11Y_PRESS) return R_FALSE;
 			rvn_a11y_key(widget, R_KEY_SPACE);
 			return R_TRUE;
 		case R_WIDGET_EXPANDER:

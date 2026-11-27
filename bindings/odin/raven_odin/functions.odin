@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1176 of the 1606 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 398 are raw only: call them through the package `raven`, imported as `raw`.
+// 1180 of the 1653 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 441 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (169):
+//   a handle that is not known (209):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -51,17 +51,27 @@
 //     Rsystem_web_view_go_forward Rsystem_web_view_can_go_back Rsystem_web_view_can_go_forward
 //     Rsystem_web_view_get_url Rsystem_web_view_get_title Rsystem_web_view_is_loading
 //     Rsystem_web_view_get_error Rsystem_web_view_run_javascript Rsystem_web_view_set_message_callback
-//     Rsystem_web_view_set_event_callback Rsystem_web_view_get_native_handle Rdiff_view_set_texts
-//     Rdiff_view_set_names Rdiff_view_load_files Rdiff_view_set_patch Rdiff_view_set_mode
-//     Rdiff_view_get_mode Rdiff_view_set_context Rdiff_view_get_context Rdiff_view_set_flags
-//     Rdiff_view_get_flags Rdiff_view_set_word_diff Rdiff_view_set_line_numbers Rdiff_view_set_language
-//     Rdiff_view_get_change_count Rdiff_view_get_change Rdiff_view_go_to_change
-//     Rdiff_view_get_current_change Rdiff_view_next_change Rdiff_view_prev_change Rdiff_view_get_row_count
-//     Rdiff_view_get_row Rdiff_view_get_row_text Rdiff_view_expand Rdiff_view_get_first_visible_row
-//     Rdiff_view_scroll_to_row Rdiff_view_add_annotation Rdiff_view_clear_annotations
-//     Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback Rtest_click_at Rtest_hover_at
-//     Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden Rtest_dump_tree Rtest_save_tree
-//     Rtest_save_png
+//     Rsystem_web_view_set_event_callback Rsystem_web_view_get_native_handle Rmedia_player_destroy
+//     Rmedia_player_is_valid Rmedia_player_load_file Rmedia_player_load_url Rmedia_player_close
+//     Rmedia_player_get_source Rmedia_player_play Rmedia_player_pause Rmedia_player_stop Rmedia_player_seek
+//     Rmedia_player_get_state Rmedia_player_get_position Rmedia_player_get_duration
+//     Rmedia_player_get_video_size Rmedia_player_has_audio Rmedia_player_get_error Rmedia_player_set_volume
+//     Rmedia_player_get_volume Rmedia_player_set_muted Rmedia_player_is_muted Rmedia_player_set_loop
+//     Rmedia_player_get_loop Rmedia_player_set_rate Rmedia_player_get_rate Rmedia_player_get_texture
+//     Rmedia_player_get_frame_count Rmedia_player_set_event_callback Rvideo_view_get_player
+//     Rvideo_view_load_file Rvideo_view_load_url Rvideo_view_set_autoplay Rvideo_view_get_autoplay
+//     Rvideo_view_set_stretch Rvideo_view_get_stretch Rvideo_view_set_controls Rvideo_view_get_controls
+//     Rvideo_view_are_controls_visible Rvideo_view_set_fullscreen_callback Rvideo_view_set_fullscreen
+//     Rvideo_view_is_fullscreen Rdiff_view_set_texts Rdiff_view_set_names Rdiff_view_load_files
+//     Rdiff_view_set_patch Rdiff_view_set_mode Rdiff_view_get_mode Rdiff_view_set_context
+//     Rdiff_view_get_context Rdiff_view_set_flags Rdiff_view_get_flags Rdiff_view_set_word_diff
+//     Rdiff_view_set_line_numbers Rdiff_view_set_language Rdiff_view_get_change_count Rdiff_view_get_change
+//     Rdiff_view_go_to_change Rdiff_view_get_current_change Rdiff_view_next_change Rdiff_view_prev_change
+//     Rdiff_view_get_row_count Rdiff_view_get_row Rdiff_view_get_row_text Rdiff_view_expand
+//     Rdiff_view_get_first_visible_row Rdiff_view_scroll_to_row Rdiff_view_add_annotation
+//     Rdiff_view_clear_annotations Rdiff_view_get_selected_text Rdiff_view_set_line_clicked_callback
+//     Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text Rtest_expect_golden
+//     Rtest_dump_tree Rtest_save_tree Rtest_save_png
 //
 //   a callback (113):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
@@ -103,14 +113,14 @@
 //     Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback
 //     Rscript_set_diagnostic_callback Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
+//   a handle result that is not known (15):
+//     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
+//     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
+//     Rmedia_player_create Rsound_play Rvideo_view_create Rpdf_document_create Rdiff_view_create Rtest_find
+//
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
-//
-//   a handle result that is not known (12):
-//     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
-//     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rsystem_web_view_create
-//     Rpdf_document_create Rdiff_view_create Rtest_find
 //
 //   a parameter of type const uint8_t* (10):
 //     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
@@ -3818,6 +3828,21 @@ system_web_view_is_supported :: proc() -> bool {
 	return raw.Rsystem_web_view_is_supported() != 0
 }
 
+// Returns: R_TRUE when the system can play media here (the framework is there).
+media_is_supported :: proc() -> bool {
+	return raw.Rmedia_is_supported() != 0
+}
+
+// Returns: The framework that plays: "AVFoundation", "Media Foundation", "GStreamer"; "" where none.
+media_get_backend_name :: proc() -> string {
+	return string(raw.Rmedia_get_backend_name())
+}
+
+// Stops every sound of Rsound_play.
+sound_stop_all :: proc() {
+	raw.Rsound_stop_all()
+}
+
 pdf_document_delete :: proc(document: Xml_Document) {
 	raw.Rpdf_document_delete(raw.Rid(document))
 }
@@ -6854,6 +6879,20 @@ test_set_deterministic :: proc(enabled: bool) {
 
 test_is_deterministic :: proc() -> bool {
 	return raw.Rtest_is_deterministic() != 0
+}
+
+// Media players (raven_controls.h, VIDEO AND SOUND) made from now
+// on play a fake clip instead of their file: `duration` seconds of
+// `width` x `height` pictures, `fps` per second, computed from the time
+// (the red channel of the top-left pixel is the number of the picture,
+// modulo 256), with a sound track. It plays on the clock of the
+// animations, so with Rtest_set_deterministic each frame is 1/60 s of
+// it. It opens at the first frame after the load; a source whose name
+// contains "invalid" fails then, one that ends in .wav, .mp3, .m4a, .aac,
+// .ogg or .flac has no picture. Rmedia_is_supported is then R_TRUE.
+// A duration of 0 or less gives the media of the system back.
+test_set_fake_media :: proc(duration: f64, width: i32, height: i32, fps: f64) {
+	raw.Rtest_set_fake_media(duration, width, height, fps)
 }
 
 // Returns: What the goldens of this run are made with, "OS-backend":

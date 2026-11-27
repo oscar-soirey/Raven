@@ -24,6 +24,7 @@
 #   notifications    notifications of the system with a tag, buttons and an icon; a toast where there are none
 #   animated_images  animated GIF and APNG in Image widgets: play, pause, stop, seek, loop count
 #   diff_view        two versions of a file compared: side by side or unified, folds, changes, a note
+#   media_player     a video with its controls, a playlist, and the sounds of an interface (media/)
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -90,6 +91,7 @@ raven_add_example(icons icons/main.c icons/icons.xml)
 raven_add_example(notifications notifications/main.c notifications/notifications.xml notifications/chat.svg)
 raven_add_example(animated_images animated_images/main.c animated_images/animated_images.xml)
 raven_add_example(diff_view diff_view/main.c diff_view/diff_view.xml)
+raven_add_example(media_player media_player/main.c media_player/media_player.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml
