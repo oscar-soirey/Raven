@@ -1300,6 +1300,15 @@ constset TableColumnKind : CInt
 	PROGRESS = 0x0BD2,
 }
 
+<* What a DatePicker chooses (SelectionMode="Single|Range" in XML). *>
+constset DateSelectionMode : CInt
+{
+	<* One date (the default): Rdate_picker_get_date. *>
+	SINGLE = 0x0D00,
+	<* A first and a last day: Rdate_picker_get_selection. *>
+	RANGE = 0x0D01,
+}
+
 <* Shorthands of Rtext_editor_set_language for two languages. *>
 constset Syntax : CInt
 {
@@ -2106,6 +2115,12 @@ alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* 
 alias TableCellEditedCallback = fn CInt(Id table, CInt row, CInt column, ZString text, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias DateChangedCallback = fn void(Id date_picker, CInt year, CInt month, CInt day, void* user_data);
+<*
+ Called once per range the user chooses (in the calendar or with a
+ preset), not on the first click. The changed callback is called then too,
+ with the first day, and the action of the widget is fired.
+*>
+alias DateSelectionCallback = fn void(Id date_picker, CInt start_year, CInt start_month, CInt start_day, CInt end_year, CInt end_month, CInt end_day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
 alias TimeChangedCallback = fn void(Id time_picker, CInt hour, CInt minute, CInt second, void* user_data);
 <* Called by the button of a message, which then hides. This also fires the action of the widget. *>
@@ -6196,6 +6211,66 @@ fn void DatePicker.set_instant(self, double utc) @inline => c::r_date_picker_set
 
 <* The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). *>
 fn double DatePicker.get_instant(self) @inline => c::r_date_picker_get_instant((c::Rid)self);
+
+<*
+ One date (default) or a range of two. In the range mode the field
+ shows "first – last" in the Format of the picker (the placeholder while
+ there is no range) and the calendar shows two months unless
+ Rdate_picker_set_month_count says another number.
+*>
+fn void DatePicker.set_selection_mode(self, DateSelectionMode mode) @inline => c::r_date_picker_set_selection_mode((c::Rid)self, (c::RDateSelectionMode)mode);
+
+fn DateSelectionMode DatePicker.get_selection_mode(self) @inline => (DateSelectionMode)c::r_date_picker_get_selection_mode((c::Rid)self);
+
+<*
+ Sets the range (no callback is called): the ends are swapped if the
+ first is the later, and kept inside the bounds of Rdate_picker_set_range.
+ The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+*>
+fn void DatePicker.set_selection(self, CInt start_year, CInt start_month, CInt start_day, CInt end_year, CInt end_month, CInt end_day) @inline => c::r_date_picker_set_selection((c::Rid)self, start_year, start_month, start_day, end_year, end_month, end_day);
+
+<* The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL. *>
+fn CInt DatePicker.get_selection(self, CInt* start_year, CInt* start_month, CInt* start_day, CInt* end_year, CInt* end_month, CInt* end_day) @inline => c::r_date_picker_get_selection((c::Rid)self, start_year, start_month, start_day, end_year, end_month, end_day);
+
+<* No range any more: the field shows its placeholder. *>
+fn void DatePicker.clear_selection(self) @inline => c::r_date_picker_clear_selection((c::Rid)self);
+
+<*
+ The range as instants of the time zone of the picker: the first
+ instant of the first day, and the first instant of the day after the
+ last one (an end excluded, so that the range holds its last day whole).
+ R_FALSE (and zeros) when there is no range.
+*>
+fn CInt DatePicker.get_selection_instants(self, double* start_utc, double* end_utc) @inline => c::r_date_picker_get_selection_instants((c::Rid)self, start_utc, end_utc);
+
+fn void DatePicker.set_selection_callback(self, DateSelectionCallback callback, void* user_data) @inline => c::r_date_picker_set_selection_callback((c::Rid)self, (c::RDateSelectionCallback)callback, user_data);
+
+<* The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML. *>
+fn void DatePicker.set_month_count(self, CInt months) @inline => c::r_date_picker_set_month_count((c::Rid)self, months);
+
+<* The months the calendar shows (the default resolved). *>
+fn CInt DatePicker.get_month_count(self) @inline => c::r_date_picker_get_month_count((c::Rid)self);
+
+<*
+ The fewest and the most days a range chosen by the user can have,
+ both ends counted (2 days = 1 night); 0: no limit. The days that would
+ break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+*>
+fn void DatePicker.set_selection_limits(self, CInt min_days, CInt max_days) @inline => c::r_date_picker_set_selection_limits((c::Rid)self, min_days, max_days);
+
+<* Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder). *>
+fn void DatePicker.set_placeholder(self, ZString text) @inline => c::r_date_picker_set_placeholder((c::Rid)self, (char*)text);
+
+<*
+ Adds a preset to the column at the left of the calendar: a click
+ chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+ in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+*>
+fn void DatePicker.add_preset(self, ZString label, CInt start_year, CInt start_month, CInt start_day, CInt end_year, CInt end_month, CInt end_day) @inline => c::r_date_picker_add_preset((c::Rid)self, (char*)label, start_year, start_month, start_day, end_year, end_month, end_day);
+
+fn void DatePicker.clear_presets(self) @inline => c::r_date_picker_clear_presets((c::Rid)self);
+
+fn CInt DatePicker.get_preset_count(self) @inline => c::r_date_picker_get_preset_count((c::Rid)self);
 
 // ---- TimePicker
 

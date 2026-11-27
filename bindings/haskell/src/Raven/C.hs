@@ -1674,6 +1674,17 @@ pattern R_TABLE_COLUMN_CHECK = RTableColumnKind 3025
 pattern R_TABLE_COLUMN_PROGRESS :: RTableColumnKind
 pattern R_TABLE_COLUMN_PROGRESS = RTableColumnKind 3026
 
+-- | What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+newtype RDateSelectionMode = RDateSelectionMode CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | One date (the default): Rdate_picker_get_date.
+pattern R_DATE_SELECTION_SINGLE :: RDateSelectionMode
+pattern R_DATE_SELECTION_SINGLE = RDateSelectionMode 3328
+-- | A first and a last day: Rdate_picker_get_selection.
+pattern R_DATE_SELECTION_RANGE :: RDateSelectionMode
+pattern R_DATE_SELECTION_RANGE = RDateSelectionMode 3329
+
 -- | Shorthands of Rtext_editor_set_language for two languages.
 newtype RSyntax = RSyntax CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -2817,6 +2828,15 @@ type RDateChangedCallback = FunPtr (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO 
 -- | Makes a 'RDateChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRDateChangedCallback :: (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO ()) -> IO RDateChangedCallback
+
+-- | Called once per range the user chooses (in the calendar or with a
+-- preset), not on the first click. The changed callback is called then too,
+-- with the first day, and the action of the widget is fired.
+type RDateSelectionCallback = FunPtr (Rid -> CInt -> CInt -> CInt -> CInt -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDateSelectionCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDateSelectionCallback :: (Rid -> CInt -> CInt -> CInt -> CInt -> CInt -> CInt -> Ptr () -> IO ()) -> IO RDateSelectionCallback
 
 -- | Called when the user changes the time. This also fires the action of the widget.
 type RTimeChangedCallback = FunPtr (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO ())
@@ -7204,6 +7224,56 @@ foreign import ccall safe "Rdate_picker_set_instant" rdate_picker_set_instant ::
 
 -- | The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
 foreign import ccall safe "Rdate_picker_get_instant" rdate_picker_get_instant :: Rid -> IO CDouble
+
+-- | One date (default) or a range of two. In the range mode the field
+-- shows "first – last" in the Format of the picker (the placeholder while
+-- there is no range) and the calendar shows two months unless
+-- Rdate_picker_set_month_count says another number.
+foreign import ccall safe "Rdate_picker_set_selection_mode" rdate_picker_set_selection_mode :: Rid -> RDateSelectionMode -> IO ()
+
+foreign import ccall safe "Rdate_picker_get_selection_mode" rdate_picker_get_selection_mode :: Rid -> IO RDateSelectionMode
+
+-- | Sets the range (no callback is called): the ends are swapped if the
+-- first is the later, and kept inside the bounds of Rdate_picker_set_range.
+-- The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+foreign import ccall safe "Rdate_picker_set_selection" rdate_picker_set_selection :: Rid -> CInt -> CInt -> CInt -> CInt -> CInt -> CInt -> IO ()
+
+-- | The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+foreign import ccall safe "Rdate_picker_get_selection" rdate_picker_get_selection :: Rid -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | No range any more: the field shows its placeholder.
+foreign import ccall safe "Rdate_picker_clear_selection" rdate_picker_clear_selection :: Rid -> IO ()
+
+-- | The range as instants of the time zone of the picker: the first
+-- instant of the first day, and the first instant of the day after the
+-- last one (an end excluded, so that the range holds its last day whole).
+-- R_FALSE (and zeros) when there is no range.
+foreign import ccall safe "Rdate_picker_get_selection_instants" rdate_picker_get_selection_instants :: Rid -> Ptr CDouble -> Ptr CDouble -> IO CInt
+
+foreign import ccall safe "Rdate_picker_set_selection_callback" rdate_picker_set_selection_callback :: Rid -> RDateSelectionCallback -> Ptr () -> IO ()
+
+-- | The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+foreign import ccall safe "Rdate_picker_set_month_count" rdate_picker_set_month_count :: Rid -> CInt -> IO ()
+
+-- | The months the calendar shows (the default resolved).
+foreign import ccall safe "Rdate_picker_get_month_count" rdate_picker_get_month_count :: Rid -> IO CInt
+
+-- | The fewest and the most days a range chosen by the user can have,
+-- both ends counted (2 days = 1 night); 0: no limit. The days that would
+-- break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+foreign import ccall safe "Rdate_picker_set_selection_limits" rdate_picker_set_selection_limits :: Rid -> CInt -> CInt -> IO ()
+
+-- | Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+foreign import ccall safe "Rdate_picker_set_placeholder" rdate_picker_set_placeholder :: Rid -> CString -> IO ()
+
+-- | Adds a preset to the column at the left of the calendar: a click
+-- chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+-- in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+foreign import ccall safe "Rdate_picker_add_preset" rdate_picker_add_preset :: Rid -> CString -> CInt -> CInt -> CInt -> CInt -> CInt -> CInt -> IO ()
+
+foreign import ccall safe "Rdate_picker_clear_presets" rdate_picker_clear_presets :: Rid -> IO ()
+
+foreign import ccall safe "Rdate_picker_get_preset_count" rdate_picker_get_preset_count :: Rid -> IO CInt
 
 foreign import ccall safe "Rtime_picker_set_time" rtime_picker_set_time :: Rid -> CInt -> CInt -> CInt -> IO ()
 

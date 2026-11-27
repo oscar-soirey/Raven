@@ -910,6 +910,12 @@ export const RTableColumnKind = _enum({
 });
 export const { R_TABLE_COLUMN_TEXT, R_TABLE_COLUMN_CHECK, R_TABLE_COLUMN_PROGRESS } = RTableColumnKind;
 
+export const RDateSelectionMode = _enum({
+	R_DATE_SELECTION_SINGLE: 3328,
+	R_DATE_SELECTION_RANGE: 3329,
+});
+export const { R_DATE_SELECTION_SINGLE, R_DATE_SELECTION_RANGE } = RDateSelectionMode;
+
 export const RSyntax = _enum({
 	R_SYNTAX_NONE: 832,
 	R_SYNTAX_XML: 833,
@@ -4655,6 +4661,20 @@ export const Rdate_picker_set_time_zone = _lib.Rdate_picker_set_time_zone;
 export const Rdate_picker_get_time_zone = _lib.Rdate_picker_get_time_zone;
 export const Rdate_picker_set_instant = _lib.Rdate_picker_set_instant;
 export const Rdate_picker_get_instant = _lib.Rdate_picker_get_instant;
+export const Rdate_picker_set_selection_mode = _lib.Rdate_picker_set_selection_mode;
+export const Rdate_picker_get_selection_mode = _lib.Rdate_picker_get_selection_mode;
+export const Rdate_picker_set_selection = _lib.Rdate_picker_set_selection;
+export const Rdate_picker_get_selection = _lib.Rdate_picker_get_selection;
+export const Rdate_picker_clear_selection = _lib.Rdate_picker_clear_selection;
+export const Rdate_picker_get_selection_instants = _lib.Rdate_picker_get_selection_instants;
+export const Rdate_picker_set_selection_callback = _lib.Rdate_picker_set_selection_callback;
+export const Rdate_picker_set_month_count = _lib.Rdate_picker_set_month_count;
+export const Rdate_picker_get_month_count = _lib.Rdate_picker_get_month_count;
+export const Rdate_picker_set_selection_limits = _lib.Rdate_picker_set_selection_limits;
+export const Rdate_picker_set_placeholder = _lib.Rdate_picker_set_placeholder;
+export const Rdate_picker_add_preset = _lib.Rdate_picker_add_preset;
+export const Rdate_picker_clear_presets = _lib.Rdate_picker_clear_presets;
+export const Rdate_picker_get_preset_count = _lib.Rdate_picker_get_preset_count;
 export const Rtime_picker_set_time = _lib.Rtime_picker_set_time;
 export const Rtime_picker_get_time = _lib.Rtime_picker_get_time;
 export const Rtime_picker_set_seconds_visible = _lib.Rtime_picker_set_seconds_visible;

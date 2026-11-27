@@ -671,6 +671,10 @@ typedef enum RTableColumnKind {
 	R_TABLE_COLUMN_CHECK = 3025,
 	R_TABLE_COLUMN_PROGRESS = 3026,
 } RTableColumnKind;
+typedef enum RDateSelectionMode {
+	R_DATE_SELECTION_SINGLE = 3328,
+	R_DATE_SELECTION_RANGE = 3329,
+} RDateSelectionMode;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -1046,6 +1050,7 @@ typedef void (*RTableEventCallback)(Rid table, int row, void* user_data);
 typedef void (*RTableSortCallback)(Rid table, int column, int descending, void* user_data);
 typedef int (*RTableCellEditedCallback)(Rid table, int row, int column, const char* text, void* user_data);
 typedef void (*RDateChangedCallback)(Rid date_picker, int year, int month, int day, void* user_data);
+typedef void (*RDateSelectionCallback)(Rid date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day, void* user_data);
 typedef void (*RTimeChangedCallback)(Rid time_picker, int hour, int minute, int second, void* user_data);
 typedef void (*RToastCallback)(Rid toast, void* user_data);
 typedef void (*RBreadcrumbCallback)(Rid breadcrumb, int index, void* user_data);
@@ -2140,6 +2145,20 @@ void Rdate_picker_set_time_zone(Rid date_picker, const char* zone);
 const char* Rdate_picker_get_time_zone(Rid date_picker);
 void Rdate_picker_set_instant(Rid date_picker, double utc);
 double Rdate_picker_get_instant(Rid date_picker);
+void Rdate_picker_set_selection_mode(Rid date_picker, RDateSelectionMode mode);
+RDateSelectionMode Rdate_picker_get_selection_mode(Rid date_picker);
+void Rdate_picker_set_selection(Rid date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+int Rdate_picker_get_selection(Rid date_picker, int* start_year, int* start_month, int* start_day, int* end_year, int* end_month, int* end_day);
+void Rdate_picker_clear_selection(Rid date_picker);
+int Rdate_picker_get_selection_instants(Rid date_picker, double* start_utc, double* end_utc);
+void Rdate_picker_set_selection_callback(Rid date_picker, RDateSelectionCallback callback, void* user_data);
+void Rdate_picker_set_month_count(Rid date_picker, int months);
+int Rdate_picker_get_month_count(Rid date_picker);
+void Rdate_picker_set_selection_limits(Rid date_picker, int min_days, int max_days);
+void Rdate_picker_set_placeholder(Rid date_picker, const char* text);
+void Rdate_picker_add_preset(Rid date_picker, const char* label, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+void Rdate_picker_clear_presets(Rid date_picker);
+int Rdate_picker_get_preset_count(Rid date_picker);
 void Rtime_picker_set_time(Rid time_picker, int hour, int minute, int second);
 void Rtime_picker_get_time(Rid time_picker, int* hour, int* minute, int* second);
 void Rtime_picker_set_seconds_visible(Rid time_picker, int visible);

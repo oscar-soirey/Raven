@@ -1034,6 +1034,13 @@ R_TABLE_COLUMN_CHECK :: 0x0BD1
 // A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
 R_TABLE_COLUMN_PROGRESS :: 0x0BD2
 
+// What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+RDateSelectionMode :: i32
+// One date (the default): Rdate_picker_get_date.
+R_DATE_SELECTION_SINGLE :: 0x0D00
+// A first and a last day: Rdate_picker_get_selection.
+R_DATE_SELECTION_RANGE :: 0x0D01
+
 // Shorthands of Rtext_editor_set_language for two languages.
 RSyntax :: i32
 R_SYNTAX_NONE :: 0x0340
@@ -1638,6 +1645,10 @@ RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, 
 RTableCellEditedCallback :: #type proc "c" (table: Rid, row: i32, column: i32, text: cstring, user_data: rawptr) -> i32
 // Called when the user chooses a date. This also fires the action of the widget.
 RDateChangedCallback :: #type proc "c" (date_picker: Rid, year: i32, month: i32, day: i32, user_data: rawptr)
+// Called once per range the user chooses (in the calendar or with a
+// preset), not on the first click. The changed callback is called then too,
+// with the first day, and the action of the widget is fired.
+RDateSelectionCallback :: #type proc "c" (date_picker: Rid, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32, user_data: rawptr)
 // Called when the user changes the time. This also fires the action of the widget.
 RTimeChangedCallback :: #type proc "c" (time_picker: Rid, hour: i32, minute: i32, second: i32, user_data: rawptr)
 // Called by the button of a message, which then hides. This also fires the action of the widget.
@@ -4145,6 +4156,42 @@ foreign lib {
 	Rdate_picker_set_instant :: proc(date_picker: Rid, utc: f64) ---
 	// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
 	Rdate_picker_get_instant :: proc(date_picker: Rid) -> f64 ---
+	// One date (default) or a range of two. In the range mode the field
+	// shows "first – last" in the Format of the picker (the placeholder while
+	// there is no range) and the calendar shows two months unless
+	// Rdate_picker_set_month_count says another number.
+	Rdate_picker_set_selection_mode :: proc(date_picker: Rid, mode: RDateSelectionMode) ---
+	Rdate_picker_get_selection_mode :: proc(date_picker: Rid) -> RDateSelectionMode ---
+	// Sets the range (no callback is called): the ends are swapped if the
+	// first is the later, and kept inside the bounds of Rdate_picker_set_range.
+	// The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+	Rdate_picker_set_selection :: proc(date_picker: Rid, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32) ---
+	// The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL.
+	Rdate_picker_get_selection :: proc(date_picker: Rid, start_year: ^i32, start_month: ^i32, start_day: ^i32, end_year: ^i32, end_month: ^i32, end_day: ^i32) -> i32 ---
+	// No range any more: the field shows its placeholder.
+	Rdate_picker_clear_selection :: proc(date_picker: Rid) ---
+	// The range as instants of the time zone of the picker: the first
+	// instant of the first day, and the first instant of the day after the
+	// last one (an end excluded, so that the range holds its last day whole).
+	// R_FALSE (and zeros) when there is no range.
+	Rdate_picker_get_selection_instants :: proc(date_picker: Rid, start_utc: ^f64, end_utc: ^f64) -> i32 ---
+	Rdate_picker_set_selection_callback :: proc(date_picker: Rid, callback: RDateSelectionCallback, user_data: rawptr) ---
+	// The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML.
+	Rdate_picker_set_month_count :: proc(date_picker: Rid, months: i32) ---
+	// The months the calendar shows (the default resolved).
+	Rdate_picker_get_month_count :: proc(date_picker: Rid) -> i32 ---
+	// The fewest and the most days a range chosen by the user can have,
+	// both ends counted (2 days = 1 night); 0: no limit. The days that would
+	// break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+	Rdate_picker_set_selection_limits :: proc(date_picker: Rid, min_days: i32, max_days: i32) ---
+	// Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder).
+	Rdate_picker_set_placeholder :: proc(date_picker: Rid, text: cstring) ---
+	// Adds a preset to the column at the left of the calendar: a click
+	// chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+	// in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+	Rdate_picker_add_preset :: proc(date_picker: Rid, label: cstring, start_year: i32, start_month: i32, start_day: i32, end_year: i32, end_month: i32, end_day: i32) ---
+	Rdate_picker_clear_presets :: proc(date_picker: Rid) ---
+	Rdate_picker_get_preset_count :: proc(date_picker: Rid) -> i32 ---
 	Rtime_picker_set_time :: proc(time_picker: Rid, hour: i32, minute: i32, second: i32) ---
 	Rtime_picker_get_time :: proc(time_picker: Rid, hour: ^i32, minute: ^i32, second: ^i32) ---
 	Rtime_picker_set_seconds_visible :: proc(time_picker: Rid, visible: i32) ---

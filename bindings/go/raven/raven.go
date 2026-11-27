@@ -999,6 +999,14 @@ const (
 	R_TABLE_COLUMN_PROGRESS RTableColumnKind = 0x0BD2
 )
 
+// RDateSelectionMode: What a DatePicker chooses (SelectionMode="Single|Range" in XML).
+type RDateSelectionMode int32
+
+const (
+	R_DATE_SELECTION_SINGLE RDateSelectionMode = 0x0D00
+	R_DATE_SELECTION_RANGE  RDateSelectionMode = 0x0D01
+)
+
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
 type RSyntax int32
 
@@ -4698,6 +4706,103 @@ func DatePickerSetInstant(date_picker ID, utc float64) {
 // midnight, the time they go to).
 func DatePickerGetInstant(date_picker ID) float64 {
 	return float64(C.Rdate_picker_get_instant(C.Rid(date_picker)))
+}
+
+// DatePickerSetSelectionMode: One date (default) or a range of two. In the range mode the field shows "first
+// – last" in the Format of the picker (the placeholder while there is no range) and the calendar shows two
+// months unless Rdate_picker_set_month_count says another number.
+func DatePickerSetSelectionMode(date_picker ID, mode RDateSelectionMode) {
+	C.Rdate_picker_set_selection_mode(C.Rid(date_picker), C.RDateSelectionMode(mode))
+}
+
+func DatePickerGetSelectionMode(date_picker ID) RDateSelectionMode {
+	return RDateSelectionMode(C.Rdate_picker_get_selection_mode(C.Rid(date_picker)))
+}
+
+// DatePickerSetSelection: Sets the range (no callback is called): the ends are swapped if the first is the
+// later, and kept inside the bounds of Rdate_picker_set_range. The date (Rdate_picker_get_date) becomes the
+// first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+func DatePickerSetSelection(date_picker ID, start_year int, start_month int, start_day int, end_year int, end_month int, end_day int) {
+	C.Rdate_picker_set_selection(C.Rid(date_picker), C.int(start_year), C.int(start_month), C.int(start_day), C.int(end_year), C.int(end_month), C.int(end_day))
+}
+
+// DatePickerGetSelection: The range, first and last day included; R_FALSE (and zeros) when there is none. Any
+// pointer may be NULL.
+func DatePickerGetSelection(date_picker ID) (result int, start_year int, start_month int, start_day int, end_year int, end_month int, end_day int) {
+	var start_year_ C.int
+	var start_month_ C.int
+	var start_day_ C.int
+	var end_year_ C.int
+	var end_month_ C.int
+	var end_day_ C.int
+	result = int(C.Rdate_picker_get_selection(C.Rid(date_picker), &start_year_, &start_month_, &start_day_, &end_year_, &end_month_, &end_day_))
+	start_year = int(start_year_)
+	start_month = int(start_month_)
+	start_day = int(start_day_)
+	end_year = int(end_year_)
+	end_month = int(end_month_)
+	end_day = int(end_day_)
+	return
+}
+
+// DatePickerClearSelection: No range any more: the field shows its placeholder.
+func DatePickerClearSelection(date_picker ID) {
+	C.Rdate_picker_clear_selection(C.Rid(date_picker))
+}
+
+// DatePickerGetSelectionInstants: The range as instants of the time zone of the picker: the first instant of
+// the first day, and the first instant of the day after the last one (an end excluded, so that the range
+// holds its last day whole). R_FALSE (and zeros) when there is no range.
+func DatePickerGetSelectionInstants(date_picker ID) (result int, start_utc float64, end_utc float64) {
+	var start_utc_ C.double
+	var end_utc_ C.double
+	result = int(C.Rdate_picker_get_selection_instants(C.Rid(date_picker), &start_utc_, &end_utc_))
+	start_utc = float64(start_utc_)
+	end_utc = float64(end_utc_)
+	return
+}
+
+// DatePickerSetMonthCount: The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1
+// for a date. Months="2" in XML.
+func DatePickerSetMonthCount(date_picker ID, months int) {
+	C.Rdate_picker_set_month_count(C.Rid(date_picker), C.int(months))
+}
+
+// DatePickerGetMonthCount: The months the calendar shows (the default resolved).
+func DatePickerGetMonthCount(date_picker ID) int {
+	return int(C.Rdate_picker_get_month_count(C.Rid(date_picker)))
+}
+
+// DatePickerSetSelectionLimits: The fewest and the most days a range chosen by the user can have, both ends
+// counted (2 days = 1 night); 0: no limit. The days that would break them cannot be clicked as the second
+// end. MinDays, MaxDays in XML.
+func DatePickerSetSelectionLimits(date_picker ID, min_days int, max_days int) {
+	C.Rdate_picker_set_selection_limits(C.Rid(date_picker), C.int(min_days), C.int(max_days))
+}
+
+// DatePickerSetPlaceholder: Shown, dimmed, while a range picker has no range; NULL: "Start date – End date"
+// (Raven.DateRangePlaceholder).
+func DatePickerSetPlaceholder(date_picker ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rdate_picker_set_placeholder(C.Rid(date_picker), text_)
+}
+
+// DatePickerAddPreset: Adds a preset to the column at the left of the calendar: a click chooses its range at
+// once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth" in XML adds those computed from
+// the day they are used (their names: Raven.DatePresetToday...).
+func DatePickerAddPreset(date_picker ID, label string, start_year int, start_month int, start_day int, end_year int, end_month int, end_day int) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rdate_picker_add_preset(C.Rid(date_picker), label_, C.int(start_year), C.int(start_month), C.int(start_day), C.int(end_year), C.int(end_month), C.int(end_day))
+}
+
+func DatePickerClearPresets(date_picker ID) {
+	C.Rdate_picker_clear_presets(C.Rid(date_picker))
+}
+
+func DatePickerGetPresetCount(date_picker ID) int {
+	return int(C.Rdate_picker_get_preset_count(C.Rid(date_picker)))
 }
 
 func TimePickerSetTime(time_picker ID, hour int, minute int, second int) {
@@ -9562,38 +9667,39 @@ func TestGetScriptError() string {
 // Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
 // Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
 // Rtable_set_sort_callback, Rtable_set_cell_edited_callback, Rdate_picker_set_changed_callback
-// Rtime_picker_set_changed_callback, Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback
-// Rrating_set_changed_callback, Rpagination_set_changed_callback, Rplot_set_view_changed_callback
-// Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback
-// Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback, Rcarousel_set_page_changed_callback
-// Rpdf_view_print, Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
-// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback
-// Rsystem_web_view_run_javascript, Rsystem_web_view_set_message_callback
-// Rsystem_web_view_set_event_callback, Rsystem_web_view_get_native_handle, Rpdf_document_draw_image
-// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
-// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_float_window, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdiff_unified
-// Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc
-// Rnotification_set_callback, Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async
-// Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line
-// Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
+// Rdate_picker_set_selection_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
+// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
+// Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback
+// Rcarousel_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
+// Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
+// Rmap_view_set_view_changed_callback, Rsystem_web_view_run_javascript
+// Rsystem_web_view_set_message_callback, Rsystem_web_view_set_event_callback
+// Rsystem_web_view_get_native_handle, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
+// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
+// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
+// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdiff_unified, Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open
+// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
+// Rnotification_set_clicked_callback, Rnotification_show_desc, Rnotification_set_callback
+// Rpermission_request, Rfile_open_async, Rfile_save_async, Rfile_export_async, Rfile_select_folder_async
+// Rcamera_take_photo, Rphoto_pick, Rshare_show, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
+// Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image
+// Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
+// Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
+// Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
 // Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
 // Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rhost_service_complete
