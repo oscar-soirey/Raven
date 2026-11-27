@@ -18,6 +18,10 @@ a namespace: `io.github.oscar-soirey` is the one Central gives to the GitHub
 account (sign in to central.sonatype.com with GitHub and check that it is
 listed under Namespaces).
 
+The library itself (Homebrew, vcpkg, Conan, pkg-config) is packaged from
+[packaging/](../packaging/README.md), which says what to do at each release;
+`set_version.py` sets its version too.
+
 ## Making the packages
 
 From the folder of Raven, in a "Developer Command Prompt for Visual Studio":

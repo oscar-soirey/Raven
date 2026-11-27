@@ -1842,7 +1842,7 @@ const
   R_WIDGET_CAROUSEL*: RWidgetType = 0x0236
     ## Pages shown one at a time and swiped (a page view), with dots and arrows.
   R_WIDGET_SYSTEM_WEB_VIEW*: RWidgetType = 0x0237
-    ## A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+    ## A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
   R_WIDGET_DIFF_VIEW*: RWidgetType = 0x0238
     ## The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
   R_WIDGET_TREE_TABLE*: RWidgetType = 0x0239
@@ -4666,7 +4666,9 @@ proc Rsystem_web_view_set_event_callback*(view: Rid, callback: RSystemWebViewEve
   ## time the address changes.
 proc Rsystem_web_view_get_native_handle*(view: Rid): pointer {.rapi.}
   ## The view of the system, to go further than these functions:
-  ## a WKWebView* on macOS and iOS. NULL where unsupported.
+  ## a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+  ## until WebView2 has made the view, a moment after it is created). NULL
+  ## where unsupported.
 proc Rpdf_document_create*(): Rid {.rapi.}
 proc Rpdf_document_delete*(document: Rid) {.rapi.}
 proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}

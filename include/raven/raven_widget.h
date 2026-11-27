@@ -139,7 +139,7 @@ typedef enum RWidgetType{
 	R_WIDGET_MAP_VIEW,
 	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
 	R_WIDGET_CAROUSEL,
-	/** A web page shown by the engine of the system (WKWebView) in a view kept over the widget. */
+	/** A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget. */
 	R_WIDGET_SYSTEM_WEB_VIEW,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW,

@@ -201,6 +201,36 @@ or, without installing, `add_subdirectory(Raven)` before the same
 `target_link_libraries`. Prebuilt packages for every platform are attached to
 the [releases](https://github.com/oscar-soirey/Raven/releases).
 
+Without CMake, `install/` also has a pkg-config file (`lib/pkgconfig/raven.pc`):
+
+```sh
+export PKG_CONFIG_PATH=<path to install>/lib/pkgconfig
+cc app.c $(pkg-config --cflags --libs raven)            # what the install holds
+cc app.c $(pkg-config --cflags --libs --static raven)   # libraven.a and what it links with
+```
+
+### Homebrew, vcpkg, Conan
+
+[packaging/](packaging/README.md) holds a Homebrew formula, a vcpkg port and a
+Conan recipe, all named `raven-gui` (`raven` is taken on Homebrew). They are
+not in the official registries yet; until they are, they install from a clone
+of Raven. They build the archive of a release, so they work from the first
+release made with them (its checksums written by `packaging/update_hashes.py`):
+
+```sh
+brew tap-new --no-git $USER/local && brew trust --tap $USER/local   # (newer Homebrew asks for the trust)
+cp packaging/homebrew/raven-gui.rb "$(brew --repository $USER/local)/Formula/"
+brew install $USER/local/raven-gui
+
+vcpkg install raven-gui --overlay-ports=<Raven>/packaging/vcpkg/ports
+conan create <Raven>/packaging/conan --build=missing
+```
+
+Each installs the library, the headers, the CMake package and `raven.pc`:
+`find_package(raven)` and `pkg-config raven` work as above. To try them on the
+code of a working tree rather than a release, see
+[packaging/README.md](packaging/README.md#each-release).
+
 - **The interface in XML, the code in your language.** The window is a `.xml`
   file; C, C++, Rust, Python, Go, C#, Zig, Lua or LuaJIT load it, bind the
   actions it names and find its widgets by name, built by their usual tools.
@@ -246,7 +276,8 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   web page (`Selectable="true"`). Interface and theme files are **loaded again while the
   application runs** when they are saved.
 - **Web pages** shown by the web engine of the system in a view embedded in
-  the window (`SystemWebView`: WKWebView on macOS and iOS), or (`raven_web.h`,
+  the window (`SystemWebView`: WKWebView on macOS and iOS, Microsoft Edge
+  WebView2 on Windows), or (`raven_web.h`,
   built into the same library) by driving a browser already installed.
 - **Every language.** Translations in **CSV tables**, read with `Rtr("key")`
   in C or `Text="@key"` in XML, with plurals, arguments, numbers and times
@@ -679,7 +710,7 @@ The build trees are in `build\dist\`.
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
-| `examples/web_view` | a page shown by the web engine of the system (`SystemWebView`, WKWebView on macOS): an address bar, the history, a color picker of Raven that drives the CSS of the page, scripts that answer, messages from the page |
+| `examples/web_view` | a page shown by the web engine of the system (`SystemWebView`, WKWebView on macOS, WebView2 on Windows): an address bar, the history, a color picker of Raven that drives the CSS of the page, scripts that answer, messages from the page |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
 | `examples/viewport_vulkan` | a Vulkan scene in the UI, twice: offscreen image wrapped as a texture, and drawn in the render pass of Raven. Needs the Vulkan library |
@@ -2122,8 +2153,9 @@ script, in a test; `Rtest_get_script_error` says why it failed).
 ### Web pages
 
 The web engine of the system, in a view embedded in the window and kept over
-a widget: WKWebView on macOS (and iOS). WebKit is opened when the first view
-is made; a program that shows no page does not load it.
+a widget: WKWebView on macOS (and iOS), Microsoft Edge WebView2 on Windows.
+The engine is opened when the first view is made; a program that shows no
+page does not load it, and Raven links nothing more for it.
 
 ```c
 Rid view = Rsystem_web_view_create();                       /* <SystemWebView Url="https://..."/> */
@@ -2136,9 +2168,26 @@ The page follows the widget (its place, its size, its visibility, the part a
 `ScrollBox` lets be seen) and takes the mouse and the keyboard as a browser
 does. As with a native child window, Raven cannot draw over it: a popup or a
 menu that crosses it goes under it. `Rsystem_web_view_is_supported()` tells
-whether pages are shown: on Windows, Linux, Android and in the browser it is
-false for now, and the widget shows a message in place of the page, so the
-same program and the same XML run everywhere.
+whether pages are shown: on Linux, Android and in the browser it is false
+for now, and the widget shows a message in place of the page, so the same
+program and the same XML run everywhere.
+
+On Windows the pages need the **Microsoft Edge WebView2 Runtime**, which
+Windows 11 and the up to date Windows 10 have (the Evergreen runtime; for
+other machines, an installer can add it:
+[Microsoft's distribution guide](https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution)).
+Raven finds it at run time, without the WebView2 SDK: a `WebView2Loader.dll`
+shipped next to the executable is used when there is one (fixed version
+runtimes, group policies), otherwise the installed runtime, or the folder
+given by `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER`. Without a runtime,
+`Rsystem_web_view_is_supported()` is false and the widget shows its message.
+Cookies and the cache go to `%LOCALAPPDATA%\<name of the executable>\WebView2`
+(or `WEBVIEW2_USER_DATA_FOLDER`). `Rsystem_web_view_get_native_handle` gives
+the `ICoreWebView2*` once the view is made. A page given as text with an
+`http(s)` base address is shown at that address, at any size; without one
+(or with a `file:` base, whose relative links WebView2 cannot follow from a
+text) it is limited to 2 MB. `RAVEN_WEBVIEW2_LOG=1` prints on stderr how the
+runtime was found and each step of WebView2.
 
 ![A SystemWebView on macOS](docs/images/system_web_view.png)
 
@@ -2433,6 +2482,7 @@ tools/designer/      raven_designer (main.c: the visual editor; files, island, s
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
 bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Lua, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
+packaging/           Homebrew formula, vcpkg port, Conan recipe (raven.pc: cmake/RavenPkgConfig.cmake)
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
@@ -2455,9 +2505,12 @@ What Raven does not do yet, by area. Contributions are welcome.
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it.
-- Embedding the system web view on Windows (WebView2), Linux (WebKitGTK) and
-  Android: `SystemWebView` shows pages on macOS and iOS only; elsewhere
-  `raven_web` drives an installed Chromium-based browser instead.
+- Embedding the system web view on Linux (WebKitGTK) and Android:
+  `SystemWebView` shows pages on macOS, iOS and Windows (with the WebView2
+  Runtime) only; elsewhere `raven_web` drives an installed Chromium-based
+  browser instead. On Windows an HTTP error page (404...) is told as a failure
+  (WebView2 1.0 does not give the status), and a page given as text with no
+  `http(s)` base is 2 MB at most.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
   On both, a window fills the screen: its size, position and title are left
   to the system. There are no native child windows, no tray icon, menu bar
