@@ -209,8 +209,12 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
+      # package_cmake / package_pkgconfig install this build and link an ordinary program
+      # against it: a libraven.a made with -fsanitize cannot be linked by a program built
+      # without it (undefined __asan_* symbols). The packages are tested by the "packages"
+      # job and the other test jobs, which build them without sanitizers.
       - name: Test
-        run: ctest --test-dir build --output-on-failure --timeout 600 --parallel 2
+        run: ctest --test-dir build --output-on-failure --timeout 600 --parallel 2 -E '^package_'
 
   # ---------------------------------------------------------------------------
   #  Fuzzing (Linux, clang + libFuzzer): the targets of tests/fuzz, on pull
