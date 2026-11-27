@@ -536,6 +536,30 @@ static void test_pickers_in_a_zone(void) {
 	Rdraw_frame();
 }
 
+/*
+ * A range as instants of its zone: from the midnight of its first day to the
+ * midnight that ends its last day. In Paris the clocks go forward on
+ * 2026-03-29: that day lasts 23 hours.
+ */
+static void test_date_range_in_a_zone(void) {
+	Rid root = content("<VBox><DatePicker Name=\"r\" SelectionMode=\"Range\" TimeZone=\"Europe/Paris\" Selection=\"2026-03-28/2026-03-29\"/></VBox>");
+	Rid picker = Rwidget_find(root, "r");
+	double start = -1.0, end = -1.0;
+	CHECK(Rdate_picker_get_selection_instants(picker, &start, &end));
+	CHECK(start == utc(2026, 3, 27, 23, 0, 0));
+	CHECK(end == utc(2026, 3, 29, 22, 0, 0));
+	CHECK(end - start == 47.0 * 3600.0);
+	/* the same days in New York: midnight is 4 hours later in UTC (summer time since 2026-03-08) */
+	Rdate_picker_set_time_zone(picker, "America/New_York");
+	CHECK(Rdate_picker_get_selection_instants(picker, &start, &end));
+	CHECK(start == utc(2026, 3, 28, 4, 0, 0) && end == utc(2026, 3, 30, 4, 0, 0));
+	/* no range: R_FALSE and zeros */
+	Rdate_picker_clear_selection(picker);
+	CHECK(!Rdate_picker_get_selection_instants(picker, &start, &end));
+	CHECK(start == 0.0 && end == 0.0);
+	Rdraw_frame();
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -555,6 +579,7 @@ int main(void) {
 	RUN(test_system_database);
 	RUN(test_system_zone);
 	RUN(test_pickers_in_a_zone);
+	RUN(test_date_range_in_a_zone);
 
 	Rdraw_frame();
 	Rshutdown();

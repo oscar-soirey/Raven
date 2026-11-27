@@ -2,7 +2,7 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_notifications,
+#   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_date_range, test_notifications,
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
 #   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
@@ -139,6 +139,8 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_lifecycle)
 endif()
 raven_add_test(test_more_widgets)
+# a DatePicker that chooses a range of two dates: clicks, keyboard, limits, presets, callbacks
+raven_add_test(test_date_range)
 # notifications with tags, buttons and an icon, through the fallback toast (the null platform has none of its own)
 raven_add_test(test_notifications)
 if(RAVEN_BUILD_SHARED)

@@ -717,7 +717,7 @@ static const char* schema_sample(const RXmlAttributeInfo* info, char* buffer, si
 		case R_XML_COLOR: return "#336699";
 		case R_XML_ACTION: return "test.action";
 		case R_XML_NUMBERS: return "1";
-		case R_XML_LIST: return "a|b";
+		case R_XML_LIST: return strcmp(info->name, "Presets") == 0 ? "Today|ThisMonth" : "a|b";
 		case R_XML_CHOICE: {
 			size_t length = strcspn(info->choices, "|");
 			if (length >= size) length = size - 1;
@@ -730,6 +730,7 @@ static const char* schema_sample(const RXmlAttributeInfo* info, char* buffer, si
 			if (strcmp(info->name, "Date") == 0 || strcmp(info->name, "Min") == 0 || strcmp(info->name, "Max") == 0) return "2026-11-03";
 			if (strcmp(info->name, "Time") == 0) return "09:30";
 			if (strcmp(info->name, "TimeZone") == 0) return "UTC";
+			if (strcmp(info->name, "Selection") == 0) return "2026-11-03/2026-11-10";
 			return "x";
 	}
 }

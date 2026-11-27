@@ -368,6 +368,96 @@ static void test_touch_roles(void) {
 	CHECK(!(touch.flags & RVN_A11Y_TOUCH_ELEMENT));
 }
 
+/* The open calendar of a window (the popup on top), 0 when there is none. */
+static rvn_a11y_id_t find_calendar(Rid window, int days) {
+	int i, count = rvn_a11y_child_count(window);
+	rvn_a11y_node_t node;
+	for (i = 0; i < count; i++) {
+		rvn_a11y_id_t child = rvn_a11y_child(window, i);
+		if (rvn_a11y_describe(child, &node) && node.role == R_ROLE_LIST && rvn_a11y_child_count(child) == days) return child;
+	}
+	return 0;
+}
+
+/*
+ * A DatePicker choosing a range: the field says the range ("from ... to
+ * ..."), its calendar lists the days, those of the range selected; while the
+ * second end is pointed at, the days up to it are the range to come.
+ */
+static void test_date_range(void) {
+	static const char xml[] = "<VBox><DatePicker Name=\"r\" SelectionMode=\"Range\" Selection=\"2026-03-12/2026-03-18\" "
+		"FirstDayOfWeek=\"Monday\" Min=\"2026-03-03\"/></VBox>";
+	rvn_a11y_node_t node;
+	Rid window = Rwindow_create("Range", 700, 420, 0);
+	Rid root = Rwidget_create_from_xml(xml, strlen(xml));
+	Rid picker = Rwidget_find(root, "r");
+	rvn_a11y_id_t calendar, day;
+	int i;
+	Rwindow_set_content(window, root);
+	Rdraw_frame();
+	CHECK(rvn_a11y_describe(picker, &node));
+	CHECK(node.role == R_ROLE_COMBO_BOX);
+	CHECK_STR(node.name, "Date range");
+	CHECK_STR(node.value, "from 12 March 2026 to 18 March 2026");
+	Rwidget_set_accessible_name(picker, "Stay");
+	CHECK(rvn_a11y_describe(picker, &node));
+	CHECK_STR(node.name, "Stay");
+
+	/* the calendar: March and April, 61 days */
+	Rdate_picker_set_open(picker, R_TRUE);
+	Rdraw_frame();
+	CHECK(Rdate_picker_is_open(picker));
+	calendar = find_calendar(window, 61);
+	CHECK(calendar != 0);
+	if (!calendar) {
+		Rwindow_destroy(window);
+		return;
+	}
+	CHECK(rvn_a11y_describe(calendar, &node));
+	CHECK_STR(node.value, "from 12 March 2026 to 18 March 2026");
+	CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, 11), &node));
+	CHECK_STR(node.name, "Thursday 12 March 2026");
+	CHECK(node.role == R_ROLE_LIST_ITEM);
+	CHECK((node.states & (RVN_A11Y_SELECTED | RVN_A11Y_FOCUSED | RVN_A11Y_SELECTABLE)) == (RVN_A11Y_SELECTED | RVN_A11Y_FOCUSED | RVN_A11Y_SELECTABLE));
+	for (i = 10; i <= 18; i++) {
+		CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, i), &node));
+		CHECK(((node.states & RVN_A11Y_SELECTED) != 0) == (i >= 11 && i <= 17));
+	}
+	/* before Min: cannot be chosen */
+	CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, 1), &node));
+	CHECK((node.states & RVN_A11Y_DISABLED) && !(node.states & RVN_A11Y_INVOKABLE));
+	CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, 40), &node));
+	CHECK_STR(node.name, "Friday 10 April 2026");
+
+	/* the first end by a screen reader, then the pointer over the 25th: the range to come */
+	CHECK(rvn_a11y_act(rvn_a11y_child(calendar, 19), RVN_A11Y_PRESS));
+	CHECK(Rdate_picker_is_open(picker));
+	CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, 24), &node));
+	Rwindow_inject_mouse_move(window, node.x + node.width * 0.5f, node.y + node.height * 0.5f);
+	Rdraw_frame();
+	day = rvn_a11y_hit(window, node.x + node.width * 0.5f, node.y + node.height * 0.5f);
+	CHECK(day == rvn_a11y_child(calendar, 24));
+	CHECK(rvn_a11y_describe(calendar, &node));
+	CHECK_STR(node.value, "from 20 March 2026 to 25 March 2026");
+	for (i = 11; i <= 26; i++) {
+		CHECK(rvn_a11y_describe(rvn_a11y_child(calendar, i), &node));
+		CHECK(((node.states & RVN_A11Y_SELECTED) != 0) == (i >= 19 && i <= 24));
+	}
+	/* the range is unchanged until the second end */
+	CHECK(rvn_a11y_describe(picker, &node));
+	CHECK_STR(node.value, "from 12 March 2026 to 18 March 2026");
+	/* a day before Min cannot end it either */
+	rvn_a11y_act(rvn_a11y_child(calendar, 1), RVN_A11Y_PRESS);
+	CHECK(Rdate_picker_is_open(picker));
+	CHECK(rvn_a11y_describe(calendar, &node));
+	CHECK_STR(node.value, "from 20 March 2026 to 25 March 2026");
+	CHECK(rvn_a11y_act(day, RVN_A11Y_PRESS));
+	CHECK(!Rdate_picker_is_open(picker));
+	CHECK(rvn_a11y_describe(picker, &node));
+	CHECK_STR(node.value, "from 20 March 2026 to 25 March 2026");
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(0)) return 1;
 	RUN(test_custom_actions);
@@ -377,6 +467,7 @@ int main(void) {
 	RUN(test_touch);
 	RUN(test_touch_roles);
 	RUN(test_switcher);
+	RUN(test_date_range);
 	Rshutdown();
 	return test_report("test_accessibility");
 }

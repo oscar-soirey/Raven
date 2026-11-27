@@ -1157,11 +1157,28 @@ extern "C" {
 	 *  DATE PICKER (a date and the calendar that drops down from it)
 	 *
 	 *      <DatePicker Date="2026-11-03" FirstDayOfWeek="1"/>
+	 *      <DatePicker SelectionMode="Range" Selection="2026-03-12/2026-03-18" MinDays="2" Presets="Last7Days|ThisMonth"/>
 	 *
 	 * Months are 1 to 12, days 1 to 31. The names of the months and of the days
 	 * are English unless the locale has the keys Raven.Month1 to Raven.Month12
 	 * and Raven.Day0 (Sunday) to Raven.Day6.
+	 *
+	 * A picker chooses one date (the default) or, in R_DATE_SELECTION_RANGE, a
+	 * range of two: the selection, its first and its last day (both included).
+	 * The first click in the calendar is one end, the second the other (before
+	 * the first one, the ends are swapped); in between, the days up to the one
+	 * pointed at are shown as the range to come, and Escape forgets the first
+	 * end. The range bounds of Rdate_picker_set_range (Min, Max) are the days
+	 * that can be chosen, for both modes.
 	 * ============================================================================ */
+
+	/** What a DatePicker chooses (SelectionMode="Single|Range" in XML). */
+	typedef enum RDateSelectionMode{
+		/** One date (the default): Rdate_picker_get_date. */
+		R_DATE_SELECTION_SINGLE = 0x0D00,
+		/** A first and a last day: Rdate_picker_get_selection. */
+		R_DATE_SELECTION_RANGE
+	}RDateSelectionMode;
 
 	/** @brief Sets the date (today when the picker is created). An invalid date is refused. */
 	RAVEN_API void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
@@ -1191,6 +1208,58 @@ extern "C" {
 	RAVEN_API void Rdate_picker_set_instant(Rid date_picker, double utc);
 	/** @brief The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). */
 	RAVEN_API double Rdate_picker_get_instant(Rid date_picker);
+	/**
+	 * @brief One date (default) or a range of two. In the range mode the field
+	 * shows "first – last" in the Format of the picker (the placeholder while
+	 * there is no range) and the calendar shows two months unless
+	 * Rdate_picker_set_month_count says another number.
+	 */
+	RAVEN_API void Rdate_picker_set_selection_mode(Rid date_picker, RDateSelectionMode mode);
+	RAVEN_API RDateSelectionMode Rdate_picker_get_selection_mode(Rid date_picker);
+	/**
+	 * @brief Sets the range (no callback is called): the ends are swapped if the
+	 * first is the later, and kept inside the bounds of Rdate_picker_set_range.
+	 * The date (Rdate_picker_get_date) becomes the first day. Selection="YYYY-MM-DD/YYYY-MM-DD" in XML.
+	 */
+	RAVEN_API void Rdate_picker_set_selection(Rid date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+	/** @brief The range, first and last day included; R_FALSE (and zeros) when there is none. Any pointer may be NULL. */
+	RAVEN_API int Rdate_picker_get_selection(Rid date_picker, int* start_year, int* start_month, int* start_day, int* end_year, int* end_month, int* end_day);
+	/** @brief No range any more: the field shows its placeholder. */
+	RAVEN_API void Rdate_picker_clear_selection(Rid date_picker);
+	/**
+	 * @brief The range as instants of the time zone of the picker: the first
+	 * instant of the first day, and the first instant of the day after the
+	 * last one (an end excluded, so that the range holds its last day whole).
+	 * R_FALSE (and zeros) when there is no range.
+	 */
+	RAVEN_API int Rdate_picker_get_selection_instants(Rid date_picker, double* start_utc, double* end_utc);
+	/**
+	 * @brief Called once per range the user chooses (in the calendar or with a
+	 * preset), not on the first click. The changed callback is called then too,
+	 * with the first day, and the action of the widget is fired.
+	 */
+	typedef void (*RDateSelectionCallback)(Rid date_picker, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day, void* user_data);
+	RAVEN_API void Rdate_picker_set_selection_callback(Rid date_picker, RDateSelectionCallback callback, void* user_data);
+	/** @brief The months the calendar shows side by side, 1 to 3; 0 (default): 2 for a range, 1 for a date. Months="2" in XML. */
+	RAVEN_API void Rdate_picker_set_month_count(Rid date_picker, int months);
+	/** @brief The months the calendar shows (the default resolved). */
+	RAVEN_API int Rdate_picker_get_month_count(Rid date_picker);
+	/**
+	 * @brief The fewest and the most days a range chosen by the user can have,
+	 * both ends counted (2 days = 1 night); 0: no limit. The days that would
+	 * break them cannot be clicked as the second end. MinDays, MaxDays in XML.
+	 */
+	RAVEN_API void Rdate_picker_set_selection_limits(Rid date_picker, int min_days, int max_days);
+	/** @brief Shown, dimmed, while a range picker has no range; NULL: "Start date – End date" (Raven.DateRangePlaceholder). */
+	RAVEN_API void Rdate_picker_set_placeholder(Rid date_picker, const char* text);
+	/**
+	 * @brief Adds a preset to the column at the left of the calendar: a click
+	 * chooses its range at once. Presets="Today|Yesterday|Last7Days|Last30Days|ThisMonth|LastMonth"
+	 * in XML adds those computed from the day they are used (their names: Raven.DatePresetToday...).
+	 */
+	RAVEN_API void Rdate_picker_add_preset(Rid date_picker, const char* label, int start_year, int start_month, int start_day, int end_year, int end_month, int end_day);
+	RAVEN_API void Rdate_picker_clear_presets(Rid date_picker);
+	RAVEN_API int Rdate_picker_get_preset_count(Rid date_picker);
 
 
 	/* ============================================================================
