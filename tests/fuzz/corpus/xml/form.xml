@@ -1,0 +1,11 @@
+<VBox Name="root" Spacing="8" Slot.Padding="16">
+	<Label Name="title" Text="Hello &amp; welcome" FontSize="20"/>
+	<HBox Spacing="4">
+		<TextInput Name="name" Hint="Your name" Text="&#x263A; &#9731;"/>
+		<Button Name="go" Text="Go" OnClicked="greet"/>
+	</HBox>
+	<CheckBox Text="Remember" Checked="true"/>
+	<Slider Min="0" Max="100" Value="42"/>
+	<!-- a comment -->
+	<ComboBox Items="One;Two;Three" Selected="1"/>
+</VBox>

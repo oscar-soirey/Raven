@@ -6,7 +6,7 @@
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
 #   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
-#   test_icons, test_spell, test_headless, test_web_input
+#   test_icons, test_spell, test_headless, test_web_input, test_script
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
@@ -31,6 +31,11 @@
 #       the golden images of tests/goldens/ (one per OS and backend); skipped
 #       without a GPU or without goldens for this OS and backend.
 #
+#   test_script_core
+#       the core of Raven Script (lexer, parser, type checker, bytecode, virtual
+#       machine, formatter, analysis) without the library; it ends with a short
+#       fuzzing of mutated scripts (RS_FUZZ_ROUNDS and RS_FUZZ_SEED run it longer).
+#
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
 #
@@ -49,10 +54,27 @@ function(raven_add_test name)
 	if(NOT RAVEN_WITH_STB_IMAGE)
 		target_compile_definitions(${name} PRIVATE RAVEN_TEST_NO_IMAGE_DECODER)
 	endif()
+	if(RAVEN_BUILD_SHARED)
+		# a shared library exports only the API: the checks of a test that look at the
+		# internals (src/...) are left out under #if !defined(RAVEN_TEST_SHARED)
+		target_compile_definitions(${name} PRIVATE RAVEN_TEST_SHARED)
+	endif()
 	add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
 raven_add_test(test_layout)
+raven_add_test(test_script)
+
+# the core of Raven Script alone (src/script/rs_*.c): no library, no window
+add_executable(test_script_core test_script_core.c ${RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE})
+set_target_properties(test_script_core PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
+if(NOT WIN32)
+	target_link_libraries(test_script_core PRIVATE m)
+endif()
+if(MSVC)
+	target_compile_definitions(test_script_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+add_test(NAME test_script_core COMMAND test_script_core)
 raven_add_test(test_widgets)
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_menu_decorations)
@@ -90,9 +112,6 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output")
 target_compile_definitions(test_datetime PRIVATE
 	"RAVEN_TEST_ZONEINFO=\"${CMAKE_CURRENT_SOURCE_DIR}/data/zoneinfo\""
 	"RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output\"")
-if(RAVEN_BUILD_SHARED)
-	target_compile_definitions(test_datetime PRIVATE RAVEN_TEST_SHARED)
-endif()
 if(NOT RAVEN_BUILD_SHARED)
 	# Tests the shared screen-reader tree/actions used by all native platforms.
 	raven_add_test(test_accessibility)
@@ -141,10 +160,6 @@ endif()
 raven_add_test(test_more_widgets)
 # notifications with tags, buttons and an icon, through the fallback toast (the null platform has none of its own)
 raven_add_test(test_notifications)
-if(RAVEN_BUILD_SHARED)
-	# (what the platforms report and share is internal: checked with the static library)
-	target_compile_definitions(test_notifications PRIVATE RAVEN_TEST_SHARED)
-endif()
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
 # the clipboard formats and the drags out of the windows (the null platform's clipboard)
@@ -162,10 +177,6 @@ raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
 raven_add_test(test_map_view)
-if(RAVEN_BUILD_SHARED)
-	# (what a paint drew and the tree of the screen readers are internal: checked with the static library)
-	target_compile_definitions(test_map_view PRIVATE RAVEN_TEST_SHARED)
-endif()
 # PDF documents written by Raven (read back by PdfView when PDFium is there) and printing to a file
 raven_add_test(test_pdf_document)
 target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
@@ -263,6 +274,10 @@ endif()
 # one executable for both GPU backends: RAVEN_BACKEND picks the one it renders with
 if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 	raven_add_test(test_render)
+	if(APPLE)
+		# it sends messages to a Metal encoder itself (objc_msgSend): libobjc comes with a static Raven only
+		target_link_libraries(test_render PRIVATE objc)
+	endif()
 	if(RAVEN_BACKEND_VULKAN)
 		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=1)
 		set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=vulkan")

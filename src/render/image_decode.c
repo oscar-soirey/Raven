@@ -17,6 +17,23 @@
 #define STBI_MALLOC(size) rvn_alloc(size)
 #define STBI_REALLOC(ptr, size) rvn_realloc(ptr, size)
 #define STBI_FREE(ptr) rvn_free(ptr)
+/*
+ * The largest still image: 16384 pixels on a side (the largest texture of
+ * most GPUs, and the side of an animation, anim_decode.c) and 2^26 pixels in
+ * all (a photo of 64 megapixels: 256 MB of RGBA). Beyond, a header of a few
+ * bytes, damaged or hostile, would have stb_image allocate gigabytes.
+ *
+ * And no more pixels than the file can hold: stb_image reads zeros past the
+ * end of the data, so a header of a few bytes that announces a large picture
+ * would have it spend seconds making pixels of nothing. A BMP, TGA, PSD, PIC
+ * or PNM file has at most 128 pixels per byte (raw pixels, or runs of 128 of
+ * them at most); a JPEG has a few hundred (a block of one color in a few
+ * bits): 4096 is far from it. PNG and GIF stop where their data ends.
+ */
+#define STBI_MAX_DIMENSIONS 16384
+#define RVN_IMAGE_MAX_PIXELS (1u << 26)
+#define RVN_IMAGE_MAX_PIXELS_PER_BYTE_RAW 128u
+#define RVN_IMAGE_MAX_PIXELS_PER_BYTE_JPEG 4096u
 #define STB_IMAGE_IMPLEMENTATION
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -47,8 +64,22 @@ static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, 
 	int w = 0, h = 0, channels = 0;
 	uint8_t* pixels;
 	if (!data || size == 0 || size > 0x7FFFFFFFu) return NULL;
+	if (stbi_info_from_memory(data, (int)size, &w, &h, &channels)) {
+		uint64_t count = (uint64_t)w * (uint64_t)h;
+		int png = size >= 4 && memcmp(data, "\x89PNG", 4) == 0;
+		int gif = size >= 4 && memcmp(data, "GIF8", 4) == 0;
+		int jpeg = size >= 2 && data[0] == 0xFF && data[1] == 0xD8;
+		if (count > RVN_IMAGE_MAX_PIXELS) return NULL;
+		if (jpeg && count > (uint64_t)size * RVN_IMAGE_MAX_PIXELS_PER_BYTE_JPEG) return NULL;
+		if (!png && !gif && !jpeg && count > (uint64_t)size * RVN_IMAGE_MAX_PIXELS_PER_BYTE_RAW) return NULL;
+	}
 	pixels = stbi_load_from_memory(data, (int)size, &w, &h, &channels, 4);
 	if (!pixels) return NULL;
+	/* (stb_image gives a GIF of no height a picture: it is none) */
+	if (w <= 0 || h <= 0) {
+		rvn_free(pixels);
+		return NULL;
+	}
 	*width = w;
 	*height = h;
 	return pixels;

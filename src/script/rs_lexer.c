@@ -125,6 +125,8 @@ static rs_token rs_error_token(uint32_t start, uint32_t end, const char* message
 	return token;
 }
 
+#define RS_LEXER_ZERO_BYTE "a 0 byte cannot be part of a script"
+
 rs_token rs_lexer_next(rs_lexer* lexer) {
 	for (;;) {
 		uint32_t start;
@@ -141,17 +143,25 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 		if (lexer->cursor >= lexer->length) return rs_make(TK_EOF, start, start);
 		c = (unsigned char)lexer->text[lexer->cursor];
 
-		/* comments */
+		/* comments (a 0 byte is in none: a script is also read as a C string, which would end there) */
 		if (c == '/' && rs_peek(lexer, 1) == '/') {
-			while (lexer->cursor < lexer->length && lexer->text[lexer->cursor] != '\n') lexer->cursor++;
+			int zero = 0;
+			while (lexer->cursor < lexer->length && lexer->text[lexer->cursor] != '\n') {
+				if (lexer->text[lexer->cursor] == '\0') zero = 1;
+				lexer->cursor++;
+			}
+			if (zero) return rs_error_token(start, lexer->cursor, RS_LEXER_ZERO_BYTE);
 			if (lexer->keep_comments) {
 				uint32_t end = lexer->cursor;
-				if (end > start && lexer->text[end - 1] == '\r') end--;
+				/* (every carriage return before the line feed: "//\r\r" kept one, which the formatter then
+				 * wrote back and the next formatting took away) */
+				while (end > start && lexer->text[end - 1] == '\r') end--;
 				return rs_make(TK_COMMENT, start, end);
 			}
 			continue;
 		}
 		if (c == '/' && rs_peek(lexer, 1) == '*') {
+			int zero = 0;
 			lexer->cursor += 2;
 			for (;;) {
 				if (lexer->cursor + 1 >= lexer->length) {
@@ -162,8 +172,10 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 					lexer->cursor += 2;
 					break;
 				}
+				if (lexer->text[lexer->cursor] == '\0') zero = 1;
 				lexer->cursor++;
 			}
+			if (zero) return rs_error_token(start, lexer->cursor, RS_LEXER_ZERO_BYTE);
 			if (lexer->keep_comments) return rs_make(TK_COMMENT, start, lexer->cursor);
 			continue;
 		}
@@ -205,7 +217,7 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 
 		/* strings: "..." or '...' on one line */
 		if (c == '"' || c == '\'') {
-			int quote = c;
+			int quote = c, zero = 0;
 			lexer->cursor++;
 			for (;;) {
 				int d;
@@ -213,6 +225,7 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 					return rs_error_token(start, lexer->cursor, "this string is never closed: the quote is missing at the end of the line");
 				}
 				d = (unsigned char)lexer->text[lexer->cursor];
+				if (d == 0 || (d == '\\' && rs_peek(lexer, 1) == 0)) zero = 1;
 				if (d == '\\') {
 					lexer->cursor += 2;
 					if (lexer->cursor > lexer->length) lexer->cursor = lexer->length;
@@ -221,6 +234,7 @@ rs_token rs_lexer_next(rs_lexer* lexer) {
 				lexer->cursor++;
 				if (d == quote) break;
 			}
+			if (zero) return rs_error_token(start, lexer->cursor, RS_LEXER_ZERO_BYTE);
 			return rs_make(TK_STRING, start, lexer->cursor);
 		}
 

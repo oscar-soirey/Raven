@@ -1680,7 +1680,8 @@ static int stbi__getn(stbi__context *s, stbi_uc *buffer, int n)
    }
 
    if (s->img_buffer+n <= s->img_buffer_end) {
-      memcpy(buffer, s->img_buffer, n);
+      // Raven: an empty chunk (an IDAT of 0 bytes, before any buffer exists) copies nothing: memcpy(NULL, p, 0) is undefined
+      if (n > 0) memcpy(buffer, s->img_buffer, n);
       s->img_buffer += n;
       return 1;
    } else

@@ -211,12 +211,13 @@ static int rvn_ttf_glyph_good(rvn_ttf_t* ttf, int glyph, int depth) {
 	p = data + ttf->glyf + from;
 	contours = (int16_t)rvn_ttf_u16(p);
 	if (contours >= 0) {
-		uint32_t points = 0, i, flag_count = 0, x_bytes = 0, y_bytes = 0, k;
+		uint32_t points = 0, i, flag_count = 0, x_bytes = 0, y_bytes = 0, k, last_start = 0;
 		uint8_t flags = 0;
 		if (10 + 2 * (uint32_t)contours + 2 > length) return R_FALSE;
 		for (k = 0; k < (uint32_t)contours; k++) {
 			uint32_t last = (uint32_t)rvn_ttf_u16(p + 10 + 2 * k) + 1;
 			if (last <= points && k > 0) return R_FALSE;
+			last_start = points;
 			points = last;
 		}
 		at = 12 + 2 * (uint32_t)contours;
@@ -237,6 +238,9 @@ static int rvn_ttf_glyph_good(rvn_ttf_t* ttf, int glyph, int depth) {
 			y_bytes += (flags & 4) ? 1 : (flags & 32) ? 0 : 2;
 		}
 		if ((uint64_t)at + x_bytes + y_bytes > length) return R_FALSE;
+		/* a contour that starts off the curve makes stb look at the point after it: the last
+		 * point of the glyph has none (a contour of one point, off the curve, which draws nothing) */
+		if (contours > 0 && last_start == points - 1 && !(flags & 1)) return R_FALSE;
 	} else {
 		/* a composite: its components, each a glyph that holds together */
 		uint16_t flags;

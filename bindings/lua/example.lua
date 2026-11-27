@@ -67,8 +67,9 @@ local function check(window, title, name, clicks, errors)
 	-- structures: tables, filled by C (a new one, or the one given)
 	local stats = r.Rmemory_get_stats()
 	assert(stats.allocation_count > 0)
+	-- (allocation_count: used_bytes stays 0 when Raven allocates with malloc, as under AddressSanitizer)
 	local given = {}
-	assert(r.Rmemory_get_stats(given) == given and given.used_bytes > 0)
+	assert(r.Rmemory_get_stats(given) == given and given.allocation_count > 0)
 
 	-- a mistake reported in a structure
 	local document, xml_error = r.Rxml_document_parse("<A><B></A>")

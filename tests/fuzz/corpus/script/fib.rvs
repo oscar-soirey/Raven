@@ -1,0 +1,9 @@
+fn math.fib(n: number): number {
+    if (n < 2) {
+        return n;
+    }
+    return math.fib(n - 1) + math.fib(n - 2);
+}
+fn app.go(): number {
+    return math.fib(10);
+}

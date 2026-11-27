@@ -1,0 +1,13 @@
+fn app.example() {
+    let numbers: number[] = [1, 2, 3];
+    for (let i = 0; i < 10; i += 1) {
+        if (i == 5) {
+            break;
+        }
+        numbers.push(i);
+        app.log(numbers[i % 3].toString());
+    }
+    while (numbers.length > 0) {
+        numbers.pop();
+    }
+}

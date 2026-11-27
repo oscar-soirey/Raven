@@ -1,0 +1,2 @@
+# the inputs of the fuzzers are bytes: never changed by a checkout (line endings included)
+* -text
