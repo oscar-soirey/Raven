@@ -1,7 +1,7 @@
 /**
  * Raven example - web_view
- * A web page shown by the engine of the system (WKWebView on macOS), with a
- * toolbar and a panel drawn by Raven.
+ * A web page shown by the engine of the system (WKWebView on macOS, WebView2
+ * on Windows), with a toolbar and a panel drawn by Raven.
  *
  *   <SystemWebView Source="...">        shows a page (Rsystem_web_view_load_url / _file / _html)
  *   Rsystem_web_view_run_javascript     the application acts on the page, and reads its answer

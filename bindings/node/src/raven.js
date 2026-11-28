@@ -672,8 +672,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CAROUSEL: 566,
 	R_WIDGET_SYSTEM_WEB_VIEW: 567,
 	R_WIDGET_DIFF_VIEW: 568,
+	R_WIDGET_MERMAID_VIEW: 569,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW, R_WIDGET_MERMAID_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -1058,6 +1059,22 @@ export const RDiffFlags = _enum({
 	R_DIFF_IGNORE_CASE: 4,
 });
 export const { R_DIFF_IGNORE_TRAILING_SPACE, R_DIFF_IGNORE_SPACE, R_DIFF_IGNORE_CASE } = RDiffFlags;
+
+export const RMermaidKind = _enum({
+	R_MERMAID_NONE: 3312,
+	R_MERMAID_FLOWCHART: 3313,
+	R_MERMAID_SEQUENCE: 3314,
+	R_MERMAID_STATE: 3315,
+	R_MERMAID_PIE: 3316,
+});
+export const { R_MERMAID_NONE, R_MERMAID_FLOWCHART, R_MERMAID_SEQUENCE, R_MERMAID_STATE, R_MERMAID_PIE } = RMermaidKind;
+
+export const RMermaidFit = _enum({
+	R_MERMAID_FIT_WIDTH: 3320,
+	R_MERMAID_FIT_NONE: 3321,
+	R_MERMAID_FIT_CONTAIN: 3322,
+});
+export const { R_MERMAID_FIT_WIDTH, R_MERMAID_FIT_NONE, R_MERMAID_FIT_CONTAIN } = RMermaidFit;
 
 export const RNotificationUrgency = _enum({
 	R_NOTIFICATION_LOW: 1264,
@@ -4385,6 +4402,8 @@ export const Rlabel_set_wrap = _lib.Rlabel_set_wrap;
 export const Rlabel_set_color = _lib.Rlabel_set_color;
 export const Rlabel_set_markdown = _lib.Rlabel_set_markdown;
 export const Rlabel_get_markdown = _lib.Rlabel_get_markdown;
+export const Rlabel_set_mermaid = _lib.Rlabel_set_mermaid;
+export const Rlabel_get_mermaid = _lib.Rlabel_get_mermaid;
 export const Rlabel_set_link_callback = _lib.Rlabel_set_link_callback;
 export const Rlabel_get_plain_text = _lib.Rlabel_get_plain_text;
 export const Rlabel_set_selectable = _lib.Rlabel_set_selectable;
@@ -5318,6 +5337,29 @@ export const Rdiff_view_add_annotation = _lib.Rdiff_view_add_annotation;
 export const Rdiff_view_clear_annotations = _lib.Rdiff_view_clear_annotations;
 export const Rdiff_view_get_selected_text = _lib.Rdiff_view_get_selected_text;
 export const Rdiff_view_set_line_clicked_callback = _lib.Rdiff_view_set_line_clicked_callback;
+export const Rmermaid_view_create = _lib.Rmermaid_view_create;
+export const Rmermaid_view_set_source = _lib.Rmermaid_view_set_source;
+export const Rmermaid_view_get_source = _lib.Rmermaid_view_get_source;
+export const Rmermaid_view_load_file = _lib.Rmermaid_view_load_file;
+export const Rmermaid_view_get_kind = _lib.Rmermaid_view_get_kind;
+export const Rmermaid_view_get_error_line = _lib.Rmermaid_view_get_error_line;
+export const Rmermaid_view_get_error = _lib.Rmermaid_view_get_error;
+export const Rmermaid_view_get_summary = _lib.Rmermaid_view_get_summary;
+export const Rmermaid_view_get_node_count = _lib.Rmermaid_view_get_node_count;
+export const Rmermaid_view_get_node = _lib.Rmermaid_view_get_node;
+export const Rmermaid_view_get_edge_count = _lib.Rmermaid_view_get_edge_count;
+export const Rmermaid_view_get_edge = _lib.Rmermaid_view_get_edge;
+export const Rmermaid_view_get_diagram_size = _lib.Rmermaid_view_get_diagram_size;
+export const Rmermaid_view_set_fit = _lib.Rmermaid_view_set_fit;
+export const Rmermaid_view_get_fit = _lib.Rmermaid_view_get_fit;
+export const Rmermaid_view_set_zoom = _lib.Rmermaid_view_set_zoom;
+export const Rmermaid_view_get_zoom = _lib.Rmermaid_view_get_zoom;
+export const Rmermaid_view_get_scale = _lib.Rmermaid_view_get_scale;
+export const Rmermaid_view_save_png = _lib.Rmermaid_view_save_png;
+export const Rmermaid_view_save_svg = _lib.Rmermaid_view_save_svg;
+export const Rmermaid_view_to_svg = _lib.Rmermaid_view_to_svg;
+export const Rmermaid_check = _lib.Rmermaid_check;
+export const Rmermaid_check_message = _lib.Rmermaid_check_message;
 export const Rdialog_open = _lib.Rdialog_open;
 export const Rdialog_close = _lib.Rdialog_close;
 export const Rdialog_run = _lib.Rdialog_run;

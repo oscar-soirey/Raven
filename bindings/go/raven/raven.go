@@ -711,6 +711,7 @@ const (
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
 	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
 	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0238
+	R_WIDGET_MERMAID_VIEW    RWidgetType = 0x0239
 )
 
 type RHAlign int32
@@ -1172,6 +1173,24 @@ const (
 	R_DIFF_IGNORE_TRAILING_SPACE RDiffFlags = 1
 	R_DIFF_IGNORE_SPACE          RDiffFlags = 2
 	R_DIFF_IGNORE_CASE           RDiffFlags = 4
+)
+
+type RMermaidKind int32
+
+const (
+	R_MERMAID_NONE      RMermaidKind = 0x0CF0
+	R_MERMAID_FLOWCHART RMermaidKind = 0x0CF1
+	R_MERMAID_SEQUENCE  RMermaidKind = 0x0CF2
+	R_MERMAID_STATE     RMermaidKind = 0x0CF3
+	R_MERMAID_PIE       RMermaidKind = 0x0CF4
+)
+
+type RMermaidFit int32
+
+const (
+	R_MERMAID_FIT_WIDTH   RMermaidFit = 0x0CF8
+	R_MERMAID_FIT_NONE    RMermaidFit = 0x0CF9
+	R_MERMAID_FIT_CONTAIN RMermaidFit = 0x0CFA
 )
 
 // RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
@@ -3505,6 +3524,17 @@ func LabelSetMarkdown(label ID, enabled int) {
 
 func LabelGetMarkdown(label ID) int {
 	return int(C.Rlabel_get_markdown(C.Rid(label)))
+}
+
+// LabelSetMermaid: Markdown: draws the blocks of code whose language is "mermaid" as diagrams (on by default;
+// see MERMAID VIEW in raven_tools.h). Off, they are shown as code. A diagram wider than the label is scaled
+// down.
+func LabelSetMermaid(label ID, enabled int) {
+	C.Rlabel_set_mermaid(C.Rid(label), C.int(enabled))
+}
+
+func LabelGetMermaid(label ID) int {
+	return int(C.Rlabel_get_mermaid(C.Rid(label)))
 }
 
 // LabelGetPlainText: The text of a Markdown label without its marks, as a reader sees it. Valid until the
@@ -8173,6 +8203,122 @@ func DiffViewGetSelectedText(diff_view ID) string {
 	return C.GoString(C.Rdiff_view_get_selected_text(C.Rid(diff_view)))
 }
 
+func MermaidViewCreate(source string) ID {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	return ID(C.Rmermaid_view_create(source_))
+}
+
+// MermaidViewSetSource: The text of the diagram (NULL: none). It is read and laid out again.
+func MermaidViewSetSource(view ID, source string) {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	C.Rmermaid_view_set_source(C.Rid(view), source_)
+}
+
+func MermaidViewGetSource(view ID) string {
+	return C.GoString(C.Rmermaid_view_get_source(C.Rid(view)))
+}
+
+// MermaidViewLoadFile: Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be
+// read.
+func MermaidViewLoadFile(view ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rmermaid_view_load_file(C.Rid(view), path_))
+}
+
+// MermaidViewGetKind: The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+func MermaidViewGetKind(view ID) RMermaidKind {
+	return RMermaidKind(C.Rmermaid_view_get_kind(C.Rid(view)))
+}
+
+// MermaidViewGetErrorLine: The line (from 1) of the first error of the text; 0 when it was read.
+func MermaidViewGetErrorLine(view ID) int {
+	return int(C.Rmermaid_view_get_error_line(C.Rid(view)))
+}
+
+// MermaidViewGetError: What the error is ("unknown statement \"foo\""); "" when none.
+func MermaidViewGetError(view ID) string {
+	return C.GoString(C.Rmermaid_view_get_error(C.Rid(view)))
+}
+
+// MermaidViewGetSummary: "flowchart with 12 nodes and 11 links": the accessible name of the view.
+func MermaidViewGetSummary(view ID) string {
+	return C.GoString(C.Rmermaid_view_get_summary(C.Rid(view)))
+}
+
+// MermaidViewGetNodeCount: The nodes of a flowchart or a state diagram (states, the start and end points),
+// the participants of a sequence diagram, the slices of a pie.
+func MermaidViewGetNodeCount(view ID) int {
+	return int(C.Rmermaid_view_get_node_count(C.Rid(view)))
+}
+
+// MermaidViewGetEdgeCount: Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+func MermaidViewGetEdgeCount(view ID) int {
+	return int(C.Rmermaid_view_get_edge_count(C.Rid(view)))
+}
+
+// MermaidViewGetDiagramSize: The size of the diagram in its own units (at the font size of the widget).
+func MermaidViewGetDiagramSize(view ID) (width float32, height float32) {
+	var width_ C.float
+	var height_ C.float
+	C.Rmermaid_view_get_diagram_size(C.Rid(view), &width_, &height_)
+	width = float32(width_)
+	height = float32(height_)
+	return
+}
+
+func MermaidViewSetFit(view ID, fit RMermaidFit) {
+	C.Rmermaid_view_set_fit(C.Rid(view), C.RMermaidFit(fit))
+}
+
+func MermaidViewGetFit(view ID) RMermaidFit {
+	return RMermaidFit(C.Rmermaid_view_get_fit(C.Rid(view)))
+}
+
+// MermaidViewSetZoom: A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+func MermaidViewSetZoom(view ID, zoom float32) {
+	C.Rmermaid_view_set_zoom(C.Rid(view), C.float(zoom))
+}
+
+func MermaidViewGetZoom(view ID) float32 {
+	return float32(C.Rmermaid_view_get_zoom(C.Rid(view)))
+}
+
+// MermaidViewGetScale: The scale the diagram is drawn at: the zoom, and what the fit made of it.
+func MermaidViewGetScale(view ID) float32 {
+	return float32(C.Rmermaid_view_get_scale(C.Rid(view)))
+}
+
+// MermaidViewSavePng: Writes the view as shown as a PNG file (the window is captured, Rwindow_capture).
+// Returns: R_FALSE when the view is not in a shown window, the backend cannot capture, or the file cannot be
+// written.
+func MermaidViewSavePng(view ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rmermaid_view_save_png(C.Rid(view), path_))
+}
+
+// MermaidViewSaveSvg: Writes the diagram as an SVG file, in the colors of the theme.
+func MermaidViewSaveSvg(view ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rmermaid_view_save_svg(C.Rid(view), path_))
+}
+
+// MermaidCheck: Reads a text without drawing it: what an editor checks as the user types. Callable from any
+// thread. error_line Receives the line of the first error (from 1), 0 when none; may be NULL. Returns: The
+// kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+func MermaidCheck(source string) (result RMermaidKind, error_line int) {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	var error_line_ C.int
+	result = RMermaidKind(C.Rmermaid_check(source_, &error_line_))
+	error_line = int(error_line_)
+	return
+}
+
 // DialogClose: Closes the dialog that contains a widget (the content itself or anything inside it: the button
 // that was clicked). result Passed to the closed callback and returned by Rdialog_run.
 func DialogClose(widget ID, result int) {
@@ -9602,7 +9748,8 @@ func TestGetScriptError() string {
 // Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
 // Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
 // Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdiff_unified
-// Rdiff_view_set_line_clicked_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
+// Rdiff_view_set_line_clicked_callback, Rmermaid_view_get_node, Rmermaid_view_get_edge, Rmermaid_view_to_svg
+// Rmermaid_check_message, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
 // Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
 // Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
 // Rnotification_set_fallback, Rnotification_set_clicked_callback, Rnotification_show_desc

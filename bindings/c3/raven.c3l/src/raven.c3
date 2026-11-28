@@ -937,10 +937,12 @@ constset WidgetType : CInt
 	MAP_VIEW = 0x0235,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
-	<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+	<* A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget. *>
 	SYSTEM_WEB_VIEW = 0x0237,
 	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 	DIFF_VIEW = 0x0238,
+	<* A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h). *>
+	MERMAID_VIEW = 0x0239,
 }
 
 constset HAlign : CInt
@@ -1524,6 +1526,26 @@ constset DiffFlags : CInt
 
 <* Whether every flag of `flags` is set. *>
 fn bool DiffFlags.has(self, DiffFlags flags) @inline => (self & flags) == flags;
+
+constset MermaidKind : CInt
+{
+	<* No diagram: the text is empty, or could not be read (Rmermaid_view_get_error). *>
+	NONE = 0x0CF0,
+	FLOWCHART = 0x0CF1,
+	SEQUENCE = 0x0CF2,
+	STATE = 0x0CF3,
+	PIE = 0x0CF4,
+}
+
+constset MermaidFit : CInt
+{
+	<* Scaled down to the width of the widget, never up (the default). *>
+	WIDTH = 0x0CF8,
+	<* Its own size (times the zoom); put it in a ScrollBox to scroll. *>
+	NONE = 0x0CF9,
+	<* Scaled up or down to fill the widget, its proportions kept. *>
+	CONTAIN = 0x0CFA,
+}
 
 <* How much a notification of the system asks for attention (Rnotification_show). *>
 constset NotificationUrgency : CInt
@@ -3766,6 +3788,15 @@ fn void Label.set_color(self, float r, float g, float b, float a) @inline => c::
 fn void Label.set_markdown(self, bool enabled) @inline => c::r_label_set_markdown((c::Rid)self, (CInt)enabled);
 
 fn CInt Label.get_markdown(self) @inline => c::r_label_get_markdown((c::Rid)self);
+
+<*
+ Markdown: draws the blocks of code whose language is "mermaid"
+ as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+ they are shown as code. A diagram wider than the label is scaled down.
+*>
+fn void Label.set_mermaid(self, bool enabled) @inline => c::r_label_set_mermaid((c::Rid)self, (CInt)enabled);
+
+fn CInt Label.get_mermaid(self) @inline => c::r_label_get_mermaid((c::Rid)self);
 
 fn void Label.set_link_callback(self, LabelLinkCallback callback, void* user_data) @inline => c::r_label_set_link_callback((c::Rid)self, (c::RLabelLinkCallback)callback, user_data);
 
@@ -6949,7 +6980,9 @@ fn void SystemWebView.set_event_callback(self, SystemWebViewEventCallback callba
 
 <*
  The view of the system, to go further than these functions:
- a WKWebView* on macOS and iOS. NULL where unsupported.
+ a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+ until WebView2 has made the view, a moment after it is created). NULL
+ where unsupported.
 *>
 fn void* SystemWebView.get_native_handle(self) @inline => c::r_system_web_view_get_native_handle((c::Rid)self);
 
@@ -7069,6 +7102,84 @@ fn ZString DiffView.get_selected_text(self) @inline => (ZString)c::r_diff_view_g
 
 <* Called when a line or its number is clicked (the action of the widget is fired too). *>
 fn void DiffView.set_line_clicked_callback(self, DiffViewLineCallback callback, void* user_data) @inline => c::r_diff_view_set_line_clicked_callback((c::Rid)self, (c::RDiffViewLineCallback)callback, user_data);
+
+// ---- MermaidView
+
+typedef MermaidView = inline Widget;
+
+fn MermaidView mermaid_view_create(ZString source) @inline => (MermaidView)c::r_mermaid_view_create((char*)source);
+
+<* The text of the diagram (NULL: none). It is read and laid out again. *>
+fn void MermaidView.set_source(self, ZString source) @inline => c::r_mermaid_view_set_source((c::Rid)self, (char*)source);
+
+fn ZString MermaidView.get_source(self) @inline => (ZString)c::r_mermaid_view_get_source((c::Rid)self);
+
+<* Reads the text of a file (a .mmd) as the diagram. @return R_FALSE when it cannot be read. *>
+fn bool MermaidView.load_file(self, ZString path) @inline => c::r_mermaid_view_load_file((c::Rid)self, (char*)path) != 0;
+
+<* The kind of diagram read; R_MERMAID_NONE for an empty text or an error. *>
+fn MermaidKind MermaidView.get_kind(self) @inline => (MermaidKind)c::r_mermaid_view_get_kind((c::Rid)self);
+
+<* The line (from 1) of the first error of the text; 0 when it was read. *>
+fn CInt MermaidView.get_error_line(self) @inline => c::r_mermaid_view_get_error_line((c::Rid)self);
+
+<* What the error is ("unknown statement \"foo\""); "" when none. *>
+fn ZString MermaidView.get_error(self) @inline => (ZString)c::r_mermaid_view_get_error((c::Rid)self);
+
+<* "flowchart with 12 nodes and 11 links": the accessible name of the view. *>
+fn ZString MermaidView.get_summary(self) @inline => (ZString)c::r_mermaid_view_get_summary((c::Rid)self);
+
+<*
+ The nodes of a flowchart or a state diagram (states, the start
+ and end points), the participants of a sequence diagram, the slices of
+ a pie.
+*>
+fn CInt MermaidView.get_node_count(self) @inline => c::r_mermaid_view_get_node_count((c::Rid)self);
+
+<*
+ A node: its name in the text, its label, and its rectangle in the
+ units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+ Any pointer may be NULL. The texts are valid until the source changes.
+ Returns R_FALSE when `index` is out of range.
+*>
+fn bool MermaidView.get_node(self, CInt index, ZString* id, ZString* label, float* x, float* y, float* width, float* height) @inline => c::r_mermaid_view_get_node((c::Rid)self, index, (char**)id, (char**)label, x, y, width, height) != 0;
+
+<* Links of a graph, transitions of a state diagram, messages of a sequence diagram. *>
+fn CInt MermaidView.get_edge_count(self) @inline => c::r_mermaid_view_get_edge_count((c::Rid)self);
+
+<* The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label. *>
+fn CInt MermaidView.get_edge(self, CInt index, CInt* from, CInt* to, ZString* label) @inline => c::r_mermaid_view_get_edge((c::Rid)self, index, from, to, (char**)label);
+
+<* The size of the diagram in its own units (at the font size of the widget). *>
+fn void MermaidView.get_diagram_size(self, float* width, float* height) @inline => c::r_mermaid_view_get_diagram_size((c::Rid)self, width, height);
+
+fn void MermaidView.set_fit(self, MermaidFit fit) @inline => c::r_mermaid_view_set_fit((c::Rid)self, (c::RMermaidFit)fit);
+
+fn MermaidFit MermaidView.get_fit(self) @inline => (MermaidFit)c::r_mermaid_view_get_fit((c::Rid)self);
+
+<* A factor applied to the size of the diagram (1 by default; 0.25 to 8). *>
+fn void MermaidView.set_zoom(self, float zoom) @inline => c::r_mermaid_view_set_zoom((c::Rid)self, zoom);
+
+fn float MermaidView.get_zoom(self) @inline => c::r_mermaid_view_get_zoom((c::Rid)self);
+
+<* The scale the diagram is drawn at: the zoom, and what the fit made of it. *>
+fn float MermaidView.get_scale(self) @inline => c::r_mermaid_view_get_scale((c::Rid)self);
+
+<*
+ Writes the view as shown as a PNG file (the window is captured,
+ Rwindow_capture). @return R_FALSE when the view is not in a shown
+ window, the backend cannot capture, or the file cannot be written.
+*>
+fn bool MermaidView.save_png(self, ZString path) @inline => c::r_mermaid_view_save_png((c::Rid)self, (char*)path) != 0;
+
+<* Writes the diagram as an SVG file, in the colors of the theme. *>
+fn CInt MermaidView.save_svg(self, ZString path) @inline => c::r_mermaid_view_save_svg((c::Rid)self, (char*)path);
+
+<*
+ The diagram as an SVG document, to release with Rmemory_free.
+ `size` receives its length in bytes, and may be NULL.
+*>
+fn ZString MermaidView.to_svg(self, usz* size) @inline => (ZString)c::r_mermaid_view_to_svg((c::Rid)self, size);
 
 // ---- Window
 
@@ -9018,6 +9129,20 @@ fn ZString diff_unified(ZString left, ZString right, ZString left_name, ZString 
 
 <* The number of changes (runs of lines removed and / or added) between two texts. Any thread. *>
 fn CInt diff_count_changes(ZString left, ZString right, uint flags) @inline => c::r_diff_count_changes((char*)left, (char*)right, flags);
+
+<*
+ Reads a text without drawing it: what an editor checks as the
+ user types. Callable from any thread.
+ Returns The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+*>
+fn MermaidKind mermaid_check(ZString source, CInt* error_line) @inline => (MermaidKind)c::r_mermaid_check((char*)source, error_line);
+
+<*
+ What the first error of a text is ("unknown statement \"foo\""),
+ to release with Rmemory_free; NULL when the text has none. `size`
+ receives its length in bytes, and may be NULL. Callable from any thread.
+*>
+fn ZString mermaid_check_message(ZString source, usz* size) @inline => (ZString)c::r_mermaid_check_message((char*)source, size);
 
 <*
  Shows a widget as a dialog of a window. The window takes

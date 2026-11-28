@@ -740,10 +740,12 @@ pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
 /// Pages shown one at a time and swiped (a page view), with dots and arrows.
 pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
-/// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+/// A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
 pub const R_WIDGET_SYSTEM_WEB_VIEW: RWidgetType = 0x0237;
 /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pub const R_WIDGET_DIFF_VIEW: RWidgetType = 0x0238;
+/// A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
+pub const R_WIDGET_MERMAID_VIEW: RWidgetType = 0x0239;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1198,6 +1200,22 @@ pub const R_DIFF_IGNORE_TRAILING_SPACE: RDiffFlags = 1;
 pub const R_DIFF_IGNORE_SPACE: RDiffFlags = 2;
 /// Upper and lower case letters are the same (A to Z).
 pub const R_DIFF_IGNORE_CASE: RDiffFlags = 4;
+
+pub const RMermaidKind = c_int;
+/// No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+pub const R_MERMAID_NONE: RMermaidKind = 0x0CF0;
+pub const R_MERMAID_FLOWCHART: RMermaidKind = 0x0CF1;
+pub const R_MERMAID_SEQUENCE: RMermaidKind = 0x0CF2;
+pub const R_MERMAID_STATE: RMermaidKind = 0x0CF3;
+pub const R_MERMAID_PIE: RMermaidKind = 0x0CF4;
+
+pub const RMermaidFit = c_int;
+/// Scaled down to the width of the widget, never up (the default).
+pub const R_MERMAID_FIT_WIDTH: RMermaidFit = 0x0CF8;
+/// Its own size (times the zoom); put it in a ScrollBox to scroll.
+pub const R_MERMAID_FIT_NONE: RMermaidFit = 0x0CF9;
+/// Scaled up or down to fill the widget, its proportions kept.
+pub const R_MERMAID_FIT_CONTAIN: RMermaidFit = 0x0CFA;
 
 /// How much a notification of the system asks for attention (Rnotification_show).
 pub const RNotificationUrgency = c_int;
@@ -3669,6 +3687,11 @@ pub extern fn Rlabel_set_color(label: Rid, r: f32, g: f32, b: f32, a: f32) void;
 /// R_COLOR_CODE, R_COLOR_SEPARATOR, R_COLOR_ACCENT.
 pub extern fn Rlabel_set_markdown(label: Rid, enabled: c_int) void;
 pub extern fn Rlabel_get_markdown(label: Rid) c_int;
+/// Markdown: draws the blocks of code whose language is "mermaid"
+/// as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+/// they are shown as code. A diagram wider than the label is scaled down.
+pub extern fn Rlabel_set_mermaid(label: Rid, enabled: c_int) void;
+pub extern fn Rlabel_get_mermaid(label: Rid) c_int;
 pub extern fn Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback, user_data: ?*anyopaque) void;
 /// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
 pub extern fn Rlabel_get_plain_text(label: Rid) ?[*:0]const u8;
@@ -4568,7 +4591,9 @@ pub extern fn Rsystem_web_view_set_message_callback(view: Rid, callback: RSystem
 /// time the address changes.
 pub extern fn Rsystem_web_view_set_event_callback(view: Rid, callback: RSystemWebViewEventCallback, user_data: ?*anyopaque) void;
 /// The view of the system, to go further than these functions:
-/// a WKWebView* on macOS and iOS. NULL where unsupported.
+/// a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+/// until WebView2 has made the view, a moment after it is created). NULL
+/// where unsupported.
 pub extern fn Rsystem_web_view_get_native_handle(view: Rid) ?*anyopaque;
 pub extern fn Rpdf_document_create() Rid;
 pub extern fn Rpdf_document_delete(document: Rid) void;
@@ -5518,6 +5543,60 @@ pub extern fn Rdiff_view_clear_annotations(diff_view: Rid) void;
 pub extern fn Rdiff_view_get_selected_text(diff_view: Rid) ?[*:0]const u8;
 /// Called when a line or its number is clicked (the action of the widget is fired too).
 pub extern fn Rdiff_view_set_line_clicked_callback(diff_view: Rid, callback: RDiffViewLineCallback, user_data: ?*anyopaque) void;
+pub extern fn Rmermaid_view_create(source: ?[*:0]const u8) Rid;
+/// The text of the diagram (NULL: none). It is read and laid out again.
+pub extern fn Rmermaid_view_set_source(view: Rid, source: ?[*:0]const u8) void;
+pub extern fn Rmermaid_view_get_source(view: Rid) ?[*:0]const u8;
+/// Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+pub extern fn Rmermaid_view_load_file(view: Rid, path: ?[*:0]const u8) c_int;
+/// The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+pub extern fn Rmermaid_view_get_kind(view: Rid) RMermaidKind;
+/// The line (from 1) of the first error of the text; 0 when it was read.
+pub extern fn Rmermaid_view_get_error_line(view: Rid) c_int;
+/// What the error is ("unknown statement \"foo\""); "" when none.
+pub extern fn Rmermaid_view_get_error(view: Rid) ?[*:0]const u8;
+/// "flowchart with 12 nodes and 11 links": the accessible name of the view.
+pub extern fn Rmermaid_view_get_summary(view: Rid) ?[*:0]const u8;
+/// The nodes of a flowchart or a state diagram (states, the start
+/// and end points), the participants of a sequence diagram, the slices of
+/// a pie.
+pub extern fn Rmermaid_view_get_node_count(view: Rid) c_int;
+/// A node: its name in the text, its label, and its rectangle in the
+/// units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+/// Any pointer may be NULL. The texts are valid until the source changes.
+/// Returns: R_FALSE when `index` is out of range.
+pub extern fn Rmermaid_view_get_node(view: Rid, index: c_int, id: ?*?[*:0]const u8, label: ?*?[*:0]const u8, x: ?*f32, y: ?*f32, width: ?*f32, height: ?*f32) c_int;
+/// Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+pub extern fn Rmermaid_view_get_edge_count(view: Rid) c_int;
+/// The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+pub extern fn Rmermaid_view_get_edge(view: Rid, index: c_int, from: ?*c_int, to: ?*c_int, label: ?*?[*:0]const u8) c_int;
+/// The size of the diagram in its own units (at the font size of the widget).
+pub extern fn Rmermaid_view_get_diagram_size(view: Rid, width: ?*f32, height: ?*f32) void;
+pub extern fn Rmermaid_view_set_fit(view: Rid, fit: RMermaidFit) void;
+pub extern fn Rmermaid_view_get_fit(view: Rid) RMermaidFit;
+/// A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+pub extern fn Rmermaid_view_set_zoom(view: Rid, zoom: f32) void;
+pub extern fn Rmermaid_view_get_zoom(view: Rid) f32;
+/// The scale the diagram is drawn at: the zoom, and what the fit made of it.
+pub extern fn Rmermaid_view_get_scale(view: Rid) f32;
+/// Writes the view as shown as a PNG file (the window is captured,
+/// Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+/// window, the backend cannot capture, or the file cannot be written.
+pub extern fn Rmermaid_view_save_png(view: Rid, path: ?[*:0]const u8) c_int;
+/// Writes the diagram as an SVG file, in the colors of the theme.
+pub extern fn Rmermaid_view_save_svg(view: Rid, path: ?[*:0]const u8) c_int;
+/// The diagram as an SVG document, to release with Rmemory_free.
+/// `size` receives its length in bytes, and may be NULL.
+pub extern fn Rmermaid_view_to_svg(view: Rid, size: ?*usize) ?[*:0]u8;
+/// Reads a text without drawing it: what an editor checks as the
+/// user types. Callable from any thread.
+/// error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+/// Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+pub extern fn Rmermaid_check(source: ?[*:0]const u8, error_line: ?*c_int) RMermaidKind;
+/// What the first error of a text is ("unknown statement \"foo\""),
+/// to release with Rmemory_free; NULL when the text has none. `size`
+/// receives its length in bytes, and may be NULL. Callable from any thread.
+pub extern fn Rmermaid_check_message(source: ?[*:0]const u8, size: ?*usize) ?[*:0]u8;
 /// Shows a widget as a dialog of a window. The window takes
 /// ownership of `content`: it is deleted when the dialog closes, so read
 /// what you need from it before, or in `closed`.

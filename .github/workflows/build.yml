@@ -7,11 +7,14 @@
 #   Windows (MinGW-w64)    libraven.a            raven.dll + libraven.dll.a
 #
 # Every package is a CMake install prefix (include/, lib/, bin/ with
-# raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it.
+# raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it,
+# or pkg-config with PKG_CONFIG_PATH set to its lib/pkgconfig (raven.pc).
 #
 # The tests run on Linux, macOS and Windows (Visual C++): the headless ones,
 # and those of the platform of each runner (Cocoa, Win32); test_web drives the
-# Chrome of the runner. A tag is released only when they pass on all three.
+# Chrome of the runner. The mobile example is also launched on an Android
+# emulator. A tag is released only when they pass on all three (the Android
+# emulator aside).
 #
 # Each run uploads the packages as artifacts (Actions tab > the run > Artifacts).
 # Pushing a tag v* (git tag v0.1.0 && git push origin v0.1.0) also attaches them
@@ -34,13 +37,21 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  #  Tests (Linux, macOS, Windows with Visual C++)
+  #  Tests (Linux, macOS, Windows with Visual C++), static and shared
   #
   #  The headless tests everywhere, and the tests of the platform of each
   #  runner, which has a desktop: test_cocoa_input (AppKit) on macOS,
-  #  test_win32_backdrop (DWM) on Windows. The runners have no GPU for
+  #  test_win32_backdrop (DWM) and test_win32_web_view (WebView2, when its
+  #  runtime is there) on Windows. The runners have no GPU for
   #  Vulkan: test_render is reported as skipped (on macOS test_render_metal
   #  renders with Metal).
+  #
+  #  With the shared library (RAVEN_BUILD_SHARED=ON, what most bindings load)
+  #  the tests see only what it exports: the checks of internals are left out
+  #  (RAVEN_TEST_SHARED), the tests made only of them and the fuzzers'
+  #  corpora are not built. The bindings that have a job of their own below
+  #  are left to it (ctest_exclude); the others run where the runner has their
+  #  language (Python, Rust, Go, Node.js).
   # ---------------------------------------------------------------------------
   test:
     name: tests (${{ matrix.name }})
@@ -49,9 +60,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux,        os: ubuntu-latest,  pdfium: pdfium-linux-x64.tgz, pdfium_sha256: bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2, pdfium_library: lib/libpdfium.so }
-          - { name: macos,        os: macos-latest,   pdfium: pdfium-mac-arm64.tgz, pdfium_sha256: 46c674298c60123f1195c2a03c65ee08c4783c84874ce4f5b3a054abb3ecaf30, pdfium_library: lib/libpdfium.dylib }
-          - { name: windows-msvc, os: windows-latest, pdfium: pdfium-win-x64.tgz,   pdfium_sha256: 3452d11031050ec65e57f180215b57b9e6d465e3fbedafa8a77ad90885c7d23e, pdfium_library: bin/pdfium.dll }
+          - { name: linux,               os: ubuntu-latest,  shared: "OFF", pdfium: pdfium-linux-x64.tgz, pdfium_sha256: bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2, pdfium_library: lib/libpdfium.so }
+          - { name: macos,               os: macos-latest,   shared: "OFF", pdfium: pdfium-mac-arm64.tgz, pdfium_sha256: 46c674298c60123f1195c2a03c65ee08c4783c84874ce4f5b3a054abb3ecaf30, pdfium_library: lib/libpdfium.dylib }
+          - { name: windows-msvc,        os: windows-latest, shared: "OFF", pdfium: pdfium-win-x64.tgz,   pdfium_sha256: 3452d11031050ec65e57f180215b57b9e6d465e3fbedafa8a77ad90885c7d23e, pdfium_library: bin/pdfium.dll }
+          - { name: linux-shared,        os: ubuntu-latest,  shared: "ON",  pdfium: pdfium-linux-x64.tgz, pdfium_sha256: bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2, pdfium_library: lib/libpdfium.so,   ctest_exclude: "^binding_(odin.*|d|nim|swift|haskell|lua)$" }
+          - { name: macos-shared,        os: macos-latest,   shared: "ON",  pdfium: pdfium-mac-arm64.tgz, pdfium_sha256: 46c674298c60123f1195c2a03c65ee08c4783c84874ce4f5b3a054abb3ecaf30, pdfium_library: lib/libpdfium.dylib, ctest_exclude: "^binding_(odin.*|d|nim|swift|haskell|lua)$" }
+          - { name: windows-msvc-shared, os: windows-latest, shared: "ON",  pdfium: pdfium-win-x64.tgz,   pdfium_sha256: 3452d11031050ec65e57f180215b57b9e6d465e3fbedafa8a77ad90885c7d23e, pdfium_library: bin/pdfium.dll,     ctest_exclude: "^binding_node$" }
     defaults:
       run:
         shell: bash
@@ -85,6 +99,24 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then ROOT="$(pwd -W)"; fi
           echo "RAVEN_PDFIUM=$ROOT/_pdfium/${{ matrix.pdfium_library }}" >> "$GITHUB_ENV"
 
+      # The Evergreen runtime is not in the list of the runner image: installed when missing.
+      # (If this fails, test_win32_web_view reports itself as skipped.)
+      - name: WebView2 Runtime (test_win32_web_view shows pages with it; Raven itself does not need it)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\ClientState\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $found = (Get-ItemProperty -Path $key -Name EBWebView -ErrorAction SilentlyContinue).EBWebView
+          if ($found) { Write-Host "WebView2 Runtime already installed: $found"; exit 0 }
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup
+          $signature = Get-AuthenticodeSignature $setup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw "unexpected signature: $($signature.Status) $($signature.SignerCertificate.Subject)" }
+          Start-Process -FilePath $setup -ArgumentList '/silent', '/install' -Wait
+          $found = (Get-ItemProperty -Path $key -Name EBWebView -ErrorAction SilentlyContinue).EBWebView
+          Write-Host "WebView2 Runtime after the installer: $found"
+
       - name: Zig (binding_zig checks every declaration of bindings/zig/raven.zig)
         if: runner.os == 'Linux'
         run: |
@@ -102,6 +134,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then EXTRA+=(-A x64); fi
           cmake -S . -B build "${EXTRA[@]}" \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BUILD_SHARED=${{ matrix.shared }} \
             -DRAVEN_BUILD_TESTS=ON \
             -DRAVEN_BUILD_EXAMPLES=OFF \
             -DRAVEN_BUILD_TOOLS=ON \
@@ -112,7 +145,163 @@ jobs:
         run: cmake --build build --config Debug --parallel
 
       - name: Test
-        run: ctest --test-dir build -C Debug --output-on-failure --timeout 300
+        run: |
+          EXCLUDE=()
+          if [ -n "${{ matrix.ctest_exclude }}" ]; then EXCLUDE+=(-E "${{ matrix.ctest_exclude }}"); fi
+          ctest --test-dir build -C Debug --output-on-failure --timeout 300 "${EXCLUDE[@]}"
+
+  # ---------------------------------------------------------------------------
+  #  Sanitizers (Linux, clang): every headless test under AddressSanitizer and
+  #  UndefinedBehaviorSanitizer, LeakSanitizer included
+  #
+  #  A build with AddressSanitizer allocates with malloc, not with the heap of
+  #  Raven (core/memory.c), so that the sanitizer sees every block of the
+  #  library. Any report ends the test (halt_on_error, -fno-sanitize-recover).
+  #  Leaks: the tests already check that Raven frees all it allocated; LSan
+  #  also looks at what the tests and the libraries opened at run time leave
+  #  (tests/sanitizers/lsan.supp: those of the system that are not Raven's).
+  #  No PDFium here (test_pdf reports itself skipped); test_web drives the
+  #  Chrome of the runner, as in the tests above. GPU tests are skipped.
+  # ---------------------------------------------------------------------------
+  sanitizers:
+    name: tests (linux, asan + ubsan)
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: halt_on_error=1:abort_on_error=0:detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/sanitizers/lsan.supp:print_suppressions=0
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      RAVEN_WEB_TRACE: "1"
+      RAVEN_WEB_NO_SANDBOX: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      # llvm: llvm-symbolizer, for the file and line of each frame of a report
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build clang llvm
+
+      - name: Configure
+        run: |
+          clang --version | head -n 1
+          SAN="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined"
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            "-DCMAKE_C_FLAGS=$SAN" \
+            "-DCMAKE_CXX_FLAGS=$SAN" \
+            "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined" \
+            "-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address,undefined" \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=ON \
+            -DRAVEN_WARNINGS_AS_ERRORS=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      # package_cmake / package_pkgconfig install this build and link an ordinary program
+      # against it: a libraven.a made with -fsanitize cannot be linked by a program built
+      # without it (undefined __asan_* symbols). The packages are tested by the "packages"
+      # job and the other test jobs, which build them without sanitizers.
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 600 --parallel 2 -E '^package_'
+
+  # ---------------------------------------------------------------------------
+  #  Fuzzing (Linux, clang + libFuzzer): the targets of tests/fuzz, on pull
+  #  requests (and main), each for a bounded time
+  #
+  #  RAVEN_BUILD_FUZZERS instruments the whole library (ASan, UBSan, the
+  #  coverage of libFuzzer). First every input of tests/fuzz/corpus runs once
+  #  (the regression tests: crashes found before are kept there), then each
+  #  target mutates its corpus for FUZZ_SECONDS, several targets at a time.
+  #  An input that crashes, or takes more than 25 s, fails the job; it is
+  #  uploaded as an artifact (fuzz-findings) to be reproduced with
+  #  `fuzz_<target> <file>` (tests/fuzz/README.md).
+  # ---------------------------------------------------------------------------
+  fuzz:
+    name: fuzz (linux, libFuzzer)
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      FUZZ_SECONDS: 90
+      # no leak check: a target keeps the library running from one input to the next (its
+      # windows, fonts, caches), which libFuzzer would take for leaks; the sanitizers job checks
+      # leaks with the corpus
+      ASAN_OPTIONS: detect_leaks=0
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build clang llvm
+
+      # (the null platform: the fuzzers open no window, and need nothing of X11 or Wayland)
+      - name: Configure
+        run: |
+          clang --version | head -n 1
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DRAVEN_PLATFORM=null \
+            -DRAVEN_BUILD_FUZZERS=ON \
+            -DRAVEN_BUILD_TESTS=OFF \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=OFF \
+            -DRAVEN_BUILD_WEB=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Corpus (every input kept, once)
+        run: ctest --test-dir build -R '^fuzz_' --no-tests=error --output-on-failure --timeout 300
+
+      - name: Fuzz
+        run: |
+          mkdir -p fuzz-findings
+          fuzz_one() {
+            target="$1"
+            corpus="$RUNNER_TEMP/corpus-$target"
+            mkdir -p "$corpus"
+            cp tests/fuzz/corpus/"$target"/* "$corpus"/
+            if [ "$target" = font ]; then cp third_party/roboto/Roboto-Regular-subset.ttf "$corpus"/; fi
+            if build/bin/fuzz_"$target" "$corpus" -max_total_time="$FUZZ_SECONDS" -timeout=25 -rss_limit_mb=2560 \
+                -print_final_stats=1 -artifact_prefix="fuzz-findings/$target-" > "fuzz-findings/$target.log" 2>&1; then
+              echo "fuzz_$target: $(grep -E '^#[0-9]+' "fuzz-findings/$target.log" | tail -n 1)"
+            else
+              echo "::error::fuzz_$target found a crash or a timeout (artifact fuzz-findings)"
+              tail -n 80 "fuzz-findings/$target.log"
+              return 1
+            fi
+          }
+          export -f fuzz_one
+          printf '%s\n' xml font svg image png diff script | xargs -P "$(nproc)" -I{} bash -c 'fuzz_one {}'
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-findings
+          path: fuzz-findings
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
   #  Odin (Linux): the generated package and raven_odin, with the shared library
@@ -475,6 +664,73 @@ jobs:
             ${{ env.PACKAGE }}.tar.gz
           if-no-files-found: error
 
+  # ---------------------------------------------------------------------------
+  #  Packages (Linux, macOS): the installed library used from outside, static
+  #  and shared: tests/package/consumer.c built with pkg-config (raven.pc) and
+  #  with find_package(raven), run headless (ctest package_pkgconfig,
+  #  package_cmake). Only the library is built. On macOS, the Homebrew formula
+  #  is also checked (brew style, brew audit; packaging/README.md).
+  #  The tests job runs the same two tests on its static Debug build.
+  # ---------------------------------------------------------------------------
+  packages:
+    name: packages (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest }
+          - { name: macos, os: macos-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build pkg-config
+
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja pkgconf
+
+      - name: Library, install, consumers (static and shared)
+        run: |
+          for shared in OFF ON; do
+            echo "::group::RAVEN_BUILD_SHARED=$shared"
+            cmake -S . -B "build-$shared" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DRAVEN_BUILD_SHARED=$shared \
+              -DRAVEN_BUILD_TESTS=ON \
+              -DRAVEN_BUILD_EXAMPLES=OFF \
+              -DRAVEN_BUILD_TOOLS=OFF \
+              -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+            cmake --build "build-$shared" --target raven --parallel
+            ctest --test-dir "build-$shared" -R '^package_' --output-on-failure --verbose
+            echo "::endgroup::"
+          done
+
+      - name: Homebrew formula (brew style, brew audit)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          # brew checks formulae of a tap: a temporary one holds the formula
+          brew tap-new --no-git local/raven-ci
+          # (Homebrew versions that ask for it: the formulae of a tap that is not official are trusted first)
+          if brew commands | grep -qx trust; then brew trust --tap local/raven-ci; fi
+          cp packaging/homebrew/raven-gui.rb "$(brew --repository local/raven-ci)/Formula/"
+          brew style local/raven-ci/raven-gui
+          brew audit --new --strict --formula local/raven-ci/raven-gui
+
   # The addon of the Node.js binding links node.lib on Windows, which CMake downloads
   # for the node of the runner; then binding_node runs its example with the DLL.
   node-windows:
@@ -494,7 +750,8 @@ jobs:
 
   # ---------------------------------------------------------------------------
   #  Android (NDK, arm64-v8a): Raven and the showcase APK of examples/mobile,
-  #  with the SDK, NDK and JDK of the runner. Built, not run (no device).
+  #  with the SDK, NDK and JDK of the runner. Built here; android-emulator runs
+  #  it (built for x86_64).
   # ---------------------------------------------------------------------------
   android:
     name: android (arm64)
@@ -526,6 +783,59 @@ jobs:
           name: raven-hello-android-arm64
           path: examples/mobile/android/raven-hello.apk
           if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  #  Android on an emulator: the showcase APK built for x86_64 (ABI=x86_64), the
+  #  ABI an emulator runs at full speed on the x86_64 runner (KVM), installed and
+  #  launched by examples/mobile/android/smoke.sh, which checks that the app
+  #  keeps running and draws (a screenshot that is not blank), and prints its
+  #  log when it does not. Vulkan is SwiftShader's (-gpu swiftshader_indirect).
+  # ---------------------------------------------------------------------------
+  android-emulator:
+    name: android (emulator, x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build Raven and the APK (x86_64)
+        env:
+          ABI: x86_64
+          RAVEN_CMAKE_ARGS: -DRAVEN_WARNINGS_AS_ERRORS=ON
+        run: |
+          export ANDROID_NDK="$ANDROID_NDK_LATEST_HOME"
+          ./examples/mobile/android/build.sh
+          unzip -l examples/mobile/android/raven-hello.apk | grep lib/x86_64/libravenhello.so
+
+      # (the action runs each line of script on its own: the steps are in smoke.sh)
+      - name: Run on an emulator
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        env:
+          WAIT: "30"
+          SCREENSHOT: android-emulator.png
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: ./examples/mobile/android/smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-screenshot
+          path: android-emulator.png
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
@@ -697,14 +1007,17 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, build, mingw, installer, android]
+    needs: [test, build, packages, mingw, installer, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      # the packages, the installers and the APK (raven-*), not the screenshots of the
+      # simulator and emulator jobs
       - uses: actions/download-artifact@v4
         with:
           path: packages
+          pattern: raven-*
           merge-multiple: true
 
       - name: Checksums

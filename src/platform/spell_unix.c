@@ -101,6 +101,14 @@ static void rvn_unix_spell_describe(const char* tag, const char* provider_name, 
 	rvn_unix_spell_add_language(tag, NULL);
 }
 
+#if defined(__SANITIZE_ADDRESS__)
+#define RVN_SPELL_KEEP_LIBRARY 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define RVN_SPELL_KEEP_LIBRARY 1
+#endif
+#endif
+
 static int rvn_unix_spell_open_enchant(void) {
 	g_unix_spell.library = dlopen("libenchant-2.so.2", RTLD_NOW | RTLD_LOCAL);
 	if (!g_unix_spell.library) g_unix_spell.library = dlopen("libenchant-2.so", RTLD_NOW | RTLD_LOCAL);
@@ -205,7 +213,11 @@ static void rvn_unix_spell_close(void) {
 	rvn_free(g_unix_spell.languages);
 	rvn_free(g_unix_spell.paths);
 	rvn_free(g_unix_spell.default_language);
+	/* (with AddressSanitizer the library stays loaded: what it keeps for itself until
+	 * the process ends must stay named, for the suppressions of LeakSanitizer) */
+#if !defined(RVN_SPELL_KEEP_LIBRARY)
 	if (g_unix_spell.library) dlclose(g_unix_spell.library);
+#endif
 	memset(&g_unix_spell, 0, sizeof(g_unix_spell));
 }
 

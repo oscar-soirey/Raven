@@ -4,9 +4,9 @@
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_notifications,
 #   test_pdf, test_pdf_document, test_chart, test_carousel, test_animated_images, test_diff_view,
-#   test_diff_engine, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
+#   test_diff_engine, test_mermaid, test_system_web_view, test_deep_trees, test_lifecycle, test_package,
 #   test_testing, test_table_edit, test_combo_search, test_transfer, test_device, test_preedit,
-#   test_icons, test_spell, test_headless, test_web_input
+#   test_icons, test_spell, test_headless, test_web_input, test_script
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   headless_cli_tree, headless_cli_script, headless_cli_fail, headless_cli_syntax,
@@ -14,6 +14,11 @@
 #       headless_app.c, an ordinary application, driven from outside by the
 #       environment (headless_cli.cmake); the pictures of headless_cli_snap need
 #       a GPU backend (skipped without).
+#   package_cmake, package_pkgconfig
+#       cmake --install of this build into a folder of its own, then
+#       tests/package/consumer.c built against it with find_package(raven) and
+#       with pkg-config (raven.pc; only where pkg-config or pkgconf is found,
+#       not with Visual C++), and run headless.
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
@@ -25,6 +30,11 @@
 #       renders a form with the GPU backend of the platform and compares it with
 #       the golden images of tests/goldens/ (one per OS and backend); skipped
 #       without a GPU or without goldens for this OS and backend.
+#
+#   test_script_core
+#       the core of Raven Script (lexer, parser, type checker, bytecode, virtual
+#       machine, formatter, analysis) without the library; it ends with a short
+#       fuzzing of mutated scripts (RS_FUZZ_ROUNDS and RS_FUZZ_SEED run it longer).
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -44,10 +54,27 @@ function(raven_add_test name)
 	if(NOT RAVEN_WITH_STB_IMAGE)
 		target_compile_definitions(${name} PRIVATE RAVEN_TEST_NO_IMAGE_DECODER)
 	endif()
+	if(RAVEN_BUILD_SHARED)
+		# a shared library exports only the API: the checks of a test that look at the
+		# internals (src/...) are left out under #if !defined(RAVEN_TEST_SHARED)
+		target_compile_definitions(${name} PRIVATE RAVEN_TEST_SHARED)
+	endif()
 	add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
 raven_add_test(test_layout)
+raven_add_test(test_script)
+
+# the core of Raven Script alone (src/script/rs_*.c): no library, no window
+add_executable(test_script_core test_script_core.c ${RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE})
+set_target_properties(test_script_core PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
+if(NOT WIN32)
+	target_link_libraries(test_script_core PRIVATE m)
+endif()
+if(MSVC)
+	target_compile_definitions(test_script_core PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+add_test(NAME test_script_core COMMAND test_script_core)
 raven_add_test(test_widgets)
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_menu_decorations)
@@ -85,9 +112,6 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output")
 target_compile_definitions(test_datetime PRIVATE
 	"RAVEN_TEST_ZONEINFO=\"${CMAKE_CURRENT_SOURCE_DIR}/data/zoneinfo\""
 	"RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output\"")
-if(RAVEN_BUILD_SHARED)
-	target_compile_definitions(test_datetime PRIVATE RAVEN_TEST_SHARED)
-endif()
 if(NOT RAVEN_BUILD_SHARED)
 	# Tests the shared screen-reader tree/actions used by all native platforms.
 	raven_add_test(test_accessibility)
@@ -119,6 +143,10 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	raven_add_test(test_win32_backdrop)
 	target_link_libraries(test_win32_backdrop PRIVATE user32 gdi32)
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
+	# a real Microsoft Edge WebView2 in a Win32 window (skipped without the WebView2 Runtime); each step of WebView2 is printed
+	raven_add_test(test_win32_web_view)
+	target_link_libraries(test_win32_web_view PRIVATE user32)
+	set_tests_properties(test_win32_web_view PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 150 ENVIRONMENT "RAVEN_WEBVIEW2_LOG=1")
 endif()
 raven_add_test(test_touch)
 # the text field of the browser platform: UTF-16 offsets, the text around the caret, field attributes
@@ -132,10 +160,6 @@ endif()
 raven_add_test(test_more_widgets)
 # notifications with tags, buttons and an icon, through the fallback toast (the null platform has none of its own)
 raven_add_test(test_notifications)
-if(RAVEN_BUILD_SHARED)
-	# (what the platforms report and share is internal: checked with the static library)
-	target_compile_definitions(test_notifications PRIVATE RAVEN_TEST_SHARED)
-endif()
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
 # the clipboard formats and the drags out of the windows (the null platform's clipboard)
@@ -148,15 +172,13 @@ raven_add_test(test_diff_view)
 if(NOT RAVEN_BUILD_SHARED)
 	# the comparison itself (core/diff.c), through its internal header
 	raven_add_test(test_diff_engine)
+	# Mermaid diagrams: the reader and the layouts through their internal header, the widget, the Markdown
+	raven_add_test(test_mermaid)
 endif()
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
 raven_add_test(test_map_view)
-if(RAVEN_BUILD_SHARED)
-	# (what a paint drew and the tree of the screen readers are internal: checked with the static library)
-	target_compile_definitions(test_map_view PRIVATE RAVEN_TEST_SHARED)
-endif()
 # PDF documents written by Raven (read back by PdfView when PDFium is there) and printing to a file
 raven_add_test(test_pdf_document)
 target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
@@ -213,6 +235,29 @@ if(NOT RAVEN_BUILD_SHARED)
 	target_compile_definitions(test_package PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
 endif()
 
+# the installed package, used as a program outside this tree uses it: `cmake --install` into a
+# folder of the build, then tests/package/consumer.c built with pkg-config (raven.pc) and with
+# find_package(raven), and run headless
+if(NOT CMAKE_CROSSCOMPILING)
+	get_property(RAVEN_TESTS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+	set(RAVEN_CONSUMER_ARGS
+		-DBUILD_DIR=${PROJECT_BINARY_DIR} -DCONFIG=$<CONFIG> -DSHARED=${RAVEN_BUILD_SHARED}
+		-DC_COMPILER=${CMAKE_C_COMPILER})
+	if(NOT RAVEN_TESTS_MULTI_CONFIG)
+		list(APPEND RAVEN_CONSUMER_ARGS "-DGENERATOR=${CMAKE_GENERATOR}")
+	endif()
+	add_test(NAME package_cmake COMMAND ${CMAKE_COMMAND} -DMODE=cmake ${RAVEN_CONSUMER_ARGS}
+		-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/package_cmake -P ${CMAKE_CURRENT_SOURCE_DIR}/package/package_consumer.cmake)
+	set_tests_properties(package_cmake PROPERTIES TIMEOUT 300)
+	find_program(RAVEN_PKG_CONFIG NAMES pkgconf pkg-config)
+	if(RAVEN_PKG_CONFIG AND NOT MSVC)
+		add_test(NAME package_pkgconfig COMMAND ${CMAKE_COMMAND} -DMODE=pkgconfig ${RAVEN_CONSUMER_ARGS}
+			-DPKG_CONFIG=${RAVEN_PKG_CONFIG}
+			-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/package_pkgconfig -P ${CMAKE_CURRENT_SOURCE_DIR}/package/package_consumer.cmake)
+		set_tests_properties(package_pkgconfig PROPERTIES TIMEOUT 300)
+	endif()
+endif()
+
 # the Wayland platform against a compositor of its own (skipped without libwayland-server)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	raven_add_test(test_wayland)
@@ -231,6 +276,10 @@ endif()
 # one executable for both GPU backends: RAVEN_BACKEND picks the one it renders with
 if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 	raven_add_test(test_render)
+	if(APPLE)
+		# it sends messages to a Metal encoder itself (objc_msgSend): libobjc comes with a static Raven only
+		target_link_libraries(test_render PRIVATE objc)
+	endif()
 	if(RAVEN_BACKEND_VULKAN)
 		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=1)
 		set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=vulkan")

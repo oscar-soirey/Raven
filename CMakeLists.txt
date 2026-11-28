@@ -35,6 +35,7 @@ option(RAVEN_BUILD_EXAMPLES "Build the example programs" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TESTS "Build the tests and the benchmark" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
+option(RAVEN_BUILD_FUZZERS "Build the libFuzzer programs of tests/fuzz (clang; the whole build is instrumented with ASan and UBSan)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
 option(RAVEN_BACKEND_METAL "Compile the Metal backend (macOS, iOS)" ${APPLE})
@@ -72,6 +73,19 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RavenCompilerOptions)
+
+if(RAVEN_BUILD_FUZZERS)
+	# libFuzzer comes with clang (not with Apple's: on macOS, the clang of Homebrew's llvm);
+	# the library is linked into each fuzzer, so it is static
+	if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR MSVC OR RAVEN_BUILD_SHARED)
+		message(FATAL_ERROR "RAVEN_BUILD_FUZZERS needs clang with libFuzzer (not Apple clang, not clang-cl) and RAVEN_BUILD_SHARED=OFF")
+	endif()
+	# every file is instrumented for the coverage of libFuzzer and for the sanitizers, the library
+	# included; RAVEN_FUZZING: nothing is downloaded or opened outside (core/fs.c)
+	add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g)
+	add_link_options(-fsanitize=address,undefined)
+	add_compile_definitions(RAVEN_FUZZING)
+endif()
 
 if(EMSCRIPTEN)
     if(RAVEN_BACKEND_VULKAN OR RAVEN_BUILD_WEB OR RAVEN_BUILD_SHARED)
@@ -146,6 +160,9 @@ set(RAVEN_CORE_SOURCES
 	src/core/deflate.c
 	src/core/diff.c
 	src/core/diff.h
+	src/core/mermaid.c
+	src/core/mermaid.h
+	src/core/mermaid_layout.c
 	src/core/error.c
 	src/core/file.c
 	src/core/handle.c
@@ -291,6 +308,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/carousel.c
 	src/widgets/system_web_view.c
 	src/widgets/diff_view.c
+	src/widgets/mermaid_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )
@@ -371,6 +389,9 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_transfer.c
 		src/platform/win32/win32_transfer.h
 		src/platform/win32/win32_manipulation.h
+		src/platform/win32/win32_web_view.c
+		src/platform/win32/win32_web_view.h
+		src/platform/win32/webview2_com.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
 	list(APPEND RAVEN_LIBRARIES user32 gdi32 shell32 comdlg32 ole32)
@@ -542,6 +563,12 @@ if(RAVEN_WITH_SVG)
 endif()
 if(RAVEN_WITH_STB_IMAGE)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_STB_IMAGE)
+	if(NOT MSVC)
+		# the integer IDCT of stb_image wraps on the coefficients of a damaged JPEG, as its SSE2
+		# version does by design (they give the same pixels): not a finding of UBSan in a build
+		# with the sanitizers (THIRD_PARTY.md); its other checks, and AddressSanitizer, stay
+		set_source_files_properties(src/render/image_decode.c PROPERTIES COMPILE_OPTIONS "-fno-sanitize=signed-integer-overflow")
+	endif()
 endif()
 
 # ---------------------------------------------------------------------------
@@ -600,6 +627,21 @@ target_include_directories(raven
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 target_compile_definitions(raven PRIVATE ${RAVEN_DEFINITIONS} RVN_VERSION_STRING="${PROJECT_VERSION}")
+if(APPLE)
+	# the frameworks by name, not by the path of the SDK they were found in: a static library
+	# hands them to the programs (ravenTargets.cmake), which may be built with another SDK
+	# (Xcode instead of the command line tools, another version, a Homebrew bottle, vcpkg)
+	set(RAVEN_APPLE_LIBRARIES "")
+	foreach(library IN LISTS RAVEN_LIBRARIES)
+		if(library MATCHES "/([^/]+)\\.framework/?$")
+			list(APPEND RAVEN_APPLE_LIBRARIES "-framework ${CMAKE_MATCH_1}")
+		else()
+			list(APPEND RAVEN_APPLE_LIBRARIES "${library}")
+		endif()
+	endforeach()
+	list(REMOVE_DUPLICATES RAVEN_APPLE_LIBRARIES)
+	set(RAVEN_LIBRARIES ${RAVEN_APPLE_LIBRARIES})
+endif()
 target_link_libraries(raven PRIVATE ${RAVEN_LIBRARIES})
 set_target_properties(raven PROPERTIES
 	C_STANDARD 11
@@ -659,6 +701,13 @@ if(RAVEN_BUILD_TESTS)
 	add_subdirectory(bindings)
 endif()
 
+# the fuzzers (tests/fuzz): libFuzzer programs, or, in the tests of a static library, programs
+# that run their corpus (the fuzzers reach internal functions, which a shared library hides)
+if(RAVEN_BUILD_FUZZERS OR (RAVEN_BUILD_TESTS AND NOT RAVEN_BUILD_SHARED))
+	enable_testing()
+	add_subdirectory(tests/fuzz)
+endif()
+
 # (before the examples: one of them shows web pages; after enable_testing: it has a test)
 include(GNUInstallDirs)
 if(RAVEN_BUILD_WEB)
@@ -701,6 +750,10 @@ write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion
 	VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ravenConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion.cmake"
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven)
+
+# pkg-config:  cc app.c $(pkg-config --cflags --libs raven)   (lib/pkgconfig/raven.pc)
+include(RavenPkgConfig)
+raven_write_pkgconfig(raven ${RAVEN_LIBRARIES})
 
 # ---------------------------------------------------------------------------
 #  Packages:  cmake --build <dir> --target package

@@ -790,6 +790,10 @@ static void test_formatter(void) {
 	/* a syntax error: nothing */
 	CHECK(rs_format("fn a.b( {", strlen("fn a.b( {"), NULL) == NULL);
 	CHECK(rs_format("let s = \"x", strlen("let s = \"x"), NULL) == NULL);
+	/* a 0 byte, in a comment or a string: an error (it would cut the formatted text) */
+	CHECK(rs_format("// a\0b\nfn a.b() {}\n", 19, NULL) == NULL);
+	CHECK(rs_format("let s = \"a\0b\";", 14, NULL) == NULL);
+	CHECK(rs_format("/* a\0b */", 9, NULL) == NULL);
 	/* tabs and a prefix (a <Script> indented in XML) */
 	memset(&options, 0, sizeof(options));
 	options.indent = "\t";

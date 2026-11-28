@@ -448,6 +448,8 @@ static struct {
 	void (*Rlabel_set_color)(Rid, float, float, float, float);
 	void (*Rlabel_set_markdown)(Rid, int);
 	int (*Rlabel_get_markdown)(Rid);
+	void (*Rlabel_set_mermaid)(Rid, int);
+	int (*Rlabel_get_mermaid)(Rid);
 	void (*Rlabel_set_link_callback)(Rid, RLabelLinkCallback, void*);
 	const char* (*Rlabel_get_plain_text)(Rid);
 	void (*Rlabel_set_selectable)(Rid, int);
@@ -1359,6 +1361,29 @@ static struct {
 	void (*Rdiff_view_clear_annotations)(Rid);
 	const char* (*Rdiff_view_get_selected_text)(Rid);
 	void (*Rdiff_view_set_line_clicked_callback)(Rid, RDiffViewLineCallback, void*);
+	Rid (*Rmermaid_view_create)(const char*);
+	void (*Rmermaid_view_set_source)(Rid, const char*);
+	const char* (*Rmermaid_view_get_source)(Rid);
+	int (*Rmermaid_view_load_file)(Rid, const char*);
+	RMermaidKind (*Rmermaid_view_get_kind)(Rid);
+	int (*Rmermaid_view_get_error_line)(Rid);
+	const char* (*Rmermaid_view_get_error)(Rid);
+	const char* (*Rmermaid_view_get_summary)(Rid);
+	int (*Rmermaid_view_get_node_count)(Rid);
+	int (*Rmermaid_view_get_node)(Rid, int, const char**, const char**, float*, float*, float*, float*);
+	int (*Rmermaid_view_get_edge_count)(Rid);
+	int (*Rmermaid_view_get_edge)(Rid, int, int*, int*, const char**);
+	void (*Rmermaid_view_get_diagram_size)(Rid, float*, float*);
+	void (*Rmermaid_view_set_fit)(Rid, RMermaidFit);
+	RMermaidFit (*Rmermaid_view_get_fit)(Rid);
+	void (*Rmermaid_view_set_zoom)(Rid, float);
+	float (*Rmermaid_view_get_zoom)(Rid);
+	float (*Rmermaid_view_get_scale)(Rid);
+	int (*Rmermaid_view_save_png)(Rid, const char*);
+	int (*Rmermaid_view_save_svg)(Rid, const char*);
+	char* (*Rmermaid_view_to_svg)(Rid, size_t*);
+	RMermaidKind (*Rmermaid_check)(const char*, int*);
+	char* (*Rmermaid_check_message)(const char*, size_t*);
 	void (*Rdialog_open)(Rid, Rid, RDialogClosedCallback, void*);
 	void (*Rdialog_close)(Rid, int);
 	int (*Rdialog_run)(Rid, Rid);
@@ -2062,6 +2087,8 @@ static const struct {
 	{"Rlabel_set_color", offsetof(__typeof__(rn), Rlabel_set_color)},
 	{"Rlabel_set_markdown", offsetof(__typeof__(rn), Rlabel_set_markdown)},
 	{"Rlabel_get_markdown", offsetof(__typeof__(rn), Rlabel_get_markdown)},
+	{"Rlabel_set_mermaid", offsetof(__typeof__(rn), Rlabel_set_mermaid)},
+	{"Rlabel_get_mermaid", offsetof(__typeof__(rn), Rlabel_get_mermaid)},
 	{"Rlabel_set_link_callback", offsetof(__typeof__(rn), Rlabel_set_link_callback)},
 	{"Rlabel_get_plain_text", offsetof(__typeof__(rn), Rlabel_get_plain_text)},
 	{"Rlabel_set_selectable", offsetof(__typeof__(rn), Rlabel_set_selectable)},
@@ -2973,6 +3000,29 @@ static const struct {
 	{"Rdiff_view_clear_annotations", offsetof(__typeof__(rn), Rdiff_view_clear_annotations)},
 	{"Rdiff_view_get_selected_text", offsetof(__typeof__(rn), Rdiff_view_get_selected_text)},
 	{"Rdiff_view_set_line_clicked_callback", offsetof(__typeof__(rn), Rdiff_view_set_line_clicked_callback)},
+	{"Rmermaid_view_create", offsetof(__typeof__(rn), Rmermaid_view_create)},
+	{"Rmermaid_view_set_source", offsetof(__typeof__(rn), Rmermaid_view_set_source)},
+	{"Rmermaid_view_get_source", offsetof(__typeof__(rn), Rmermaid_view_get_source)},
+	{"Rmermaid_view_load_file", offsetof(__typeof__(rn), Rmermaid_view_load_file)},
+	{"Rmermaid_view_get_kind", offsetof(__typeof__(rn), Rmermaid_view_get_kind)},
+	{"Rmermaid_view_get_error_line", offsetof(__typeof__(rn), Rmermaid_view_get_error_line)},
+	{"Rmermaid_view_get_error", offsetof(__typeof__(rn), Rmermaid_view_get_error)},
+	{"Rmermaid_view_get_summary", offsetof(__typeof__(rn), Rmermaid_view_get_summary)},
+	{"Rmermaid_view_get_node_count", offsetof(__typeof__(rn), Rmermaid_view_get_node_count)},
+	{"Rmermaid_view_get_node", offsetof(__typeof__(rn), Rmermaid_view_get_node)},
+	{"Rmermaid_view_get_edge_count", offsetof(__typeof__(rn), Rmermaid_view_get_edge_count)},
+	{"Rmermaid_view_get_edge", offsetof(__typeof__(rn), Rmermaid_view_get_edge)},
+	{"Rmermaid_view_get_diagram_size", offsetof(__typeof__(rn), Rmermaid_view_get_diagram_size)},
+	{"Rmermaid_view_set_fit", offsetof(__typeof__(rn), Rmermaid_view_set_fit)},
+	{"Rmermaid_view_get_fit", offsetof(__typeof__(rn), Rmermaid_view_get_fit)},
+	{"Rmermaid_view_set_zoom", offsetof(__typeof__(rn), Rmermaid_view_set_zoom)},
+	{"Rmermaid_view_get_zoom", offsetof(__typeof__(rn), Rmermaid_view_get_zoom)},
+	{"Rmermaid_view_get_scale", offsetof(__typeof__(rn), Rmermaid_view_get_scale)},
+	{"Rmermaid_view_save_png", offsetof(__typeof__(rn), Rmermaid_view_save_png)},
+	{"Rmermaid_view_save_svg", offsetof(__typeof__(rn), Rmermaid_view_save_svg)},
+	{"Rmermaid_view_to_svg", offsetof(__typeof__(rn), Rmermaid_view_to_svg)},
+	{"Rmermaid_check", offsetof(__typeof__(rn), Rmermaid_check)},
+	{"Rmermaid_check_message", offsetof(__typeof__(rn), Rmermaid_check_message)},
 	{"Rdialog_open", offsetof(__typeof__(rn), Rdialog_open)},
 	{"Rdialog_close", offsetof(__typeof__(rn), Rdialog_close)},
 	{"Rdialog_run", offsetof(__typeof__(rn), Rdialog_run)},
@@ -12389,6 +12439,33 @@ static napi_value rn_w_Rlabel_get_markdown(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	int value_ = rn.Rlabel_get_markdown((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rlabel_set_mermaid(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rlabel_set_mermaid((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rlabel_get_mermaid(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rlabel_get_mermaid((Rid)a0);
 	napi_create_int32(env, (int32_t)value_, &result_);
 	return result_;
 }
@@ -27600,6 +27677,427 @@ static napi_value rn_w_Rdiff_view_set_line_clicked_callback(napi_env env, napi_c
 	return result_;
 }
 
+static napi_value rn_w_Rmermaid_view_create(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	Rid value_ = rn.Rmermaid_view_create(a0.p);
+	napi_create_uint32(env, value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_set_source(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rmermaid_view_set_source((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_source(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rmermaid_view_get_source((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_load_file(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rmermaid_view_load_file((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_kind(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rmermaid_view_get_kind((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_error_line(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rmermaid_view_get_error_line((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_error(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rmermaid_view_get_error((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_summary(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rmermaid_view_get_summary((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_node_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rmermaid_view_get_node_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_node(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	const char* a2 = NULL;
+	const char* a3 = NULL;
+	float a4 = 0;
+	float a5 = 0;
+	float a6 = 0;
+	float a7 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rmermaid_view_get_node((Rid)a0, (int)a1, &a2, &a3, &a4, &a5, &a6, &a7);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		o0_ = rn_make_text(env, a2);
+		napi_value o1_;
+		o1_ = rn_make_text(env, a3);
+		napi_value o2_;
+		napi_create_double(env, (double)a4, &o2_);
+		napi_value o3_;
+		napi_create_double(env, (double)a5, &o3_);
+		napi_value o4_;
+		napi_create_double(env, (double)a6, &o4_);
+		napi_value o5_;
+		napi_create_double(env, (double)a7, &o5_);
+		{
+			const napi_value values_[7] = {result_, o0_, o1_, o2_, o3_, o4_, o5_};
+			result_ = rn_tuple(env, 7, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_edge_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rmermaid_view_get_edge_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_edge(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2 = 0;
+	int a3 = 0;
+	const char* a4 = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rmermaid_view_get_edge((Rid)a0, (int)a1, &a2, &a3, &a4);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a2, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a3, &o1_);
+		napi_value o2_;
+		o2_ = rn_make_text(env, a4);
+		{
+			const napi_value values_[4] = {result_, o0_, o1_, o2_};
+			result_ = rn_tuple(env, 4, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_diagram_size(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1 = 0;
+	float a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rmermaid_view_get_diagram_size((Rid)a0, &a1, &a2);
+	{
+		napi_value o0_;
+		napi_create_double(env, (double)a1, &o0_);
+		napi_value o1_;
+		napi_create_double(env, (double)a2, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_set_fit(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rmermaid_view_set_fit((Rid)a0, (RMermaidFit)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_fit(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rmermaid_view_get_fit((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_set_zoom(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	rn.Rmermaid_view_set_zoom((Rid)a0, (float)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_zoom(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	float value_ = rn.Rmermaid_view_get_zoom((Rid)a0);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_get_scale(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	float value_ = rn.Rmermaid_view_get_scale((Rid)a0);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_save_png(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rmermaid_view_save_png((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_save_svg(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rmermaid_view_save_svg((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_view_to_svg(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	size_t a1 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		char* owned_ = rn.Rmermaid_view_to_svg((Rid)a0, &a1);
+		void* copy_;
+		napi_value buffer_;
+		if (!owned_) {
+			result_ = rn_null(env);
+		} else {
+			size_t size_ = (size_t)a1;
+			napi_create_arraybuffer(env, size_, &copy_, &buffer_);
+			if (size_ > 0) memcpy(copy_, owned_, size_);
+			rn.Rmemory_free(owned_);
+			napi_create_typedarray(env, napi_uint8_array, size_, buffer_, 0, &result_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_check(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	int a1 = 0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	{
+		int value_ = (int)rn.Rmermaid_check(a0.p, &a1);
+		napi_create_int32(env, value_, &result_);
+	}
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		{
+			const napi_value values_[2] = {result_, o0_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmermaid_check_message(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	size_t a1 = 0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	{
+		char* owned_ = rn.Rmermaid_check_message(a0.p, &a1);
+		void* copy_;
+		napi_value buffer_;
+		if (!owned_) {
+			result_ = rn_null(env);
+		} else {
+			size_t size_ = (size_t)a1;
+			napi_create_arraybuffer(env, size_, &copy_, &buffer_);
+			if (size_ > 0) memcpy(copy_, owned_, size_);
+			rn.Rmemory_free(owned_);
+			napi_create_typedarray(env, napi_uint8_array, size_, buffer_, 0, &result_);
+		}
+	}
+done:
+	free(a0.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rdialog_open(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -32730,6 +33228,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rlabel_set_color", NULL, rn_w_Rlabel_set_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlabel_set_markdown", NULL, rn_w_Rlabel_set_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlabel_get_markdown", NULL, rn_w_Rlabel_get_markdown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlabel_set_mermaid", NULL, rn_w_Rlabel_set_mermaid, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlabel_get_mermaid", NULL, rn_w_Rlabel_get_mermaid, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlabel_set_link_callback", NULL, rn_w_Rlabel_set_link_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlabel_get_plain_text", NULL, rn_w_Rlabel_get_plain_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlabel_set_selectable", NULL, rn_w_Rlabel_set_selectable, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -33641,6 +34141,29 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rdiff_view_clear_annotations", NULL, rn_w_Rdiff_view_clear_annotations, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdiff_view_get_selected_text", NULL, rn_w_Rdiff_view_get_selected_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdiff_view_set_line_clicked_callback", NULL, rn_w_Rdiff_view_set_line_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_create", NULL, rn_w_Rmermaid_view_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_set_source", NULL, rn_w_Rmermaid_view_set_source, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_source", NULL, rn_w_Rmermaid_view_get_source, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_load_file", NULL, rn_w_Rmermaid_view_load_file, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_kind", NULL, rn_w_Rmermaid_view_get_kind, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_error_line", NULL, rn_w_Rmermaid_view_get_error_line, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_error", NULL, rn_w_Rmermaid_view_get_error, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_summary", NULL, rn_w_Rmermaid_view_get_summary, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_node_count", NULL, rn_w_Rmermaid_view_get_node_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_node", NULL, rn_w_Rmermaid_view_get_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_edge_count", NULL, rn_w_Rmermaid_view_get_edge_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_edge", NULL, rn_w_Rmermaid_view_get_edge, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_diagram_size", NULL, rn_w_Rmermaid_view_get_diagram_size, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_set_fit", NULL, rn_w_Rmermaid_view_set_fit, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_fit", NULL, rn_w_Rmermaid_view_get_fit, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_set_zoom", NULL, rn_w_Rmermaid_view_set_zoom, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_zoom", NULL, rn_w_Rmermaid_view_get_zoom, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_get_scale", NULL, rn_w_Rmermaid_view_get_scale, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_save_png", NULL, rn_w_Rmermaid_view_save_png, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_save_svg", NULL, rn_w_Rmermaid_view_save_svg, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_view_to_svg", NULL, rn_w_Rmermaid_view_to_svg, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_check", NULL, rn_w_Rmermaid_check, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmermaid_check_message", NULL, rn_w_Rmermaid_check_message, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdialog_open", NULL, rn_w_Rdialog_open, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdialog_close", NULL, rn_w_Rdialog_close, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdialog_run", NULL, rn_w_Rdialog_run, NULL, NULL, NULL, napi_enumerable, NULL},

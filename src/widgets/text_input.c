@@ -58,7 +58,8 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_text_input_t* input = (rvn_text_input_t*)widget;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
 	rvn_rect_t area = rvn_text_input_area(widget);
-	int focused = (widget->flags & RVN_WF_FOCUSED) != 0;
+	/* (a window in the background keeps its focused widget, but shows no focus or caret) */
+	int focused = (widget->flags & RVN_WF_FOCUSED) != 0 && (!widget->window || widget->window->active);
 	rvn_color_t fill = rvn_widget_color(widget, R_COLOR_INPUT);
 	/* the focus ring closes in on the field instead of just appearing */
 	float focus = rvn_paint_spring(painter, &widget->press, focused ? 1.0f : 0.0f, R_MOTION_BOUNCY);

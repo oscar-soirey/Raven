@@ -5,8 +5,9 @@
 
 #include "fs.h"
 
-/* iOS forbids fork, Android has neither xdg-open nor curl: their platforms open URLs and download (platform/services.c) */
-#if defined(__ANDROID__) || defined(RAVEN_PLATFORM_UIKIT)
+/* iOS forbids fork, Android has neither xdg-open nor curl: their platforms open URLs and download (platform/services.c).
+ * A fuzzing build (RAVEN_BUILD_FUZZERS) neither: a document made up by the fuzzer must not reach the network. */
+#if defined(__ANDROID__) || defined(RAVEN_PLATFORM_UIKIT) || defined(RAVEN_FUZZING)
 #define RVN_FS_NO_PROCESSES 1
 #endif
 

@@ -1128,13 +1128,17 @@ public final class R {
      */
     public static final int R_WIDGET_CAROUSEL = 0x0236;
     /**
-     * A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+     * A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
      */
     public static final int R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
     /**
      * The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
      */
     public static final int R_WIDGET_DIFF_VIEW = 0x0238;
+    /**
+     * A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
+     */
+    public static final int R_WIDGET_MERMAID_VIEW = 0x0239;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1788,6 +1792,30 @@ public final class R {
      * Upper and lower case letters are the same (A to Z).
      */
     public static final int R_DIFF_IGNORE_CASE = 4;
+
+    // RMermaidKind
+    /**
+     * No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+     */
+    public static final int R_MERMAID_NONE = 0x0CF0;
+    public static final int R_MERMAID_FLOWCHART = 0x0CF1;
+    public static final int R_MERMAID_SEQUENCE = 0x0CF2;
+    public static final int R_MERMAID_STATE = 0x0CF3;
+    public static final int R_MERMAID_PIE = 0x0CF4;
+
+    // RMermaidFit
+    /**
+     * Scaled down to the width of the widget, never up (the default).
+     */
+    public static final int R_MERMAID_FIT_WIDTH = 0x0CF8;
+    /**
+     * Its own size (times the zoom); put it in a ScrollBox to scroll.
+     */
+    public static final int R_MERMAID_FIT_NONE = 0x0CF9;
+    /**
+     * Scaled up or down to fill the widget, its proportions kept.
+     */
+    public static final int R_MERMAID_FIT_CONTAIN = 0x0CFA;
 
     // RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
     /**
@@ -14396,6 +14424,36 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rlabel_set_mermaid$;
+
+    /**
+     * Markdown: draws the blocks of code whose language is "mermaid"
+     * as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+     * they are shown as code. A diagram wider than the label is scaled down.
+     */
+    public static void Rlabel_set_mermaid(int label, int enabled) {
+        MethodHandle $h = Rlabel_set_mermaid$;
+        if ($h == null) Rlabel_set_mermaid$ = $h = find("Rlabel_set_mermaid", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(label, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_get_mermaid$;
+
+    public static int Rlabel_get_mermaid(int label) {
+        MethodHandle $h = Rlabel_get_mermaid$;
+        if ($h == null) Rlabel_get_mermaid$ = $h = find("Rlabel_get_mermaid", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(label);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rlabel_set_link_callback$;
 
     public static void Rlabel_set_link_callback(int label, RLabelLinkCallback callback, MemorySegment user_data) {
@@ -21955,7 +22013,9 @@ public final class R {
 
     /**
      * The view of the system, to go further than these functions:
-     * a WKWebView* on macOS and iOS. NULL where unsupported.
+     * a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+     * until WebView2 has made the view, a moment after it is created). NULL
+     * where unsupported.
      */
     public static MemorySegment Rsystem_web_view_get_native_handle(int view) {
         MethodHandle $h = Rsystem_web_view_get_native_handle$;
@@ -28568,6 +28628,407 @@ public final class R {
      */
     public static void Rdiff_view_set_line_clicked_callback(int diff_view, RDiffViewLineCallback callback) {
         Rdiff_view_set_line_clicked_callback(diff_view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rmermaid_view_create$;
+
+    public static int Rmermaid_view_create(String source) {
+        MethodHandle $h = Rmermaid_view_create$;
+        if ($h == null) Rmermaid_view_create$ = $h = find("Rmermaid_view_create", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            int $r = (int) $h.invokeExact(source$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_set_source$;
+
+    /**
+     * The text of the diagram (NULL: none). It is read and laid out again.
+     */
+    public static void Rmermaid_view_set_source(int view, String source) {
+        MethodHandle $h = Rmermaid_view_set_source$;
+        if ($h == null) Rmermaid_view_set_source$ = $h = find("Rmermaid_view_set_source", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            $h.invokeExact(view, source$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_source$;
+
+    public static String Rmermaid_view_get_source(int view) {
+        MethodHandle $h = Rmermaid_view_get_source$;
+        if ($h == null) Rmermaid_view_get_source$ = $h = find("Rmermaid_view_get_source", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_load_file$;
+
+    /**
+     * Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+     */
+    public static int Rmermaid_view_load_file(int view, String path) {
+        MethodHandle $h = Rmermaid_view_load_file$;
+        if ($h == null) Rmermaid_view_load_file$ = $h = find("Rmermaid_view_load_file", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(view, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_kind$;
+
+    /**
+     * The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+     */
+    public static int Rmermaid_view_get_kind(int view) {
+        MethodHandle $h = Rmermaid_view_get_kind$;
+        if ($h == null) Rmermaid_view_get_kind$ = $h = find("Rmermaid_view_get_kind", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_error_line$;
+
+    /**
+     * The line (from 1) of the first error of the text; 0 when it was read.
+     */
+    public static int Rmermaid_view_get_error_line(int view) {
+        MethodHandle $h = Rmermaid_view_get_error_line$;
+        if ($h == null) Rmermaid_view_get_error_line$ = $h = find("Rmermaid_view_get_error_line", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_error$;
+
+    /**
+     * What the error is ("unknown statement \"foo\""); "" when none.
+     */
+    public static String Rmermaid_view_get_error(int view) {
+        MethodHandle $h = Rmermaid_view_get_error$;
+        if ($h == null) Rmermaid_view_get_error$ = $h = find("Rmermaid_view_get_error", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_summary$;
+
+    /**
+     * "flowchart with 12 nodes and 11 links": the accessible name of the view.
+     */
+    public static String Rmermaid_view_get_summary(int view) {
+        MethodHandle $h = Rmermaid_view_get_summary$;
+        if ($h == null) Rmermaid_view_get_summary$ = $h = find("Rmermaid_view_get_summary", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_node_count$;
+
+    /**
+     * The nodes of a flowchart or a state diagram (states, the start
+     * and end points), the participants of a sequence diagram, the slices of
+     * a pie.
+     */
+    public static int Rmermaid_view_get_node_count(int view) {
+        MethodHandle $h = Rmermaid_view_get_node_count$;
+        if ($h == null) Rmermaid_view_get_node_count$ = $h = find("Rmermaid_view_get_node_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_node$;
+
+    /**
+     * A node: its name in the text, its label, and its rectangle in the
+     * units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+     * Any pointer may be NULL. The texts are valid until the source changes.
+     * Returns: R_FALSE when `index` is out of range.
+     */
+    public static int Rmermaid_view_get_node(int view, int index, String[] id, String[] label, float[] x, float[] y, float[] width, float[] height) {
+        MethodHandle $h = Rmermaid_view_get_node$;
+        if ($h == null) Rmermaid_view_get_node$ = $h = find("Rmermaid_view_get_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment id$ = id == null ? MemorySegment.NULL : $a.allocate(ADDRESS);
+            MemorySegment label$ = label == null ? MemorySegment.NULL : $a.allocate(ADDRESS);
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            int $r = (int) $h.invokeExact(view, index, id$, label$, x$, y$, width$, height$);
+            if (id != null && id.length > 0) id[0] = text(id$.get(ADDRESS, 0));
+            if (label != null && label.length > 0) label[0] = text(label$.get(ADDRESS, 0));
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_FLOAT, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_FLOAT, 0);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_FLOAT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_FLOAT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_edge_count$;
+
+    /**
+     * Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+     */
+    public static int Rmermaid_view_get_edge_count(int view) {
+        MethodHandle $h = Rmermaid_view_get_edge_count$;
+        if ($h == null) Rmermaid_view_get_edge_count$ = $h = find("Rmermaid_view_get_edge_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_edge$;
+
+    /**
+     * The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+     */
+    public static int Rmermaid_view_get_edge(int view, int index, int[] from, int[] to_, String[] label) {
+        MethodHandle $h = Rmermaid_view_get_edge$;
+        if ($h == null) Rmermaid_view_get_edge$ = $h = find("Rmermaid_view_get_edge", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment from$ = from == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment to_$ = to_ == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment label$ = label == null ? MemorySegment.NULL : $a.allocate(ADDRESS);
+            int $r = (int) $h.invokeExact(view, index, from$, to_$, label$);
+            if (from != null && from.length > 0) from[0] = from$.get(JAVA_INT, 0);
+            if (to_ != null && to_.length > 0) to_[0] = to_$.get(JAVA_INT, 0);
+            if (label != null && label.length > 0) label[0] = text(label$.get(ADDRESS, 0));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_diagram_size$;
+
+    /**
+     * The size of the diagram in its own units (at the font size of the widget).
+     */
+    public static void Rmermaid_view_get_diagram_size(int view, float[] width, float[] height) {
+        MethodHandle $h = Rmermaid_view_get_diagram_size$;
+        if ($h == null) Rmermaid_view_get_diagram_size$ = $h = find("Rmermaid_view_get_diagram_size", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            $h.invokeExact(view, width$, height$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_FLOAT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_FLOAT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_set_fit$;
+
+    public static void Rmermaid_view_set_fit(int view, int fit) {
+        MethodHandle $h = Rmermaid_view_set_fit$;
+        if ($h == null) Rmermaid_view_set_fit$ = $h = find("Rmermaid_view_set_fit", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, fit);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_fit$;
+
+    public static int Rmermaid_view_get_fit(int view) {
+        MethodHandle $h = Rmermaid_view_get_fit$;
+        if ($h == null) Rmermaid_view_get_fit$ = $h = find("Rmermaid_view_get_fit", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_set_zoom$;
+
+    /**
+     * A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+     */
+    public static void Rmermaid_view_set_zoom(int view, float zoom) {
+        MethodHandle $h = Rmermaid_view_set_zoom$;
+        if ($h == null) Rmermaid_view_set_zoom$ = $h = find("Rmermaid_view_set_zoom", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(view, zoom);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_zoom$;
+
+    public static float Rmermaid_view_get_zoom(int view) {
+        MethodHandle $h = Rmermaid_view_get_zoom$;
+        if ($h == null) Rmermaid_view_get_zoom$ = $h = find("Rmermaid_view_get_zoom", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_get_scale$;
+
+    /**
+     * The scale the diagram is drawn at: the zoom, and what the fit made of it.
+     */
+    public static float Rmermaid_view_get_scale(int view) {
+        MethodHandle $h = Rmermaid_view_get_scale$;
+        if ($h == null) Rmermaid_view_get_scale$ = $h = find("Rmermaid_view_get_scale", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_save_png$;
+
+    /**
+     * Writes the view as shown as a PNG file (the window is captured,
+     * Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+     * window, the backend cannot capture, or the file cannot be written.
+     */
+    public static int Rmermaid_view_save_png(int view, String path) {
+        MethodHandle $h = Rmermaid_view_save_png$;
+        if ($h == null) Rmermaid_view_save_png$ = $h = find("Rmermaid_view_save_png", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(view, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_save_svg$;
+
+    /**
+     * Writes the diagram as an SVG file, in the colors of the theme.
+     */
+    public static int Rmermaid_view_save_svg(int view, String path) {
+        MethodHandle $h = Rmermaid_view_save_svg$;
+        if ($h == null) Rmermaid_view_save_svg$ = $h = find("Rmermaid_view_save_svg", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(view, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_view_to_svg$;
+
+    /**
+     * The diagram as an SVG document, to release with Rmemory_free.
+     * `size` receives its length in bytes, and may be NULL.
+     */
+    public static byte[] Rmermaid_view_to_svg(int view) {
+        MethodHandle $h = Rmermaid_view_to_svg$;
+        if ($h == null) Rmermaid_view_to_svg$ = $h = find("Rmermaid_view_to_svg", FunctionDescriptor.of(ADDRESS, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment size$ = $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view, size$);
+            if ($r.equals(MemorySegment.NULL)) return null;
+            byte[] $data = $r.reinterpret(size$.get(JAVA_LONG, 0)).toArray(JAVA_BYTE);
+            Rmemory_free($r);
+            return $data;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_check$;
+
+    /**
+     * Reads a text without drawing it: what an editor checks as the
+     * user types. Callable from any thread.
+     * error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+     * Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+     */
+    public static int Rmermaid_check(String source, int[] error_line) {
+        MethodHandle $h = Rmermaid_check$;
+        if ($h == null) Rmermaid_check$ = $h = find("Rmermaid_check", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            MemorySegment error_line$ = error_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(source$, error_line$);
+            if (error_line != null && error_line.length > 0) error_line[0] = error_line$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmermaid_check_message$;
+
+    /**
+     * What the first error of a text is ("unknown statement \"foo\""),
+     * to release with Rmemory_free; NULL when the text has none. `size`
+     * receives its length in bytes, and may be NULL. Callable from any thread.
+     */
+    public static byte[] Rmermaid_check_message(String source) {
+        MethodHandle $h = Rmermaid_check_message$;
+        if ($h == null) Rmermaid_check_message$ = $h = find("Rmermaid_check_message", FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            MemorySegment size$ = $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(source$, size$);
+            if ($r.equals(MemorySegment.NULL)) return null;
+            byte[] $data = $r.reinterpret(size$.get(JAVA_LONG, 0)).toArray(JAVA_BYTE);
+            Rmemory_free($r);
+            return $data;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rdialog_open$;

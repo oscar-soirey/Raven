@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48">
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="blue" stop-opacity="0.5"/></linearGradient>
+<radialGradient id="r" cx="50%" cy="50%" r="50%" gradientTransform="rotate(30)"><stop offset="0" stop-color="#0f0"/><stop offset="1" stop-color="#000"/></radialGradient>
+</defs>
+<rect x="2" y="2" width="30" height="20" rx="4" fill="url(#g)"/>
+<ellipse cx="45" cy="30" rx="12" ry="8" fill="url(#r)" transform="skewX(10) scale(0.9)"/>
+<polygon points="5,40 20,30 35,45" fill="#123" fill-rule="evenodd" opacity=".7"/>
+<polyline points="40,5 50,15 60,5" stroke="black" stroke-width="3" stroke-dasharray="2 1" fill="none"/>
+<path d="M10 10 Q 20 0 30 10 T 50 10 C 55 20 60 20 62 30 A 5 5 0 0 1 50 40 Z m 2 2 h 4 v 4 l -2 2 z" fill="#808080"/>
+<line x1="0" y1="47" x2="64" y2="47" stroke="#f0f"/>
+<g transform="translate(5 5) matrix(1 0 0 1 2 2)" style="fill:#abc;stroke:none"><circle cx="5" cy="5" r="3"/></g>
+</svg>

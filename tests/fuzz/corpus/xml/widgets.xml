@@ -1,0 +1,7 @@
+<TabView>
+	<Tab Title="Tree"><TreeView><TreeItem Text="a"><TreeItem Text="b"/></TreeItem></TreeView></Tab>
+	<Tab Title="Text"><TextEditor Language="c" Text="int main(void) { return 0; }"/></Tab>
+	<Tab Title="Table"><Table Columns="Name;Size"><Row>x;1</Row><Row>y;2</Row></Table></Tab>
+	<Tab Title="Diff"><DiffView Left="a&#10;b&#10;" Right="a&#10;c&#10;" Mode="Split"/></Tab>
+	<Tab Title="Markdown"><Markdown Text="# Title&#10;**bold** _it_ `code`"/></Tab>
+</TabView>

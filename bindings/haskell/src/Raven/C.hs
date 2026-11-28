@@ -1211,12 +1211,15 @@ pattern R_WIDGET_MAP_VIEW = RWidgetType 565
 -- | Pages shown one at a time and swiped (a page view), with dots and arrows.
 pattern R_WIDGET_CAROUSEL :: RWidgetType
 pattern R_WIDGET_CAROUSEL = RWidgetType 566
--- | A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+-- | A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
 pattern R_WIDGET_SYSTEM_WEB_VIEW :: RWidgetType
 pattern R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType 567
 -- | The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pattern R_WIDGET_DIFF_VIEW :: RWidgetType
 pattern R_WIDGET_DIFF_VIEW = RWidgetType 568
+-- | A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
+pattern R_WIDGET_MERMAID_VIEW :: RWidgetType
+pattern R_WIDGET_MERMAID_VIEW = RWidgetType 569
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1963,6 +1966,34 @@ pattern R_DIFF_IGNORE_SPACE = RDiffFlags 2
 -- | Upper and lower case letters are the same (A to Z).
 pattern R_DIFF_IGNORE_CASE :: RDiffFlags
 pattern R_DIFF_IGNORE_CASE = RDiffFlags 4
+
+newtype RMermaidKind = RMermaidKind CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+pattern R_MERMAID_NONE :: RMermaidKind
+pattern R_MERMAID_NONE = RMermaidKind 3312
+pattern R_MERMAID_FLOWCHART :: RMermaidKind
+pattern R_MERMAID_FLOWCHART = RMermaidKind 3313
+pattern R_MERMAID_SEQUENCE :: RMermaidKind
+pattern R_MERMAID_SEQUENCE = RMermaidKind 3314
+pattern R_MERMAID_STATE :: RMermaidKind
+pattern R_MERMAID_STATE = RMermaidKind 3315
+pattern R_MERMAID_PIE :: RMermaidKind
+pattern R_MERMAID_PIE = RMermaidKind 3316
+
+newtype RMermaidFit = RMermaidFit CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Scaled down to the width of the widget, never up (the default).
+pattern R_MERMAID_FIT_WIDTH :: RMermaidFit
+pattern R_MERMAID_FIT_WIDTH = RMermaidFit 3320
+-- | Its own size (times the zoom); put it in a ScrollBox to scroll.
+pattern R_MERMAID_FIT_NONE :: RMermaidFit
+pattern R_MERMAID_FIT_NONE = RMermaidFit 3321
+-- | Scaled up or down to fill the widget, its proportions kept.
+pattern R_MERMAID_FIT_CONTAIN :: RMermaidFit
+pattern R_MERMAID_FIT_CONTAIN = RMermaidFit 3322
 
 -- | How much a notification of the system asks for attention (Rnotification_show).
 newtype RNotificationUrgency = RNotificationUrgency CInt
@@ -6479,6 +6510,13 @@ foreign import ccall safe "Rlabel_set_markdown" rlabel_set_markdown :: Rid -> CI
 
 foreign import ccall safe "Rlabel_get_markdown" rlabel_get_markdown :: Rid -> IO CInt
 
+-- | Markdown: draws the blocks of code whose language is "mermaid"
+-- as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+-- they are shown as code. A diagram wider than the label is scaled down.
+foreign import ccall safe "Rlabel_set_mermaid" rlabel_set_mermaid :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rlabel_get_mermaid" rlabel_get_mermaid :: Rid -> IO CInt
+
 foreign import ccall safe "Rlabel_set_link_callback" rlabel_set_link_callback :: Rid -> RLabelLinkCallback -> Ptr () -> IO ()
 
 -- | The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
@@ -7879,7 +7917,9 @@ foreign import ccall safe "Rsystem_web_view_set_message_callback" rsystem_web_vi
 foreign import ccall safe "Rsystem_web_view_set_event_callback" rsystem_web_view_set_event_callback :: Rid -> RSystemWebViewEventCallback -> Ptr () -> IO ()
 
 -- | The view of the system, to go further than these functions:
--- a WKWebView* on macOS and iOS. NULL where unsupported.
+-- a WKWebView* on macOS and iOS, an ICoreWebView2* on Windows (NULL
+-- until WebView2 has made the view, a moment after it is created). NULL
+-- where unsupported.
 foreign import ccall safe "Rsystem_web_view_get_native_handle" rsystem_web_view_get_native_handle :: Rid -> IO (Ptr ())
 
 foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid
@@ -9238,6 +9278,83 @@ foreign import ccall safe "Rdiff_view_get_selected_text" rdiff_view_get_selected
 
 -- | Called when a line or its number is clicked (the action of the widget is fired too).
 foreign import ccall safe "Rdiff_view_set_line_clicked_callback" rdiff_view_set_line_clicked_callback :: Rid -> RDiffViewLineCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rmermaid_view_create" rmermaid_view_create :: CString -> IO Rid
+
+-- | The text of the diagram (NULL: none). It is read and laid out again.
+foreign import ccall safe "Rmermaid_view_set_source" rmermaid_view_set_source :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rmermaid_view_get_source" rmermaid_view_get_source :: Rid -> IO CString
+
+-- | Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+foreign import ccall safe "Rmermaid_view_load_file" rmermaid_view_load_file :: Rid -> CString -> IO CInt
+
+-- | The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+foreign import ccall safe "Rmermaid_view_get_kind" rmermaid_view_get_kind :: Rid -> IO RMermaidKind
+
+-- | The line (from 1) of the first error of the text; 0 when it was read.
+foreign import ccall safe "Rmermaid_view_get_error_line" rmermaid_view_get_error_line :: Rid -> IO CInt
+
+-- | What the error is ("unknown statement \"foo\""); "" when none.
+foreign import ccall safe "Rmermaid_view_get_error" rmermaid_view_get_error :: Rid -> IO CString
+
+-- | "flowchart with 12 nodes and 11 links": the accessible name of the view.
+foreign import ccall safe "Rmermaid_view_get_summary" rmermaid_view_get_summary :: Rid -> IO CString
+
+-- | The nodes of a flowchart or a state diagram (states, the start
+-- and end points), the participants of a sequence diagram, the slices of
+-- a pie.
+foreign import ccall safe "Rmermaid_view_get_node_count" rmermaid_view_get_node_count :: Rid -> IO CInt
+
+-- | A node: its name in the text, its label, and its rectangle in the
+-- units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+-- Any pointer may be NULL. The texts are valid until the source changes.
+-- Returns: R_FALSE when `index` is out of range.
+foreign import ccall safe "Rmermaid_view_get_node" rmermaid_view_get_node :: Rid -> CInt -> Ptr CString -> Ptr CString -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO CInt
+
+-- | Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+foreign import ccall safe "Rmermaid_view_get_edge_count" rmermaid_view_get_edge_count :: Rid -> IO CInt
+
+-- | The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+foreign import ccall safe "Rmermaid_view_get_edge" rmermaid_view_get_edge :: Rid -> CInt -> Ptr CInt -> Ptr CInt -> Ptr CString -> IO CInt
+
+-- | The size of the diagram in its own units (at the font size of the widget).
+foreign import ccall safe "Rmermaid_view_get_diagram_size" rmermaid_view_get_diagram_size :: Rid -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+foreign import ccall safe "Rmermaid_view_set_fit" rmermaid_view_set_fit :: Rid -> RMermaidFit -> IO ()
+
+foreign import ccall safe "Rmermaid_view_get_fit" rmermaid_view_get_fit :: Rid -> IO RMermaidFit
+
+-- | A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+foreign import ccall safe "Rmermaid_view_set_zoom" rmermaid_view_set_zoom :: Rid -> CFloat -> IO ()
+
+foreign import ccall safe "Rmermaid_view_get_zoom" rmermaid_view_get_zoom :: Rid -> IO CFloat
+
+-- | The scale the diagram is drawn at: the zoom, and what the fit made of it.
+foreign import ccall safe "Rmermaid_view_get_scale" rmermaid_view_get_scale :: Rid -> IO CFloat
+
+-- | Writes the view as shown as a PNG file (the window is captured,
+-- Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+-- window, the backend cannot capture, or the file cannot be written.
+foreign import ccall safe "Rmermaid_view_save_png" rmermaid_view_save_png :: Rid -> CString -> IO CInt
+
+-- | Writes the diagram as an SVG file, in the colors of the theme.
+foreign import ccall safe "Rmermaid_view_save_svg" rmermaid_view_save_svg :: Rid -> CString -> IO CInt
+
+-- | The diagram as an SVG document, to release with Rmemory_free.
+-- `size` receives its length in bytes, and may be NULL.
+foreign import ccall safe "Rmermaid_view_to_svg" rmermaid_view_to_svg :: Rid -> Ptr CSize -> IO CString
+
+-- | Reads a text without drawing it: what an editor checks as the
+-- user types. Callable from any thread.
+-- error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+-- Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+foreign import ccall safe "Rmermaid_check" rmermaid_check :: CString -> Ptr CInt -> IO RMermaidKind
+
+-- | What the first error of a text is ("unknown statement \"foo\""),
+-- to release with Rmemory_free; NULL when the text has none. `size`
+-- receives its length in bytes, and may be NULL. Callable from any thread.
+foreign import ccall safe "Rmermaid_check_message" rmermaid_check_message :: CString -> Ptr CSize -> IO CString
 
 -- | Shows a widget as a dialog of a window. The window takes
 -- ownership of `content`: it is deleted when the dialog closes, so read
