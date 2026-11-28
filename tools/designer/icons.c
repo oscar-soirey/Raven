@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL, G_GLOBE, G_DIFF
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL, G_GLOBE, G_DIFF, G_TREE_TABLE
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -80,7 +80,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "ListView", FAMILY_DATA, G_LIST }, { "TreeView", FAMILY_DATA, G_TREE }, { "TileView", FAMILY_DATA, G_TILES },
 	{ "Item", FAMILY_DATA, G_ITEM }, { "Timeline", FAMILY_DATA, G_TIMELINE }, { "NodeGraph", FAMILY_DATA, G_NODES },
 	{ "BlockEditor", FAMILY_DATA, G_BLOCKS }, { "FileBrowser", FAMILY_DATA, G_FOLDER },
-	{ "Table", FAMILY_DATA, G_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
+	{ "Table", FAMILY_DATA, G_TABLE }, { "TreeTable", FAMILY_DATA, G_TREE_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
 	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
 	{ "Chart", FAMILY_DATA, G_PIE }, { "Slice", FAMILY_DATA, G_ITEM }, { "Band", FAMILY_DATA, G_ITEM },
 	{ "PdfView", FAMILY_DATA, G_FILE },
@@ -474,6 +474,13 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 			/* a page between the edges of its neighbours, its dots under it */
 			box(c, 10, 7, 22, 20, 2, 1); box(c, 5, 9, 8, 18, 1.2f, 0.5f); box(c, 24, 9, 27, 18, 1.2f, 0.5f);
 			line(c, 14.5f, 24.5f, 17.5f, 24.5f, 2.6f, 1); disc(c, 10.5f, 24.5f, 1.3f, 0.6f); disc(c, 21.5f, 24.5f, 1.3f, 0.6f);
+			break;
+		case G_TREE_TABLE:
+			/* a table whose second and third rows are indented under the first */
+			outline(c, 6, 8, 26, 24, 2.5f, STROKE, 1); box(c, 6, 8, 26, 12, 2.5f, 1); line(c, 20, 12, 20, 24, 1.6f, 0.6f);
+			box(c, 8.5f, 14, 12, 16.5f, 0.8f, 1); line(c, 13.5f, 15.25f, 18, 15.25f, 1.6f, 0.8f);
+			line(c, 10.25f, 16.5f, 10.25f, 21, 1.2f, 0.5f); line(c, 13, 18.5f, 18, 18.5f, 1.6f, 0.7f); line(c, 13, 21.5f, 18, 21.5f, 1.6f, 0.7f);
+			line(c, 22, 15.25f, 24, 15.25f, 1.6f, 0.6f); line(c, 22, 18.5f, 24, 18.5f, 1.6f, 0.6f); line(c, 22, 21.5f, 24, 21.5f, 1.6f, 0.6f);
 			break;
 		case G_DIFF:
 			/* two texts side by side: a line taken out of the left one, a line put into the right one */

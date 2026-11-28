@@ -388,6 +388,18 @@ type
     ## refuse it: after Enter or Tab the field stays open on the text, so the
     ## user can correct it; after a click elsewhere the edit is dropped.
     ## Without a callback, a stored table keeps every text.
+  RTreeTableExpandCallback* = proc (tree_table: Rid, node: cint, expanded: cint, user_data: pointer) {.cdecl.}
+    ## Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+  RTreeTableChildCountCallback* = proc (tree_table: Rid, node: cint, user_data: pointer): cint {.cdecl.}
+    ## Virtual tree: how many children `node` has (0: the top-level nodes).
+  RTreeTableChildCallback* = proc (tree_table: Rid, parent: cint, index: cint, user_data: pointer): cint {.cdecl.}
+    ## Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+  RTreeTableHasChildrenCallback* = proc (tree_table: Rid, node: cint, user_data: pointer): cint {.cdecl.}
+    ## Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+  RTreeTableNodeTextCallback* = proc (tree_table: Rid, node: cint, column: cint, user_data: pointer): cstring {.cdecl.}
+    ## Virtual tree: the text of a cell of `node`. NULL is "".
+  RTreeTableNodeIconCallback* = proc (tree_table: Rid, node: cint, user_data: pointer): Rid {.cdecl.}
+    ## Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
   RDateChangedCallback* = proc (date_picker: Rid, year: cint, month: cint, day: cint, user_data: pointer) {.cdecl.}
     ## Called when the user chooses a date. This also fires the action of the widget.
   RTimeChangedCallback* = proc (time_picker: Rid, hour: cint, minute: cint, second: cint, user_data: pointer) {.cdecl.}
@@ -1833,6 +1845,8 @@ const
     ## A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
   R_WIDGET_DIFF_VIEW*: RWidgetType = 0x0238
     ## The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+  R_WIDGET_TREE_TABLE*: RWidgetType = 0x0239
+    ## A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -4140,6 +4154,75 @@ proc Rtable_is_cell_checked*(table: Rid, row: cint, column: cint): cint {.rapi.}
   ## A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
 proc Rtable_set_cell_checked*(table: Rid, row: cint, column: cint, checked: cint) {.rapi.}
   ## Stored rows: writes "1" or "0" in the cell (no callback is called).
+proc Rtree_table_add_node*(tree_table: Rid, parent: cint, cells: cstring): cint {.rapi.}
+  ## Adds a node at the end of the children of `parent` (0: the top
+  ## level), with its cells separated by '\|' as in Rtable_add_row (NULL:
+  ## empty). Returns: The number naming the node (> 0), or 0 on error.
+proc Rtree_table_insert_node*(tree_table: Rid, parent: cint, index: cint, cells: cstring): cint {.rapi.}
+  ## Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+proc Rtree_table_remove_node*(tree_table: Rid, node: cint) {.rapi.}
+  ## Removes a node and every node under it.
+proc Rtree_table_move_node*(tree_table: Rid, node: cint, parent: cint, index: cint): cint {.rapi.}
+  ## Moves a node, with its subtree, among the children of `parent` at
+  ## `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+proc Rtree_table_is_node_valid*(tree_table: Rid, node: cint): cint {.rapi.}
+  ## R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+proc Rtree_table_get_node_count*(tree_table: Rid): cint {.rapi.}
+  ## Stored nodes, shown or not (the root not counted).
+proc Rtree_table_get_parent*(tree_table: Rid, node: cint): cint {.rapi.}
+  ## The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+proc Rtree_table_get_child_count*(tree_table: Rid, node: cint): cint {.rapi.}
+  ## Children of a node (0: the top-level nodes). Virtual: asks the application.
+proc Rtree_table_get_child*(tree_table: Rid, node: cint, index: cint): cint {.rapi.}
+  ## The child of a node at `index`, or 0. Virtual: asks the application.
+proc Rtree_table_get_depth*(tree_table: Rid, node: cint): cint {.rapi.}
+  ## Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+proc Rtree_table_set_node_cell*(tree_table: Rid, node: cint, column: cint, text: cstring) {.rapi.}
+  ## The text of a cell of a stored node, shown or not.
+proc Rtree_table_get_node_cell*(tree_table: Rid, node: cint, column: cint): cstring {.rapi.}
+  ## The text of a cell of a node (virtual: asks the application). "" for none.
+proc Rtree_table_set_node_icon*(tree_table: Rid, node: cint, texture: Rid) {.rapi.}
+  ## An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+proc Rtree_table_get_node_icon*(tree_table: Rid, node: cint): Rid {.rapi.}
+proc Rtree_table_set_node_has_children*(tree_table: Rid, node: cint, has_children: cint) {.rapi.}
+  ## A stored node shows a chevron before it has children
+  ## (HasChildren="true"): opening it calls the expanded callback, where the
+  ## application adds them (now, or later when they are loaded).
+proc Rtree_table_set_expanded*(tree_table: Rid, node: cint, expanded: cint) {.rapi.}
+  ## Opens or closes a node (a node inside a closed one keeps the state it is given).
+proc Rtree_table_is_expanded*(tree_table: Rid, node: cint): cint {.rapi.}
+proc Rtree_table_expand_all*(tree_table: Rid, node: cint) {.rapi.}
+  ## Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+proc Rtree_table_collapse_all*(tree_table: Rid, node: cint) {.rapi.}
+  ## Closes a node and every node under it (0: the whole tree).
+proc Rtree_table_get_row_node*(tree_table: Rid, row: cint): cint {.rapi.}
+  ## The node shown at a row, 0 for none.
+proc Rtree_table_get_node_row*(tree_table: Rid, node: cint): cint {.rapi.}
+  ## The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+proc Rtree_table_reveal_node*(tree_table: Rid, node: cint) {.rapi.}
+  ## Opens the parents of a stored node and scrolls to it.
+proc Rtree_table_select_node*(tree_table: Rid, node: cint) {.rapi.}
+  ## Reveals a node and makes it the selection (0: none); the selection callback is not called.
+proc Rtree_table_get_selected_node*(tree_table: Rid): cint {.rapi.}
+  ## The node of the selected row (the last one clicked in multiple selection), 0 for none.
+proc Rtree_table_set_expanded_callback*(tree_table: Rid, callback: RTreeTableExpandCallback, user_data: pointer) {.rapi.}
+  ## Called when the user or the application opens or closes a node (lazy loading).
+proc Rtree_table_set_virtual*(tree_table: Rid, child_count: RTreeTableChildCountCallback, child: RTreeTableChildCallback, has_children: RTreeTableHasChildrenCallback, cell_text: RTreeTableNodeTextCallback, user_data: pointer) {.rapi.}
+  ## Makes the tree virtual: the stored nodes are removed and the
+  ## application gives the tree with the callbacks, asked for the rows
+  ## drawn only. `has_children` may be NULL (the count is asked then).
+  ## `child_count` NULL makes the tree stored again, empty.
+proc Rtree_table_set_icon_callback*(tree_table: Rid, callback: RTreeTableNodeIconCallback, user_data: pointer) {.rapi.}
+  ## Virtual tree: the icons of the nodes.
+proc Rtree_table_refresh*(tree_table: Rid, node: cint) {.rapi.}
+  ## Virtual tree: the children of `node` changed (0: anything, after a
+  ## sort for instance). Their counts are asked again; the nodes that were
+  ## open stay open, found again by their numbers.
+proc Rtree_table_set_guide_lines*(tree_table: Rid, visible: cint) {.rapi.}
+  ## Vertical lines that join the children of a node (GuideLines="true").
+proc Rtree_table_get_guide_lines*(tree_table: Rid): cint {.rapi.}
+proc Rtree_table_set_type_search*(tree_table: Rid, enabled: cint) {.rapi.}
+  ## Typing the first letters of a name goes to it (TypeSearch, on by default).
 proc Rdate_picker_set_date*(date_picker: Rid, year: cint, month: cint, day: cint) {.rapi.}
   ## Sets the date (today when the picker is created). An invalid date is refused.
 proc Rdate_picker_get_date*(date_picker: Rid, year: ptr cint, month: ptr cint, day: ptr cint) {.rapi.}

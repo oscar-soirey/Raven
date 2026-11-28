@@ -292,6 +292,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/tree_view.c
 	src/widgets/viewport.c
 	src/widgets/table.c
+	src/widgets/tree_table.c
 	src/widgets/date_picker.c
 	src/widgets/time_picker.c
 	src/widgets/toast.c

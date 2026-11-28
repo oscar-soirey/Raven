@@ -998,6 +998,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CAROUSEL = 0x0236
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
     R_WIDGET_DIFF_VIEW = 0x0238
+    R_WIDGET_TREE_TABLE = 0x0239
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1056,6 +1057,7 @@ R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
 R_WIDGET_DIFF_VIEW = RWidgetType.R_WIDGET_DIFF_VIEW
+R_WIDGET_TREE_TABLE = RWidgetType.R_WIDGET_TREE_TABLE
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -2898,6 +2900,56 @@ RTableCellEditedCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctype
 def _adapt_RTableCellEditedCallback(function):
     def call(table, row, column, text, user_data):
         return function(table, row, column, _r(text), user_data) or 0
+    return call
+
+RTreeTableExpandCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableExpandCallback(function):
+    def call(tree_table, node, expanded, user_data):
+        function(tree_table, node, expanded, user_data)
+    return call
+
+RTreeTableChildCountCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableChildCountCallback(function):
+    def call(tree_table, node, user_data):
+        return function(tree_table, node, user_data) or 0
+    return call
+
+RTreeTableChildCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableChildCallback(function):
+    def call(tree_table, parent, index, user_data):
+        return function(tree_table, parent, index, user_data) or 0
+    return call
+
+RTreeTableHasChildrenCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableHasChildrenCallback(function):
+    def call(tree_table, node, user_data):
+        return function(tree_table, node, user_data) or 0
+    return call
+
+RTreeTableNodeTextCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableNodeTextCallback(function):
+    def call(tree_table, node, column, user_data):
+        text = ctypes.create_string_buffer(_s(function(tree_table, node, column, user_data)) or b"")
+        call.text = text
+        return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
+RTreeTableNodeIconCallback = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTreeTableNodeIconCallback(function):
+    def call(tree_table, node, user_data):
+        return function(tree_table, node, user_data) or 0
     return call
 
 RDateChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
@@ -9748,6 +9800,292 @@ _lib.Rtable_set_cell_checked.restype = None
 def Rtable_set_cell_checked(table, row, column, checked):
     """Stored rows: writes "1" or "0" in the cell (no callback is called)."""
     _lib.Rtable_set_cell_checked(table, row, column, checked)
+
+
+_lib.Rtree_table_add_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rtree_table_add_node.restype = ctypes.c_int
+
+
+def Rtree_table_add_node(tree_table, parent, cells):
+    """Adds a node at the end of the children of `parent` (0: the top
+    level), with its cells separated by '|' as in Rtable_add_row (NULL:
+    empty). Returns: The number naming the node (> 0), or 0 on error."""
+    return _lib.Rtree_table_add_node(tree_table, parent, _s(cells))
+
+
+_lib.Rtree_table_insert_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rtree_table_insert_node.restype = ctypes.c_int
+
+
+def Rtree_table_insert_node(tree_table, parent, index, cells):
+    """Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last)."""
+    return _lib.Rtree_table_insert_node(tree_table, parent, index, _s(cells))
+
+
+_lib.Rtree_table_remove_node.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_remove_node.restype = None
+
+
+def Rtree_table_remove_node(tree_table, node):
+    """Removes a node and every node under it."""
+    _lib.Rtree_table_remove_node(tree_table, node)
+
+
+_lib.Rtree_table_move_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtree_table_move_node.restype = ctypes.c_int
+
+
+def Rtree_table_move_node(tree_table, node, parent, index):
+    """Moves a node, with its subtree, among the children of `parent` at
+    `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved."""
+    return _lib.Rtree_table_move_node(tree_table, node, parent, index)
+
+
+_lib.Rtree_table_is_node_valid.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_is_node_valid.restype = ctypes.c_int
+
+
+def Rtree_table_is_node_valid(tree_table, node):
+    """R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown."""
+    return _lib.Rtree_table_is_node_valid(tree_table, node)
+
+
+_lib.Rtree_table_get_node_count.argtypes = [ctypes.c_uint32]
+_lib.Rtree_table_get_node_count.restype = ctypes.c_int
+
+
+def Rtree_table_get_node_count(tree_table):
+    """Stored nodes, shown or not (the root not counted)."""
+    return _lib.Rtree_table_get_node_count(tree_table)
+
+
+_lib.Rtree_table_get_parent.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_parent.restype = ctypes.c_int
+
+
+def Rtree_table_get_parent(tree_table, node):
+    """The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown."""
+    return _lib.Rtree_table_get_parent(tree_table, node)
+
+
+_lib.Rtree_table_get_child_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_child_count.restype = ctypes.c_int
+
+
+def Rtree_table_get_child_count(tree_table, node):
+    """Children of a node (0: the top-level nodes). Virtual: asks the application."""
+    return _lib.Rtree_table_get_child_count(tree_table, node)
+
+
+_lib.Rtree_table_get_child.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtree_table_get_child.restype = ctypes.c_int
+
+
+def Rtree_table_get_child(tree_table, node, index):
+    """The child of a node at `index`, or 0. Virtual: asks the application."""
+    return _lib.Rtree_table_get_child(tree_table, node, index)
+
+
+_lib.Rtree_table_get_depth.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_depth.restype = ctypes.c_int
+
+
+def Rtree_table_get_depth(tree_table, node):
+    """Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown."""
+    return _lib.Rtree_table_get_depth(tree_table, node)
+
+
+_lib.Rtree_table_set_node_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rtree_table_set_node_cell.restype = None
+
+
+def Rtree_table_set_node_cell(tree_table, node, column, text):
+    """The text of a cell of a stored node, shown or not."""
+    _lib.Rtree_table_set_node_cell(tree_table, node, column, _s(text))
+
+
+_lib.Rtree_table_get_node_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtree_table_get_node_cell.restype = ctypes.c_char_p
+
+
+def Rtree_table_get_node_cell(tree_table, node, column):
+    """The text of a cell of a node (virtual: asks the application). "" for none."""
+    return _r(_lib.Rtree_table_get_node_cell(tree_table, node, column))
+
+
+_lib.Rtree_table_set_node_icon.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+_lib.Rtree_table_set_node_icon.restype = None
+
+
+def Rtree_table_set_node_icon(tree_table, node, texture):
+    """An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none."""
+    _lib.Rtree_table_set_node_icon(tree_table, node, texture)
+
+
+_lib.Rtree_table_get_node_icon.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_node_icon.restype = ctypes.c_uint32
+
+
+def Rtree_table_get_node_icon(tree_table, node):
+    return _lib.Rtree_table_get_node_icon(tree_table, node)
+
+
+_lib.Rtree_table_set_node_has_children.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtree_table_set_node_has_children.restype = None
+
+
+def Rtree_table_set_node_has_children(tree_table, node, has_children):
+    """A stored node shows a chevron before it has children
+    (HasChildren="true"): opening it calls the expanded callback, where the
+    application adds them (now, or later when they are loaded)."""
+    _lib.Rtree_table_set_node_has_children(tree_table, node, has_children)
+
+
+_lib.Rtree_table_set_expanded.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtree_table_set_expanded.restype = None
+
+
+def Rtree_table_set_expanded(tree_table, node, expanded):
+    """Opens or closes a node (a node inside a closed one keeps the state it is given)."""
+    _lib.Rtree_table_set_expanded(tree_table, node, expanded)
+
+
+_lib.Rtree_table_is_expanded.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_is_expanded.restype = ctypes.c_int
+
+
+def Rtree_table_is_expanded(tree_table, node):
+    return _lib.Rtree_table_is_expanded(tree_table, node)
+
+
+_lib.Rtree_table_expand_all.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_expand_all.restype = None
+
+
+def Rtree_table_expand_all(tree_table, node):
+    """Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it."""
+    _lib.Rtree_table_expand_all(tree_table, node)
+
+
+_lib.Rtree_table_collapse_all.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_collapse_all.restype = None
+
+
+def Rtree_table_collapse_all(tree_table, node):
+    """Closes a node and every node under it (0: the whole tree)."""
+    _lib.Rtree_table_collapse_all(tree_table, node)
+
+
+_lib.Rtree_table_get_row_node.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_row_node.restype = ctypes.c_int
+
+
+def Rtree_table_get_row_node(tree_table, row):
+    """The node shown at a row, 0 for none."""
+    return _lib.Rtree_table_get_row_node(tree_table, row)
+
+
+_lib.Rtree_table_get_node_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_get_node_row.restype = ctypes.c_int
+
+
+def Rtree_table_get_node_row(tree_table, node):
+    """The row a node is shown at, -1 when it is inside a closed node (or does not exist)."""
+    return _lib.Rtree_table_get_node_row(tree_table, node)
+
+
+_lib.Rtree_table_reveal_node.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_reveal_node.restype = None
+
+
+def Rtree_table_reveal_node(tree_table, node):
+    """Opens the parents of a stored node and scrolls to it."""
+    _lib.Rtree_table_reveal_node(tree_table, node)
+
+
+_lib.Rtree_table_select_node.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_select_node.restype = None
+
+
+def Rtree_table_select_node(tree_table, node):
+    """Reveals a node and makes it the selection (0: none); the selection callback is not called."""
+    _lib.Rtree_table_select_node(tree_table, node)
+
+
+_lib.Rtree_table_get_selected_node.argtypes = [ctypes.c_uint32]
+_lib.Rtree_table_get_selected_node.restype = ctypes.c_int
+
+
+def Rtree_table_get_selected_node(tree_table):
+    """The node of the selected row (the last one clicked in multiple selection), 0 for none."""
+    return _lib.Rtree_table_get_selected_node(tree_table)
+
+
+_lib.Rtree_table_set_expanded_callback.argtypes = [ctypes.c_uint32, RTreeTableExpandCallback, ctypes.c_void_p]
+_lib.Rtree_table_set_expanded_callback.restype = None
+
+
+def Rtree_table_set_expanded_callback(tree_table, callback, user_data=None):
+    """Called when the user or the application opens or closes a node (lazy loading)."""
+    _lib.Rtree_table_set_expanded_callback(tree_table, _callback(RTreeTableExpandCallback, _adapt_RTreeTableExpandCallback, callback), user_data)
+
+
+_lib.Rtree_table_set_virtual.argtypes = [ctypes.c_uint32, RTreeTableChildCountCallback, RTreeTableChildCallback, RTreeTableHasChildrenCallback, RTreeTableNodeTextCallback, ctypes.c_void_p]
+_lib.Rtree_table_set_virtual.restype = None
+
+
+def Rtree_table_set_virtual(tree_table, child_count, child, has_children, cell_text, user_data=None):
+    """Makes the tree virtual: the stored nodes are removed and the
+    application gives the tree with the callbacks, asked for the rows
+    drawn only. `has_children` may be NULL (the count is asked then).
+    `child_count` NULL makes the tree stored again, empty."""
+    _lib.Rtree_table_set_virtual(tree_table, _callback(RTreeTableChildCountCallback, _adapt_RTreeTableChildCountCallback, child_count), _callback(RTreeTableChildCallback, _adapt_RTreeTableChildCallback, child), _callback(RTreeTableHasChildrenCallback, _adapt_RTreeTableHasChildrenCallback, has_children), _callback(RTreeTableNodeTextCallback, _adapt_RTreeTableNodeTextCallback, cell_text), user_data)
+
+
+_lib.Rtree_table_set_icon_callback.argtypes = [ctypes.c_uint32, RTreeTableNodeIconCallback, ctypes.c_void_p]
+_lib.Rtree_table_set_icon_callback.restype = None
+
+
+def Rtree_table_set_icon_callback(tree_table, callback, user_data=None):
+    """Virtual tree: the icons of the nodes."""
+    _lib.Rtree_table_set_icon_callback(tree_table, _callback(RTreeTableNodeIconCallback, _adapt_RTreeTableNodeIconCallback, callback), user_data)
+
+
+_lib.Rtree_table_refresh.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_refresh.restype = None
+
+
+def Rtree_table_refresh(tree_table, node):
+    """Virtual tree: the children of `node` changed (0: anything, after a
+    sort for instance). Their counts are asked again; the nodes that were
+    open stay open, found again by their numbers."""
+    _lib.Rtree_table_refresh(tree_table, node)
+
+
+_lib.Rtree_table_set_guide_lines.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_set_guide_lines.restype = None
+
+
+def Rtree_table_set_guide_lines(tree_table, visible):
+    """Vertical lines that join the children of a node (GuideLines="true")."""
+    _lib.Rtree_table_set_guide_lines(tree_table, visible)
+
+
+_lib.Rtree_table_get_guide_lines.argtypes = [ctypes.c_uint32]
+_lib.Rtree_table_get_guide_lines.restype = ctypes.c_int
+
+
+def Rtree_table_get_guide_lines(tree_table):
+    return _lib.Rtree_table_get_guide_lines(tree_table)
+
+
+_lib.Rtree_table_set_type_search.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtree_table_set_type_search.restype = None
+
+
+def Rtree_table_set_type_search(tree_table, enabled):
+    """Typing the first letters of a name goes to it (TypeSearch, on by default)."""
+    _lib.Rtree_table_set_type_search(tree_table, enabled)
 
 
 _lib.Rdate_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]

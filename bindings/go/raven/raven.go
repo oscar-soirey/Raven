@@ -711,6 +711,7 @@ const (
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
 	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
 	R_WIDGET_DIFF_VIEW       RWidgetType = 0x0238
+	R_WIDGET_TREE_TABLE      RWidgetType = 0x0239
 )
 
 type RHAlign int32
@@ -4626,6 +4627,162 @@ func TableIsCellChecked(table ID, row int, column int) int {
 // TableSetCellChecked: Stored rows: writes "1" or "0" in the cell (no callback is called).
 func TableSetCellChecked(table ID, row int, column int, checked int) {
 	C.Rtable_set_cell_checked(C.Rid(table), C.int(row), C.int(column), C.int(checked))
+}
+
+// TreeTableAddNode: Adds a node at the end of the children of `parent` (0: the top level), with its cells
+// separated by '|' as in Rtable_add_row (NULL: empty). Returns: The number naming the node (> 0), or 0 on
+// error.
+func TreeTableAddNode(tree_table ID, parent int, cells string) int {
+	cells_ := C.CString(cells)
+	defer C.free(unsafe.Pointer(cells_))
+	return int(C.Rtree_table_add_node(C.Rid(tree_table), C.int(parent), cells_))
+}
+
+// TreeTableInsertNode: Adds a node among the children of `parent` at `index` (from 0; -1 or past the end:
+// last).
+func TreeTableInsertNode(tree_table ID, parent int, index int, cells string) int {
+	cells_ := C.CString(cells)
+	defer C.free(unsafe.Pointer(cells_))
+	return int(C.Rtree_table_insert_node(C.Rid(tree_table), C.int(parent), C.int(index), cells_))
+}
+
+// TreeTableRemoveNode: Removes a node and every node under it.
+func TreeTableRemoveNode(tree_table ID, node int) {
+	C.Rtree_table_remove_node(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableMoveNode: Moves a node, with its subtree, among the children of `parent` at `index` (-1: last). A
+// node cannot go under itself. Returns: R_TRUE when moved.
+func TreeTableMoveNode(tree_table ID, node int, parent int, index int) int {
+	return int(C.Rtree_table_move_node(C.Rid(tree_table), C.int(node), C.int(parent), C.int(index)))
+}
+
+// TreeTableIsNodeValid: R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded
+// or shown.
+func TreeTableIsNodeValid(tree_table ID, node int) int {
+	return int(C.Rtree_table_is_node_valid(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableGetNodeCount: Stored nodes, shown or not (the root not counted).
+func TreeTableGetNodeCount(tree_table ID) int {
+	return int(C.Rtree_table_get_node_count(C.Rid(tree_table)))
+}
+
+// TreeTableGetParent: The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or
+// shown.
+func TreeTableGetParent(tree_table ID, node int) int {
+	return int(C.Rtree_table_get_parent(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableGetChildCount: Children of a node (0: the top-level nodes). Virtual: asks the application.
+func TreeTableGetChildCount(tree_table ID, node int) int {
+	return int(C.Rtree_table_get_child_count(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableGetChild: The child of a node at `index`, or 0. Virtual: asks the application.
+func TreeTableGetChild(tree_table ID, node int, index int) int {
+	return int(C.Rtree_table_get_child(C.Rid(tree_table), C.int(node), C.int(index)))
+}
+
+// TreeTableGetDepth: Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+func TreeTableGetDepth(tree_table ID, node int) int {
+	return int(C.Rtree_table_get_depth(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableSetNodeCell: The text of a cell of a stored node, shown or not.
+func TreeTableSetNodeCell(tree_table ID, node int, column int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtree_table_set_node_cell(C.Rid(tree_table), C.int(node), C.int(column), text_)
+}
+
+// TreeTableGetNodeCell: The text of a cell of a node (virtual: asks the application). "" for none.
+func TreeTableGetNodeCell(tree_table ID, node int, column int) string {
+	return C.GoString(C.Rtree_table_get_node_cell(C.Rid(tree_table), C.int(node), C.int(column)))
+}
+
+// TreeTableSetNodeIcon: An icon before the text of the first column (Ricon_get("folder"), any texture),
+// R_INVALID_ID for none.
+func TreeTableSetNodeIcon(tree_table ID, node int, texture ID) {
+	C.Rtree_table_set_node_icon(C.Rid(tree_table), C.int(node), C.Rid(texture))
+}
+
+func TreeTableGetNodeIcon(tree_table ID, node int) ID {
+	return ID(C.Rtree_table_get_node_icon(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableSetNodeHasChildren: A stored node shows a chevron before it has children (HasChildren="true"):
+// opening it calls the expanded callback, where the application adds them (now, or later when they are
+// loaded).
+func TreeTableSetNodeHasChildren(tree_table ID, node int, has_children int) {
+	C.Rtree_table_set_node_has_children(C.Rid(tree_table), C.int(node), C.int(has_children))
+}
+
+// TreeTableSetExpanded: Opens or closes a node (a node inside a closed one keeps the state it is given).
+func TreeTableSetExpanded(tree_table ID, node int, expanded int) {
+	C.Rtree_table_set_expanded(C.Rid(tree_table), C.int(node), C.int(expanded))
+}
+
+func TreeTableIsExpanded(tree_table ID, node int) int {
+	return int(C.Rtree_table_is_expanded(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableExpandAll: Opens a node and every node under it (0: the whole tree). Virtual: asks for every node
+// under it.
+func TreeTableExpandAll(tree_table ID, node int) {
+	C.Rtree_table_expand_all(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableCollapseAll: Closes a node and every node under it (0: the whole tree).
+func TreeTableCollapseAll(tree_table ID, node int) {
+	C.Rtree_table_collapse_all(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableGetRowNode: The node shown at a row, 0 for none.
+func TreeTableGetRowNode(tree_table ID, row int) int {
+	return int(C.Rtree_table_get_row_node(C.Rid(tree_table), C.int(row)))
+}
+
+// TreeTableGetNodeRow: The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+func TreeTableGetNodeRow(tree_table ID, node int) int {
+	return int(C.Rtree_table_get_node_row(C.Rid(tree_table), C.int(node)))
+}
+
+// TreeTableRevealNode: Opens the parents of a stored node and scrolls to it.
+func TreeTableRevealNode(tree_table ID, node int) {
+	C.Rtree_table_reveal_node(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableSelectNode: Reveals a node and makes it the selection (0: none); the selection callback is not
+// called.
+func TreeTableSelectNode(tree_table ID, node int) {
+	C.Rtree_table_select_node(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableGetSelectedNode: The node of the selected row (the last one clicked in multiple selection), 0 for
+// none.
+func TreeTableGetSelectedNode(tree_table ID) int {
+	return int(C.Rtree_table_get_selected_node(C.Rid(tree_table)))
+}
+
+// TreeTableRefresh: Virtual tree: the children of `node` changed (0: anything, after a sort for instance).
+// Their counts are asked again; the nodes that were open stay open, found again by their numbers.
+func TreeTableRefresh(tree_table ID, node int) {
+	C.Rtree_table_refresh(C.Rid(tree_table), C.int(node))
+}
+
+// TreeTableSetGuideLines: Vertical lines that join the children of a node (GuideLines="true").
+func TreeTableSetGuideLines(tree_table ID, visible int) {
+	C.Rtree_table_set_guide_lines(C.Rid(tree_table), C.int(visible))
+}
+
+func TreeTableGetGuideLines(tree_table ID) int {
+	return int(C.Rtree_table_get_guide_lines(C.Rid(tree_table)))
+}
+
+// TreeTableSetTypeSearch: Typing the first letters of a name goes to it (TypeSearch, on by default).
+func TreeTableSetTypeSearch(tree_table ID, enabled int) {
+	C.Rtree_table_set_type_search(C.Rid(tree_table), C.int(enabled))
 }
 
 // DatePickerSetDate: Sets the date (today when the picker is created). An invalid date is refused.
@@ -9561,7 +9718,8 @@ func TestGetScriptError() string {
 // Rtile_view_set_drag_out_callback, Rtile_view_set_selection_changed_callback
 // Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
 // Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
-// Rtable_set_sort_callback, Rtable_set_cell_edited_callback, Rdate_picker_set_changed_callback
+// Rtable_set_sort_callback, Rtable_set_cell_edited_callback, Rtree_table_set_expanded_callback
+// Rtree_table_set_virtual, Rtree_table_set_icon_callback, Rdate_picker_set_changed_callback
 // Rtime_picker_set_changed_callback, Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback
 // Rrating_set_changed_callback, Rpagination_set_changed_callback, Rplot_set_view_changed_callback
 // Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback

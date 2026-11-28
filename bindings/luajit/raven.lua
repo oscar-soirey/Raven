@@ -493,6 +493,7 @@ typedef enum RWidgetType {
 	R_WIDGET_CAROUSEL = 566,
 	R_WIDGET_SYSTEM_WEB_VIEW = 567,
 	R_WIDGET_DIFF_VIEW = 568,
+	R_WIDGET_TREE_TABLE = 569,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -1045,6 +1046,12 @@ typedef int (*RTableCellColorCallback)(Rid table, int row, int column, float* r,
 typedef void (*RTableEventCallback)(Rid table, int row, void* user_data);
 typedef void (*RTableSortCallback)(Rid table, int column, int descending, void* user_data);
 typedef int (*RTableCellEditedCallback)(Rid table, int row, int column, const char* text, void* user_data);
+typedef void (*RTreeTableExpandCallback)(Rid tree_table, int node, int expanded, void* user_data);
+typedef int (*RTreeTableChildCountCallback)(Rid tree_table, int node, void* user_data);
+typedef int (*RTreeTableChildCallback)(Rid tree_table, int parent, int index, void* user_data);
+typedef int (*RTreeTableHasChildrenCallback)(Rid tree_table, int node, void* user_data);
+typedef const char* (*RTreeTableNodeTextCallback)(Rid tree_table, int node, int column, void* user_data);
+typedef Rid (*RTreeTableNodeIconCallback)(Rid tree_table, int node, void* user_data);
 typedef void (*RDateChangedCallback)(Rid date_picker, int year, int month, int day, void* user_data);
 typedef void (*RTimeChangedCallback)(Rid time_picker, int hour, int minute, int second, void* user_data);
 typedef void (*RToastCallback)(Rid toast, void* user_data);
@@ -2127,6 +2134,37 @@ void Rtable_set_column_kind(Rid table, int column, RTableColumnKind kind);
 RTableColumnKind Rtable_get_column_kind(Rid table, int column);
 int Rtable_is_cell_checked(Rid table, int row, int column);
 void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
+int Rtree_table_add_node(Rid tree_table, int parent, const char* cells);
+int Rtree_table_insert_node(Rid tree_table, int parent, int index, const char* cells);
+void Rtree_table_remove_node(Rid tree_table, int node);
+int Rtree_table_move_node(Rid tree_table, int node, int parent, int index);
+int Rtree_table_is_node_valid(Rid tree_table, int node);
+int Rtree_table_get_node_count(Rid tree_table);
+int Rtree_table_get_parent(Rid tree_table, int node);
+int Rtree_table_get_child_count(Rid tree_table, int node);
+int Rtree_table_get_child(Rid tree_table, int node, int index);
+int Rtree_table_get_depth(Rid tree_table, int node);
+void Rtree_table_set_node_cell(Rid tree_table, int node, int column, const char* text);
+const char* Rtree_table_get_node_cell(Rid tree_table, int node, int column);
+void Rtree_table_set_node_icon(Rid tree_table, int node, Rid texture);
+Rid Rtree_table_get_node_icon(Rid tree_table, int node);
+void Rtree_table_set_node_has_children(Rid tree_table, int node, int has_children);
+void Rtree_table_set_expanded(Rid tree_table, int node, int expanded);
+int Rtree_table_is_expanded(Rid tree_table, int node);
+void Rtree_table_expand_all(Rid tree_table, int node);
+void Rtree_table_collapse_all(Rid tree_table, int node);
+int Rtree_table_get_row_node(Rid tree_table, int row);
+int Rtree_table_get_node_row(Rid tree_table, int node);
+void Rtree_table_reveal_node(Rid tree_table, int node);
+void Rtree_table_select_node(Rid tree_table, int node);
+int Rtree_table_get_selected_node(Rid tree_table);
+void Rtree_table_set_expanded_callback(Rid tree_table, RTreeTableExpandCallback callback, void* user_data);
+void Rtree_table_set_virtual(Rid tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, void* user_data);
+void Rtree_table_set_icon_callback(Rid tree_table, RTreeTableNodeIconCallback callback, void* user_data);
+void Rtree_table_refresh(Rid tree_table, int node);
+void Rtree_table_set_guide_lines(Rid tree_table, int visible);
+int Rtree_table_get_guide_lines(Rid tree_table);
+void Rtree_table_set_type_search(Rid tree_table, int enabled);
 void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
 void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);
 void Rdate_picker_set_range(Rid date_picker, int min_year, int min_month, int min_day, int max_year, int max_month, int max_day);

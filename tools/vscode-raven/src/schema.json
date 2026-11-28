@@ -2642,6 +2642,84 @@
 			"accepted": []
 		},
 		{
+			"name": "TreeTable",
+			"description": "A table whose rows nest (files and folders, an outline): Column elements, and Row (or Item) elements that hold rows, with Cells, Icon=\"raven:folder\", Expanded and HasChildren; sorting keeps the hierarchy.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Columns",
+					"kind": "list",
+					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable, Kind=\"Text|Check|Progress\"). The first column shows the hierarchy."
+				},
+				{
+					"name": "GuideLines",
+					"kind": "bool",
+					"description": "Vertical lines that join the children of a node."
+				},
+				{
+					"name": "TypeSearch",
+					"kind": "bool",
+					"description": "Typing the first letters of a name goes to it (default true)."
+				},
+				{
+					"name": "FrozenColumns",
+					"kind": "number",
+					"description": "The first columns that stay in place when the table scrolls sideways."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range of the rows shown."
+				},
+				{
+					"name": "SelectionMode",
+					"kind": "choice",
+					"choices": [
+						"Single",
+						"Multiple",
+						"None"
+					],
+					"description": "One row at a time (default), any number of rows, or none."
+				},
+				{
+					"name": "Selected",
+					"kind": "number",
+					"description": "Which row shown is selected, from 0; -1 for none."
+				},
+				{
+					"name": "SortColumn",
+					"kind": "number",
+					"description": "The column the children of every node are sorted by, from 0; -1 for none."
+				},
+				{
+					"name": "SortDescending",
+					"kind": "bool",
+					"description": "Sorted from the largest to the smallest."
+				},
+				{
+					"name": "ShowHeader",
+					"kind": "bool",
+					"description": "Shows the row of the headers."
+				},
+				{
+					"name": "GridLines",
+					"kind": "bool",
+					"description": "Lines between the rows and the columns."
+				},
+				{
+					"name": "Striped",
+					"kind": "bool",
+					"description": "Every other row a little darker."
+				},
+				{
+					"name": "OnActivated",
+					"kind": "action",
+					"description": "Action fired by a double click or Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
 			"name": "DatePicker",
 			"description": "A date, chosen in a calendar that drops down.",
 			"children": "none",
@@ -3414,6 +3492,8 @@
 		"TileMap": "MapView",
 		"PageView": "Carousel",
 		"Slideshow": "Carousel",
-		"DiffViewer": "DiffView"
+		"DiffViewer": "DiffView",
+		"TreeGrid": "TreeTable",
+		"TreeListView": "TreeTable"
 	}
 }

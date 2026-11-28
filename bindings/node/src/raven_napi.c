@@ -697,6 +697,37 @@ static struct {
 	RTableColumnKind (*Rtable_get_column_kind)(Rid, int);
 	int (*Rtable_is_cell_checked)(Rid, int, int);
 	void (*Rtable_set_cell_checked)(Rid, int, int, int);
+	int (*Rtree_table_add_node)(Rid, int, const char*);
+	int (*Rtree_table_insert_node)(Rid, int, int, const char*);
+	void (*Rtree_table_remove_node)(Rid, int);
+	int (*Rtree_table_move_node)(Rid, int, int, int);
+	int (*Rtree_table_is_node_valid)(Rid, int);
+	int (*Rtree_table_get_node_count)(Rid);
+	int (*Rtree_table_get_parent)(Rid, int);
+	int (*Rtree_table_get_child_count)(Rid, int);
+	int (*Rtree_table_get_child)(Rid, int, int);
+	int (*Rtree_table_get_depth)(Rid, int);
+	void (*Rtree_table_set_node_cell)(Rid, int, int, const char*);
+	const char* (*Rtree_table_get_node_cell)(Rid, int, int);
+	void (*Rtree_table_set_node_icon)(Rid, int, Rid);
+	Rid (*Rtree_table_get_node_icon)(Rid, int);
+	void (*Rtree_table_set_node_has_children)(Rid, int, int);
+	void (*Rtree_table_set_expanded)(Rid, int, int);
+	int (*Rtree_table_is_expanded)(Rid, int);
+	void (*Rtree_table_expand_all)(Rid, int);
+	void (*Rtree_table_collapse_all)(Rid, int);
+	int (*Rtree_table_get_row_node)(Rid, int);
+	int (*Rtree_table_get_node_row)(Rid, int);
+	void (*Rtree_table_reveal_node)(Rid, int);
+	void (*Rtree_table_select_node)(Rid, int);
+	int (*Rtree_table_get_selected_node)(Rid);
+	void (*Rtree_table_set_expanded_callback)(Rid, RTreeTableExpandCallback, void*);
+	void (*Rtree_table_set_virtual)(Rid, RTreeTableChildCountCallback, RTreeTableChildCallback, RTreeTableHasChildrenCallback, RTreeTableNodeTextCallback, void*);
+	void (*Rtree_table_set_icon_callback)(Rid, RTreeTableNodeIconCallback, void*);
+	void (*Rtree_table_refresh)(Rid, int);
+	void (*Rtree_table_set_guide_lines)(Rid, int);
+	int (*Rtree_table_get_guide_lines)(Rid);
+	void (*Rtree_table_set_type_search)(Rid, int);
 	void (*Rdate_picker_set_date)(Rid, int, int, int);
 	void (*Rdate_picker_get_date)(Rid, int*, int*, int*);
 	void (*Rdate_picker_set_range)(Rid, int, int, int, int, int, int);
@@ -2309,6 +2340,37 @@ static const struct {
 	{"Rtable_get_column_kind", offsetof(__typeof__(rn), Rtable_get_column_kind)},
 	{"Rtable_is_cell_checked", offsetof(__typeof__(rn), Rtable_is_cell_checked)},
 	{"Rtable_set_cell_checked", offsetof(__typeof__(rn), Rtable_set_cell_checked)},
+	{"Rtree_table_add_node", offsetof(__typeof__(rn), Rtree_table_add_node)},
+	{"Rtree_table_insert_node", offsetof(__typeof__(rn), Rtree_table_insert_node)},
+	{"Rtree_table_remove_node", offsetof(__typeof__(rn), Rtree_table_remove_node)},
+	{"Rtree_table_move_node", offsetof(__typeof__(rn), Rtree_table_move_node)},
+	{"Rtree_table_is_node_valid", offsetof(__typeof__(rn), Rtree_table_is_node_valid)},
+	{"Rtree_table_get_node_count", offsetof(__typeof__(rn), Rtree_table_get_node_count)},
+	{"Rtree_table_get_parent", offsetof(__typeof__(rn), Rtree_table_get_parent)},
+	{"Rtree_table_get_child_count", offsetof(__typeof__(rn), Rtree_table_get_child_count)},
+	{"Rtree_table_get_child", offsetof(__typeof__(rn), Rtree_table_get_child)},
+	{"Rtree_table_get_depth", offsetof(__typeof__(rn), Rtree_table_get_depth)},
+	{"Rtree_table_set_node_cell", offsetof(__typeof__(rn), Rtree_table_set_node_cell)},
+	{"Rtree_table_get_node_cell", offsetof(__typeof__(rn), Rtree_table_get_node_cell)},
+	{"Rtree_table_set_node_icon", offsetof(__typeof__(rn), Rtree_table_set_node_icon)},
+	{"Rtree_table_get_node_icon", offsetof(__typeof__(rn), Rtree_table_get_node_icon)},
+	{"Rtree_table_set_node_has_children", offsetof(__typeof__(rn), Rtree_table_set_node_has_children)},
+	{"Rtree_table_set_expanded", offsetof(__typeof__(rn), Rtree_table_set_expanded)},
+	{"Rtree_table_is_expanded", offsetof(__typeof__(rn), Rtree_table_is_expanded)},
+	{"Rtree_table_expand_all", offsetof(__typeof__(rn), Rtree_table_expand_all)},
+	{"Rtree_table_collapse_all", offsetof(__typeof__(rn), Rtree_table_collapse_all)},
+	{"Rtree_table_get_row_node", offsetof(__typeof__(rn), Rtree_table_get_row_node)},
+	{"Rtree_table_get_node_row", offsetof(__typeof__(rn), Rtree_table_get_node_row)},
+	{"Rtree_table_reveal_node", offsetof(__typeof__(rn), Rtree_table_reveal_node)},
+	{"Rtree_table_select_node", offsetof(__typeof__(rn), Rtree_table_select_node)},
+	{"Rtree_table_get_selected_node", offsetof(__typeof__(rn), Rtree_table_get_selected_node)},
+	{"Rtree_table_set_expanded_callback", offsetof(__typeof__(rn), Rtree_table_set_expanded_callback)},
+	{"Rtree_table_set_virtual", offsetof(__typeof__(rn), Rtree_table_set_virtual)},
+	{"Rtree_table_set_icon_callback", offsetof(__typeof__(rn), Rtree_table_set_icon_callback)},
+	{"Rtree_table_refresh", offsetof(__typeof__(rn), Rtree_table_refresh)},
+	{"Rtree_table_set_guide_lines", offsetof(__typeof__(rn), Rtree_table_set_guide_lines)},
+	{"Rtree_table_get_guide_lines", offsetof(__typeof__(rn), Rtree_table_get_guide_lines)},
+	{"Rtree_table_set_type_search", offsetof(__typeof__(rn), Rtree_table_set_type_search)},
 	{"Rdate_picker_set_date", offsetof(__typeof__(rn), Rdate_picker_set_date)},
 	{"Rdate_picker_get_date", offsetof(__typeof__(rn), Rdate_picker_get_date)},
 	{"Rdate_picker_set_range", offsetof(__typeof__(rn), Rdate_picker_set_range)},
@@ -4138,6 +4200,12 @@ static int rn_t_RTableCellColorCallback(Rid, int, int, float*, float*, float*, f
 static void rn_t_RTableEventCallback(Rid, int, void*);
 static void rn_t_RTableSortCallback(Rid, int, int, void*);
 static int rn_t_RTableCellEditedCallback(Rid, int, int, const char*, void*);
+static void rn_t_RTreeTableExpandCallback(Rid, int, int, void*);
+static int rn_t_RTreeTableChildCountCallback(Rid, int, void*);
+static int rn_t_RTreeTableChildCallback(Rid, int, int, void*);
+static int rn_t_RTreeTableHasChildrenCallback(Rid, int, void*);
+static const char* rn_t_RTreeTableNodeTextCallback(Rid, int, int, void*);
+static Rid rn_t_RTreeTableNodeIconCallback(Rid, int, void*);
 static void rn_t_RDateChangedCallback(Rid, int, int, int, void*);
 static void rn_t_RTimeChangedCallback(Rid, int, int, int, void*);
 static void rn_t_RToastCallback(Rid, void*);
@@ -4948,6 +5016,119 @@ static int rn_t_RTableCellEditedCallback(Rid a0, int a1, int a2, const char* a3,
 	argv[4] = rn_make_ptr(env, cb->user_data);
 	result = rn_call(cb, 0, 5, argv);
 	value = rn_result_int(env, result);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+	return value;
+}
+
+static void rn_t_RTreeTableExpandCallback(Rid a0, int a1, int a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 4, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static int rn_t_RTreeTableChildCountCallback(Rid a0, int a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_value result;
+	int value;
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	result = rn_call(cb, 0, 3, argv);
+	value = rn_result_int(env, result);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+	return value;
+}
+
+static int rn_t_RTreeTableChildCallback(Rid a0, int a1, int a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_value result;
+	int value;
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	result = rn_call(cb, 1, 4, argv);
+	value = rn_result_int(env, result);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+	return value;
+}
+
+static int rn_t_RTreeTableHasChildrenCallback(Rid a0, int a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_value result;
+	int value;
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	result = rn_call(cb, 2, 3, argv);
+	value = rn_result_int(env, result);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+	return value;
+}
+
+static const char* rn_t_RTreeTableNodeTextCallback(Rid a0, int a1, int a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_value result;
+	const char* value;
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	result = rn_call(cb, 3, 4, argv);
+	value = rn_result_text(cb, env, result);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+	return value;
+}
+
+static Rid rn_t_RTreeTableNodeIconCallback(Rid a0, int a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_value result;
+	Rid value;
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	result = rn_call(cb, 0, 3, argv);
+	value = rn_result_id(env, result);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 	return value;
@@ -16419,6 +16600,533 @@ static napi_value rn_w_Rtable_set_cell_checked(napi_env env, napi_callback_info 
 	return result_;
 }
 
+static napi_value rn_w_Rtree_table_add_node(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	rn_str a2;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	int value_ = rn.Rtree_table_add_node((Rid)a0, (int)a1, a2.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_insert_node(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	rn_str a3;
+	a3.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_str_get(env, argv[3], &a3)) goto done;
+	int value_ = rn.Rtree_table_insert_node((Rid)a0, (int)a1, (int)a2, a3.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_remove_node(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_remove_node((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_move_node(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	int value_ = rn.Rtree_table_move_node((Rid)a0, (int)a1, (int)a2, (int)a3);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_is_node_valid(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_is_node_valid((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_node_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtree_table_get_node_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_parent(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_get_parent((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_child_count(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_get_child_count((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_child(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtree_table_get_child((Rid)a0, (int)a1, (int)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_depth(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_get_depth((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_node_cell(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	rn_str a3;
+	a3.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_str_get(env, argv[3], &a3)) goto done;
+	rn.Rtree_table_set_node_cell((Rid)a0, (int)a1, (int)a2, a3.p);
+done:
+	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_node_cell(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	result_ = rn_make_text(env, rn.Rtree_table_get_node_cell((Rid)a0, (int)a1, (int)a2));
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_node_icon(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	uint32_t a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_uint32(env, argv[2], &a2)) return NULL;
+	rn.Rtree_table_set_node_icon((Rid)a0, (int)a1, (Rid)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_node_icon(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	Rid value_ = rn.Rtree_table_get_node_icon((Rid)a0, (int)a1);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_node_has_children(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rtree_table_set_node_has_children((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_expanded(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rtree_table_set_expanded((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_is_expanded(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_is_expanded((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_expand_all(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_expand_all((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_collapse_all(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_collapse_all((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_row_node(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_get_row_node((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_node_row(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtree_table_get_node_row((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_reveal_node(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_reveal_node((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_select_node(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_select_node((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_selected_node(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtree_table_get_selected_node((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_expanded_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rtree_table_set_expanded_callback((Rid)a0, cb_ ? (RTreeTableExpandCallback)rn_t_RTreeTableExpandCallback : (RTreeTableExpandCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 59, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_virtual(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a5;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	void* n1_;
+	int k1_;
+	void* n2_;
+	int k2_;
+	void* n3_;
+	int k3_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[5], &a5)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	k1_ = rn_callback_arg(env, argv[2], &n1_);
+	if (k1_ == RN_CALLBACK_THROWN) return NULL;
+	if (k1_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	k2_ = rn_callback_arg(env, argv[3], &n2_);
+	if (k2_ == RN_CALLBACK_THROWN) return NULL;
+	if (k2_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	k3_ = rn_callback_arg(env, argv[4], &n3_);
+	if (k3_ == RN_CALLBACK_THROWN) return NULL;
+	if (k3_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		napi_value fns_[2];
+		fns_[0] = argv[1];
+		fns_[1] = argv[2];
+		cb_ = rn_cb_new(env, fns_, 2, a5);
+		if (!cb_) return NULL;
+	}
+	rn.Rtree_table_set_virtual((Rid)a0, cb_ ? (RTreeTableChildCountCallback)rn_t_RTreeTableChildCountCallback : (RTreeTableChildCountCallback)n0_, cb_ ? (RTreeTableChildCallback)rn_t_RTreeTableChildCallback : (RTreeTableChildCallback)n1_, cb_ ? (RTreeTableHasChildrenCallback)rn_t_RTreeTableHasChildrenCallback : (RTreeTableHasChildrenCallback)n2_, cb_ ? (RTreeTableNodeTextCallback)rn_t_RTreeTableNodeTextCallback : (RTreeTableNodeTextCallback)n3_, cb_ ? (void*)cb_ : a5);
+	rn_bind(a0, RN_OWNER_WIDGET, 60, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_icon_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rtree_table_set_icon_callback((Rid)a0, cb_ ? (RTreeTableNodeIconCallback)rn_t_RTreeTableNodeIconCallback : (RTreeTableNodeIconCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_refresh(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_refresh((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_guide_lines(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_set_guide_lines((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_get_guide_lines(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtree_table_get_guide_lines((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtree_table_set_type_search(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtree_table_set_type_search((Rid)a0, (int)a1);
+	return result_;
+}
+
 static napi_value rn_w_Rdate_picker_set_date(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -16579,7 +17287,7 @@ static napi_value rn_w_Rdate_picker_set_changed_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rdate_picker_set_changed_callback((Rid)a0, cb_ ? (RDateChangedCallback)rn_t_RDateChangedCallback : (RDateChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 59, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 62, NULL, cb_);
 	return result_;
 }
 
@@ -16733,7 +17441,7 @@ static napi_value rn_w_Rtime_picker_set_changed_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rtime_picker_set_changed_callback((Rid)a0, cb_ ? (RTimeChangedCallback)rn_t_RTimeChangedCallback : (RTimeChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 60, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 63, NULL, cb_);
 	return result_;
 }
 
@@ -17090,7 +17798,7 @@ static napi_value rn_w_Rtoast_set_action_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rtoast_set_action_callback((Rid)a0, cb_ ? (RToastCallback)rn_t_RToastCallback : (RToastCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 64, NULL, cb_);
 	return result_;
 }
 
@@ -17191,7 +17899,7 @@ static napi_value rn_w_Rbreadcrumb_set_clicked_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rbreadcrumb_set_clicked_callback((Rid)a0, cb_ ? (RBreadcrumbCallback)rn_t_RBreadcrumbCallback : (RBreadcrumbCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 62, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 65, NULL, cb_);
 	return result_;
 }
 
@@ -17312,7 +18020,7 @@ static napi_value rn_w_Rrating_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rrating_set_changed_callback((Rid)a0, cb_ ? (RRatingChangedCallback)rn_t_RRatingChangedCallback : (RRatingChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 63, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 66, NULL, cb_);
 	return result_;
 }
 
@@ -17405,7 +18113,7 @@ static napi_value rn_w_Rpagination_set_changed_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rpagination_set_changed_callback((Rid)a0, cb_ ? (RPageChangedCallback)rn_t_RPageChangedCallback : (RPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 64, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 67, NULL, cb_);
 	return result_;
 }
 
@@ -18341,7 +19049,7 @@ static napi_value rn_w_Rplot_set_view_changed_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rplot_set_view_changed_callback((Rid)a0, cb_ ? (RPlotViewCallback)rn_t_RPlotViewCallback : (RPlotViewCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 65, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 68, NULL, cb_);
 	return result_;
 }
 
@@ -18366,7 +19074,7 @@ static napi_value rn_w_Rplot_set_drag_line_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rplot_set_drag_line_callback((Rid)a0, cb_ ? (RPlotDragLineCallback)rn_t_RPlotDragLineCallback : (RPlotDragLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 66, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 69, NULL, cb_);
 	return result_;
 }
 
@@ -18391,7 +19099,7 @@ static napi_value rn_w_Rplot_set_series_toggled_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rplot_set_series_toggled_callback((Rid)a0, cb_ ? (RPlotSeriesCallback)rn_t_RPlotSeriesCallback : (RPlotSeriesCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 67, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 70, NULL, cb_);
 	return result_;
 }
 
@@ -18771,7 +19479,7 @@ static napi_value rn_w_Rchart_set_slice_clicked_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rchart_set_slice_clicked_callback((Rid)a0, cb_ ? (RChartSliceCallback)rn_t_RChartSliceCallback : (RChartSliceCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 68, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 71, NULL, cb_);
 	return result_;
 }
 
@@ -19086,7 +19794,7 @@ static napi_value rn_w_Rchart_set_cell_clicked_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rchart_set_cell_clicked_callback((Rid)a0, cb_ ? (RChartCellCallback)rn_t_RChartCellCallback : (RChartCellCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 69, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 72, NULL, cb_);
 	return result_;
 }
 
@@ -19431,7 +20139,7 @@ static napi_value rn_w_Rpdf_view_set_page_changed_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rpdf_view_set_page_changed_callback((Rid)a0, cb_ ? (RPdfPageChangedCallback)rn_t_RPdfPageChangedCallback : (RPdfPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 70, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 73, NULL, cb_);
 	return result_;
 }
 
@@ -19668,7 +20376,7 @@ static napi_value rn_w_Rcarousel_set_page_changed_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rcarousel_set_page_changed_callback((Rid)a0, cb_ ? (RCarouselPageChangedCallback)rn_t_RCarouselPageChangedCallback : (RCarouselPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 71, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 74, NULL, cb_);
 	return result_;
 }
 
@@ -19898,7 +20606,7 @@ static napi_value rn_w_Rmap_view_set_tile_callback(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rmap_view_set_tile_callback((Rid)a0, cb_ ? (RMapTileCallback)rn_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 72, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 75, NULL, cb_);
 	return result_;
 }
 
@@ -19923,7 +20631,7 @@ static napi_value rn_w_Rmap_view_set_tile_cancel_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rmap_view_set_tile_cancel_callback((Rid)a0, cb_ ? (RMapTileCallback)rn_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 73, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
 	return result_;
 }
 
@@ -20247,7 +20955,7 @@ static napi_value rn_w_Rmap_view_set_marker_clicked_callback(napi_env env, napi_
 		if (!cb_) return NULL;
 	}
 	rn.Rmap_view_set_marker_clicked_callback((Rid)a0, cb_ ? (RMapMarkerCallback)rn_t_RMapMarkerCallback : (RMapMarkerCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 74, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
 	return result_;
 }
 
@@ -20272,7 +20980,7 @@ static napi_value rn_w_Rmap_view_set_view_changed_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rmap_view_set_view_changed_callback((Rid)a0, cb_ ? (RMapViewCallback)rn_t_RMapViewCallback : (RMapViewCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 75, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
 	return result_;
 }
 
@@ -20525,7 +21233,7 @@ static napi_value rn_w_Rsystem_web_view_run_javascript(napi_env env, napi_callba
 		if (!cb_) goto done;
 	}
 	rn.Rsystem_web_view_run_javascript((Rid)a0, a1.p, cb_ ? (RSystemWebViewResultCallback)rn_t_RSystemWebViewResultCallback : (RSystemWebViewResultCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 79, NULL, cb_);
 done:
 	free(a1.heap);
 	return result_;
@@ -20552,7 +21260,7 @@ static napi_value rn_w_Rsystem_web_view_set_message_callback(napi_env env, napi_
 		if (!cb_) return NULL;
 	}
 	rn.Rsystem_web_view_set_message_callback((Rid)a0, cb_ ? (RSystemWebViewMessageCallback)rn_t_RSystemWebViewMessageCallback : (RSystemWebViewMessageCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 80, NULL, cb_);
 	return result_;
 }
 
@@ -20577,7 +21285,7 @@ static napi_value rn_w_Rsystem_web_view_set_event_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rsystem_web_view_set_event_callback((Rid)a0, cb_ ? (RSystemWebViewEventCallback)rn_t_RSystemWebViewEventCallback : (RSystemWebViewEventCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
 	return result_;
 }
 
@@ -21811,7 +22519,7 @@ static napi_value rn_w_Rtext_editor_set_zoom_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_zoom_callback((Rid)a0, cb_ ? (RTextEditorZoomCallback)rn_t_RTextEditorZoomCallback : (RTextEditorZoomCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 79, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 82, NULL, cb_);
 	return result_;
 }
 
@@ -22061,7 +22769,7 @@ static napi_value rn_w_Rtext_editor_set_completion_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_completion_callback((Rid)a0, cb_ ? (RCompletionCallback)rn_t_RCompletionCallback : (RCompletionCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 80, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
 	return result_;
 }
 
@@ -22210,7 +22918,7 @@ static napi_value rn_w_Rtext_editor_set_hover_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_hover_callback((Rid)a0, cb_ ? (RTextEditorHoverCallback)rn_t_RTextEditorHoverCallback : (RTextEditorHoverCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
 	return result_;
 }
 
@@ -22523,7 +23231,7 @@ static napi_value rn_w_Rtext_editor_set_changed_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_changed_callback((Rid)a0, cb_ ? (RTextEditorChangedCallback)rn_t_RTextEditorChangedCallback : (RTextEditorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 82, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
 	return result_;
 }
 
@@ -22910,7 +23618,7 @@ static napi_value rn_w_Rdock_area_set_close_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_close_callback((Rid)a0, cb_ ? (RDockCloseCallback)rn_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
 	return result_;
 }
 
@@ -22978,7 +23686,7 @@ static napi_value rn_w_Rdock_area_set_float_window(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_float_window((Rid)a0, (Ruint)a1, cb_ ? (RDockFloatWindowCallback)rn_t_RDockFloatWindowCallback : (RDockFloatWindowCallback)n0_, cb_ ? (void*)cb_ : a3);
-	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 87, NULL, cb_);
 	return result_;
 }
 
@@ -23051,7 +23759,7 @@ static napi_value rn_w_Rdock_area_set_changed_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_changed_callback((Rid)a0, cb_ ? (RDockChangedCallback)rn_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
 	return result_;
 }
 
@@ -23208,7 +23916,7 @@ static napi_value rn_w_Risland_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Risland_set_changed_callback((Rid)a0, cb_ ? (RIslandChangedCallback)rn_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
 	return result_;
 }
 
@@ -23429,7 +24137,7 @@ static napi_value rn_w_Rtray_set_clicked_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rtray_set_clicked_callback((Rid)a0, cb_ ? (RTrayClickedCallback)rn_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_PLAIN, 87, NULL, cb_);
+	rn_bind(a0, RN_OWNER_PLAIN, 90, NULL, cb_);
 	return result_;
 }
 
@@ -23743,7 +24451,7 @@ static napi_value rn_w_Rcolor_picker_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rcolor_picker_set_changed_callback((Rid)a0, cb_ ? (RColorChangedCallback)rn_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
 	return result_;
 }
 
@@ -24670,7 +25378,7 @@ static napi_value rn_w_Rtimeline_set_time_callback(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_time_callback((Rid)a0, cb_ ? (RTimelineTimeCallback)rn_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 92, NULL, cb_);
 	return result_;
 }
 
@@ -24695,7 +25403,7 @@ static napi_value rn_w_Rtimeline_set_changed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_changed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 90, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 93, NULL, cb_);
 	return result_;
 }
 
@@ -24720,7 +25428,7 @@ static napi_value rn_w_Rtimeline_set_selection_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_selection_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 94, NULL, cb_);
 	return result_;
 }
 
@@ -24745,7 +25453,7 @@ static napi_value rn_w_Rtimeline_set_activated_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_activated_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 92, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 95, NULL, cb_);
 	return result_;
 }
 
@@ -24770,7 +25478,7 @@ static napi_value rn_w_Rtimeline_set_removed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_removed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 93, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
 	return result_;
 }
 
@@ -25790,7 +26498,7 @@ static napi_value rn_w_Rnode_graph_set_connect_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_connect_callback((Rid)a0, cb_ ? (RNodeGraphConnectCallback)rn_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 94, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 97, NULL, cb_);
 	return result_;
 }
 
@@ -25815,7 +26523,7 @@ static napi_value rn_w_Rnode_graph_set_linked_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_linked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 95, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 98, NULL, cb_);
 	return result_;
 }
 
@@ -25840,7 +26548,7 @@ static napi_value rn_w_Rnode_graph_set_unlinked_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_unlinked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 99, NULL, cb_);
 	return result_;
 }
 
@@ -25865,7 +26573,7 @@ static napi_value rn_w_Rnode_graph_set_moved_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_moved_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 97, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 100, NULL, cb_);
 	return result_;
 }
 
@@ -25890,7 +26598,7 @@ static napi_value rn_w_Rnode_graph_set_selection_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_selection_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 98, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 101, NULL, cb_);
 	return result_;
 }
 
@@ -25915,7 +26623,7 @@ static napi_value rn_w_Rnode_graph_set_removed_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_removed_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 99, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 102, NULL, cb_);
 	return result_;
 }
 
@@ -25940,7 +26648,7 @@ static napi_value rn_w_Rnode_graph_set_activated_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_activated_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 100, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 103, NULL, cb_);
 	return result_;
 }
 
@@ -25965,7 +26673,7 @@ static napi_value rn_w_Rnode_graph_set_context_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_context_callback((Rid)a0, cb_ ? (RNodeGraphContextCallback)rn_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 101, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 104, NULL, cb_);
 	return result_;
 }
 
@@ -25990,7 +26698,7 @@ static napi_value rn_w_Rnode_graph_set_canvas_activated_callback(napi_env env, n
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_canvas_activated_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 102, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 105, NULL, cb_);
 	return result_;
 }
 
@@ -26015,7 +26723,7 @@ static napi_value rn_w_Rnode_graph_set_wire_dropped_callback(napi_env env, napi_
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_wire_dropped_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 103, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 106, NULL, cb_);
 	return result_;
 }
 
@@ -26040,7 +26748,7 @@ static napi_value rn_w_Rnode_graph_set_pin_clicked_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_pin_clicked_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 104, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
 	return result_;
 }
 
@@ -26796,7 +27504,7 @@ static napi_value rn_w_Rblock_editor_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_changed_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 105, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
 	return result_;
 }
 
@@ -26821,7 +27529,7 @@ static napi_value rn_w_Rblock_editor_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_clicked_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 106, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 109, NULL, cb_);
 	return result_;
 }
 
@@ -26846,7 +27554,7 @@ static napi_value rn_w_Rblock_editor_set_context_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_context_callback((Rid)a0, cb_ ? (RBlockEditorContextCallback)rn_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 110, NULL, cb_);
 	return result_;
 }
 
@@ -27570,7 +28278,7 @@ static napi_value rn_w_Rdiff_view_set_line_clicked_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rdiff_view_set_line_clicked_callback((Rid)a0, cb_ ? (RDiffViewLineCallback)rn_t_RDiffViewLineCallback : (RDiffViewLineCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 111, NULL, cb_);
 	return result_;
 }
 
@@ -27592,14 +28300,14 @@ static napi_value rn_w_Rdialog_open(napi_env env, napi_callback_info info) {
 	k0_ = rn_callback_arg(env, argv[2], &n0_);
 	if (k0_ == RN_CALLBACK_THROWN) return NULL;
 	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
-	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 109)) {
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 112)) {
 		cb_ = rn_cb_new(env, &argv[2], 1, a3);
 		if (!cb_) return NULL;
 	}
 	rn.Rdialog_open((Rid)a0, (Rid)a1, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rn_bind(a1, RN_OWNER_WIDGET, 109, NULL, cb_);
+		rn_bind(a1, RN_OWNER_WIDGET, 112, NULL, cb_);
 	}
 	return result_;
 }
@@ -27660,7 +28368,7 @@ static napi_value rn_w_Rpopup_open(napi_env env, napi_callback_info info) {
 		if (!cb_) return NULL;
 	}
 	rn.Rpopup_open((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rn_bind(a0, RN_OWNER_WIDGET, 110, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 113, NULL, cb_);
 	return result_;
 }
 
@@ -28123,7 +28831,7 @@ static napi_value rn_w_Rfile_browser_set_accepted_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_accepted_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 111, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 114, NULL, cb_);
 	return result_;
 }
 
@@ -28148,7 +28856,7 @@ static napi_value rn_w_Rfile_browser_set_cancelled_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_cancelled_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 112, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 115, NULL, cb_);
 	return result_;
 }
 
@@ -28173,7 +28881,7 @@ static napi_value rn_w_Rfile_browser_set_selection_changed_callback(napi_env env
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_selection_changed_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 113, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 116, NULL, cb_);
 	return result_;
 }
 
@@ -28227,7 +28935,7 @@ static napi_value rn_w_Rnotification_set_fallback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_fallback(cb_ ? (RNotificationFallback)rn_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 114, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 117, NULL, cb_);
 	return result_;
 }
 
@@ -28250,7 +28958,7 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_clicked_callback(cb_ ? (RNotificationClickedCallback)rn_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 115, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 118, NULL, cb_);
 	return result_;
 }
 
@@ -28301,7 +29009,7 @@ static napi_value rn_w_Rnotification_set_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_callback(cb_ ? (RNotificationCallback)rn_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 116, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 119, NULL, cb_);
 	return result_;
 }
 
@@ -28784,7 +29492,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 125, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 128, NULL, cb_);
 	return result_;
 }
 
@@ -28823,7 +29531,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 126, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 129, NULL, cb_);
 	return result_;
 }
 
@@ -28848,7 +29556,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 127, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 130, NULL, cb_);
 	return result_;
 }
 
@@ -29590,7 +30298,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 128, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
 	return result_;
 }
 
@@ -29725,7 +30433,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 132, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -29742,7 +30450,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 129, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 132, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -30587,7 +31295,7 @@ static napi_value rn_w_Rscript_set_log_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_log_callback(cb_ ? (RScriptLogCallback)rn_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 130, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 133, NULL, cb_);
 	return result_;
 }
 
@@ -30610,7 +31318,7 @@ static napi_value rn_w_Rscript_set_diagnostic_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_diagnostic_callback(cb_ ? (RScriptDiagnosticCallback)rn_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 131, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 134, NULL, cb_);
 	return result_;
 }
 
@@ -30773,7 +31481,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 132, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 135, NULL, cb_);
 	return result_;
 }
 
@@ -31401,7 +32109,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 133, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 136, NULL, cb_);
 	return result_;
 }
 
@@ -32953,6 +33661,37 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtable_get_column_kind", NULL, rn_w_Rtable_get_column_kind, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_is_cell_checked", NULL, rn_w_Rtable_is_cell_checked, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_cell_checked", NULL, rn_w_Rtable_set_cell_checked, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_add_node", NULL, rn_w_Rtree_table_add_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_insert_node", NULL, rn_w_Rtree_table_insert_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_remove_node", NULL, rn_w_Rtree_table_remove_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_move_node", NULL, rn_w_Rtree_table_move_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_is_node_valid", NULL, rn_w_Rtree_table_is_node_valid, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_node_count", NULL, rn_w_Rtree_table_get_node_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_parent", NULL, rn_w_Rtree_table_get_parent, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_child_count", NULL, rn_w_Rtree_table_get_child_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_child", NULL, rn_w_Rtree_table_get_child, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_depth", NULL, rn_w_Rtree_table_get_depth, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_node_cell", NULL, rn_w_Rtree_table_set_node_cell, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_node_cell", NULL, rn_w_Rtree_table_get_node_cell, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_node_icon", NULL, rn_w_Rtree_table_set_node_icon, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_node_icon", NULL, rn_w_Rtree_table_get_node_icon, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_node_has_children", NULL, rn_w_Rtree_table_set_node_has_children, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_expanded", NULL, rn_w_Rtree_table_set_expanded, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_is_expanded", NULL, rn_w_Rtree_table_is_expanded, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_expand_all", NULL, rn_w_Rtree_table_expand_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_collapse_all", NULL, rn_w_Rtree_table_collapse_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_row_node", NULL, rn_w_Rtree_table_get_row_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_node_row", NULL, rn_w_Rtree_table_get_node_row, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_reveal_node", NULL, rn_w_Rtree_table_reveal_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_select_node", NULL, rn_w_Rtree_table_select_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_selected_node", NULL, rn_w_Rtree_table_get_selected_node, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_expanded_callback", NULL, rn_w_Rtree_table_set_expanded_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_virtual", NULL, rn_w_Rtree_table_set_virtual, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_icon_callback", NULL, rn_w_Rtree_table_set_icon_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_refresh", NULL, rn_w_Rtree_table_refresh, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_guide_lines", NULL, rn_w_Rtree_table_set_guide_lines, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_get_guide_lines", NULL, rn_w_Rtree_table_get_guide_lines, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtree_table_set_type_search", NULL, rn_w_Rtree_table_set_type_search, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_set_date", NULL, rn_w_Rdate_picker_set_date, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_get_date", NULL, rn_w_Rdate_picker_get_date, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_set_range", NULL, rn_w_Rdate_picker_set_range, NULL, NULL, NULL, napi_enumerable, NULL},

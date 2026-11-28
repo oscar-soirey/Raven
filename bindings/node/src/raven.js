@@ -672,8 +672,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_CAROUSEL: 566,
 	R_WIDGET_SYSTEM_WEB_VIEW: 567,
 	R_WIDGET_DIFF_VIEW: 568,
+	R_WIDGET_TREE_TABLE: 569,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW, R_WIDGET_TREE_TABLE } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -4642,6 +4643,37 @@ export const Rtable_set_column_kind = _lib.Rtable_set_column_kind;
 export const Rtable_get_column_kind = _lib.Rtable_get_column_kind;
 export const Rtable_is_cell_checked = _lib.Rtable_is_cell_checked;
 export const Rtable_set_cell_checked = _lib.Rtable_set_cell_checked;
+export const Rtree_table_add_node = _lib.Rtree_table_add_node;
+export const Rtree_table_insert_node = _lib.Rtree_table_insert_node;
+export const Rtree_table_remove_node = _lib.Rtree_table_remove_node;
+export const Rtree_table_move_node = _lib.Rtree_table_move_node;
+export const Rtree_table_is_node_valid = _lib.Rtree_table_is_node_valid;
+export const Rtree_table_get_node_count = _lib.Rtree_table_get_node_count;
+export const Rtree_table_get_parent = _lib.Rtree_table_get_parent;
+export const Rtree_table_get_child_count = _lib.Rtree_table_get_child_count;
+export const Rtree_table_get_child = _lib.Rtree_table_get_child;
+export const Rtree_table_get_depth = _lib.Rtree_table_get_depth;
+export const Rtree_table_set_node_cell = _lib.Rtree_table_set_node_cell;
+export const Rtree_table_get_node_cell = _lib.Rtree_table_get_node_cell;
+export const Rtree_table_set_node_icon = _lib.Rtree_table_set_node_icon;
+export const Rtree_table_get_node_icon = _lib.Rtree_table_get_node_icon;
+export const Rtree_table_set_node_has_children = _lib.Rtree_table_set_node_has_children;
+export const Rtree_table_set_expanded = _lib.Rtree_table_set_expanded;
+export const Rtree_table_is_expanded = _lib.Rtree_table_is_expanded;
+export const Rtree_table_expand_all = _lib.Rtree_table_expand_all;
+export const Rtree_table_collapse_all = _lib.Rtree_table_collapse_all;
+export const Rtree_table_get_row_node = _lib.Rtree_table_get_row_node;
+export const Rtree_table_get_node_row = _lib.Rtree_table_get_node_row;
+export const Rtree_table_reveal_node = _lib.Rtree_table_reveal_node;
+export const Rtree_table_select_node = _lib.Rtree_table_select_node;
+export const Rtree_table_get_selected_node = _lib.Rtree_table_get_selected_node;
+export const Rtree_table_set_expanded_callback = _lib.Rtree_table_set_expanded_callback;
+export const Rtree_table_set_virtual = _lib.Rtree_table_set_virtual;
+export const Rtree_table_set_icon_callback = _lib.Rtree_table_set_icon_callback;
+export const Rtree_table_refresh = _lib.Rtree_table_refresh;
+export const Rtree_table_set_guide_lines = _lib.Rtree_table_set_guide_lines;
+export const Rtree_table_get_guide_lines = _lib.Rtree_table_get_guide_lines;
+export const Rtree_table_set_type_search = _lib.Rtree_table_set_type_search;
 export const Rdate_picker_set_date = _lib.Rdate_picker_set_date;
 export const Rdate_picker_get_date = _lib.Rdate_picker_get_date;
 export const Rdate_picker_set_range = _lib.Rdate_picker_set_range;

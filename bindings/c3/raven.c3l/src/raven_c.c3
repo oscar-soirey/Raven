@@ -786,6 +786,8 @@ const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
 const RWidgetType R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 <* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 const RWidgetType R_WIDGET_DIFF_VIEW = 0x0238;
+<* A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h). *>
+const RWidgetType R_WIDGET_TREE_TABLE = 0x0239;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1785,6 +1787,18 @@ alias RTableSortCallback = fn void(Rid table, CInt column, CInt descending, void
  Without a callback, a stored table keeps every text.
 *>
 alias RTableCellEditedCallback = fn CInt(Rid table, CInt row, CInt column, char* text, void* user_data);
+<* Called when a node opens (before its children are asked: they can be added or loaded then) or closes. *>
+alias RTreeTableExpandCallback = fn void(Rid tree_table, CInt node, CInt expanded, void* user_data);
+<* Virtual tree: how many children `node` has (0: the top-level nodes). *>
+alias RTreeTableChildCountCallback = fn CInt(Rid tree_table, CInt node, void* user_data);
+<* Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it. *>
+alias RTreeTableChildCallback = fn CInt(Rid tree_table, CInt parent, CInt index, void* user_data);
+<* Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron. *>
+alias RTreeTableHasChildrenCallback = fn CInt(Rid tree_table, CInt node, void* user_data);
+<* Virtual tree: the text of a cell of `node`. NULL is "". *>
+alias RTreeTableNodeTextCallback = fn char*(Rid tree_table, CInt node, CInt column, void* user_data);
+<* Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID. *>
+alias RTreeTableNodeIconCallback = fn Rid(Rid tree_table, CInt node, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias RDateChangedCallback = fn void(Rid date_picker, CInt year, CInt month, CInt day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
@@ -5564,6 +5578,116 @@ extern fn CInt r_table_is_cell_checked(Rid table, CInt row, CInt column) @cname(
 
 <* Stored rows: writes "1" or "0" in the cell (no callback is called). *>
 extern fn void r_table_set_cell_checked(Rid table, CInt row, CInt column, CInt checked) @cname("Rtable_set_cell_checked");
+
+<*
+ Adds a node at the end of the children of `parent` (0: the top
+ level), with its cells separated by '|' as in Rtable_add_row (NULL:
+ empty). @return The number naming the node (> 0), or 0 on error.
+*>
+extern fn CInt r_tree_table_add_node(Rid tree_table, CInt parent, char* cells) @cname("Rtree_table_add_node");
+
+<* Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last). *>
+extern fn CInt r_tree_table_insert_node(Rid tree_table, CInt parent, CInt index, char* cells) @cname("Rtree_table_insert_node");
+
+<* Removes a node and every node under it. *>
+extern fn void r_tree_table_remove_node(Rid tree_table, CInt node) @cname("Rtree_table_remove_node");
+
+<*
+ Moves a node, with its subtree, among the children of `parent` at
+ `index` (-1: last). A node cannot go under itself. @return R_TRUE when moved.
+*>
+extern fn CInt r_tree_table_move_node(Rid tree_table, CInt node, CInt parent, CInt index) @cname("Rtree_table_move_node");
+
+<* R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown. *>
+extern fn CInt r_tree_table_is_node_valid(Rid tree_table, CInt node) @cname("Rtree_table_is_node_valid");
+
+<* Stored nodes, shown or not (the root not counted). *>
+extern fn CInt r_tree_table_get_node_count(Rid tree_table) @cname("Rtree_table_get_node_count");
+
+<* The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown. *>
+extern fn CInt r_tree_table_get_parent(Rid tree_table, CInt node) @cname("Rtree_table_get_parent");
+
+<* Children of a node (0: the top-level nodes). Virtual: asks the application. *>
+extern fn CInt r_tree_table_get_child_count(Rid tree_table, CInt node) @cname("Rtree_table_get_child_count");
+
+<* The child of a node at `index`, or 0. Virtual: asks the application. *>
+extern fn CInt r_tree_table_get_child(Rid tree_table, CInt node, CInt index) @cname("Rtree_table_get_child");
+
+<* Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown. *>
+extern fn CInt r_tree_table_get_depth(Rid tree_table, CInt node) @cname("Rtree_table_get_depth");
+
+<* The text of a cell of a stored node, shown or not. *>
+extern fn void r_tree_table_set_node_cell(Rid tree_table, CInt node, CInt column, char* text) @cname("Rtree_table_set_node_cell");
+
+<* The text of a cell of a node (virtual: asks the application). "" for none. *>
+extern fn char* r_tree_table_get_node_cell(Rid tree_table, CInt node, CInt column) @cname("Rtree_table_get_node_cell");
+
+<* An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none. *>
+extern fn void r_tree_table_set_node_icon(Rid tree_table, CInt node, Rid texture) @cname("Rtree_table_set_node_icon");
+
+extern fn Rid r_tree_table_get_node_icon(Rid tree_table, CInt node) @cname("Rtree_table_get_node_icon");
+
+<*
+ A stored node shows a chevron before it has children
+ (HasChildren="true"): opening it calls the expanded callback, where the
+ application adds them (now, or later when they are loaded).
+*>
+extern fn void r_tree_table_set_node_has_children(Rid tree_table, CInt node, CInt has_children) @cname("Rtree_table_set_node_has_children");
+
+<* Opens or closes a node (a node inside a closed one keeps the state it is given). *>
+extern fn void r_tree_table_set_expanded(Rid tree_table, CInt node, CInt expanded) @cname("Rtree_table_set_expanded");
+
+extern fn CInt r_tree_table_is_expanded(Rid tree_table, CInt node) @cname("Rtree_table_is_expanded");
+
+<* Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it. *>
+extern fn void r_tree_table_expand_all(Rid tree_table, CInt node) @cname("Rtree_table_expand_all");
+
+<* Closes a node and every node under it (0: the whole tree). *>
+extern fn void r_tree_table_collapse_all(Rid tree_table, CInt node) @cname("Rtree_table_collapse_all");
+
+<* The node shown at a row, 0 for none. *>
+extern fn CInt r_tree_table_get_row_node(Rid tree_table, CInt row) @cname("Rtree_table_get_row_node");
+
+<* The row a node is shown at, -1 when it is inside a closed node (or does not exist). *>
+extern fn CInt r_tree_table_get_node_row(Rid tree_table, CInt node) @cname("Rtree_table_get_node_row");
+
+<* Opens the parents of a stored node and scrolls to it. *>
+extern fn void r_tree_table_reveal_node(Rid tree_table, CInt node) @cname("Rtree_table_reveal_node");
+
+<* Reveals a node and makes it the selection (0: none); the selection callback is not called. *>
+extern fn void r_tree_table_select_node(Rid tree_table, CInt node) @cname("Rtree_table_select_node");
+
+<* The node of the selected row (the last one clicked in multiple selection), 0 for none. *>
+extern fn CInt r_tree_table_get_selected_node(Rid tree_table) @cname("Rtree_table_get_selected_node");
+
+<* Called when the user or the application opens or closes a node (lazy loading). *>
+extern fn void r_tree_table_set_expanded_callback(Rid tree_table, RTreeTableExpandCallback callback, void* user_data) @cname("Rtree_table_set_expanded_callback");
+
+<*
+ Makes the tree virtual: the stored nodes are removed and the
+ application gives the tree with the callbacks, asked for the rows
+ drawn only. `has_children` may be NULL (the count is asked then).
+ `child_count` NULL makes the tree stored again, empty.
+*>
+extern fn void r_tree_table_set_virtual(Rid tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, void* user_data) @cname("Rtree_table_set_virtual");
+
+<* Virtual tree: the icons of the nodes. *>
+extern fn void r_tree_table_set_icon_callback(Rid tree_table, RTreeTableNodeIconCallback callback, void* user_data) @cname("Rtree_table_set_icon_callback");
+
+<*
+ Virtual tree: the children of `node` changed (0: anything, after a
+ sort for instance). Their counts are asked again; the nodes that were
+ open stay open, found again by their numbers.
+*>
+extern fn void r_tree_table_refresh(Rid tree_table, CInt node) @cname("Rtree_table_refresh");
+
+<* Vertical lines that join the children of a node (GuideLines="true"). *>
+extern fn void r_tree_table_set_guide_lines(Rid tree_table, CInt visible) @cname("Rtree_table_set_guide_lines");
+
+extern fn CInt r_tree_table_get_guide_lines(Rid tree_table) @cname("Rtree_table_get_guide_lines");
+
+<* Typing the first letters of a name goes to it (TypeSearch, on by default). *>
+extern fn void r_tree_table_set_type_search(Rid tree_table, CInt enabled) @cname("Rtree_table_set_type_search");
 
 <* Sets the date (today when the picker is created). An invalid date is refused. *>
 extern fn void r_date_picker_set_date(Rid date_picker, CInt year, CInt month, CInt day) @cname("Rdate_picker_set_date");

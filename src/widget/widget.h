@@ -1141,6 +1141,8 @@ int rvn_table_cursor_row(const rvn_widget_t* table);
 const char* rvn_table_accessible_cell(rvn_widget_t* table, int row, int column);
 rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
 int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);
+/** A row of a TreeTable: level (1 at the top), position among its siblings (from 1), their count, and whether it opens. */
+int rvn_tree_table_accessible_row(rvn_widget_t* table, int row, int* level, int* position, int* size, int* expandable, int* expanded);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
 void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */

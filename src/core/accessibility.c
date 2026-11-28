@@ -287,6 +287,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
+		/* a tree grid: a table whose rows are tree items (RVN_A11Y_TREE_GRID) */
+		case R_WIDGET_TREE_TABLE: return R_ROLE_TABLE;
 		case R_WIDGET_DIFF_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_DATE_PICKER: return R_ROLE_COMBO_BOX;
 		case R_WIDGET_TIME_PICKER: return R_ROLE_SPIN_BUTTON;
@@ -383,7 +385,7 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 	switch ((int)widget->cls->type) {
 		case R_WIDGET_LIST_VIEW: return Rlist_view_get_item_count(widget->id);
-		case R_WIDGET_TABLE: return Rtable_get_row_count(widget->id);
+		case R_WIDGET_TABLE: case R_WIDGET_TREE_TABLE: return Rtable_get_row_count(widget->id);
 		case R_WIDGET_TREE_VIEW: return Rtree_view_get_item_count(widget->id);
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
@@ -567,7 +569,7 @@ rvn_a11y_id_t rvn_a11y_hit(Rid id, float x, float y) {
 	for (i = n - 1; i >= 0; i--) {
 		rvn_widget_t* hit = rvn_a11y_deepest(tops[i], x - tops[i]->rect.x, y - tops[i]->rect.y);
 		if (hit) {
-			if (hit->cls->type == R_WIDGET_TABLE) {
+			if (hit->cls->type == R_WIDGET_TABLE || hit->cls->type == R_WIDGET_TREE_TABLE) {
 				rvn_vec2_t origin = rvn_widget_origin(hit);
 				int row = rvn_table_accessible_row_at(hit, x - origin.x, y - origin.y);
 				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
@@ -592,7 +594,7 @@ rvn_a11y_id_t rvn_a11y_focus(Rid id) {
 		int selected = Rlist_view_get_selected(window->focus->id);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
-	if (window->focus->cls->type == R_WIDGET_TABLE) {
+	if (window->focus->cls->type == R_WIDGET_TABLE || window->focus->cls->type == R_WIDGET_TREE_TABLE) {
 		int selected = rvn_table_cursor_row(window->focus);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
@@ -738,7 +740,8 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 	if (item >= 0) {
 		/* a row, a tab */
 		switch ((int)widget->cls->type) {
-			case R_WIDGET_TABLE: {
+			case R_WIDGET_TABLE:
+			case R_WIDGET_TREE_TABLE: {
 				int c;
 				rvn_rect_t rect = rvn_table_accessible_rect(widget, item);
 				if (item >= Rtable_get_row_count(widget->id)) return R_FALSE;
@@ -756,6 +759,14 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				}
 				if (Rtable_is_row_selected(widget->id, item)) node->states |= RVN_A11Y_SELECTED;
 				if ((widget->flags & RVN_WF_FOCUSED) && rvn_table_cursor_row(widget) == item) node->states |= RVN_A11Y_FOCUSED;
+				if (widget->cls->type == R_WIDGET_TREE_TABLE) {
+					/* a row of a tree grid: its level, its place among its siblings, open or closed */
+					int expandable = R_FALSE, expanded = R_FALSE;
+					node->role = R_ROLE_TREE_ITEM;
+					rvn_tree_table_accessible_row(widget, item, &node->level, &node->position, &node->set_size, &expandable, &expanded);
+					if (expandable) node->states |= RVN_A11Y_EXPANDABLE;
+					if (expandable && expanded) node->states |= RVN_A11Y_EXPANDED;
+				}
 				break;
 			}
 			case R_WIDGET_DIFF_VIEW: {
@@ -895,8 +906,10 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			node->states |= RVN_A11Y_HAS_RANGE;
 			rvn_text_printf(&g_a11y.value, "%g / %g", node->number, node->maximum);
 			break;
-		case R_WIDGET_TABLE: {
+		case R_WIDGET_TABLE:
+		case R_WIDGET_TREE_TABLE: {
 			if (rvn_table_multi_select(widget)) node->states |= RVN_A11Y_MULTI_SELECT;
+			if (widget->cls->type == R_WIDGET_TREE_TABLE) node->states |= RVN_A11Y_TREE_GRID;
 			int selected = Rtable_get_selected(widget->id), columns = Rtable_get_column_count(widget->id), c;
 			/* the selected row, cell after cell */
 			for (c = 0; selected >= 0 && c < columns; c++) {
@@ -1072,13 +1085,14 @@ static void rvn_a11y_key(rvn_widget_t* widget, RKey key) {
 
 int rvn_a11y_selection_count(rvn_a11y_id_t id) {
 	rvn_widget_t* widget = rvn_a11y_as_widget(id);
-	return widget && widget->cls->type == R_WIDGET_TABLE && rvn_a11y_item(id) < 0 ? Rtable_get_selection_count(widget->id) : 0;
+	return widget && (widget->cls->type == R_WIDGET_TABLE || widget->cls->type == R_WIDGET_TREE_TABLE) && rvn_a11y_item(id) < 0 ?
+		Rtable_get_selection_count(widget->id) : 0;
 }
 
 rvn_a11y_id_t rvn_a11y_selection_at(rvn_a11y_id_t id, int index) {
 	rvn_widget_t* widget = rvn_a11y_as_widget(id);
 	int row;
-	if (!widget || widget->cls->type != R_WIDGET_TABLE || rvn_a11y_item(id) >= 0) return 0;
+	if (!widget || (widget->cls->type != R_WIDGET_TABLE && widget->cls->type != R_WIDGET_TREE_TABLE) || rvn_a11y_item(id) >= 0) return 0;
 	row = Rtable_get_selection(widget->id, index);
 	return row >= 0 ? rvn_a11y_make_item(widget->id, row) : 0;
 }
@@ -1102,12 +1116,23 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 	if (action == RVN_A11Y_FOCUS) {
 		rvn_widget_focus(widget);
 		if (item >= 0 && widget->cls->type == R_WIDGET_LIST_VIEW) Rlist_view_set_selected(widget->id, item);
-		if (item >= 0 && widget->cls->type == R_WIDGET_TABLE) Rtable_set_row_selected(widget->id, item, R_TRUE);
+		if (item >= 0 && (widget->cls->type == R_WIDGET_TABLE || widget->cls->type == R_WIDGET_TREE_TABLE)) Rtable_set_row_selected(widget->id, item, R_TRUE);
 		return R_TRUE;
 	}
 	if (item >= 0) {
-		if (action == RVN_A11Y_REMOVE_SELECTION && widget->cls->type != R_WIDGET_TABLE) return R_FALSE;
+		if (action == RVN_A11Y_REMOVE_SELECTION && widget->cls->type != R_WIDGET_TABLE && widget->cls->type != R_WIDGET_TREE_TABLE) return R_FALSE;
 		switch ((int)widget->cls->type) {
+			case R_WIDGET_TREE_TABLE:
+				/* a row of a tree grid opens and closes */
+				if (action == RVN_A11Y_EXPAND || action == RVN_A11Y_COLLAPSE) {
+					int tree_node = Rtree_table_get_row_node(widget->id, item);
+					if (tree_node <= 0) return R_FALSE;
+					rvn_dispatch_begin();
+					Rtree_table_set_expanded(widget->id, tree_node, action == RVN_A11Y_EXPAND);
+					rvn_dispatch_end();
+					return R_TRUE;
+				}
+				/* fall through - selected as the rows of a table */
 			case R_WIDGET_TABLE:
 				if (!rvn_widget_is_enabled(widget)) return R_FALSE;
 				if (action != RVN_A11Y_SELECT && action != RVN_A11Y_PRESS &&
@@ -1157,6 +1182,7 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 	}
 	switch ((int)widget->cls->type) {
 		case R_WIDGET_TABLE:
+		case R_WIDGET_TREE_TABLE:
 			if (action != RVN_A11Y_CLEAR_SELECTION || !rvn_widget_is_enabled(widget)) return R_FALSE;
 			Rtable_clear_selection(widget->id);
 			return R_TRUE;

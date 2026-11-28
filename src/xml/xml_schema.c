@@ -301,6 +301,21 @@ static const rvn_schema_attribute_t g_table[] = {
 	B("Striped", "Every other row a little darker."),
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
+static const rvn_schema_attribute_t g_tree_table[] = {
+	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable, Kind=\"Text|Check|Progress\"). The first column shows the hierarchy."),
+	B("GuideLines", "Vertical lines that join the children of a node."),
+	B("TypeSearch", "Typing the first letters of a name goes to it (default true)."),
+	N("FrozenColumns", "The first columns that stay in place when the table scrolls sideways."),
+	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range of the rows shown."),
+	C("SelectionMode", "Single|Multiple|None", "One row at a time (default), any number of rows, or none."),
+	N("Selected", "Which row shown is selected, from 0; -1 for none."),
+	N("SortColumn", "The column the children of every node are sorted by, from 0; -1 for none."),
+	B("SortDescending", "Sorted from the largest to the smallest."),
+	B("ShowHeader", "Shows the row of the headers."),
+	B("GridLines", "Lines between the rows and the columns."),
+	B("Striped", "Every other row a little darker."),
+	A("OnActivated", "Action fired by a double click or Enter."),
+};
 static const rvn_schema_attribute_t g_date_picker[] = {
 	T("Date", "The date, \"YYYY-MM-DD\" or Today."),
 	T("Min", "The earliest date that can be chosen, \"YYYY-MM-DD\"."),
@@ -654,6 +669,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Timeline", g_timeline, "A sequencer: Track elements holding Clip and Key elements, and Marker elements."),
 	TAG("BlockEditor", g_block_editor, "Blocks that snap into each other (Scratch): Kind elements (Name, Label, Shape, Category) and Category elements (Name, Color)."),
 	TAG("Table", g_table, "Rows of cells under columns that can be resized and sorted: Column and Row elements; any number of rows."),
+	TAG("TreeTable", g_tree_table, "A table whose rows nest (files and folders, an outline): Column elements, and Row (or Item) elements that hold rows, with Cells, Icon=\"raven:folder\", Expanded and HasChildren; sorting keeps the hierarchy."),
 	TAG("DatePicker", g_date_picker, "A date, chosen in a calendar that drops down."),
 	TAG("TimePicker", g_time_picker, "A time of the day: hours, minutes, optionally seconds."),
 	TAG("Toast", g_toast, "A short message that rises over the content for a few seconds (in an Overlay)."),

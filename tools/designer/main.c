@@ -349,6 +349,9 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 		"<Node Name=\"b\" Title=\"Result\" X=\"260\" Y=\"70\"><Input Name=\"in\" Label=\"Value\"/></Node><Link From=\"a.out\" To=\"b.in\"/></NodeGraph>" },
 	{ "Table", "<Table Height=\"140\" Striped=\"true\"><Column Header=\"Name\" Width=\"120\"/><Column Header=\"Age\" Width=\"60\" Align=\"Right\"/>"
 		"<Column Header=\"City\" Fill=\"1\"/><Row>Ada|36|London</Row><Row>Grace|85|New York</Row><Row>Linus|56|Portland</Row></Table>" },
+	{ "TreeTable", "<TreeTable Height=\"150\" GuideLines=\"true\"><Column Header=\"Name\" Width=\"150\"/><Column Header=\"Size\" Width=\"70\" Align=\"Right\"/>"
+		"<Row Cells=\"src|\" Icon=\"raven:folder\" Expanded=\"true\"><Row Cells=\"main.c|12 KB\" Icon=\"raven:file\"/><Row Cells=\"util.c|4 KB\" Icon=\"raven:file\"/></Row>"
+		"<Row Cells=\"README.md|3 KB\" Icon=\"raven:file\"/></TreeTable>" },
 	{ "DatePicker", "<DatePicker Date=\"Today\"/>" },
 	{ "TimePicker", "<TimePicker Time=\"09:30\"/>" },
 	{ "Toast", "<Toast Text=\"Saved\" Duration=\"0\" ActionText=\"Undo\" Kind=\"Success\"/>" },
@@ -376,7 +379,7 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 static const struct { const char* tag; const char* attributes; const char* about; } SPECIAL_TAGS[] = {
 	{ "Item", "Text", "A row of the list, tree or combo box it is in, or an item of a Breadcrumb." },
 	{ "Column", "Header|Width|Fill|Sortable|Align", "A column of a Table: its header, its width, the share of the free width it takes." },
-	{ "Row", "Cells", "A row of a Table: its cells separated by '|', or Cell elements." },
+	{ "Row", "Cells|Icon|Expanded|HasChildren", "A row of a Table: its cells separated by '|', or Cell elements. In a TreeTable, it holds Row elements: its children." },
 	{ "Cell", "Text", "A cell of a Row, for a text that holds a '|'." },
 	{ "Series", "Name|Color|Line|LineWidth|Marker|MarkerSize|MarkerFilled|Step|Fill|XAxis|Axis|MaxPoints|Visible|X|Y|Points", "A series of a Plot: its points (X and Y lists, or Points \"x,y x,y\") and how they are drawn." },
 	{ "Scatter", "Name|Color|Marker|MarkerSize|MarkerFilled|XAxis|Axis|X|Y|Points", "A series of a Plot drawn as markers only." },

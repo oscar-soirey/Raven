@@ -1135,6 +1135,10 @@ public final class R {
      * The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
      */
     public static final int R_WIDGET_DIFF_VIEW = 0x0238;
+    /**
+     * A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+     */
+    public static final int R_WIDGET_TREE_TABLE = 0x0239;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -6300,6 +6304,141 @@ public final class R {
 
     private static MemorySegment upcall(RTableCellEditedCallback f) {
         return stub(f, RTableCellEditedCallback.class, "RTableCellEditedCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+     */
+    @FunctionalInterface
+    public interface RTreeTableExpandCallback {
+        void invoke(int tree_table, int node, int expanded, MemorySegment user_data);
+    }
+
+    private static void RTreeTableExpandCallback$raw(RTreeTableExpandCallback f, int tree_table, int node, int expanded, MemorySegment user_data) {
+        try {
+            f.invoke(tree_table, node, expanded, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableExpandCallback f) {
+        return stub(f, RTreeTableExpandCallback.class, "RTreeTableExpandCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Virtual tree: how many children `node` has (0: the top-level nodes).
+     */
+    @FunctionalInterface
+    public interface RTreeTableChildCountCallback {
+        int invoke(int tree_table, int node, MemorySegment user_data);
+    }
+
+    private static int RTreeTableChildCountCallback$raw(RTreeTableChildCountCallback f, int tree_table, int node, MemorySegment user_data) {
+        try {
+            return f.invoke(tree_table, node, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableChildCountCallback f) {
+        return stub(f, RTreeTableChildCountCallback.class, "RTreeTableChildCountCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+     */
+    @FunctionalInterface
+    public interface RTreeTableChildCallback {
+        int invoke(int tree_table, int parent, int index, MemorySegment user_data);
+    }
+
+    private static int RTreeTableChildCallback$raw(RTreeTableChildCallback f, int tree_table, int parent, int index, MemorySegment user_data) {
+        try {
+            return f.invoke(tree_table, parent, index, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableChildCallback f) {
+        return stub(f, RTreeTableChildCallback.class, "RTreeTableChildCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+     */
+    @FunctionalInterface
+    public interface RTreeTableHasChildrenCallback {
+        int invoke(int tree_table, int node, MemorySegment user_data);
+    }
+
+    private static int RTreeTableHasChildrenCallback$raw(RTreeTableHasChildrenCallback f, int tree_table, int node, MemorySegment user_data) {
+        try {
+            return f.invoke(tree_table, node, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableHasChildrenCallback f) {
+        return stub(f, RTreeTableHasChildrenCallback.class, "RTreeTableHasChildrenCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Virtual tree: the text of a cell of `node`. NULL is "".
+     */
+    @FunctionalInterface
+    public interface RTreeTableNodeTextCallback {
+        String invoke(int tree_table, int node, int column, MemorySegment user_data);
+    }
+
+    private static MemorySegment RTreeTableNodeTextCallback$raw(RTreeTableNodeTextCallback f, int tree_table, int node, int column, MemorySegment user_data) {
+        try {
+            String text = f.invoke(tree_table, node, column, user_data);
+            if (text == null) return MemorySegment.NULL;
+            MemorySegment segment = utf8(Arena.ofAuto(), text);
+            synchronized (RETURNED) { RETURNED.put(f, segment); }
+            return segment;
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return MemorySegment.NULL;
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableNodeTextCallback f) {
+        return stub(f, RTreeTableNodeTextCallback.class, "RTreeTableNodeTextCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
+     */
+    @FunctionalInterface
+    public interface RTreeTableNodeIconCallback {
+        int invoke(int tree_table, int node, MemorySegment user_data);
+    }
+
+    private static int RTreeTableNodeIconCallback$raw(RTreeTableNodeIconCallback f, int tree_table, int node, MemorySegment user_data) {
+        try {
+            return f.invoke(tree_table, node, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTreeTableNodeIconCallback f) {
+        return stub(f, RTreeTableNodeIconCallback.class, "RTreeTableNodeIconCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -18123,6 +18262,515 @@ public final class R {
         if ($h == null) Rtable_set_cell_checked$ = $h = find("Rtable_set_cell_checked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(table, row, column, checked);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_add_node$;
+
+    /**
+     * Adds a node at the end of the children of `parent` (0: the top
+     * level), with its cells separated by '|' as in Rtable_add_row (NULL:
+     * empty). Returns: The number naming the node (&gt; 0), or 0 on error.
+     */
+    public static int Rtree_table_add_node(int tree_table, int parent, String cells) {
+        MethodHandle $h = Rtree_table_add_node$;
+        if ($h == null) Rtree_table_add_node$ = $h = find("Rtree_table_add_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment cells$ = cells == null ? MemorySegment.NULL : utf8($a, cells);
+            int $r = (int) $h.invokeExact(tree_table, parent, cells$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_insert_node$;
+
+    /**
+     * Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+     */
+    public static int Rtree_table_insert_node(int tree_table, int parent, int index, String cells) {
+        MethodHandle $h = Rtree_table_insert_node$;
+        if ($h == null) Rtree_table_insert_node$ = $h = find("Rtree_table_insert_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment cells$ = cells == null ? MemorySegment.NULL : utf8($a, cells);
+            int $r = (int) $h.invokeExact(tree_table, parent, index, cells$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_remove_node$;
+
+    /**
+     * Removes a node and every node under it.
+     */
+    public static void Rtree_table_remove_node(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_remove_node$;
+        if ($h == null) Rtree_table_remove_node$ = $h = find("Rtree_table_remove_node", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_move_node$;
+
+    /**
+     * Moves a node, with its subtree, among the children of `parent` at
+     * `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+     */
+    public static int Rtree_table_move_node(int tree_table, int node, int parent, int index) {
+        MethodHandle $h = Rtree_table_move_node$;
+        if ($h == null) Rtree_table_move_node$ = $h = find("Rtree_table_move_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node, parent, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_is_node_valid$;
+
+    /**
+     * R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+     */
+    public static int Rtree_table_is_node_valid(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_is_node_valid$;
+        if ($h == null) Rtree_table_is_node_valid$ = $h = find("Rtree_table_is_node_valid", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_node_count$;
+
+    /**
+     * Stored nodes, shown or not (the root not counted).
+     */
+    public static int Rtree_table_get_node_count(int tree_table) {
+        MethodHandle $h = Rtree_table_get_node_count$;
+        if ($h == null) Rtree_table_get_node_count$ = $h = find("Rtree_table_get_node_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_parent$;
+
+    /**
+     * The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+     */
+    public static int Rtree_table_get_parent(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_get_parent$;
+        if ($h == null) Rtree_table_get_parent$ = $h = find("Rtree_table_get_parent", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_child_count$;
+
+    /**
+     * Children of a node (0: the top-level nodes). Virtual: asks the application.
+     */
+    public static int Rtree_table_get_child_count(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_get_child_count$;
+        if ($h == null) Rtree_table_get_child_count$ = $h = find("Rtree_table_get_child_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_child$;
+
+    /**
+     * The child of a node at `index`, or 0. Virtual: asks the application.
+     */
+    public static int Rtree_table_get_child(int tree_table, int node, int index) {
+        MethodHandle $h = Rtree_table_get_child$;
+        if ($h == null) Rtree_table_get_child$ = $h = find("Rtree_table_get_child", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_depth$;
+
+    /**
+     * Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+     */
+    public static int Rtree_table_get_depth(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_get_depth$;
+        if ($h == null) Rtree_table_get_depth$ = $h = find("Rtree_table_get_depth", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_node_cell$;
+
+    /**
+     * The text of a cell of a stored node, shown or not.
+     */
+    public static void Rtree_table_set_node_cell(int tree_table, int node, int column, String text) {
+        MethodHandle $h = Rtree_table_set_node_cell$;
+        if ($h == null) Rtree_table_set_node_cell$ = $h = find("Rtree_table_set_node_cell", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(tree_table, node, column, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_node_cell$;
+
+    /**
+     * The text of a cell of a node (virtual: asks the application). "" for none.
+     */
+    public static String Rtree_table_get_node_cell(int tree_table, int node, int column) {
+        MethodHandle $h = Rtree_table_get_node_cell$;
+        if ($h == null) Rtree_table_get_node_cell$ = $h = find("Rtree_table_get_node_cell", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(tree_table, node, column);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_node_icon$;
+
+    /**
+     * An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+     */
+    public static void Rtree_table_set_node_icon(int tree_table, int node, int texture) {
+        MethodHandle $h = Rtree_table_set_node_icon$;
+        if ($h == null) Rtree_table_set_node_icon$ = $h = find("Rtree_table_set_node_icon", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node, texture);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_node_icon$;
+
+    public static int Rtree_table_get_node_icon(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_get_node_icon$;
+        if ($h == null) Rtree_table_get_node_icon$ = $h = find("Rtree_table_get_node_icon", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_node_has_children$;
+
+    /**
+     * A stored node shows a chevron before it has children
+     * (HasChildren="true"): opening it calls the expanded callback, where the
+     * application adds them (now, or later when they are loaded).
+     */
+    public static void Rtree_table_set_node_has_children(int tree_table, int node, int has_children) {
+        MethodHandle $h = Rtree_table_set_node_has_children$;
+        if ($h == null) Rtree_table_set_node_has_children$ = $h = find("Rtree_table_set_node_has_children", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node, has_children);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_expanded$;
+
+    /**
+     * Opens or closes a node (a node inside a closed one keeps the state it is given).
+     */
+    public static void Rtree_table_set_expanded(int tree_table, int node, int expanded) {
+        MethodHandle $h = Rtree_table_set_expanded$;
+        if ($h == null) Rtree_table_set_expanded$ = $h = find("Rtree_table_set_expanded", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node, expanded);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_is_expanded$;
+
+    public static int Rtree_table_is_expanded(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_is_expanded$;
+        if ($h == null) Rtree_table_is_expanded$ = $h = find("Rtree_table_is_expanded", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_expand_all$;
+
+    /**
+     * Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+     */
+    public static void Rtree_table_expand_all(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_expand_all$;
+        if ($h == null) Rtree_table_expand_all$ = $h = find("Rtree_table_expand_all", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_collapse_all$;
+
+    /**
+     * Closes a node and every node under it (0: the whole tree).
+     */
+    public static void Rtree_table_collapse_all(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_collapse_all$;
+        if ($h == null) Rtree_table_collapse_all$ = $h = find("Rtree_table_collapse_all", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_row_node$;
+
+    /**
+     * The node shown at a row, 0 for none.
+     */
+    public static int Rtree_table_get_row_node(int tree_table, int row) {
+        MethodHandle $h = Rtree_table_get_row_node$;
+        if ($h == null) Rtree_table_get_row_node$ = $h = find("Rtree_table_get_row_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, row);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_node_row$;
+
+    /**
+     * The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+     */
+    public static int Rtree_table_get_node_row(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_get_node_row$;
+        if ($h == null) Rtree_table_get_node_row$ = $h = find("Rtree_table_get_node_row", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table, node);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_reveal_node$;
+
+    /**
+     * Opens the parents of a stored node and scrolls to it.
+     */
+    public static void Rtree_table_reveal_node(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_reveal_node$;
+        if ($h == null) Rtree_table_reveal_node$ = $h = find("Rtree_table_reveal_node", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_select_node$;
+
+    /**
+     * Reveals a node and makes it the selection (0: none); the selection callback is not called.
+     */
+    public static void Rtree_table_select_node(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_select_node$;
+        if ($h == null) Rtree_table_select_node$ = $h = find("Rtree_table_select_node", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_selected_node$;
+
+    /**
+     * The node of the selected row (the last one clicked in multiple selection), 0 for none.
+     */
+    public static int Rtree_table_get_selected_node(int tree_table) {
+        MethodHandle $h = Rtree_table_get_selected_node$;
+        if ($h == null) Rtree_table_get_selected_node$ = $h = find("Rtree_table_get_selected_node", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_expanded_callback$;
+
+    /**
+     * Called when the user or the application opens or closes a node (lazy loading).
+     */
+    public static void Rtree_table_set_expanded_callback(int tree_table, RTreeTableExpandCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtree_table_set_expanded_callback$;
+        if ($h == null) Rtree_table_set_expanded_callback$ = $h = find("Rtree_table_set_expanded_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tree_table, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the user or the application opens or closes a node (lazy loading).
+     */
+    public static void Rtree_table_set_expanded_callback(int tree_table, RTreeTableExpandCallback callback) {
+        Rtree_table_set_expanded_callback(tree_table, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtree_table_set_virtual$;
+
+    /**
+     * Makes the tree virtual: the stored nodes are removed and the
+     * application gives the tree with the callbacks, asked for the rows
+     * drawn only. `has_children` may be NULL (the count is asked then).
+     * `child_count` NULL makes the tree stored again, empty.
+     */
+    public static void Rtree_table_set_virtual(int tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, MemorySegment user_data) {
+        MethodHandle $h = Rtree_table_set_virtual$;
+        if ($h == null) Rtree_table_set_virtual$ = $h = find("Rtree_table_set_virtual", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tree_table, upcall(child_count), upcall(child), upcall(has_children), upcall(cell_text), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Makes the tree virtual: the stored nodes are removed and the
+     * application gives the tree with the callbacks, asked for the rows
+     * drawn only. `has_children` may be NULL (the count is asked then).
+     * `child_count` NULL makes the tree stored again, empty.
+     */
+    public static void Rtree_table_set_virtual(int tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text) {
+        Rtree_table_set_virtual(tree_table, child_count, child, has_children, cell_text, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtree_table_set_icon_callback$;
+
+    /**
+     * Virtual tree: the icons of the nodes.
+     */
+    public static void Rtree_table_set_icon_callback(int tree_table, RTreeTableNodeIconCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtree_table_set_icon_callback$;
+        if ($h == null) Rtree_table_set_icon_callback$ = $h = find("Rtree_table_set_icon_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tree_table, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Virtual tree: the icons of the nodes.
+     */
+    public static void Rtree_table_set_icon_callback(int tree_table, RTreeTableNodeIconCallback callback) {
+        Rtree_table_set_icon_callback(tree_table, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtree_table_refresh$;
+
+    /**
+     * Virtual tree: the children of `node` changed (0: anything, after a
+     * sort for instance). Their counts are asked again; the nodes that were
+     * open stay open, found again by their numbers.
+     */
+    public static void Rtree_table_refresh(int tree_table, int node) {
+        MethodHandle $h = Rtree_table_refresh$;
+        if ($h == null) Rtree_table_refresh$ = $h = find("Rtree_table_refresh", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_guide_lines$;
+
+    /**
+     * Vertical lines that join the children of a node (GuideLines="true").
+     */
+    public static void Rtree_table_set_guide_lines(int tree_table, int visible) {
+        MethodHandle $h = Rtree_table_set_guide_lines$;
+        if ($h == null) Rtree_table_set_guide_lines$ = $h = find("Rtree_table_set_guide_lines", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_get_guide_lines$;
+
+    public static int Rtree_table_get_guide_lines(int tree_table) {
+        MethodHandle $h = Rtree_table_get_guide_lines$;
+        if ($h == null) Rtree_table_get_guide_lines$ = $h = find("Rtree_table_get_guide_lines", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tree_table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtree_table_set_type_search$;
+
+    /**
+     * Typing the first letters of a name goes to it (TypeSearch, on by default).
+     */
+    public static void Rtree_table_set_type_search(int tree_table, int enabled) {
+        MethodHandle $h = Rtree_table_set_type_search$;
+        if ($h == null) Rtree_table_set_type_search$ = $h = find("Rtree_table_set_type_search", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tree_table, enabled);
         } catch (Throwable $t) {
             throw fail($t);
         }

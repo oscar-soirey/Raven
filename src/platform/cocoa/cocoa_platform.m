@@ -1845,7 +1845,8 @@ static NSAccessibilityRole rvn_cocoa_a11y_role(const rvn_a11y_node_t* node) {
         case R_ROLE_LIST_ITEM: return NSAccessibilityStaticTextRole;
         case R_ROLE_TREE: return NSAccessibilityOutlineRole;
         case R_ROLE_TREE_ITEM: return NSAccessibilityRowRole;
-        case R_ROLE_TABLE: return NSAccessibilityTableRole;
+        /* a table whose rows nest is an outline */
+        case R_ROLE_TABLE: return (node->states & RVN_A11Y_TREE_GRID) ? NSAccessibilityOutlineRole : NSAccessibilityTableRole;
         case R_ROLE_MENU_BAR: return NSAccessibilityMenuBarRole;
         case R_ROLE_MENU: return NSAccessibilityMenuRole;
         case R_ROLE_MENU_ITEM: return NSAccessibilityMenuItemRole;
@@ -1981,9 +1982,24 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
     if (!rvn_a11y_describe(nodeId, &node) || !(node.states & RVN_A11Y_HAS_RANGE)) return NO;
     return rvn_a11y_set_number(nodeId, node.number - (node.step > 0.0 ? node.step : 1.0)) ? YES : NO;
 }
+/* a row of an outline: its level, open or closed */
+- (NSInteger)accessibilityDisclosureLevel {
+    rvn_a11y_node_t node;
+    return rvn_a11y_describe(nodeId, &node) && node.level > 0 ? (NSInteger)(node.level - 1) : 0;
+}
+- (BOOL)isAccessibilityDisclosed {
+    rvn_a11y_node_t node;
+    return rvn_a11y_describe(nodeId, &node) && (node.states & RVN_A11Y_EXPANDED) ? YES : NO;
+}
+- (void)setAccessibilityDisclosed:(BOOL)disclosed {
+    rvn_a11y_act(nodeId, disclosed ? RVN_A11Y_EXPAND : RVN_A11Y_COLLAPSE);
+}
 - (BOOL)isAccessibilitySelectorAllowed:(SEL)selector {
     rvn_a11y_node_t node;
     if (!rvn_a11y_describe(nodeId, &node)) return NO;
+    if (selector == @selector(accessibilityDisclosureLevel) || selector == @selector(isAccessibilityDisclosed))
+        return node.level > 0 ? YES : NO;
+    if (selector == @selector(setAccessibilityDisclosed:)) return node.level > 0 && (node.states & RVN_A11Y_EXPANDABLE) ? YES : NO;
     if (selector == @selector(accessibilityPerformPress)) return (node.states & (RVN_A11Y_INVOKABLE | RVN_A11Y_CHECKABLE)) ? YES : NO;
     if (selector == @selector(setAccessibilitySelectedRows:)) return node.role == R_ROLE_TABLE ? YES : NO;
     if (selector == @selector(accessibilityPerformIncrement) || selector == @selector(accessibilityPerformDecrement))

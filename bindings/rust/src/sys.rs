@@ -728,6 +728,8 @@ pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 pub const R_WIDGET_SYSTEM_WEB_VIEW: RWidgetType = 0x0237;
 /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 pub const R_WIDGET_DIFF_VIEW: RWidgetType = 0x0238;
+/// A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+pub const R_WIDGET_TREE_TABLE: RWidgetType = 0x0239;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1610,6 +1612,18 @@ pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_
 /// user can correct it; after a click elsewhere the edit is dropped.
 /// Without a callback, a stored table keeps every text.
 pub type RTableCellEditedCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, text: *const c_char, user_data: *mut c_void) -> c_int>;
+/// Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+pub type RTreeTableExpandCallback = Option<unsafe extern "C" fn(tree_table: Rid, node: c_int, expanded: c_int, user_data: *mut c_void)>;
+/// Virtual tree: how many children `node` has (0: the top-level nodes).
+pub type RTreeTableChildCountCallback = Option<unsafe extern "C" fn(tree_table: Rid, node: c_int, user_data: *mut c_void) -> c_int>;
+/// Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+pub type RTreeTableChildCallback = Option<unsafe extern "C" fn(tree_table: Rid, parent: c_int, index: c_int, user_data: *mut c_void) -> c_int>;
+/// Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+pub type RTreeTableHasChildrenCallback = Option<unsafe extern "C" fn(tree_table: Rid, node: c_int, user_data: *mut c_void) -> c_int>;
+/// Virtual tree: the text of a cell of `node`. NULL is "".
+pub type RTreeTableNodeTextCallback = Option<unsafe extern "C" fn(tree_table: Rid, node: c_int, column: c_int, user_data: *mut c_void) -> *const c_char>;
+/// Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
+pub type RTreeTableNodeIconCallback = Option<unsafe extern "C" fn(tree_table: Rid, node: c_int, user_data: *mut c_void) -> Rid>;
 /// Called when the user chooses a date. This also fires the action of the widget.
 pub type RDateChangedCallback = Option<unsafe extern "C" fn(date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: *mut c_void)>;
 /// Called when the user changes the time. This also fires the action of the widget.
@@ -4164,6 +4178,75 @@ extern "C" {
     pub fn Rtable_is_cell_checked(table: Rid, row: c_int, column: c_int) -> c_int;
     /// Stored rows: writes "1" or "0" in the cell (no callback is called).
     pub fn Rtable_set_cell_checked(table: Rid, row: c_int, column: c_int, checked: c_int);
+    /// Adds a node at the end of the children of `parent` (0: the top
+    /// level), with its cells separated by '|' as in Rtable_add_row (NULL:
+    /// empty). Returns: The number naming the node (> 0), or 0 on error.
+    pub fn Rtree_table_add_node(tree_table: Rid, parent: c_int, cells: *const c_char) -> c_int;
+    /// Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+    pub fn Rtree_table_insert_node(tree_table: Rid, parent: c_int, index: c_int, cells: *const c_char) -> c_int;
+    /// Removes a node and every node under it.
+    pub fn Rtree_table_remove_node(tree_table: Rid, node: c_int);
+    /// Moves a node, with its subtree, among the children of `parent` at
+    /// `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+    pub fn Rtree_table_move_node(tree_table: Rid, node: c_int, parent: c_int, index: c_int) -> c_int;
+    /// R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+    pub fn Rtree_table_is_node_valid(tree_table: Rid, node: c_int) -> c_int;
+    /// Stored nodes, shown or not (the root not counted).
+    pub fn Rtree_table_get_node_count(tree_table: Rid) -> c_int;
+    /// The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+    pub fn Rtree_table_get_parent(tree_table: Rid, node: c_int) -> c_int;
+    /// Children of a node (0: the top-level nodes). Virtual: asks the application.
+    pub fn Rtree_table_get_child_count(tree_table: Rid, node: c_int) -> c_int;
+    /// The child of a node at `index`, or 0. Virtual: asks the application.
+    pub fn Rtree_table_get_child(tree_table: Rid, node: c_int, index: c_int) -> c_int;
+    /// Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+    pub fn Rtree_table_get_depth(tree_table: Rid, node: c_int) -> c_int;
+    /// The text of a cell of a stored node, shown or not.
+    pub fn Rtree_table_set_node_cell(tree_table: Rid, node: c_int, column: c_int, text: *const c_char);
+    /// The text of a cell of a node (virtual: asks the application). "" for none.
+    pub fn Rtree_table_get_node_cell(tree_table: Rid, node: c_int, column: c_int) -> *const c_char;
+    /// An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+    pub fn Rtree_table_set_node_icon(tree_table: Rid, node: c_int, texture: Rid);
+    pub fn Rtree_table_get_node_icon(tree_table: Rid, node: c_int) -> Rid;
+    /// A stored node shows a chevron before it has children
+    /// (HasChildren="true"): opening it calls the expanded callback, where the
+    /// application adds them (now, or later when they are loaded).
+    pub fn Rtree_table_set_node_has_children(tree_table: Rid, node: c_int, has_children: c_int);
+    /// Opens or closes a node (a node inside a closed one keeps the state it is given).
+    pub fn Rtree_table_set_expanded(tree_table: Rid, node: c_int, expanded: c_int);
+    pub fn Rtree_table_is_expanded(tree_table: Rid, node: c_int) -> c_int;
+    /// Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+    pub fn Rtree_table_expand_all(tree_table: Rid, node: c_int);
+    /// Closes a node and every node under it (0: the whole tree).
+    pub fn Rtree_table_collapse_all(tree_table: Rid, node: c_int);
+    /// The node shown at a row, 0 for none.
+    pub fn Rtree_table_get_row_node(tree_table: Rid, row: c_int) -> c_int;
+    /// The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+    pub fn Rtree_table_get_node_row(tree_table: Rid, node: c_int) -> c_int;
+    /// Opens the parents of a stored node and scrolls to it.
+    pub fn Rtree_table_reveal_node(tree_table: Rid, node: c_int);
+    /// Reveals a node and makes it the selection (0: none); the selection callback is not called.
+    pub fn Rtree_table_select_node(tree_table: Rid, node: c_int);
+    /// The node of the selected row (the last one clicked in multiple selection), 0 for none.
+    pub fn Rtree_table_get_selected_node(tree_table: Rid) -> c_int;
+    /// Called when the user or the application opens or closes a node (lazy loading).
+    pub fn Rtree_table_set_expanded_callback(tree_table: Rid, callback: RTreeTableExpandCallback, user_data: *mut c_void);
+    /// Makes the tree virtual: the stored nodes are removed and the
+    /// application gives the tree with the callbacks, asked for the rows
+    /// drawn only. `has_children` may be NULL (the count is asked then).
+    /// `child_count` NULL makes the tree stored again, empty.
+    pub fn Rtree_table_set_virtual(tree_table: Rid, child_count: RTreeTableChildCountCallback, child: RTreeTableChildCallback, has_children: RTreeTableHasChildrenCallback, cell_text: RTreeTableNodeTextCallback, user_data: *mut c_void);
+    /// Virtual tree: the icons of the nodes.
+    pub fn Rtree_table_set_icon_callback(tree_table: Rid, callback: RTreeTableNodeIconCallback, user_data: *mut c_void);
+    /// Virtual tree: the children of `node` changed (0: anything, after a
+    /// sort for instance). Their counts are asked again; the nodes that were
+    /// open stay open, found again by their numbers.
+    pub fn Rtree_table_refresh(tree_table: Rid, node: c_int);
+    /// Vertical lines that join the children of a node (GuideLines="true").
+    pub fn Rtree_table_set_guide_lines(tree_table: Rid, visible: c_int);
+    pub fn Rtree_table_get_guide_lines(tree_table: Rid) -> c_int;
+    /// Typing the first letters of a name goes to it (TypeSearch, on by default).
+    pub fn Rtree_table_set_type_search(tree_table: Rid, enabled: c_int);
     /// Sets the date (today when the picker is created). An invalid date is refused.
     pub fn Rdate_picker_set_date(date_picker: Rid, year: c_int, month: c_int, day: c_int);
     pub fn Rdate_picker_get_date(date_picker: Rid, year: *mut c_int, month: *mut c_int, day: *mut c_int);

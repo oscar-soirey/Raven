@@ -158,7 +158,7 @@ for readability. The action fires on the main event of the widget:
 | Button, MenuItem | clicked |
 | Checkbox, Slider, SpinBox, ComboBox, TabView, Expander | the value changes |
 | TextInput | Enter is pressed |
-| ListView, TreeView | a row is activated (double click or Enter) |
+| ListView, TreeView, Table, TreeTable | a row is activated (double click or Enter) |
 
 ```c
 static void on_save(Rid sender, const char* action, void* user_data) { ... }
@@ -315,6 +315,7 @@ panel uses the attributes that make sense for it.
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
 | `Table` | `Columns="A|B"` or `<Column Header Width Fill Sortable Align Editable Kind/>` children (`Kind="Check"`: a check box the user toggles, from "1"/"0"; `Kind="Progress"`: a bar from 0..1 or "45%"), `<Row>a|b</Row>` children, `Selected`, `SelectionMode` (`Single`, `Multiple`, `None`), `MultiSelect`, `SortColumn`, `SortDescending`, `ShowHeader`, `GridLines`, `Striped`, `FrozenColumns` (the first columns stay while the others scroll) |
 | `TreeView` | nested `<Item Text="..." Expanded="true" Icon="raven:folder">` children |
+| `TreeTable` (`TreeGrid`) | a `Table` whose rows nest: the `Table` attributes and `<Column>` children, then nested `<Row Cells="a|b" Icon="raven:folder" Expanded="true" HasChildren="true">` children (`<Item>` is the same, `<Cell>` children for texts holding a '\|'), `GuideLines`, `TypeSearch` (default true); sorting sorts the children of each node, the hierarchy stays |
 | `Image` | `Source` (path of an image, or an icon of Raven: `raven:search`; an animated GIF or APNG plays), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius`, `Animate` (`false`: an animation stays on its first frame until `Rimage_play`), `Loop` (times it plays, `0` for forever; default: what the file says). Its action fires when an animation stops after its last play |
 | `Separator` | `Orientation` (`Horizontal` line by default) |
 | `MenuBar` | `<Menu>` children; `Native` (`false`: drawn in the window on macOS too, instead of the menu bar of the system) |

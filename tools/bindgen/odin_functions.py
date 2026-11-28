@@ -42,7 +42,7 @@ WIDGET_PARAMS = {
     "date_picker", "viewport", "border", "rating", "parent", "slider", "spin_box", "combo_box", "checkbox",
     "image", "breadcrumb", "pagination", "bar", "scroll_box", "expander", "time_picker", "grid", "button",
     "root", "splitter", "switcher", "progress_bar", "menu_bar", "relative", "source", "scope", "size_box",
-    "spacer", "separator", "area", "timeline", "sender",
+    "spacer", "separator", "area", "timeline", "sender", "tree_table",
 }
 # parameters that mean another kind of handle in a family of functions: (prefix of the function, name)
 FAMILY_PARAM_KIND = {

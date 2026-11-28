@@ -747,6 +747,8 @@ Widget_Type :: enum i32 {
 	System_Web_View = 0x0237,
 	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 	Diff_View = 0x0238,
+	// A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+	Tree_Table = 0x0239,
 }
 
 H_Align :: enum i32 {

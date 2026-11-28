@@ -27,17 +27,19 @@ EM_JS(void, rvn_web_access_begin, (Rid window), {
 EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
         uint32_t parent_lo, uint32_t parent_hi, const char* role,
         const char* name, const char* description, const char* value,
-        uint32_t states, double number, double minimum, double maximum), {
+        uint32_t states, double number, double minimum, double maximum,
+        int level, int position, int set_size), {
     const id = 'raven-node-' + hi + '-' + lo;
     const rawRole = UTF8ToString(role);
-    const roleName = states & 262144 ? 'row' : states & 8192 ? 'textbox' : rawRole === 'table' ? 'grid' : rawRole;
+    const roleName = states & 262144 ? 'row' : states & 8192 ? 'textbox' :
+        rawRole === 'table' ? (states & 524288 ? 'treegrid' : 'grid') : rawRole;
     const tag = roleName === 'textbox' ? (states & 512 ? 'textarea' : 'input') : 'div';
     let node = document.getElementById(id);
     if (node && node.tagName !== tag.toUpperCase()) {
         node.remove(); node = null;
     }
     const signature = JSON.stringify([roleName,UTF8ToString(name),
-        UTF8ToString(description),UTF8ToString(value),states,number,minimum,maximum]);
+        UTF8ToString(description),UTF8ToString(value),states,number,minimum,maximum,level,position,set_size]);
     const parent = document.getElementById(
         'raven-node-' + parent_hi + '-' + parent_lo) || Module.ravenAccessRoot;
     if (node) node.dataset.focused = states & 2 ? 'true' : 'false';
@@ -103,7 +105,7 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
     }
     for (const name of ['aria-disabled','aria-checked','aria-pressed','aria-expanded',
         'aria-selected','aria-readonly','aria-multiline','aria-modal','aria-multiselectable',
-        'aria-valuenow','aria-valuemin','aria-valuemax']) node.removeAttribute(name);
+        'aria-valuenow','aria-valuemin','aria-valuemax','aria-level','aria-posinset','aria-setsize']) node.removeAttribute(name);
     if (states & 4) node.setAttribute('aria-disabled', 'true');
     if (states & 16) node.setAttribute(roleName === 'button' ? 'aria-pressed' : 'aria-checked',
         states & 8 ? 'true' : 'false');
@@ -117,6 +119,12 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
         node.setAttribute('aria-valuenow', number);
         node.setAttribute('aria-valuemin', minimum);
         node.setAttribute('aria-valuemax', maximum);
+    }
+    if (level > 0) {
+        /* a row of a tree grid */
+        node.setAttribute('aria-level', level);
+        node.setAttribute('aria-posinset', position);
+        node.setAttribute('aria-setsize', set_size);
     }
     if ((states & 1) && !(states & 4)) node.tabIndex = 0;
     else node.removeAttribute('tabindex');
@@ -211,7 +219,7 @@ static void rvn_web_access_tree(rvn_a11y_id_t root) {
             rvn_web_role(node.role), node.name ? node.name : "",
             node.description ? node.description : "",
             node.value ? node.value : "", node.states,
-            node.number, node.minimum, node.maximum);
+            node.number, node.minimum, node.maximum, node.level, node.position, node.set_size);
         count = rvn_a11y_child_count(item.id);
         for (i = count - 1; i >= 0; i--) {
             rvn_a11y_id_t child = rvn_a11y_child(item.id, i);

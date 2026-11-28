@@ -836,6 +836,8 @@ enum : RWidgetType
     R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
     /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
     R_WIDGET_DIFF_VIEW = 0x0238,
+    /// A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h).
+    R_WIDGET_TREE_TABLE = 0x0239,
 }
 
 alias RHAlign = int;
@@ -1917,6 +1919,18 @@ alias RTableSortCallback = extern (C) void function(Rid table, int column, int d
 /// user can correct it; after a click elsewhere the edit is dropped.
 /// Without a callback, a stored table keeps every text.
 alias RTableCellEditedCallback = extern (C) int function(Rid table, int row, int column, const(char)* text, void* user_data);
+/// Called when a node opens (before its children are asked: they can be added or loaded then) or closes.
+alias RTreeTableExpandCallback = extern (C) void function(Rid tree_table, int node, int expanded, void* user_data);
+/// Virtual tree: how many children `node` has (0: the top-level nodes).
+alias RTreeTableChildCountCallback = extern (C) int function(Rid tree_table, int node, void* user_data);
+/// Virtual tree: the child of `parent` at `index` (0 .. count - 1), a positive number naming it.
+alias RTreeTableChildCallback = extern (C) int function(Rid tree_table, int parent, int index, void* user_data);
+/// Virtual tree: whether `node` has children (or may have: a folder not read yet), to draw its chevron.
+alias RTreeTableHasChildrenCallback = extern (C) int function(Rid tree_table, int node, void* user_data);
+/// Virtual tree: the text of a cell of `node`. NULL is "".
+alias RTreeTableNodeTextCallback = extern (C) const(char)* function(Rid tree_table, int node, int column, void* user_data);
+/// Virtual tree: the icon of `node` (a texture, Ricon_get("folder")), or R_INVALID_ID.
+alias RTreeTableNodeIconCallback = extern (C) Rid function(Rid tree_table, int node, void* user_data);
 /// Called when the user chooses a date. This also fires the action of the widget.
 alias RDateChangedCallback = extern (C) void function(Rid date_picker, int year, int month, int day, void* user_data);
 /// Called when the user changes the time. This also fires the action of the widget.
@@ -4435,6 +4449,75 @@ RTableColumnKind Rtable_get_column_kind(Rid table, int column);
 int Rtable_is_cell_checked(Rid table, int row, int column);
 /// Stored rows: writes "1" or "0" in the cell (no callback is called).
 void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
+/// Adds a node at the end of the children of `parent` (0: the top
+/// level), with its cells separated by '|' as in Rtable_add_row (NULL:
+/// empty). Returns: The number naming the node (> 0), or 0 on error.
+int Rtree_table_add_node(Rid tree_table, int parent, const(char)* cells);
+/// Adds a node among the children of `parent` at `index` (from 0; -1 or past the end: last).
+int Rtree_table_insert_node(Rid tree_table, int parent, int index, const(char)* cells);
+/// Removes a node and every node under it.
+void Rtree_table_remove_node(Rid tree_table, int node);
+/// Moves a node, with its subtree, among the children of `parent` at
+/// `index` (-1: last). A node cannot go under itself. Returns: R_TRUE when moved.
+int Rtree_table_move_node(Rid tree_table, int node, int parent, int index);
+/// R_TRUE for a node of the tree table (0, the root, included). Virtual: a node expanded or shown.
+int Rtree_table_is_node_valid(Rid tree_table, int node);
+/// Stored nodes, shown or not (the root not counted).
+int Rtree_table_get_node_count(Rid tree_table);
+/// The parent of a node (0 at the top level), -1 for none. Virtual: of a node expanded or shown.
+int Rtree_table_get_parent(Rid tree_table, int node);
+/// Children of a node (0: the top-level nodes). Virtual: asks the application.
+int Rtree_table_get_child_count(Rid tree_table, int node);
+/// The child of a node at `index`, or 0. Virtual: asks the application.
+int Rtree_table_get_child(Rid tree_table, int node, int index);
+/// Level of a node: 0 at the top, -1 for none. Virtual: of a node expanded or shown.
+int Rtree_table_get_depth(Rid tree_table, int node);
+/// The text of a cell of a stored node, shown or not.
+void Rtree_table_set_node_cell(Rid tree_table, int node, int column, const(char)* text);
+/// The text of a cell of a node (virtual: asks the application). "" for none.
+const(char)* Rtree_table_get_node_cell(Rid tree_table, int node, int column);
+/// An icon before the text of the first column (Ricon_get("folder"), any texture), R_INVALID_ID for none.
+void Rtree_table_set_node_icon(Rid tree_table, int node, Rid texture);
+Rid Rtree_table_get_node_icon(Rid tree_table, int node);
+/// A stored node shows a chevron before it has children
+/// (HasChildren="true"): opening it calls the expanded callback, where the
+/// application adds them (now, or later when they are loaded).
+void Rtree_table_set_node_has_children(Rid tree_table, int node, int has_children);
+/// Opens or closes a node (a node inside a closed one keeps the state it is given).
+void Rtree_table_set_expanded(Rid tree_table, int node, int expanded);
+int Rtree_table_is_expanded(Rid tree_table, int node);
+/// Opens a node and every node under it (0: the whole tree). Virtual: asks for every node under it.
+void Rtree_table_expand_all(Rid tree_table, int node);
+/// Closes a node and every node under it (0: the whole tree).
+void Rtree_table_collapse_all(Rid tree_table, int node);
+/// The node shown at a row, 0 for none.
+int Rtree_table_get_row_node(Rid tree_table, int row);
+/// The row a node is shown at, -1 when it is inside a closed node (or does not exist).
+int Rtree_table_get_node_row(Rid tree_table, int node);
+/// Opens the parents of a stored node and scrolls to it.
+void Rtree_table_reveal_node(Rid tree_table, int node);
+/// Reveals a node and makes it the selection (0: none); the selection callback is not called.
+void Rtree_table_select_node(Rid tree_table, int node);
+/// The node of the selected row (the last one clicked in multiple selection), 0 for none.
+int Rtree_table_get_selected_node(Rid tree_table);
+/// Called when the user or the application opens or closes a node (lazy loading).
+void Rtree_table_set_expanded_callback(Rid tree_table, RTreeTableExpandCallback callback, void* user_data);
+/// Makes the tree virtual: the stored nodes are removed and the
+/// application gives the tree with the callbacks, asked for the rows
+/// drawn only. `has_children` may be NULL (the count is asked then).
+/// `child_count` NULL makes the tree stored again, empty.
+void Rtree_table_set_virtual(Rid tree_table, RTreeTableChildCountCallback child_count, RTreeTableChildCallback child, RTreeTableHasChildrenCallback has_children, RTreeTableNodeTextCallback cell_text, void* user_data);
+/// Virtual tree: the icons of the nodes.
+void Rtree_table_set_icon_callback(Rid tree_table, RTreeTableNodeIconCallback callback, void* user_data);
+/// Virtual tree: the children of `node` changed (0: anything, after a
+/// sort for instance). Their counts are asked again; the nodes that were
+/// open stay open, found again by their numbers.
+void Rtree_table_refresh(Rid tree_table, int node);
+/// Vertical lines that join the children of a node (GuideLines="true").
+void Rtree_table_set_guide_lines(Rid tree_table, int visible);
+int Rtree_table_get_guide_lines(Rid tree_table);
+/// Typing the first letters of a name goes to it (TypeSearch, on by default).
+void Rtree_table_set_type_search(Rid tree_table, int enabled);
 /// Sets the date (today when the picker is created). An invalid date is refused.
 void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
 void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);

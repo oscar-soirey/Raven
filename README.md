@@ -711,6 +711,7 @@ The build trees are in `build\dist\`.
 | `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
 | `examples/diff_view` | two versions of a C file compared by a `DiffView`: side by side or in one column, spaces that count or not, the context, previous / next change, a note on a line |
+| `examples/tree_table` | a file explorer made of a `TreeTable`: generated folders and files with sizes, kinds, dates and icons, the share of its folder as a progress bar, sorting inside every folder, several rows selected, a network share read when it is opened |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1565,6 +1566,59 @@ in a few milliseconds. `R_DIFF_IGNORE_TRAILING_SPACE`, `R_DIFF_IGNORE_SPACE`
 and `R_DIFF_IGNORE_CASE` decide which lines are the same. The colors are the
 theme roles `R_COLOR_DIFF_ADDED`, `R_COLOR_DIFF_REMOVED` and their `_WORD`
 shades. Screen readers read each row ("added line 12: return 0;").
+
+### Tree table
+
+```xml
+<TreeTable Name="files" SelectionMode="Multiple" GuideLines="true" Slot.Fill="1">
+    <Column Header="Name" Width="300"/>
+    <Column Header="Size (KB)" Width="100" Align="Right"/>
+    <Column Header="Share of its folder" Kind="Progress" Fill="1"/>
+    <Row Cells="src|599|0.6" Icon="raven:folder" Expanded="true">
+        <Row Cells="table.c|104|0.17" Icon="raven:file"/>
+    </Row>
+    <Row Cells="Network share" Icon="raven:folder" HasChildren="true"/>
+</TreeTable>
+```
+
+```c
+int src = Rtree_table_add_node(files, 0, "src|599|0.6");        /* 0: the top level */
+int file = Rtree_table_add_node(files, src, "table.c|104|0.17");
+Rtree_table_set_node_icon(files, file, Ricon_get("file"));
+Rtree_table_set_expanded(files, src, R_TRUE);
+Rtree_table_set_expanded_callback(files, on_expanded, NULL);      /* load the children of a folder when it opens */
+Rtable_sort(files, 1, R_TRUE);                                    /* every Rtable_* function works on it */
+
+/* a tree of any size: the application gives it, row by row */
+Rtree_table_set_virtual(files, child_count, child, has_children, cell_text, NULL);
+```
+
+![A file explorer made of a TreeTable: nested folders with icons, sizes sorted, a selection and a progress column](docs/images/tree_table.png)
+
+A `TreeTable` is a `Table` whose rows nest: files and folders, an outline,
+the variables of a debugger. It is the same widget, so everything a table
+does it does too, with the `Rtable_*` functions: columns that are resized,
+check and progress columns, cells edited in place, frozen columns, one or
+several selected rows (kept as ranges of the rows shown, following their
+nodes when folders open, close or are sorted). The first column shows the
+hierarchy: the indentation, a chevron, an icon and, with `GuideLines`, a
+line down each level. Nodes are named by numbers that never change
+(`Rtree_table_add_node`, `insert_node`, `remove_node` with its subtree,
+`move_node`); `Rtree_table_get_row_node` and `get_node_row` go between the
+nodes and the rows shown. Sorting a column sorts the children of each node
+among themselves.
+
+A click on a chevron or a double click opens and closes a node. Right opens
+it or goes to its first child, Left closes it or goes to its parent, `+` and
+`-` open and close, `*` opens everything under it, and typing the first
+letters of a name goes to it. The expanded callback is called before a node
+opens: a folder marked `HasChildren` gets its children then (lazy loading).
+A virtual tree (`Rtree_table_set_virtual`) stores nothing: the application
+says how many children a node has, which one is at an index and what its
+cells read, only for the rows drawn, so a hundred thousand files open and
+scroll as fast as ten. Screen readers see a tree grid: each row with its
+level, its place among its siblings and whether it is open. The
+`tree_table` example is a small file explorer.
 
 ### Tables, dates and the small controls
 

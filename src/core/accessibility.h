@@ -39,6 +39,7 @@ typedef uint64_t rvn_a11y_id_t;
 #define RVN_A11Y_MODAL       (1u << 16)
 #define RVN_A11Y_MULTI_SELECT (1u << 17)
 #define RVN_A11Y_TABLE_ROW    (1u << 18)
+#define RVN_A11Y_TREE_GRID    (1u << 19)  /* a table whose rows nest: its rows are tree items with a level */
 
 /** What a node is now. The strings stay valid until the next call to rvn_a11y_describe. */
 typedef struct rvn_a11y_node_t {
@@ -52,6 +53,8 @@ typedef struct rvn_a11y_node_t {
 	uint32_t states;
 	/** In the window, logical units. */
 	float x, y, width, height;
+	/** A row of a tree: its level (1 at the top), its position among its siblings (from 1) and their count; 0 elsewhere. */
+	int level, position, set_size;
 } rvn_a11y_node_t;
 
 typedef enum rvn_a11y_event_t {

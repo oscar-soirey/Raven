@@ -143,6 +143,8 @@ typedef enum RWidgetType{
 	R_WIDGET_SYSTEM_WEB_VIEW,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW,
+	/** A Table whose rows nest (files and folders): a hierarchy with columns, stored or virtual (raven_controls.h). */
+	R_WIDGET_TREE_TABLE,
 
 	R_WIDGET_LAST_
 }RWidgetType;
