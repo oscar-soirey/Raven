@@ -157,6 +157,8 @@ typedef struct rl_table {
 	Rid (*Rwindow_create)(const char*, int, int, Ruint);
 	void (*Rwindow_destroy)(Rid);
 	int (*Rwindow_is_valid)(Rid);
+	int (*Rwindow_get_count)(void);
+	Rid (*Rwindow_get_at)(int);
 	void (*Rwindow_set_content)(Rid, Rid);
 	Rid (*Rwindow_get_content)(Rid);
 	void (*Rwindow_set_title)(Rid, const char*);
@@ -1796,6 +1798,8 @@ static const struct {
 	{"Rwindow_create", offsetof(rl_table, Rwindow_create)},
 	{"Rwindow_destroy", offsetof(rl_table, Rwindow_destroy)},
 	{"Rwindow_is_valid", offsetof(rl_table, Rwindow_is_valid)},
+	{"Rwindow_get_count", offsetof(rl_table, Rwindow_get_count)},
+	{"Rwindow_get_at", offsetof(rl_table, Rwindow_get_at)},
 	{"Rwindow_set_content", offsetof(rl_table, Rwindow_set_content)},
 	{"Rwindow_get_content", offsetof(rl_table, Rwindow_get_content)},
 	{"Rwindow_set_title", offsetof(rl_table, Rwindow_set_title)},
@@ -10056,6 +10060,31 @@ static int rl_w_Rwindow_is_valid(lua_State* L) {
 	{
 		int value_ = RL(Rwindow_is_valid)((Rid)a0);
 		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rwindow_get_count(lua_State* L) {
+	int results_ = 0;
+	(void)L;
+	{
+		int value_ = RL(Rwindow_get_count)();
+		lua_pushinteger(L, (lua_Integer)value_);
+		results_++;
+	}
+	return results_;
+}
+
+static int rl_w_Rwindow_get_at(lua_State* L) {
+	int a0;
+	int results_ = 0;
+	(void)L;
+	lua_settop(L, 1);
+	a0 = rl_int(L, 1, NULL);
+	{
+		Rid value_ = RL(Rwindow_get_at)((int)a0);
+		rl_push_u32(L, (uint32_t)value_);
 		results_++;
 	}
 	return results_;
@@ -33838,6 +33867,8 @@ static const luaL_Reg rl_functions[] = {
 	{"Rwindow_create", rl_w_Rwindow_create},
 	{"Rwindow_destroy", rl_w_Rwindow_destroy},
 	{"Rwindow_is_valid", rl_w_Rwindow_is_valid},
+	{"Rwindow_get_count", rl_w_Rwindow_get_count},
+	{"Rwindow_get_at", rl_w_Rwindow_get_at},
 	{"Rwindow_set_content", rl_w_Rwindow_set_content},
 	{"Rwindow_get_content", rl_w_Rwindow_get_content},
 	{"Rwindow_set_title", rl_w_Rwindow_set_title},

@@ -454,7 +454,15 @@ Rwindow_set_content(window, root_widget);      /* one widget: usually a panel */
 <p>Flags combine with <code>|</code>. The size is the size of the content, in logical
 units; <code>Rwindow_get_framebuffer_size</code> gives pixels and <code>Rwindow_get_scale</code>
 the scale of the monitor. Several windows can be open at once; the loop
-draws all of them.</p>
+draws all of them. <code>Rwindow_get_count</code> and <code>Rwindow_get_at</code> list them, in
+the order they were created (hidden and owned windows too; not the window of an
+inspector).</p>
+
+<pre>int count = Rwindow_get_count();
+for (int i = 0; i &lt; count; i++) {
+    Rid each = Rwindow_get_at(i);
+    printf("%s\n", Rwindow_get_title(each));
+}</pre>
 
 <pre>static int on_close(Rid window, void* user_data) {
     /* R_FALSE keeps the window open: ask about unsaved changes first */

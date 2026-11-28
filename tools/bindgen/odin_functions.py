@@ -55,7 +55,7 @@ FAMILY_PARAM_KIND = {
 RET_KIND = {}
 for _kind, _names in {
     "Window": "Rwindow_create Rwindow_create_from_xml Rwindow_create_from_xml_file Rxml_document_create_window "
-              "Rwidget_get_window Rwindow_get_inspector Rdock_area_float_panel Rdock_area_get_panel_window",
+              "Rwidget_get_window Rwindow_get_inspector Rwindow_get_at Rdock_area_float_panel Rdock_area_get_panel_window",
     "Timer": "Rtimer_create",
     "Font": "Rfont_create Rfont_create_from_file Rfont_get_default Rfont_get_monospace Rfont_get_variant "
             "Rtheme_get_font Rwidget_get_font",

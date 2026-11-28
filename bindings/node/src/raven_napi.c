@@ -111,6 +111,8 @@ static struct {
 	Rid (*Rwindow_create)(const char*, int, int, Ruint);
 	void (*Rwindow_destroy)(Rid);
 	int (*Rwindow_is_valid)(Rid);
+	int (*Rwindow_get_count)(void);
+	Rid (*Rwindow_get_at)(int);
 	void (*Rwindow_set_content)(Rid, Rid);
 	Rid (*Rwindow_get_content)(Rid);
 	void (*Rwindow_set_title)(Rid, const char*);
@@ -1748,6 +1750,8 @@ static const struct {
 	{"Rwindow_create", offsetof(__typeof__(rn), Rwindow_create)},
 	{"Rwindow_destroy", offsetof(__typeof__(rn), Rwindow_destroy)},
 	{"Rwindow_is_valid", offsetof(__typeof__(rn), Rwindow_is_valid)},
+	{"Rwindow_get_count", offsetof(__typeof__(rn), Rwindow_get_count)},
+	{"Rwindow_get_at", offsetof(__typeof__(rn), Rwindow_get_at)},
 	{"Rwindow_set_content", offsetof(__typeof__(rn), Rwindow_set_content)},
 	{"Rwindow_get_content", offsetof(__typeof__(rn), Rwindow_get_content)},
 	{"Rwindow_set_title", offsetof(__typeof__(rn), Rwindow_set_title)},
@@ -7069,6 +7073,28 @@ static napi_value rn_w_Rwindow_is_valid(napi_env env, napi_callback_info info) {
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	int value_ = rn.Rwindow_is_valid((Rid)a0);
 	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_count(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rwindow_get_count();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_at(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	Rid value_ = rn.Rwindow_get_at((int)a0);
+	napi_create_uint32(env, value_, &result_);
 	return result_;
 }
 
@@ -32865,6 +32891,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_create", NULL, rn_w_Rwindow_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_destroy", NULL, rn_w_Rwindow_destroy, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_is_valid", NULL, rn_w_Rwindow_is_valid, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_count", NULL, rn_w_Rwindow_get_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_at", NULL, rn_w_Rwindow_get_at, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_content", NULL, rn_w_Rwindow_set_content, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_content", NULL, rn_w_Rwindow_get_content, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_title", NULL, rn_w_Rwindow_set_title, NULL, NULL, NULL, napi_enumerable, NULL},

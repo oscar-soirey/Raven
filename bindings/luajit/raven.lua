@@ -1554,6 +1554,8 @@ void Rwindow_get_frame_stats(Rid window, RFrameStats* stats);
 Rid Rwindow_create(const char* title, int width, int height, Ruint flags);
 void Rwindow_destroy(Rid window);
 int Rwindow_is_valid(Rid window);
+int Rwindow_get_count(void);
+Rid Rwindow_get_at(int index);
 void Rwindow_set_content(Rid window, Rid widget);
 Rid Rwindow_get_content(Rid window);
 void Rwindow_set_title(Rid window, const char* title);

@@ -331,6 +331,7 @@ void Rshutdown(void) {
 	rvn_free(g_rvn.icons);
 	rvn_free(g_rvn.dead_widgets);
 	rvn_free(g_rvn.dead_windows);
+	rvn_free(g_rvn.window_order);
 	rvn_free(g_rvn.clipboard);
 	rvn_free(g_rvn.xml_base_path);
 	rvn_free(g_rvn.app_name);
