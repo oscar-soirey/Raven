@@ -1,0 +1,28 @@
+diff --git a/src/app.c b/src/app.c
+index 83db48f..bf269f4 100644
+--- a/src/app.c
++++ b/src/app.c
+@@ -1,6 +1,7 @@ int main(void)
+ #include <stdio.h>
+
+-int main(void) {
++int main(int argc, char** argv) {
++	(void)argc;
+ 	printf("hello\n");
+ 	return 0;
+ }
+@@ -10 +11,0 @@
+-// end
+diff --git a/notes.txt b/notes.txt
+new file mode 100644
+--- /dev/null
++++ b/notes.txt
+@@ -0,0 +1,2 @@
++one
++two
+\ No newline at end of file
+diff --git a/logo.png b/logo.png
+Binary files a/logo.png and b/logo.png differ
+diff --git a/run.sh b/run.sh
+old mode 100644
+new mode 100755

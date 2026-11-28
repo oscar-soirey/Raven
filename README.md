@@ -552,7 +552,11 @@ Version 0.2.3. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer; run on every push on Linux,
-macOS and Windows, with the tests of the Cocoa and Win32 platforms), the renderer and glass on
+macOS and Windows, with the static and the shared library, with the tests of
+the Cocoa and Win32 platforms, and on Linux once more under AddressSanitizer,
+UBSan and LeakSanitizer), the fuzzers of [tests/fuzz](tests/fuzz/README.md)
+(XML, fonts, SVG, images, the PNG encoder, diffs, Raven Script: libFuzzer,
+run on each pull request), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
@@ -625,6 +629,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_EXAMPLES` | `ON` when top level | |
 | `RAVEN_BUILD_TESTS` | `ON` when top level | tests, tests of the bindings, `raven_benchmark` |
 | `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
+| `RAVEN_BUILD_FUZZERS` | `OFF` | the libFuzzer programs of [tests/fuzz](tests/fuzz/README.md) (clang with libFuzzer, static library; everything is built with AddressSanitizer and UBSan) |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | the Vulkan backend (on macOS and iOS through MoltenVK, only when asked for); `OFF` with Metal off builds without any GPU code (custom backend or headless) |
 | `RAVEN_BACKEND_METAL` | `ON` on Apple | the Metal backend (macOS, iOS), the default there; no dependency |

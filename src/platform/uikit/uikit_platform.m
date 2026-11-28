@@ -74,6 +74,8 @@ static struct {
 	__unsafe_unretained CADisplayLink* link;
 	/* bumped on each resume: a timed resume of an older pause does nothing */
 	unsigned pause_generation;
+	/* before the main thread sleeps: is there something to draw that came outside of a frame? (CFRunLoopObserverRef, retained) */
+	void* idle_observer;
 	/* every Raven window (pump shows and hides the keyboard for each) */
 	rvn_pwindow_t* windows;
 	/* the observers of the keyboard and of the scene (retained NSArray of NSNotificationCenter tokens) */
@@ -87,6 +89,25 @@ static struct {
 static void rvn_uikit_resume(void) {
 	g_uikit.pause_generation++;
 	if (g_uikit.link && g_uikit.link.paused) g_uikit.link.paused = NO;
+}
+
+/*
+ * On the desktops and Android the UI thread sleeps in pump, called by
+ * Rwait_frame after rvn_wait_timeout looked at what is left to do: what the
+ * application changed on that thread since the previous frame (a label's
+ * text, Rwindow_request_redraw, which only sets a flag there) keeps it awake.
+ * Here the main thread sleeps in its run loop, and the application changes
+ * Raven from outside of a frame too (dispatch blocks, UIKit callbacks,
+ * notifications, the timers of a script engine): before the run loop sleeps
+ * the same question is asked, and the paused display link ticks again when
+ * a frame is wanted now. Nothing to do (idle) leaves it paused; a timed
+ * pause (next timer) keeps its own resume. As Core Animation commits what
+ * changed, before the run loop waits (and when it leaves a mode).
+ */
+static void rvn_uikit_before_sleep(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void* info) {
+	(void)observer; (void)activity; (void)info;
+	if (!g_uikit.handler || !g_uikit.link || !g_uikit.link.paused || Ris_app_paused()) return;
+	if (rvn_wait_timeout(-1.0) == 0.0) rvn_uikit_resume();
 }
 
 static void rvn_uikit_post(const rvn_pevent_t* event) {
@@ -1372,6 +1393,12 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 			rvn_uikit_app_event(R_APP_WILL_TERMINATE);
 		}]
 	]);
+	{
+		CFRunLoopObserverRef observer = CFRunLoopObserverCreate(NULL, kCFRunLoopBeforeWaiting | kCFRunLoopExit, true, 0,
+			rvn_uikit_before_sleep, NULL);
+		CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes);
+		g_uikit.idle_observer = (void*)observer;
+	}
 	rvn_uikit_services_init();
 	return R_TRUE;
 }
@@ -1379,6 +1406,11 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 static void rvn_uikit_shutdown(void) {
 	rvn_uikit_services_shutdown();
 	rvn_file_set_provider(NULL);
+	if (g_uikit.idle_observer) {
+		CFRunLoopObserverRef observer = (CFRunLoopObserverRef)g_uikit.idle_observer;
+		CFRunLoopObserverInvalidate(observer);
+		CFRelease(observer);
+	}
 	if (g_uikit.observers) {
 		NSArray* observers = CFBridgingRelease(g_uikit.observers);
 		for (id observer in observers) [[NSNotificationCenter defaultCenter] removeObserver:observer];
@@ -1573,7 +1605,7 @@ static void rvn_uikit_pump(double timeout_seconds) {
 	g_uikit.count = 0;
 	rvn_uikit_keyboard_sync();
 }
-/* any thread: Rwindow_request_redraw, Rpost, quit... */
+/* any thread: Rwindow_request_redraw, Rpost, quit... (on the main thread, outside of a frame, rvn_uikit_before_sleep resumes too) */
 static void rvn_uikit_wake(void) {
 	if ([NSThread isMainThread]) rvn_uikit_resume();
 	else dispatch_async(dispatch_get_main_queue(), ^{ rvn_uikit_resume(); });

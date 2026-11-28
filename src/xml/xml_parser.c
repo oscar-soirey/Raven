@@ -423,11 +423,21 @@ static int rvn_xml_parse_with(rvn_xml_document_t* document, const char* text, si
 	reader.line = 1;
 	reader.column = 1;
 
+	/* XML has no character 0: a 0 byte is a mistake where it is (read on, it would cut every
+	 * text and value it is in, so that the document would not be written back as it was read) */
+	{
+		const char* zero = (const char*)memchr(reader.cursor, 0, (size_t)(reader.end - reader.cursor));
+		if (zero) {
+			while (reader.cursor < zero) rvn_xml_advance(&reader);
+			rvn_xml_fail(&reader, "a 0 byte is not allowed in XML");
+		}
+	}
+
 	/* UTF-8 byte order mark */
 	if (rvn_xml_starts_with(&reader, "\xEF\xBB\xBF")) reader.cursor += 3;
 
 	/* prolog: declaration, comments, doctype */
-	for (;;) {
+	while (!reader.failed) {
 		rvn_xml_skip_space(&reader);
 		if (rvn_xml_starts_with(&reader, "<?")) {
 			if (rvn_xml_starts_with(&reader, "<?xml")) document->has_declaration = R_TRUE;

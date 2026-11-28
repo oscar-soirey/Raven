@@ -1,0 +1,11 @@
+<VBox>
+	<Script><![CDATA[
+let count: number = 0;
+fn app.more() {
+    count += 1;
+    ui.setText("value", count.toString());
+}
+]]></Script>
+	<Label Name="value" Text="0"/>
+	<Button Text="+" OnClicked="app.more"/>
+</VBox>

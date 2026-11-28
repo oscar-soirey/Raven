@@ -13,6 +13,9 @@ static void on_error(RError code, RSeverity severity, const char* detail) {
 	fprintf(stderr, "[raven] error %d severity %d: %s\n", (int)code, (int)severity, detail ? detail : "");
 }
 
+/* the showcase's window (testing hooks) */
+static Rid g_window = R_INVALID_ID;
+
 /* After the scene is connected: Raven, the system look, the shared UI. */
 static int app_start(void) {
 	RInitDesc desc = {0};
@@ -25,7 +28,8 @@ static int app_start(void) {
 		return 0;
 	}
 	Rtheme_follow_system(R_TRUE);
-	return showcase_create() != R_INVALID_ID;
+	g_window = showcase_create();
+	return g_window != R_INVALID_ID;
 }
 /* from uikit_platform.m (no public header yet: experimental) */
 void rvn_uikit_set_display_link(CADisplayLink* link);
@@ -69,6 +73,7 @@ void rvn_uikit_set_display_link(CADisplayLink* link);
 	[self debugDismiss:(UIWindowScene*)scene];
 	[self debugMemoryWarning];
 	[self debugDevice];
+	[self debugLateChange];
 }
 
 static void on_debug_permission(RPermission permission, RPermissionStatus status, void* user_data) {
@@ -120,6 +125,24 @@ static void on_debug_export(RDeviceResult result, const RPickedFile* files, int 
 			}
 		});
 	}
+}
+
+/*
+ * Testing hook: RAVEN_LATE_CHANGE=<seconds> changes the text of a label of
+ * the first page that long after the launch, from a block of the main queue
+ * (outside of any frame, while the display link is paused), as a UIKit
+ * callback or a timer of a script engine would. The screen must show it
+ * without a touch.
+ */
+- (void)debugLateChange {
+	const char* after = getenv("RAVEN_LATE_CHANGE");
+	double delay = after ? atof(after) : 0.0;
+	if (delay <= 0.0) return;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		Rid label = Rwidget_find(g_window, "list_hint");
+		fprintf(stderr, "[raven] debug: late change (display link %s)\n", self.link.paused ? "paused" : "running");
+		Rlabel_set_text(label, "Changed outside a frame (RAVEN_LATE_CHANGE)");
+	});
 }
 
 /*

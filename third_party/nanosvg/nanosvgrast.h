@@ -872,15 +872,29 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 	}
 
 	float dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
-	// Raven: an edge less than a sample high is never stepped, but its slope (any size) must still fit in an int
-	float step = dxdy < -8000000.0f ? -8000000.0f : (dxdy > 8000000.0f ? 8000000.0f : dxdy);
+	// Raven: an edge less than a sample high is never stepped, but its slope (any size) must still fit in an int,
+	// once multiplied by NSVG__FIX (1024), and so must the position plus the slope (x += dx at each row):
+	// 1e6 * 1024 twice is below 2^31 (8e6, the bound first chosen here, was not)
+	float step = dxdy < -1000000.0f ? -1000000.0f : (dxdy > 1000000.0f ? 1000000.0f : dxdy);
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (step < 0)
 		z->dx = (int)(-nsvg__roundf(NSVG__FIX * -step));
 	else
 		z->dx = (int)nsvg__roundf(NSVG__FIX * step);
-	z->x = (int)nsvg__roundf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
+	// Raven: where the edge is at startPoint, kept between its ends (an edge less than a sample high,
+	// almost horizontal, has a slope so large that the product would go past the range of an int)
+	{
+		float ex = e->x0 + dxdy * (startPoint - e->y0);
+		float lo = e->x0 < e->x1 ? e->x0 : e->x1, hi = e->x0 < e->x1 ? e->x1 : e->x0;
+		if (!(ex >= lo)) ex = lo;
+		if (ex > hi) ex = hi;
+		// Raven: and within +-1e6 pixels (far outside any canvas), so that ex * NSVG__FIX, and ex plus the
+		// step above, fit in an int even when the ends themselves are huge (a damaged path)
+		if (!(ex >= -1000000.0f)) ex = -1000000.0f;
+		if (ex > 1000000.0f) ex = 1000000.0f;
+		z->x = (int)nsvg__roundf(NSVG__FIX * ex);
+	}
 //	z->x -= off_x * FIX;
 	z->ey = e->y1;
 	z->next = 0;
@@ -1244,6 +1258,10 @@ static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, fl
 					nsvg__freeActive(r, z);
 				} else {
 					z->x += z->dx; // advance to position for current scanline
+					// Raven: kept within +-1e6 pixels (see nsvg__addActive): with |x| and |dx| both at most
+					// 1e6 * NSVG__FIX, the sum above fits in an int, and so does the next one
+					if (z->x > 1000000 * NSVG__FIX) z->x = 1000000 * NSVG__FIX;
+					else if (z->x < -1000000 * NSVG__FIX) z->x = -1000000 * NSVG__FIX;
 					step = &((*step)->next); // advance through list
 				}
 			}

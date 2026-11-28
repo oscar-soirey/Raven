@@ -79,9 +79,13 @@ is a plan, not a promise: issues and pull requests can change the order.
   test it with injected bursts.
 - [ ] **`.gitattributes`**: `* text=auto`, `*.c`, `*.h` `eol=lf` (or `crlf`),
   binary files marked, so that line endings stop changing with the machine.
-- [ ] **Fuzzing in CI.** The font and SVG decoders and the XML parser have
-  been fuzzed by hand; add libFuzzer targets and run them for a few minutes
-  on each pull request.
+- [x] **Fuzzing in CI.** libFuzzer targets (`tests/fuzz`, `RAVEN_BUILD_FUZZERS`)
+  for the XML parser and loader, fonts (TrueType, CFF, COLR, sbix,
+  collections), SVG, images (stb_image, GIF and APNG animations), the PNG
+  encoder in a round trip, unified diffs and Raven Script, run on each pull
+  request; the inputs that crashed are kept as tests of every build. CI also
+  runs every test under AddressSanitizer, UBSan and LeakSanitizer (Linux), and
+  with the shared library on the three systems.
 - [ ] **Reference documentation generated** from the headers
   (`docs/reference.html` is updated by hand; about twenty functions are
   missing from it). `tools/bindgen/cparse.py` already reads every comment.
