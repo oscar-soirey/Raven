@@ -747,6 +747,8 @@ Widget_Type :: enum i32 {
 	System_Web_View = 0x0237,
 	// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 	Diff_View = 0x0238,
+	// A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
+	Mermaid_View = 0x0239,
 }
 
 H_Align :: enum i32 {
@@ -1255,6 +1257,24 @@ Diff_Flag :: enum u32 {
 	Case = 2,
 }
 Diff_Flags :: bit_set[Diff_Flag; u32]
+
+Mermaid_Kind :: enum i32 {
+	// No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+	None = 0x0CF0,
+	Flowchart = 0x0CF1,
+	Sequence = 0x0CF2,
+	State = 0x0CF3,
+	Pie = 0x0CF4,
+}
+
+Mermaid_Fit :: enum i32 {
+	// Scaled down to the width of the widget, never up (the default).
+	Width = 0x0CF8,
+	// Its own size (times the zoom); put it in a ScrollBox to scroll.
+	None = 0x0CF9,
+	// Scaled up or down to fill the widget, its proportions kept.
+	Contain = 0x0CFA,
+}
 
 // How much a notification of the system asks for attention (Rnotification_show).
 Notification_Urgency :: enum i32 {

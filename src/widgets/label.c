@@ -21,6 +21,8 @@ typedef struct rvn_label_t {
 	float wrap_width;
 
 	int markdown;
+	/** The ```mermaid blocks of the Markdown are shown as code, not as diagrams (Rlabel_set_mermaid). */
+	int no_mermaid;
 	/** The text, parsed and laid out; made when first measured, forgotten when the text changes. */
 	rvn_md_t* md;
 	/** Link under the pointer, link the button went down on; -1 = none. */
@@ -94,6 +96,7 @@ static int rvn_label_wraps(const rvn_label_t* label) {
 static rvn_md_t* rvn_label_md(rvn_label_t* label) {
 	if (!label->md) {
 		label->md = rvn_md_parse(label->text);
+		rvn_md_set_mermaid(label->md, !label->no_mermaid);
 		/* a label does not take the mouse, unless it has links to click (or its text can be selected) */
 		rvn_label_update_hit(label);
 	}
@@ -617,6 +620,10 @@ static int rvn_label_set_attribute(rvn_widget_t* widget, const char* name, const
 	} else if (RVN_ATTR("Markdown")) {
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
 		rvn_label_set_markdown(widget, flag);
+	} else if (RVN_ATTR("Mermaid")) {
+		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
+		Rlabel_set_mermaid(widget->id, flag);
+		return R_TRUE;
 	} else if (RVN_ATTR("Selectable")) {
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
 		rvn_label_set_selectable(widget, flag);
@@ -717,6 +724,31 @@ void Rlabel_set_markdown(Rid id, int enabled) {
 int Rlabel_get_markdown(Rid id) {
 	RVN_WIDGET(widget, id, R_WIDGET_LABEL, R_FALSE);
 	return ((rvn_label_t*)widget)->markdown;
+}
+
+void Rlabel_set_mermaid(Rid id, int enabled) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_LABEL);
+	{
+		rvn_label_t* label = (rvn_label_t*)widget;
+		if (label->no_mermaid == !enabled) return;
+		label->no_mermaid = !enabled;
+		/* (the selection counts in the text shown, which changes) */
+		label->anchor = label->caret = 0;
+		if (label->md) rvn_md_set_mermaid(label->md, enabled);
+		rvn_free(label->plain);
+		label->plain = NULL;
+		rvn_widget_invalidate_layout(widget);
+	}
+}
+
+int Rlabel_get_mermaid(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_LABEL, R_FALSE);
+	return !((rvn_label_t*)widget)->no_mermaid;
+}
+
+int rvn_label_diagram_count(rvn_widget_t* widget) {
+	rvn_label_t* label = (rvn_label_t*)widget;
+	return label->markdown && label->md ? rvn_md_diagram_count(label->md) : 0;
 }
 
 void Rlabel_set_link_callback(Rid id, RLabelLinkCallback callback, void* user_data) {

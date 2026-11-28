@@ -1,0 +1,36 @@
+<!-- A Markdown document with Mermaid diagrams, and a live editor of a diagram. main.c reads document.md and follows the editor. -->
+<Window Title="Raven Mermaid" Width="1360" Height="900">
+	<VBox Spacing="12" Slot.Padding="18">
+		<HBox Spacing="10">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Mermaid diagrams" TextSize="24"/>
+				<Label Text="Flowcharts, sequence diagrams, state diagrams and pies, drawn natively from their text" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="diagrams" Text="Draw the diagrams" Style="Switch" Checked="true" OnChanged="mermaid.diagrams" Slot.VAlign="Center"/>
+			<Checkbox Name="light" Text="Light theme" Style="Switch" OnChanged="mermaid.theme" Slot.VAlign="Center"/>
+			<Button Text="Save SVG" OnClicked="mermaid.svg" Slot.VAlign="Center"/>
+			<Button Text="Save PNG" Class="primary" OnClicked="mermaid.png" Slot.VAlign="Center"/>
+		</HBox>
+
+		<HBox Spacing="16" Slot.Fill="1">
+			<!-- the document -->
+			<Border CornerRadius="12" Padding="0" Slot.Fill="11" Background="#8080800F" BorderColor="#80808040" BorderWidth="1">
+				<ScrollBox>
+					<Label Name="document" Markdown="true" Slot.Padding="20"/>
+				</ScrollBox>
+			</Border>
+
+			<!-- the live editor: the diagram follows the text -->
+			<VBox Spacing="8" Slot.Fill="9">
+				<Label Text="Live editor" TextSize="17"/>
+				<TextEditor Name="source" LineNumbers="true" Height="250"/>
+				<Label Name="status" Text="" Opacity="0.7"/>
+				<Border CornerRadius="12" Padding="12" Slot.Fill="1" Background="#8080800F" BorderColor="#80808040" BorderWidth="1">
+					<ScrollBox>
+						<MermaidView Name="view" Fit="Width"/>
+					</ScrollBox>
+				</Border>
+			</VBox>
+		</HBox>
+	</VBox>
+</Window>

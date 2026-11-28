@@ -71,6 +71,7 @@ extern const rvn_widget_class_t rvn_class_map_view;
 extern const rvn_widget_class_t rvn_class_carousel;
 extern const rvn_widget_class_t rvn_class_system_web_view;
 extern const rvn_widget_class_t rvn_class_diff_view;
+extern const rvn_widget_class_t rvn_class_mermaid_view;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -313,6 +314,15 @@ rvn_rect_t rvn_diff_view_row_rect(rvn_widget_t* widget, int row);
 /** "added line 12: return 0;", "removed line 7: ...; added line 7: ...", "40 unchanged lines, folded". */
 void rvn_diff_view_describe_row(rvn_widget_t* widget, int row, rvn_text_t* out);
 int rvn_diff_view_row_is_fold(rvn_widget_t* widget, int row);
+
+/* ---- widgets/mermaid_view.c: Mermaid diagrams, for the view and the Markdown ---- */
+struct rvn_mm_t;
+/** Lays a diagram out in a font and a size; `bold` receives the bold of the font (for the painting). */
+void rvn_mermaid_layout(struct rvn_mm_t* mm, Rid font, float size, Rid* bold);
+/** The colors of the slots of a scene (RVN_MM_C_COUNT_ of them), from the theme of a widget or the theme of the diagram. */
+void rvn_mermaid_colors(const rvn_widget_t* widget, const struct rvn_mm_t* mm, rvn_color_t* colors);
+/** Paints a laid out diagram with its top left corner at (x, y), at a scale. */
+void rvn_mermaid_paint(const struct rvn_mm_t* mm, RPainter* painter, float x, float y, float scale, const rvn_color_t* colors, Rid font, Rid bold);
 /** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
@@ -359,6 +369,12 @@ const char* rvn_md_link(const rvn_md_t* md, int link);
 int rvn_md_link_count(const rvn_md_t* md);
 /** The text without its marks, appended to `out`. */
 void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out);
+/** Draws the ```mermaid blocks as diagrams (on after parsing) or as code. */
+void rvn_md_set_mermaid(rvn_md_t* md, int enabled);
+/** How many diagrams the last layout placed. */
+int rvn_md_diagram_count(const rvn_md_t* md);
+/** How many diagrams a Markdown label shows (tests). */
+int rvn_label_diagram_count(rvn_widget_t* widget);
 /*
  * Selection of a selectable label, as offsets into the text shown
  * (rvn_md_text): the offset at a point of the laid out text (the nearest

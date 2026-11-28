@@ -786,6 +786,8 @@ const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
 const RWidgetType R_WIDGET_SYSTEM_WEB_VIEW = 0x0237;
 <* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
 const RWidgetType R_WIDGET_DIFF_VIEW = 0x0238;
+<* A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h). *>
+const RWidgetType R_WIDGET_MERMAID_VIEW = 0x0239;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1258,6 +1260,22 @@ const RDiffFlags R_DIFF_IGNORE_TRAILING_SPACE = 1;
 const RDiffFlags R_DIFF_IGNORE_SPACE = 2;
 <* Upper and lower case letters are the same (A to Z). *>
 const RDiffFlags R_DIFF_IGNORE_CASE = 4;
+
+alias RMermaidKind = CInt;
+<* No diagram: the text is empty, or could not be read (Rmermaid_view_get_error). *>
+const RMermaidKind R_MERMAID_NONE = 0x0CF0;
+const RMermaidKind R_MERMAID_FLOWCHART = 0x0CF1;
+const RMermaidKind R_MERMAID_SEQUENCE = 0x0CF2;
+const RMermaidKind R_MERMAID_STATE = 0x0CF3;
+const RMermaidKind R_MERMAID_PIE = 0x0CF4;
+
+alias RMermaidFit = CInt;
+<* Scaled down to the width of the widget, never up (the default). *>
+const RMermaidFit R_MERMAID_FIT_WIDTH = 0x0CF8;
+<* Its own size (times the zoom); put it in a ScrollBox to scroll. *>
+const RMermaidFit R_MERMAID_FIT_NONE = 0x0CF9;
+<* Scaled up or down to fill the widget, its proportions kept. *>
+const RMermaidFit R_MERMAID_FIT_CONTAIN = 0x0CFA;
 
 <* How much a notification of the system asks for attention (Rnotification_show). *>
 alias RNotificationUrgency = CInt;
@@ -4798,6 +4816,15 @@ extern fn void r_label_set_markdown(Rid label, CInt enabled) @cname("Rlabel_set_
 
 extern fn CInt r_label_get_markdown(Rid label) @cname("Rlabel_get_markdown");
 
+<*
+ Markdown: draws the blocks of code whose language is "mermaid"
+ as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+ they are shown as code. A diagram wider than the label is scaled down.
+*>
+extern fn void r_label_set_mermaid(Rid label, CInt enabled) @cname("Rlabel_set_mermaid");
+
+extern fn CInt r_label_get_mermaid(Rid label) @cname("Rlabel_get_mermaid");
+
 extern fn void r_label_set_link_callback(Rid label, RLabelLinkCallback callback, void* user_data) @cname("Rlabel_set_link_callback");
 
 <* The text of a Markdown label without its marks, as a reader sees it. Valid until the next call. *>
@@ -7801,6 +7828,94 @@ extern fn char* r_diff_view_get_selected_text(Rid diff_view) @cname("Rdiff_view_
 
 <* Called when a line or its number is clicked (the action of the widget is fired too). *>
 extern fn void r_diff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data) @cname("Rdiff_view_set_line_clicked_callback");
+
+extern fn Rid r_mermaid_view_create(char* source) @cname("Rmermaid_view_create");
+
+<* The text of the diagram (NULL: none). It is read and laid out again. *>
+extern fn void r_mermaid_view_set_source(Rid view, char* source) @cname("Rmermaid_view_set_source");
+
+extern fn char* r_mermaid_view_get_source(Rid view) @cname("Rmermaid_view_get_source");
+
+<* Reads the text of a file (a .mmd) as the diagram. @return R_FALSE when it cannot be read. *>
+extern fn CInt r_mermaid_view_load_file(Rid view, char* path) @cname("Rmermaid_view_load_file");
+
+<* The kind of diagram read; R_MERMAID_NONE for an empty text or an error. *>
+extern fn RMermaidKind r_mermaid_view_get_kind(Rid view) @cname("Rmermaid_view_get_kind");
+
+<* The line (from 1) of the first error of the text; 0 when it was read. *>
+extern fn CInt r_mermaid_view_get_error_line(Rid view) @cname("Rmermaid_view_get_error_line");
+
+<* What the error is ("unknown statement \"foo\""); "" when none. *>
+extern fn char* r_mermaid_view_get_error(Rid view) @cname("Rmermaid_view_get_error");
+
+<* "flowchart with 12 nodes and 11 links": the accessible name of the view. *>
+extern fn char* r_mermaid_view_get_summary(Rid view) @cname("Rmermaid_view_get_summary");
+
+<*
+ The nodes of a flowchart or a state diagram (states, the start
+ and end points), the participants of a sequence diagram, the slices of
+ a pie.
+*>
+extern fn CInt r_mermaid_view_get_node_count(Rid view) @cname("Rmermaid_view_get_node_count");
+
+<*
+ A node: its name in the text, its label, and its rectangle in the
+ units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+ Any pointer may be NULL. The texts are valid until the source changes.
+ Returns R_FALSE when `index` is out of range.
+*>
+extern fn CInt r_mermaid_view_get_node(Rid view, CInt index, char** id, char** label, float* x, float* y, float* width, float* height) @cname("Rmermaid_view_get_node");
+
+<* Links of a graph, transitions of a state diagram, messages of a sequence diagram. *>
+extern fn CInt r_mermaid_view_get_edge_count(Rid view) @cname("Rmermaid_view_get_edge_count");
+
+<* The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label. *>
+extern fn CInt r_mermaid_view_get_edge(Rid view, CInt index, CInt* from, CInt* to, char** label) @cname("Rmermaid_view_get_edge");
+
+<* The size of the diagram in its own units (at the font size of the widget). *>
+extern fn void r_mermaid_view_get_diagram_size(Rid view, float* width, float* height) @cname("Rmermaid_view_get_diagram_size");
+
+extern fn void r_mermaid_view_set_fit(Rid view, RMermaidFit fit) @cname("Rmermaid_view_set_fit");
+
+extern fn RMermaidFit r_mermaid_view_get_fit(Rid view) @cname("Rmermaid_view_get_fit");
+
+<* A factor applied to the size of the diagram (1 by default; 0.25 to 8). *>
+extern fn void r_mermaid_view_set_zoom(Rid view, float zoom) @cname("Rmermaid_view_set_zoom");
+
+extern fn float r_mermaid_view_get_zoom(Rid view) @cname("Rmermaid_view_get_zoom");
+
+<* The scale the diagram is drawn at: the zoom, and what the fit made of it. *>
+extern fn float r_mermaid_view_get_scale(Rid view) @cname("Rmermaid_view_get_scale");
+
+<*
+ Writes the view as shown as a PNG file (the window is captured,
+ Rwindow_capture). @return R_FALSE when the view is not in a shown
+ window, the backend cannot capture, or the file cannot be written.
+*>
+extern fn CInt r_mermaid_view_save_png(Rid view, char* path) @cname("Rmermaid_view_save_png");
+
+<* Writes the diagram as an SVG file, in the colors of the theme. *>
+extern fn CInt r_mermaid_view_save_svg(Rid view, char* path) @cname("Rmermaid_view_save_svg");
+
+<*
+ The diagram as an SVG document, to release with Rmemory_free.
+ `size` receives its length in bytes, and may be NULL.
+*>
+extern fn char* r_mermaid_view_to_svg(Rid view, usz* size) @cname("Rmermaid_view_to_svg");
+
+<*
+ Reads a text without drawing it: what an editor checks as the
+ user types. Callable from any thread.
+ Returns The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+*>
+extern fn RMermaidKind r_mermaid_check(char* source, CInt* error_line) @cname("Rmermaid_check");
+
+<*
+ What the first error of a text is ("unknown statement \"foo\""),
+ to release with Rmemory_free; NULL when the text has none. `size`
+ receives its length in bytes, and may be NULL. Callable from any thread.
+*>
+extern fn char* r_mermaid_check_message(char* source, usz* size) @cname("Rmermaid_check_message");
 
 <*
  Shows a widget as a dialog of a window. The window takes

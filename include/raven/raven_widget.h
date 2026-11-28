@@ -143,6 +143,8 @@ typedef enum RWidgetType{
 	R_WIDGET_SYSTEM_WEB_VIEW,
 	/** The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). */
 	R_WIDGET_DIFF_VIEW,
+	/** A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h). */
+	R_WIDGET_MERMAID_VIEW,
 
 	R_WIDGET_LAST_
 }RWidgetType;

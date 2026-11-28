@@ -160,6 +160,9 @@ set(RAVEN_CORE_SOURCES
 	src/core/deflate.c
 	src/core/diff.c
 	src/core/diff.h
+	src/core/mermaid.c
+	src/core/mermaid.h
+	src/core/mermaid_layout.c
 	src/core/error.c
 	src/core/file.c
 	src/core/handle.c
@@ -305,6 +308,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/carousel.c
 	src/widgets/system_web_view.c
 	src/widgets/diff_view.c
+	src/widgets/mermaid_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )

@@ -196,6 +196,8 @@ type
   RDiffRowKind* = cint
   RDiffFlags* = cint
     ## How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+  RMermaidKind* = cint
+  RMermaidFit* = cint
   RNotificationUrgency* = cint
     ## How much a notification of the system asks for attention (Rnotification_show).
   RNotificationEvent* = cint
@@ -1833,6 +1835,8 @@ const
     ## A web page shown by the engine of the system (WKWebView, WebView2) in a view kept over the widget.
   R_WIDGET_DIFF_VIEW*: RWidgetType = 0x0238
     ## The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+  R_WIDGET_MERMAID_VIEW*: RWidgetType = 0x0239
+    ## A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -2256,6 +2260,22 @@ const
     ## No space or tab counts, wherever it is.
   R_DIFF_IGNORE_CASE*: RDiffFlags = 4
     ## Upper and lower case letters are the same (A to Z).
+
+  # RMermaidKind
+  R_MERMAID_NONE*: RMermaidKind = 0x0CF0
+    ## No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+  R_MERMAID_FLOWCHART*: RMermaidKind = 0x0CF1
+  R_MERMAID_SEQUENCE*: RMermaidKind = 0x0CF2
+  R_MERMAID_STATE*: RMermaidKind = 0x0CF3
+  R_MERMAID_PIE*: RMermaidKind = 0x0CF4
+
+  # RMermaidFit
+  R_MERMAID_FIT_WIDTH*: RMermaidFit = 0x0CF8
+    ## Scaled down to the width of the widget, never up (the default).
+  R_MERMAID_FIT_NONE*: RMermaidFit = 0x0CF9
+    ## Its own size (times the zoom); put it in a ScrollBox to scroll.
+  R_MERMAID_FIT_CONTAIN*: RMermaidFit = 0x0CFA
+    ## Scaled up or down to fill the widget, its proportions kept.
 
   # RNotificationUrgency
   R_NOTIFICATION_LOW*: RNotificationUrgency = 0x04F0
@@ -3683,6 +3703,11 @@ proc Rlabel_set_markdown*(label: Rid, enabled: cint) {.rapi.}
   ## was given none. The colors come from the theme: R_COLOR_LINK,
   ## R_COLOR_CODE, R_COLOR_SEPARATOR, R_COLOR_ACCENT.
 proc Rlabel_get_markdown*(label: Rid): cint {.rapi.}
+proc Rlabel_set_mermaid*(label: Rid, enabled: cint) {.rapi.}
+  ## Markdown: draws the blocks of code whose language is "mermaid"
+  ## as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+  ## they are shown as code. A diagram wider than the label is scaled down.
+proc Rlabel_get_mermaid*(label: Rid): cint {.rapi.}
 proc Rlabel_set_link_callback*(label: Rid, callback: RLabelLinkCallback, user_data: pointer) {.rapi.}
 proc Rlabel_get_plain_text*(label: Rid): cstring {.rapi.}
   ## The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
@@ -5534,6 +5559,60 @@ proc Rdiff_view_get_selected_text*(diff_view: Rid): cstring {.rapi.}
   ## The text selected by the user ("" when none), one line after another.
 proc Rdiff_view_set_line_clicked_callback*(diff_view: Rid, callback: RDiffViewLineCallback, user_data: pointer) {.rapi.}
   ## Called when a line or its number is clicked (the action of the widget is fired too).
+proc Rmermaid_view_create*(source: cstring): Rid {.rapi.}
+proc Rmermaid_view_set_source*(view: Rid, source: cstring) {.rapi.}
+  ## The text of the diagram (NULL: none). It is read and laid out again.
+proc Rmermaid_view_get_source*(view: Rid): cstring {.rapi.}
+proc Rmermaid_view_load_file*(view: Rid, path: cstring): cint {.rapi.}
+  ## Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+proc Rmermaid_view_get_kind*(view: Rid): RMermaidKind {.rapi.}
+  ## The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+proc Rmermaid_view_get_error_line*(view: Rid): cint {.rapi.}
+  ## The line (from 1) of the first error of the text; 0 when it was read.
+proc Rmermaid_view_get_error*(view: Rid): cstring {.rapi.}
+  ## What the error is ("unknown statement \"foo\""); "" when none.
+proc Rmermaid_view_get_summary*(view: Rid): cstring {.rapi.}
+  ## "flowchart with 12 nodes and 11 links": the accessible name of the view.
+proc Rmermaid_view_get_node_count*(view: Rid): cint {.rapi.}
+  ## The nodes of a flowchart or a state diagram (states, the start
+  ## and end points), the participants of a sequence diagram, the slices of
+  ## a pie.
+proc Rmermaid_view_get_node*(view: Rid, index: cint, id: ptr cstring, label: ptr cstring, x: ptr cfloat, y: ptr cfloat, width: ptr cfloat, height: ptr cfloat): cint {.rapi.}
+  ## A node: its name in the text, its label, and its rectangle in the
+  ## units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+  ## Any pointer may be NULL. The texts are valid until the source changes.
+  ## Returns: R_FALSE when `index` is out of range.
+proc Rmermaid_view_get_edge_count*(view: Rid): cint {.rapi.}
+  ## Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+proc Rmermaid_view_get_edge*(view: Rid, index: cint, `from`: ptr cint, to: ptr cint, label: ptr cstring): cint {.rapi.}
+  ## The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+proc Rmermaid_view_get_diagram_size*(view: Rid, width: ptr cfloat, height: ptr cfloat) {.rapi.}
+  ## The size of the diagram in its own units (at the font size of the widget).
+proc Rmermaid_view_set_fit*(view: Rid, fit: RMermaidFit) {.rapi.}
+proc Rmermaid_view_get_fit*(view: Rid): RMermaidFit {.rapi.}
+proc Rmermaid_view_set_zoom*(view: Rid, zoom: cfloat) {.rapi.}
+  ## A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+proc Rmermaid_view_get_zoom*(view: Rid): cfloat {.rapi.}
+proc Rmermaid_view_get_scale*(view: Rid): cfloat {.rapi.}
+  ## The scale the diagram is drawn at: the zoom, and what the fit made of it.
+proc Rmermaid_view_save_png*(view: Rid, path: cstring): cint {.rapi.}
+  ## Writes the view as shown as a PNG file (the window is captured,
+  ## Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+  ## window, the backend cannot capture, or the file cannot be written.
+proc Rmermaid_view_save_svg*(view: Rid, path: cstring): cint {.rapi.}
+  ## Writes the diagram as an SVG file, in the colors of the theme.
+proc Rmermaid_view_to_svg*(view: Rid, size: ptr csize_t): cstring {.rapi.}
+  ## The diagram as an SVG document, to release with Rmemory_free.
+  ## `size` receives its length in bytes, and may be NULL.
+proc Rmermaid_check*(source: cstring, error_line: ptr cint): RMermaidKind {.rapi.}
+  ## Reads a text without drawing it: what an editor checks as the
+  ## user types. Callable from any thread.
+  ## error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+  ## Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+proc Rmermaid_check_message*(source: cstring, size: ptr csize_t): cstring {.rapi.}
+  ## What the first error of a text is ("unknown statement \"foo\""),
+  ## to release with Rmemory_free; NULL when the text has none. `size`
+  ## receives its length in bytes, and may be NULL. Callable from any thread.
 proc Rdialog_open*(window: Rid, content: Rid, closed: RDialogClosedCallback, user_data: pointer) {.rapi.}
   ## Shows a widget as a dialog of a window. The window takes
   ## ownership of `content`: it is deleted when the dialog closes, so read

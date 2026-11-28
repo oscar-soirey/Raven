@@ -1264,6 +1264,11 @@
 					"name": "Selectable",
 					"kind": "bool",
 					"description": "The text can be selected with the mouse and copied, as on a web page."
+				},
+				{
+					"name": "Mermaid",
+					"kind": "bool",
+					"description": "Markdown: the ```mermaid blocks are drawn as diagrams (default true); false shows them as code."
 				}
 			],
 			"accepted": [
@@ -2005,6 +2010,41 @@
 				"WordWrap",
 				"Syntax",
 				"FontSize"
+			]
+		},
+		{
+			"name": "MermaidView",
+			"description": "A diagram written in Mermaid (flowchart, sequence, state, pie), drawn natively.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The diagram, in the language of Mermaid (or the text inside the element, best in a CDATA section)."
+				},
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "A file holding the diagram (.mmd)."
+				},
+				{
+					"name": "Fit",
+					"kind": "choice",
+					"choices": [
+						"Width",
+						"None",
+						"Contain"
+					],
+					"description": "Scaled down to the width (Width, the default), its own size (None), or scaled to fill the widget (Contain)."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "A factor on the size of the diagram (1)."
+				}
+			],
+			"accepted": [
+				"Diagram"
 			]
 		},
 		{
@@ -3414,6 +3454,7 @@
 		"TileMap": "MapView",
 		"PageView": "Carousel",
 		"Slideshow": "Carousel",
-		"DiffViewer": "DiffView"
+		"DiffViewer": "DiffView",
+		"Mermaid": "MermaidView"
 	}
 }

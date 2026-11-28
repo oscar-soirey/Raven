@@ -1135,6 +1135,10 @@ namespace Raven
         /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
         /// </summary>
         R_WIDGET_DIFF_VIEW = 0x0238,
+        /// <summary>
+        /// A diagram written in Mermaid: flowchart, sequence, state, pie (raven_tools.h).
+        /// </summary>
+        R_WIDGET_MERMAID_VIEW = 0x0239,
     }
 
     public enum RHAlign : int
@@ -1971,6 +1975,34 @@ namespace Raven
         /// Upper and lower case letters are the same (A to Z).
         /// </summary>
         R_DIFF_IGNORE_CASE = 4,
+    }
+
+    public enum RMermaidKind : int
+    {
+        /// <summary>
+        /// No diagram: the text is empty, or could not be read (Rmermaid_view_get_error).
+        /// </summary>
+        R_MERMAID_NONE = 0x0CF0,
+        R_MERMAID_FLOWCHART = 0x0CF1,
+        R_MERMAID_SEQUENCE = 0x0CF2,
+        R_MERMAID_STATE = 0x0CF3,
+        R_MERMAID_PIE = 0x0CF4,
+    }
+
+    public enum RMermaidFit : int
+    {
+        /// <summary>
+        /// Scaled down to the width of the widget, never up (the default).
+        /// </summary>
+        R_MERMAID_FIT_WIDTH = 0x0CF8,
+        /// <summary>
+        /// Its own size (times the zoom); put it in a ScrollBox to scroll.
+        /// </summary>
+        R_MERMAID_FIT_NONE = 0x0CF9,
+        /// <summary>
+        /// Scaled up or down to fill the widget, its proportions kept.
+        /// </summary>
+        R_MERMAID_FIT_CONTAIN = 0x0CFA,
     }
 
     /// <summary>
@@ -7133,6 +7165,17 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rlabel_get_markdown(uint label);
 
+        /// <summary>
+        /// Markdown: draws the blocks of code whose language is "mermaid"
+        /// as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+        /// they are shown as code. A diagram wider than the label is scaled down.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rlabel_set_mermaid(uint label, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rlabel_get_mermaid(uint label);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rlabel_set_link_callback(uint label, RLabelLinkCallback callback, IntPtr user_data);
 
@@ -11993,6 +12036,145 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rdiff_view_set_line_clicked_callback(uint diff_view, RDiffViewLineCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmermaid_view_create([MarshalAs(Utf8.Str)] string source);
+
+        /// <summary>
+        /// The text of the diagram (NULL: none). It is read and laid out again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmermaid_view_set_source(uint view, [MarshalAs(Utf8.Str)] string source);
+
+        [DllImport(Lib, EntryPoint = "Rmermaid_view_get_source", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmermaid_view_get_source_(uint view);
+        public static string Rmermaid_view_get_source(uint view) { return Text(Rmermaid_view_get_source_(view)); }
+
+        /// <summary>
+        /// Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_load_file(uint view, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RMermaidKind Rmermaid_view_get_kind(uint view);
+
+        /// <summary>
+        /// The line (from 1) of the first error of the text; 0 when it was read.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_get_error_line(uint view);
+
+        /// <summary>
+        /// What the error is ("unknown statement \"foo\""); "" when none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rmermaid_view_get_error", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmermaid_view_get_error_(uint view);
+        public static string Rmermaid_view_get_error(uint view) { return Text(Rmermaid_view_get_error_(view)); }
+
+        /// <summary>
+        /// "flowchart with 12 nodes and 11 links": the accessible name of the view.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rmermaid_view_get_summary", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmermaid_view_get_summary_(uint view);
+        public static string Rmermaid_view_get_summary(uint view) { return Text(Rmermaid_view_get_summary_(view)); }
+
+        /// <summary>
+        /// The nodes of a flowchart or a state diagram (states, the start
+        /// and end points), the participants of a sequence diagram, the slices of
+        /// a pie.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_get_node_count(uint view);
+
+        /// <summary>
+        /// A node: its name in the text, its label, and its rectangle in the
+        /// units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+        /// Any pointer may be NULL. The texts are valid until the source changes.
+        /// Returns: R_FALSE when `index` is out of range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_get_node(uint view, int index, out IntPtr id, out IntPtr label, out float x, out float y, out float width, out float height);
+
+        /// <summary>
+        /// Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_get_edge_count(uint view);
+
+        /// <summary>
+        /// The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_get_edge(uint view, int index, out int from, out int to, out IntPtr label);
+
+        /// <summary>
+        /// The size of the diagram in its own units (at the font size of the widget).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmermaid_view_get_diagram_size(uint view, out float width, out float height);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmermaid_view_set_fit(uint view, RMermaidFit fit);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RMermaidFit Rmermaid_view_get_fit(uint view);
+
+        /// <summary>
+        /// A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmermaid_view_set_zoom(uint view, float zoom);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rmermaid_view_get_zoom(uint view);
+
+        /// <summary>
+        /// The scale the diagram is drawn at: the zoom, and what the fit made of it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rmermaid_view_get_scale(uint view);
+
+        /// <summary>
+        /// Writes the view as shown as a PNG file (the window is captured,
+        /// Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+        /// window, the backend cannot capture, or the file cannot be written.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_save_png(uint view, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Writes the diagram as an SVG file, in the colors of the theme.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmermaid_view_save_svg(uint view, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// The diagram as an SVG document, to release with Rmemory_free.
+        /// `size` receives its length in bytes, and may be NULL.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rmermaid_view_to_svg(uint view, out UIntPtr size);
+
+        /// <summary>
+        /// Reads a text without drawing it: what an editor checks as the
+        /// user types. Callable from any thread.
+        /// error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+        /// Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RMermaidKind Rmermaid_check([MarshalAs(Utf8.Str)] string source, out int error_line);
+
+        /// <summary>
+        /// What the first error of a text is ("unknown statement \"foo\""),
+        /// to release with Rmemory_free; NULL when the text has none. `size`
+        /// receives its length in bytes, and may be NULL. Callable from any thread.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rmermaid_check_message([MarshalAs(Utf8.Str)] string source, out UIntPtr size);
 
         /// <summary>
         /// Shows a widget as a dialog of a window. The window takes

@@ -509,6 +509,13 @@ public:
 
 	int get_markdown() const { return Rlabel_get_markdown(id_); }
 
+	/// Markdown: draws the blocks of code whose language is "mermaid"
+	/// as diagrams (on by default; see MERMAID VIEW in raven_tools.h). Off,
+	/// they are shown as code. A diagram wider than the label is scaled down.
+	void set_mermaid(int enabled) const { Rlabel_set_mermaid(id_, enabled); }
+
+	int get_mermaid() const { return Rlabel_get_mermaid(id_); }
+
 	void set_link_callback(RLabelLinkCallback callback, void* user_data) const { Rlabel_set_link_callback(id_, callback, user_data); }
 	void set_link_callback(std::function<void(Rid, const char*)> callback) const {
 		Rlabel_set_link_callback(id_, [](Rid label, const char* url, void* kept_) -> void { return (*static_cast<std::function<void(Rid, const char*)>*>(kept_))(label, url); }, detail::keep(id_, 8, std::move(callback)));
@@ -5464,6 +5471,83 @@ inline void diff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCall
 inline void diff_view_set_line_clicked_callback(Rid diff_view, std::function<void(Rid, RDiffSide, int, int)> callback) {
 	Rdiff_view_set_line_clicked_callback(diff_view, [](Rid diff_view, RDiffSide side, int line, int in_gutter, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RDiffSide, int, int)>*>(kept_))(diff_view, side, line, in_gutter); }, detail::keep(diff_view, 116, std::move(callback)));
 }
+
+inline Rid mermaid_view_create(const char* source) { return Rmermaid_view_create(source); }
+
+/// The text of the diagram (NULL: none). It is read and laid out again.
+inline void mermaid_view_set_source(Rid view, const char* source) { Rmermaid_view_set_source(view, source); }
+
+inline const char* mermaid_view_get_source(Rid view) { return Rmermaid_view_get_source(view); }
+
+/// Reads the text of a file (a .mmd) as the diagram. Returns: R_FALSE when it cannot be read.
+inline int mermaid_view_load_file(Rid view, const char* path) { return Rmermaid_view_load_file(view, path); }
+
+/// The kind of diagram read; R_MERMAID_NONE for an empty text or an error.
+inline RMermaidKind mermaid_view_get_kind(Rid view) { return Rmermaid_view_get_kind(view); }
+
+/// The line (from 1) of the first error of the text; 0 when it was read.
+inline int mermaid_view_get_error_line(Rid view) { return Rmermaid_view_get_error_line(view); }
+
+/// What the error is ("unknown statement \"foo\""); "" when none.
+inline const char* mermaid_view_get_error(Rid view) { return Rmermaid_view_get_error(view); }
+
+/// "flowchart with 12 nodes and 11 links": the accessible name of the view.
+inline const char* mermaid_view_get_summary(Rid view) { return Rmermaid_view_get_summary(view); }
+
+/// The nodes of a flowchart or a state diagram (states, the start
+/// and end points), the participants of a sequence diagram, the slices of
+/// a pie.
+inline int mermaid_view_get_node_count(Rid view) { return Rmermaid_view_get_node_count(view); }
+
+/// A node: its name in the text, its label, and its rectangle in the
+/// units of the diagram (Rmermaid_view_get_scale gives the size on screen).
+/// Any pointer may be NULL. The texts are valid until the source changes.
+/// Returns: R_FALSE when `index` is out of range.
+inline int mermaid_view_get_node(Rid view, int index, const char** id, const char** label, float* x, float* y, float* width, float* height) { return Rmermaid_view_get_node(view, index, id, label, x, y, width, height); }
+
+/// Links of a graph, transitions of a state diagram, messages of a sequence diagram.
+inline int mermaid_view_get_edge_count(Rid view) { return Rmermaid_view_get_edge_count(view); }
+
+/// The nodes a link goes from and to (indices of Rmermaid_view_get_node), and its label.
+inline int mermaid_view_get_edge(Rid view, int index, int* from, int* to, const char** label) { return Rmermaid_view_get_edge(view, index, from, to, label); }
+
+/// The size of the diagram in its own units (at the font size of the widget).
+inline void mermaid_view_get_diagram_size(Rid view, float* width, float* height) { Rmermaid_view_get_diagram_size(view, width, height); }
+
+inline void mermaid_view_set_fit(Rid view, RMermaidFit fit) { Rmermaid_view_set_fit(view, fit); }
+
+inline RMermaidFit mermaid_view_get_fit(Rid view) { return Rmermaid_view_get_fit(view); }
+
+/// A factor applied to the size of the diagram (1 by default; 0.25 to 8).
+inline void mermaid_view_set_zoom(Rid view, float zoom) { Rmermaid_view_set_zoom(view, zoom); }
+
+inline float mermaid_view_get_zoom(Rid view) { return Rmermaid_view_get_zoom(view); }
+
+/// The scale the diagram is drawn at: the zoom, and what the fit made of it.
+inline float mermaid_view_get_scale(Rid view) { return Rmermaid_view_get_scale(view); }
+
+/// Writes the view as shown as a PNG file (the window is captured,
+/// Rwindow_capture). Returns: R_FALSE when the view is not in a shown
+/// window, the backend cannot capture, or the file cannot be written.
+inline int mermaid_view_save_png(Rid view, const char* path) { return Rmermaid_view_save_png(view, path); }
+
+/// Writes the diagram as an SVG file, in the colors of the theme.
+inline int mermaid_view_save_svg(Rid view, const char* path) { return Rmermaid_view_save_svg(view, path); }
+
+/// The diagram as an SVG document, to release with Rmemory_free.
+/// `size` receives its length in bytes, and may be NULL.
+inline char* mermaid_view_to_svg(Rid view, size_t* size) { return Rmermaid_view_to_svg(view, size); }
+
+/// Reads a text without drawing it: what an editor checks as the
+/// user types. Callable from any thread.
+/// error_line Receives the line of the first error (from 1), 0 when none; may be NULL.
+/// Returns: The kind of diagram; R_MERMAID_NONE when the text is empty or has an error.
+inline RMermaidKind mermaid_check(const char* source, int* error_line) { return Rmermaid_check(source, error_line); }
+
+/// What the first error of a text is ("unknown statement \"foo\""),
+/// to release with Rmemory_free; NULL when the text has none. `size`
+/// receives its length in bytes, and may be NULL. Callable from any thread.
+inline char* mermaid_check_message(const char* source, size_t* size) { return Rmermaid_check_message(source, size); }
 
 /// Shows a widget as a dialog of a window. The window takes
 /// ownership of `content`: it is deleted when the dialog closes, so read
